@@ -1,0 +1,173 @@
+/* --- 1. RESET & VARIABLES --- */
+:root {
+    --gold: #C5A059;       /* Metallic Antique Gold */
+    --black: #050505;      /* Asphalt Black */
+    --charcoal: #1c1c1c;   /* Dark Steel */
+    --white: #ffffff;
+    --concrete: #f0f0f0;   /* Light Grey/Concrete look */
+    --text-grey: #333333;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+    font-family: 'Montserrat', sans-serif;
+    color: var(--text-grey);
+    line-height: 1.7;
+    background-color: var(--white);
+    overflow-x: hidden;
+}
+
+/* --- 2. TYPOGRAPHY --- */
+h1, h2, h3 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--black);
+}
+
+h1 { font-size: 3.8rem; text-transform: uppercase; letter-spacing: 1px; }
+h2 { font-size: 2.5rem; margin-bottom: 20px; text-transform: uppercase; }
+h3 { font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px; color: var(--gold); margin-bottom: 10px; }
+
+p { font-size: 1rem; margin-bottom: 1.5rem; max-width: 600px; color: #555; }
+
+/* --- 3. NAVIGATION --- */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 5%;
+    position: fixed;
+    width: 100%;
+    top: 0;
+    z-index: 1000;
+    background: rgba(5,5,5,0.95); /* Nearly solid black */
+    border-bottom: 1px solid #333;
+}
+
+.brand-name {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 900;
+    color: var(--white);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.nav-links { list-style: none; display: flex; gap: 30px; }
+.nav-links a { text-decoration: none; color: #ccc; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; transition: 0.3s; }
+.nav-links a:hover { color: var(--gold); }
+
+.btn-nav {
+    border: 1px solid var(--gold);
+    padding: 10px 25px;
+    color: var(--gold) !important;
+    font-weight: 700;
+}
+.btn-nav:hover { background: var(--gold); color: var(--black) !important; }
+
+/* --- 4. PHILLY HERO --- */
+.hero {
+    height: 100vh;
+    /* Image: Philadelphia Skyline at Night / Dark City */
+    background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8)), url('https://images.unsplash.com/photo-1512654458604-c36f56111082?q=80&w=2000&auto=format&fit=crop');
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--white);
+    position: relative;
+}
+
+.hero h1 { color: var(--white); margin-bottom: 1rem; }
+.hero-subtitle { color: var(--gold); font-weight: 700; letter-spacing: 3px; text-transform: uppercase; display: block; margin-bottom: 1rem; }
+
+/* --- 5. STRIP --- */
+.cred-strip {
+    background: var(--gold); /* Gold strip for high contrast */
+    color: var(--black);
+    padding: 20px 0;
+    display: flex;
+    justify-content: center;
+    gap: 60px;
+    font-weight: 700;
+}
+.cred-item { font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase; }
+
+/* --- 6. SPLIT SECTIONS (INDUSTRIAL IMAGES) --- */
+.split-section { display: flex; min-height: 70vh; align-items: stretch; }
+.split-text { flex: 1; padding: 80px 60px; display: flex; flex-direction: column; justify-content: center; }
+
+.split-image {
+    flex: 1;
+    min-height: 400px;
+    background-size: cover;
+    background-position: center;
+}
+
+/* Specific Images for Sections */
+/* Residential: Framing/Lumber (Structure, not decor) */
+.img-res { background-image: url('https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=1200'); }
+/* Commercial: Concrete/Steel */
+.img-com { background-image: url('https://images.unsplash.com/photo-1590059154261-75574343d3b7?q=80&w=1200'); }
+/* Investors: Blueprints/Plans */
+.img-inv { background-image: url('https://images.unsplash.com/photo-1503387762-592deb58ef4e?q=80&w=1200'); }
+
+.bg-concrete { background-color: var(--concrete); }
+.bg-dark { background-color: var(--charcoal); color: var(--white); }
+.bg-dark h2 { color: var(--white); }
+.bg-dark p { color: #bbb; }
+
+.btn-arrow {
+    display: inline-block; margin-top: 20px; text-decoration: none;
+    color: var(--black); font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
+    border-bottom: 3px solid var(--gold); padding-bottom: 5px;
+}
+.bg-dark .btn-arrow { color: var(--gold); border-color: var(--white); }
+
+/* --- 7. FEATURED PROJECT (Raw Construction) --- */
+.signature-project {
+    height: 60vh;
+    /* Image: A large construction site wide angle */
+    background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=2000');
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+.project-content h2 { color: var(--white); margin-bottom: 10px; }
+.project-content p { color: #ddd; margin-bottom: 30px; }
+
+/* --- 8. ICONS --- */
+.standards-section { padding: 100px 10%; text-align: center; background: var(--white); }
+.standards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 50px; margin-top: 60px; }
+.icon-box h4 { margin-top: 15px; font-weight: 800; }
+
+/* --- 9. FOOTER --- */
+footer { background: var(--black); color: #888; padding: 80px 10% 30px; }
+.footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; margin-bottom: 50px; }
+.footer-left h2 { color: var(--white); }
+.btn-footer { background: var(--gold); color: var(--black); padding: 15px 40px; text-decoration: none; font-weight: 800; text-transform: uppercase; }
+.copyright { border-top: 1px solid #333; padding-top: 30px; font-size: 0.8rem; text-align: center; }
+
+/* MOBILE */
+@media (max-width: 768px) {
+    .nav-links { display: none; }
+    .hero h1 { font-size: 2.5rem; }
+    .cred-strip { flex-direction: column; text-align: center; gap: 10px; }
+    .split-section { flex-direction: column; }
+    .split-image { min-height: 250px; }
+    .standards-grid { grid-template-columns: 1fr; }
+    .footer-grid { grid-template-columns: 1fr; }
+}

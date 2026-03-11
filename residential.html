@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Residential Services | Golden Brick Construction</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Specific Styles for Residential Page */
+        .res-hero {
+            /* Different image than the homepage */
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2000&auto=format&fit=crop') center/cover;
+            height: 60vh; /* Slightly shorter than homepage hero */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: var(--white);
+        }
+        
+        .service-detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 50px;
+            align-items: center;
+            margin-bottom: 80px;
+        }
+
+        .service-text h3 {
+            font-size: 2rem;
+            color: var(--dark);
+            margin-bottom: 20px;
+        }
+        
+        .service-img img {
+            width: 100%;
+            border-radius: 4px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        @media (max-width: 768px) {
+            .service-detail-grid { grid-template-columns: 1fr; }
+            .service-img { order: -1; margin-bottom: 20px; } /* Puts image on top on mobile */
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="logo-container">
+            <a href="index.html" style="text-decoration: none; color: inherit;">
+                <span class="brand-name">GOLDEN BRICK</span>
+            </a>
+        </div>
+        <ul class="nav-links">
+            <li><a href="index.html">Services</a></li>
+            <li><a href="portfolio.html">Portfolio</a></li>
+            <li><a href="about.html">About Us</a></li>
+            <li><a href="contact.html" class="btn-contact">Contact Us</a></li>
+        </ul>
+    </nav>
+
+    <header class="res-hero">
+        <div class="hero-content">
+            <h1>Elevate Your Living Space</h1>
+            <p>From luxury renovations to ground-up new construction.</p>
+        </div>
+    </header>
+
+    <section class="section" style="padding: 80px 10%;">
+        
+        <div class="service-detail-grid">
+            <div class="service-text">
+                <h3>Kitchens & Bathrooms</h3>
+                <p>The heart of the home requires precision. We handle everything from custom cabinetry and quartz countertop installation to plumbing reconfiguration and luxury tile work.</p>
+                <ul style="margin-top: 20px; padding-left: 20px; line-height: 1.8;">
+                    <li>Full Gut Renovations</li>
+                    <li>Custom Island Installation</li>
+                    <li>Spa-Inspired Master Baths</li>
+                    <li>High-end Fixtures & Lighting</li>
+                </ul>
+            </div>
+            <div class="service-img">
+                <img src="https://images.unsplash.com/photo-1556911220-e15b29be8c8f?q=80&w=800" alt="Luxury Kitchen Renovation">
+            </div>
+        </div>
+
+        <div class="service-detail-grid">
+            <div class="service-img">
+                <img src="https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?q=80&w=800" alt="Hardwood Flooring">
+            </div>
+            <div class="service-text">
+                <h3>Flooring & Finishes</h3>
+                <p>Details matter. Whether it’s restoring original hardwood, installing modern LVP, or executing complex trim and crown molding, our finish work sets the standard for the entire home.</p>
+                <ul style="margin-top: 20px; padding-left: 20px; line-height: 1.8;">
+                    <li>Hardwood Installation & Refinishing</li>
+                    <li>Luxury Vinyl Plank (LVP)</li>
+                    <li>Tile & Stone Work</li>
+                    <li>Crown Molding & Baseboards</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="service-detail-grid">
+            <div class="service-text">
+                <h3>New Builds & Additions</h3>
+                <p>Need more space? We manage the entire lifecycle of major structural projects. From pouring the foundation to the final coat of paint, we build with structural integrity and code compliance.</p>
+                <ul style="margin-top: 20px; padding-left: 20px; line-height: 1.8;">
+                    <li>Ground-Up Construction</li>
+                    <li>Home Additions & Extensions</li>
+                    <li>Structural Alterations</li>
+                    <li>Permit Management</li>
+                </ul>
+            </div>
+            <div class="service-img">
+                <img src="https://images.unsplash.com/photo-1503387762-592deb58ef4e?q=80&w=800" alt="New Construction Framing">
+            </div>
+        </div>
+
+    </section>
+
+    <section style="background-color: var(--dark); color: var(--white); text-align: center; padding: 60px 20px;">
+        <h2 style="margin-bottom: 20px; color: var(--gold);">Ready to transform your home?</h2>
+        <p style="margin-bottom: 30px; max-width: 600px; margin-left: auto; margin-right: auto;">Schedule a consultation to discuss your vision and get a detailed estimate.</p>
+        <a href="contact.html" class="btn-contact" style="background: var(--gold); color: var(--dark)!important; font-weight: 700;">Get a Quote</a>
+    </section>
+
+    <footer>
+        <p>&copy; 2025 Golden Brick Construction. Licensed & Insured.</p>
+    </footer>
+
+</body>
+</html>

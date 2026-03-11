@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us | Golden Brick Construction</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .contact-hero {
+            background: linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.75)),
+                        url('https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=2000&auto=format&fit=crop') center/cover;
+            height: 55vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: var(--white);
+            padding: 0 20px;
+        }
+
+        .contact-hero h1 {
+            color: var(--white);
+            margin-bottom: 15px;
+        }
+
+        .contact-hero p {
+            color: #ddd;
+            max-width: 750px;
+            margin: 0 auto;
+        }
+
+        .contact-section {
+            padding: 90px 10%;
+            background: var(--white);
+        }
+
+        .contact-intro {
+            text-align: center;
+            max-width: 850px;
+            margin: 0 auto 60px;
+        }
+
+        .contact-intro h2 {
+            margin-bottom: 15px;
+        }
+
+        .contact-intro p {
+            margin: 0 auto 18px;
+        }
+
+        .service-areas {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .service-area-card {
+            background: #f7f7f7;
+            border-left: 4px solid var(--gold);
+            padding: 16px 18px;
+            font-weight: 700;
+            color: var(--black);
+        }
+
+        .form-wrapper {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fafafa;
+            border: 1px solid #e5e5e5;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            padding: 25px;
+        }
+
+        .form-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .form-header h3 {
+            margin-bottom: 8px;
+        }
+
+        .form-header p {
+            margin: 0 auto;
+            max-width: 700px;
+        }
+
+        .google-form-container {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .google-form-container iframe {
+            width: 100%;
+            min-height: 1100px;
+            border: none;
+            background: transparent;
+        }
+
+        .contact-details-strip {
+            background: var(--dark, #1c1c1c);
+            color: var(--white);
+            padding: 70px 10%;
+        }
+
+        .contact-details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 30px;
+        }
+
+        .detail-box {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 28px;
+        }
+
+        .detail-box h3 {
+            margin-bottom: 12px;
+            color: var(--gold);
+        }
+
+        .detail-box p,
+        .detail-box a {
+            color: #d6d6d6;
+            text-decoration: none;
+            line-height: 1.8;
+        }
+
+        .detail-box a:hover {
+            color: var(--gold);
+        }
+
+        .bottom-cta {
+            background: var(--black);
+            color: var(--white);
+            text-align: center;
+            padding: 65px 20px;
+        }
+
+        .bottom-cta h2 {
+            color: var(--white);
+            margin-bottom: 16px;
+        }
+
+        .bottom-cta p {
+            color: #ccc;
+            margin: 0 auto 28px;
+            max-width: 700px;
+        }
+
+        @media (max-width: 768px) {
+            .contact-hero {
+                height: 48vh;
+                padding-top: 40px;
+            }
+
+            .contact-section,
+            .contact-details-strip {
+                padding: 70px 6%;
+            }
+
+            .form-wrapper {
+                padding: 15px;
+            }
+
+            .google-form-container iframe {
+                min-height: 1250px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <a href="index.html" style="text-decoration: none;">
+            <div class="brand-name">GOLDEN BRICK</div>
+        </a>
+        <ul class="nav-links">
+            <li><a href="residential.html">Residential</a></li>
+            <li><a href="commercial.html">Commercial</a></li>
+            <li><a href="investors.html">Investors</a></li>
+            <li><a href="portfolio.html">Projects</a></li>
+            <li><a href="contact.html" class="btn-nav">Contact Us</a></li>
+        </ul>
+    </nav>
+
+    <header class="contact-hero">
+        <div class="hero-content">
+            <span class="hero-subtitle">Philadelphia & Surrounding Pennsylvania Suburbs</span>
+            <h1>Request a Quote</h1>
+            <p>
+                Planning a kitchen remodel, bathroom renovation, full gut rehab, or new construction project?
+                Tell us about your project and our team will review your request.
+            </p>
+        </div>
+    </header>
+
+    <section class="contact-section">
+        <div class="contact-intro">
+            <h2>Let’s Talk About Your Project</h2>
+            <div style="width: 60px; height: 4px; background: var(--gold); margin: 20px auto;"></div>
+            <p>
+                Golden Brick Construction works with homeowners, investors, and developers on major renovation
+                and construction projects throughout Philadelphia and nearby Pennsylvania suburbs.
+            </p>
+            <p>
+                We specialize in kitchen remodels, bathroom remodels, full gut renovations, and new construction
+                homes and multifamily projects.
+            </p>
+
+            <div class="service-areas">
+                <div class="service-area-card">Philadelphia</div>
+                <div class="service-area-card">Bucks County</div>
+                <div class="service-area-card">Montgomery County</div>
+                <div class="service-area-card">Delaware County</div>
+                <div class="service-area-card">Main Line Area</div>
+                <div class="service-area-card">Surrounding PA Suburbs</div>
+            </div>
+        </div>
+
+        <div class="form-wrapper">
+            <div class="form-header">
+                <h3>Project Inquiry Form</h3>
+                <p>
+                    Fill out the form below with your project details. The more information you provide,
+                    the better we can understand your goals and next steps.
+                </p>
+            </div>
+
+            <div class="google-form-container">
+                <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSfXdTjB6kVg6RH1Vy3Ru5gTdKdTjqKnHMCerbMepvx_Zpg8Cg/viewform?embedded=true" width="640" height="1036" frameborder="0" marginheight="0" marginwidth="0">Loading…</iframe>
+            </div>
+        </div>
+    </section>
+
+    <section class="contact-details-strip">
+        <div class="contact-details-grid">
+            <div class="detail-box">
+                <h3>What We Do</h3>
+                <p>
+                    Kitchen remodels, bathroom remodels, full home renovations, full gut rehabs,
+                    and new construction for homes and multifamily properties.
+                </p>
+            </div>
+
+            <div class="detail-box">
+                <h3>Who We Work With</h3>
+                <p>
+                    Homeowners, real estate investors, and developers looking for a serious general contractor
+                    for major projects.
+                </p>
+            </div>
+
+            <div class="detail-box">
+                <h3>Service Area</h3>
+                <p>
+                    Philadelphia and surrounding suburbs across Bucks, Montgomery, and Delaware Counties.
+                </p>
+            </div>
+
+            <div class="detail-box">
+                <h3>Email</h3>
+                <p>
+                    <a href="mailto:info@goldenbrickc.com">info@goldenbrickc.com</a>
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section class="bottom-cta">
+        <h2>Ready to Build?</h2>
+        <p>
+            Whether you're planning a private home renovation or an investor construction project,
+            Golden Brick Construction is ready to help bring it to life.
+        </p>
+        <a href="index.html" class="btn-nav">Back to Home</a>
+    </section>
+
+    <footer>
+        <div class="footer-grid">
+            <div class="footer-left">
+                <h2>GOLDEN BRICK</h2>
+                <p>Building Philadelphia, One Project at a Time.</p>
+                <br>
+                <p style="color: #666;"><strong>Serving:</strong> Philadelphia, Bucks, Montgomery, and Delaware Counties.</p>
+                <p style="color: #666;"><strong>Email:</strong> info@goldenbrickc.com</p>
+            </div>
+            <div class="footer-right" style="text-align: right; display: flex; flex-direction: column; justify-content: center; align-items: flex-end;">
+                <h3 style="color: var(--white); margin-bottom: 20px;">Have a Project in Mind?</h3>
+                <a href="#top" class="btn-footer" onclick="window.scrollTo({ top: 0, behavior: 'smooth' }); return false;">Start Here</a>
+            </div>
+        </div>
+        <div class="copyright">
+            &copy; 2025 Golden Brick Construction. Pennsylvania Licensed Contractor.
+        </div>
+    </footer>
+
+</body>
+</html>
