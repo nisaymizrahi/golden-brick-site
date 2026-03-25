@@ -3,6 +3,16 @@
     "public": ".",
     "ignore": [
       "firebase.json",
+      ".gitignore",
+      ".firebaserc",
+      ".git/**",
+      "**/.git/**",
+      ".firebase/**",
+      "**/.firebase/**",
+      ".playwright-cli/**",
+      "**/.playwright-cli/**",
+      ".DS_Store",
+      "**/.DS_Store",
       "**/.*",
       "**/node_modules/**"
     ]

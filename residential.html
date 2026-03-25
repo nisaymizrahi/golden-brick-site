@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Residential Services | Golden Brick Construction</title>
+    <meta name="description" content="Residential renovation services from Golden Brick Construction for Philadelphia-area homeowners, including kitchens, bathrooms, full-home renovations, full guts, and new builds.">
+    <meta name="theme-color" content="#050505">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="style.css">
     <style>
         .service-hero {
@@ -325,12 +328,55 @@
                 padding: 24px;
             }
         }
+
+        @media (max-width: 480px) {
+            .service-hero {
+                padding: 96px 16px 52px;
+            }
+
+            .service-hero p {
+                font-size: 0.94rem;
+            }
+
+            .intro-section,
+            .services-overview,
+            .support-section,
+            .process-section,
+            .detail-section,
+            .why-section {
+                padding: 56px 16px;
+            }
+
+            .service-card,
+            .support-panel,
+            .process-card,
+            .detail-card,
+            .why-card,
+            .intro-box {
+                padding: 20px;
+            }
+
+            .service-area-tags {
+                gap: 8px;
+            }
+
+            .service-area-tags span {
+                width: 100%;
+                text-align: center;
+            }
+
+            .cta-section {
+                padding: 60px 16px;
+            }
+        }
     </style>
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
     <nav class="navbar">
-        <a href="index.html" style="text-decoration: none;">
-            <div class="brand-name">GOLDEN BRICK</div>
+        <a href="index.html" class="brand-link" aria-label="Golden Brick Construction home">
+            <span class="brand-mark" aria-hidden="true"></span>
+            <div class="brand-name">Golden Brick</div>
         </a>
 
         <button class="mobile-menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="site-menu">
@@ -347,6 +393,7 @@
         </ul>
     </nav>
 
+    <main id="main-content">
     <header class="service-hero">
         <div class="hero-content">
             <span class="hero-subtitle">Philadelphia Home Renovation Services</span>
@@ -644,59 +691,44 @@
         </p>
         <a href="contact.html" class="btn-nav">Request a Quote</a>
     </section>
+    </main>
 
     <footer>
         <div class="footer-grid">
-            <div class="footer-left">
-                <h2>GOLDEN BRICK</h2>
-                <p>Building Philadelphia, One Project at a Time.</p>
-                <br>
-                <p style="color: #666;"><strong>Serving:</strong> Philadelphia, Bucks, Montgomery, and Delaware Counties.</p>
-                <p style="color: #666;"><strong>Email:</strong> info@goldenbrickc.com</p>
-                <p style="color: #666;"><strong>Phone:</strong> <a href="tel:2677155557" style="color:#666;text-decoration:none;">(267) 715-5557</a></p>
+            <div class="footer-column footer-left">
+                <a href="index.html" class="brand-link footer-brand" aria-label="Golden Brick Construction home">
+                    <span class="brand-mark" aria-hidden="true"></span>
+                    <div class="brand-name">Golden Brick</div>
+                </a>
+                <p class="footer-blurb">Residential renovation support for Philadelphia-area homeowners who need clearer planning, cleaner execution, and a more organized process.</p>
+                <div class="footer-contact-list">
+                    <p><strong>Serving</strong> Philadelphia, Bucks, Montgomery, and Delaware Counties</p>
+                    <p><strong>Email</strong> <a href="mailto:info@goldenbrickc.com">info@goldenbrickc.com</a></p>
+                    <p><strong>Phone</strong> <a href="tel:2677155557">(267) 715-5557</a></p>
+                </div>
             </div>
-            <div class="footer-right" style="text-align: right; display: flex; flex-direction: column; justify-content: center; align-items: flex-end;">
-                <h3 style="color: var(--white); margin-bottom: 20px;">Need a Residential Quote?</h3>
+
+            <div class="footer-column">
+                <div class="footer-eyebrow">Explore</div>
+                <div class="footer-links">
+                    <a href="residential.html">Residential Services</a>
+                    <a href="investors.html">Investor Services</a>
+                    <a href="about.html">About Golden Brick</a>
+                    <a href="contact.html">Request a Quote</a>
+                </div>
+            </div>
+
+            <div class="footer-column footer-right">
+                <div class="footer-eyebrow">Need a Residential Quote?</div>
+                <p class="footer-cta-copy">Tell us about your home, the scope, and your timeline so we can point you toward the right next step.</p>
                 <a href="contact.html" class="btn-footer">Start Here</a>
             </div>
         </div>
         <div class="copyright">
-            &copy; 2025 Golden Brick Construction. Philadelphia General Contractor Licence #065157.
+            &copy; <span data-current-year>2026</span> Golden Brick Construction. Philadelphia General Contractor Licence #065157.
         </div>
     </footer>
 
-    <script>
-        (function () {
-            const toggle = document.querySelector('.mobile-menu-toggle');
-            const menu = document.querySelector('.nav-links');
-
-            if (!toggle || !menu) return;
-
-            toggle.addEventListener('click', function () {
-                const isOpen = menu.classList.toggle('is-open');
-                toggle.classList.toggle('is-active', isOpen);
-                toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-                document.body.classList.toggle('menu-open', isOpen);
-            });
-
-            menu.querySelectorAll('a').forEach(function (link) {
-                link.addEventListener('click', function () {
-                    menu.classList.remove('is-open');
-                    toggle.classList.remove('is-active');
-                    toggle.setAttribute('aria-expanded', 'false');
-                    document.body.classList.remove('menu-open');
-                });
-            });
-
-            window.addEventListener('resize', function () {
-                if (window.innerWidth > 900) {
-                    menu.classList.remove('is-open');
-                    toggle.classList.remove('is-active');
-                    toggle.setAttribute('aria-expanded', 'false');
-                    document.body.classList.remove('menu-open');
-                }
-            });
-        })();
-    </script>
+    <script src="site.js"></script>
 </body>
 </html>
