@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About Golden Brick Construction</title>
+<meta name="description" content="Learn about Golden Brick Construction, a Philadelphia-area contractor serving homeowners and real estate investors with renovation, project management, and development support.">
+<meta name="theme-color" content="#f4eee5">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://www.goldenbrickc.com/about.html">
+<meta property="og:locale" content="en_US">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Golden Brick Construction">
+<meta property="og:title" content="About Golden Brick Construction">
+<meta property="og:description" content="Learn about Golden Brick Construction, a Philadelphia-area contractor serving homeowners and real estate investors with renovation, project management, and development support.">
+<meta property="og:url" content="https://www.goldenbrickc.com/about.html">
+<meta property="og:image" content="https://www.goldenbrickc.com/images/constructionphoto.jpg">
+<meta property="og:image:alt" content="Golden Brick Construction project site">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="About Golden Brick Construction">
+<meta name="twitter:description" content="Learn about Golden Brick Construction, a Philadelphia-area contractor serving homeowners and real estate investors with renovation, project management, and development support.">
+<meta name="twitter:image" content="https://www.goldenbrickc.com/images/constructionphoto.jpg">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="style.css">
+<style>
+.about-hero{
+    background:
+    linear-gradient(rgba(15,12,9,.52),rgba(15,12,9,.7)),
+    url("https://images.unsplash.com/photo-1503387762-592deb58ef4e?q=80&w=2000&auto=format&fit=crop") center/cover;
+    min-height:60vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    color:white;
+    padding:120px 20px 70px;
+}
+
+.about-hero h1{
+    color:white;
+    margin-bottom:15px;
+}
+
+.about-hero p{
+    color:rgba(255,255,255,.88);
+    max-width:780px;
+    margin:auto;
+}
+
+.about-section,
+.stats-section,
+.strategy-section,
+.visit-section{
+    padding:90px 10%;
+}
+
+.about-section,
+.strategy-section{
+    background:white;
+}
+
+.stats-section{
+    background:var(--concrete);
+    text-align:center;
+}
+
+.visit-section{
+    background:linear-gradient(180deg, #f2eadf 0%, #ebdfcf 100%);
+    text-align:center;
+    color:var(--black);
+}
+
+.visit-section h2{
+    color:var(--black);
+}
+
+.visit-section p{
+    color:var(--text-grey);
+    max-width:750px;
+    margin:auto;
+}
+
+.about-grid,
+.strategy-grid{
+    display:grid;
+    grid-template-columns:1.1fr .9fr;
+    gap:50px;
+    align-items:start;
+}
+
+.gold-line{
+    width:60px;
+    height:4px;
+    background:var(--gold);
+    margin:18px 0 24px;
+}
+
+.highlight-box{
+    background:var(--surface-soft);
+    border-left:4px solid var(--gold);
+    padding:24px;
+    margin-bottom:18px;
+    box-shadow: var(--soft-shadow);
+}
+
+.highlight-box strong{
+    display:block;
+    text-transform:uppercase;
+    font-size:.85rem;
+    letter-spacing:1px;
+    margin-bottom:6px;
+}
+
+.stats-grid,
+.visit-boxes{
+    display:grid;
+    gap:24px;
+    margin-top:50px;
+}
+
+.stats-grid{
+    grid-template-columns:repeat(3,1fr);
+}
+
+.stat-box{
+    background:white;
+    padding:35px;
+    border-top:4px solid var(--gold);
+    box-shadow:var(--soft-shadow);
+}
+
+.stat-box h2{
+    font-size:42px;
+    color:var(--black);
+    margin-bottom:10px;
+}
+
+.strategy-grid{
+    align-items:center;
+    margin-bottom:0;
+}
+
+.strategy-img img{
+    width:100%;
+    border-radius:4px;
+    box-shadow:0 10px 25px rgba(0,0,0,.1);
+}
+
+.strategy-list{
+    margin-top:20px;
+    padding-left:20px;
+    line-height:1.9;
+}
+
+.visit-boxes{
+    grid-template-columns:repeat(3,1fr);
+    text-align:left;
+}
+
+.visit-box{
+    background:rgba(255,255,255,.78);
+    border:1px solid rgba(92,72,38,.1);
+    padding:28px;
+    box-shadow: var(--soft-shadow);
+}
+
+.visit-box h3{
+    color:var(--gold-deep);
+    margin-bottom:10px;
+}
+
+.cta-section{
+    background:var(--surface-panel);
+    color:var(--black);
+    text-align:center;
+    padding:70px 20px;
+}
+
+.cta-section h2{
+    color:var(--black);
+    margin-bottom:14px;
+}
+
+.cta-section p{
+    color:var(--text-grey);
+    margin:0 auto 28px;
+    max-width:760px;
+}
+
+@media(max-width:992px){
+    .about-grid,
+    .stats-grid,
+    .strategy-grid,
+    .visit-boxes{
+        grid-template-columns:1fr;
+    }
+}
+
+@media (max-width:768px){
+    .about-section,
+    .stats-section,
+    .strategy-section,
+    .visit-section{
+        padding:70px 6%;
+    }
+
+    .about-hero{
+        min-height:auto;
+        padding:110px 18px 60px;
+    }
+
+    .about-hero h1{
+        font-size:clamp(2rem, 9vw, 3rem);
+    }
+
+    .about-hero p{
+        font-size:0.98rem;
+    }
+
+    .highlight-box,
+    .stat-box,
+    .visit-box{
+        padding:24px;
+    }
+}
+
+@media (max-width:480px){
+    .about-hero{
+        padding:96px 16px 52px;
+    }
+
+    .about-hero p{
+        font-size:0.94rem;
+    }
+
+    .about-section,
+    .stats-section,
+    .strategy-section,
+    .visit-section{
+        padding:56px 16px;
+    }
+
+    .highlight-box,
+    .stat-box,
+    .visit-box{
+        padding:20px;
+    }
+
+    .stat-box h2{
+        font-size:36px;
+    }
+
+    .cta-section{
+        padding:60px 16px;
+    }
+}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<nav class="navbar">
+    <a href="/" class="brand-link" aria-label="Golden Brick Construction home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div class="brand-name">Golden Brick</div>
+    </a>
+
+    <button class="mobile-menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="site-menu">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+
+    <ul class="nav-links" id="site-menu">
+        <li><a href="residential.html">Residential Services</a></li>
+        <li><a href="investors.html">Investor Services</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="contact.html" class="btn-nav">Get a Quote</a></li>
+    </ul>
+</nav>
+
+<main id="main-content">
+<header class="about-hero">
+    <div>
+        <span class="hero-subtitle">Philadelphia Construction & Development</span>
+        <h1>About Golden Brick Construction</h1>
+        <p>
+            Golden Brick Construction provides renovation, construction,
+            and project management services for homeowners and real estate
+            investors across Philadelphia and surrounding suburbs.
+        </p>
+    </div>
+</header>
+
+<section class="about-section">
+    <div class="about-grid">
+        <div>
+            <h2>Built on Real Construction Experience</h2>
+            <div class="gold-line"></div>
+            <p>
+                Golden Brick Construction works with homeowners and real estate
+                investors on serious renovation and construction projects across
+                Philadelphia.
+            </p>
+            <p>
+                Our work includes kitchen and bathroom renovations, full gut
+                rehabs, multifamily renovations, rental property upgrades,
+                and new residential construction.
+            </p>
+            <p>
+                With more than <strong>25 years of experience in Philadelphia real
+                estate</strong>, we understand both the construction side and the
+                investment strategy behind successful projects.
+            </p>
+        </div>
+
+        <div>
+            <div class="highlight-box">
+                <strong>What We Do</strong>
+                Residential renovations, investor renovation projects,
+                multifamily rehabs, full gut renovations, and new construction.
+            </div>
+
+            <div class="highlight-box">
+                <strong>Who We Work With</strong>
+                Homeowners planning renovations and real estate investors
+                developing flip or rental projects.
+            </div>
+
+            <div class="highlight-box">
+                <strong>Service Area</strong>
+                Philadelphia and surrounding suburbs across Bucks,
+                Montgomery, and Delaware counties.
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="stats-section">
+    <h2>Active Work Across Philadelphia</h2>
+    <div class="gold-line" style="margin:20px auto"></div>
+    <p>
+        Golden Brick Construction is currently managing multiple
+        renovation and development projects throughout the
+        Philadelphia area.
+    </p>
+
+    <div class="stats-grid">
+        <div class="stat-box">
+            <h2>7</h2>
+            <p>Active Projects</p>
+        </div>
+
+        <div class="stat-box">
+            <h2>32</h2>
+            <p>Total Residential Units</p>
+        </div>
+
+        <div class="stat-box">
+            <h2>25+</h2>
+            <p>Years Real Estate Experience</p>
+        </div>
+    </div>
+</section>
+
+<section class="strategy-section">
+    <div class="strategy-grid">
+        <div>
+            <h2>Helping Investors Choose the Right Strategy</h2>
+            <div class="gold-line"></div>
+            <p>
+                Many of our clients are real estate investors looking to
+                evaluate projects before committing to construction.
+            </p>
+            <p>
+                Because we are actively working on multiple projects across
+                Philadelphia, clients can see different investment strategies
+                in real time and learn from proven projects.
+            </p>
+
+            <ul class="strategy-list">
+                <li>Fix and flip projects</li>
+                <li>Long term rental renovations</li>
+                <li>Multifamily repositioning</li>
+                <li>Rent by room investment strategy</li>
+                <li>Short term rental opportunities</li>
+            </ul>
+        </div>
+
+        <div class="strategy-img">
+            <img src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?q=80&w=1000&auto=format&fit=crop" alt="Real estate investment strategy">
+        </div>
+    </div>
+</section>
+
+<section class="visit-section">
+    <h2>Project Walkthroughs for Clients</h2>
+    <div class="gold-line" style="margin:20px auto"></div>
+    <p>
+        We regularly offer site visits for new clients to see our
+        projects in person and understand how renovation projects
+        progress from early stages to completion.
+    </p>
+
+    <div class="visit-boxes">
+        <div class="visit-box">
+            <h3>Active Construction Sites</h3>
+            <p>
+                Clients can visit projects currently under renovation to
+                understand the scope of work and construction process.
+            </p>
+        </div>
+
+        <div class="visit-box">
+            <h3>Projects In Progress</h3>
+            <p>
+                We show properties in different phases of renovation so
+                clients can see how projects evolve through construction.
+            </p>
+        </div>
+
+        <div class="visit-box">
+            <h3>Recently Completed Projects</h3>
+            <p>
+                Finished properties allow clients to see final results and
+                understand the potential of renovation strategies.
+            </p>
+        </div>
+    </div>
+</section>
+
+<section class="cta-section">
+    <h2>Discuss Your Project</h2>
+    <p>
+        Whether you are planning a renovation or evaluating a real
+        estate investment project, our team can help guide you
+        through planning, strategy, and construction.
+    </p>
+    <a href="contact.html" class="btn-nav">Request a Consultation</a>
+</section>
+</main>
+
+<footer>
+    <div class="footer-grid">
+        <div class="footer-column footer-left">
+            <a href="/" class="brand-link footer-brand" aria-label="Golden Brick Construction home">
+                <span class="brand-mark" aria-hidden="true"></span>
+                <div class="brand-name">Golden Brick</div>
+            </a>
+            <p class="footer-blurb">Construction and development support for Philadelphia-area homeowners and investors who need strategy as much as execution.</p>
+            <div class="footer-contact-list">
+                <p><strong>Serving</strong> Philadelphia, Bucks, Montgomery, and Delaware Counties</p>
+                <p><strong>Email</strong> <a href="mailto:info@goldenbrickc.com">info@goldenbrickc.com</a></p>
+                <p><strong>Phone</strong> <a href="tel:2677155557">(267) 715-5557</a></p>
+            </div>
+        </div>
+
+        <div class="footer-column">
+            <div class="footer-eyebrow">Explore</div>
+            <div class="footer-links">
+                <a href="residential.html">Residential Services</a>
+                <a href="investors.html">Investor Services</a>
+                <a href="about.html">About Golden Brick</a>
+                <a href="contact.html">Request a Quote</a>
+            </div>
+        </div>
+
+        <div class="footer-column footer-right">
+            <div class="footer-eyebrow">Need a Quote?</div>
+            <p class="footer-cta-copy">If you’re evaluating a renovation or a development opportunity, we can help shape the right plan.</p>
+            <a href="contact.html" class="btn-footer">Start Here</a>
+        </div>
+    </div>
+
+    <div class="copyright">
+        &copy; <span data-current-year>2026</span> Golden Brick Construction. Philadelphia General Contractor Licence #065157.
+    </div>
+</footer>
+
+<script src="site.js"></script>
+</body>
+</html>

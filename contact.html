@@ -4,300 +4,602 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contact Us | Golden Brick Construction</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <meta name="description" content="Request a quote from Golden Brick Construction for Philadelphia-area renovation, full gut rehab, investor, and new construction projects.">
+    <meta name="theme-color" content="#f4eee5">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="canonical" href="https://www.goldenbrickc.com/contact.html">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Golden Brick Construction">
+    <meta property="og:title" content="Contact Us | Golden Brick Construction">
+    <meta property="og:description" content="Request a quote from Golden Brick Construction for Philadelphia-area renovation, full gut rehab, investor, and new construction projects.">
+    <meta property="og:url" content="https://www.goldenbrickc.com/contact.html">
+    <meta property="og:image" content="https://www.goldenbrickc.com/images/constructionphoto.jpg">
+    <meta property="og:image:alt" content="Golden Brick Construction project site">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Contact Us | Golden Brick Construction">
+    <meta name="twitter:description" content="Request a quote from Golden Brick Construction for Philadelphia-area renovation, full gut rehab, investor, and new construction projects.">
+    <meta name="twitter:image" content="https://www.goldenbrickc.com/images/constructionphoto.jpg">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="style.css">
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "ContactPage",
+            "name": "Contact Golden Brick Construction",
+            "url": "https://www.goldenbrickc.com/contact.html",
+            "about": {
+                "@type": "Organization",
+                "@id": "https://www.goldenbrickc.com/#organization",
+                "name": "Golden Brick Construction",
+                "telephone": "+1-267-715-5557",
+                "email": "info@goldenbrickc.com"
+            }
+        }
+    </script>
     <style>
         .contact-hero {
-            background: linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.75)),
-                        url('https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=2000&auto=format&fit=crop') center/cover;
-            height: 55vh;
+            background:
+                linear-gradient(rgba(15,12,9,0.56), rgba(15,12,9,0.66)),
+                url('https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=2000&auto=format&fit=crop') center/cover;
+            min-height: 58vh;
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
             color: var(--white);
-            padding: 0 20px;
+            padding: 120px 20px 60px;
         }
 
-        .contact-hero h1 {
+        .contact-hero h1,
+        .contact-hero p {
             color: var(--white);
-            margin-bottom: 15px;
         }
 
         .contact-hero p {
-            color: #ddd;
-            max-width: 750px;
+            color: rgba(255, 255, 255, 0.88);
+            max-width: 760px;
             margin: 0 auto;
         }
 
-        .contact-section {
+        .contact-main,
+        .bottom-strip {
             padding: 90px 10%;
+        }
+
+        .contact-main {
             background: var(--white);
         }
 
-        .contact-intro {
-            text-align: center;
-            max-width: 850px;
-            margin: 0 auto 60px;
-        }
-
-        .contact-intro h2 {
-            margin-bottom: 15px;
-        }
-
-        .contact-intro p {
-            margin: 0 auto 18px;
-        }
-
-        .service-areas {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 15px;
-            margin-top: 30px;
-        }
-
-        .service-area-card {
-            background: #f7f7f7;
-            border-left: 4px solid var(--gold);
-            padding: 16px 18px;
-            font-weight: 700;
+        .bottom-strip {
+            background: linear-gradient(180deg, #f2eadf 0%, #ebdfcf 100%);
             color: var(--black);
         }
 
-        .form-wrapper {
-            max-width: 900px;
-            margin: 0 auto;
-            background: #fafafa;
-            border: 1px solid #e5e5e5;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-            padding: 25px;
-        }
-
-        .form-header {
-            text-align: center;
-            margin-bottom: 25px;
-        }
-
-        .form-header h3 {
-            margin-bottom: 8px;
-        }
-
-        .form-header p {
-            margin: 0 auto;
-            max-width: 700px;
-        }
-
-        .google-form-container {
-            position: relative;
-            width: 100%;
-            overflow: hidden;
-        }
-
-        .google-form-container iframe {
-            width: 100%;
-            min-height: 1100px;
-            border: none;
-            background: transparent;
-        }
-
-        .contact-details-strip {
-            background: var(--dark, #1c1c1c);
-            color: var(--white);
-            padding: 70px 10%;
-        }
-
-        .contact-details-grid {
+        .contact-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 30px;
+            grid-template-columns: 1.05fr 1.2fr;
+            gap: 50px;
+            align-items: start;
         }
 
-        .detail-box {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            padding: 28px;
-        }
-
-        .detail-box h3 {
-            margin-bottom: 12px;
-            color: var(--gold);
-        }
-
-        .detail-box p,
-        .detail-box a {
-            color: #d6d6d6;
-            text-decoration: none;
-            line-height: 1.8;
-        }
-
-        .detail-box a:hover {
-            color: var(--gold);
-        }
-
-        .bottom-cta {
-            background: var(--black);
-            color: var(--white);
-            text-align: center;
-            padding: 65px 20px;
-        }
-
-        .bottom-cta h2 {
-            color: var(--white);
+        .contact-info h2 {
             margin-bottom: 16px;
         }
 
-        .bottom-cta p {
-            color: #ccc;
-            margin: 0 auto 28px;
-            max-width: 700px;
+        .gold-line {
+            width: 60px;
+            height: 4px;
+            background: var(--gold);
+            margin: 0 0 24px;
+        }
+
+        .contact-info p,
+        .bottom-card p,
+        .bottom-card a {
+            max-width: 100%;
+        }
+
+        .service-points {
+            display: grid;
+            gap: 16px;
+            margin-top: 30px;
+        }
+
+        .service-point {
+            background: var(--surface-soft);
+            border-left: 4px solid var(--gold);
+            padding: 20px 22px;
+            box-shadow: var(--soft-shadow);
+        }
+
+        .service-point strong {
+            display: block;
+            color: var(--black);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+        }
+
+        .service-area-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 24px;
+        }
+
+        .service-area-tags span {
+            background: var(--surface-panel-strong);
+            border: 1px solid rgba(92, 72, 38, 0.08);
+            color: var(--black);
+            padding: 10px 14px;
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .contact-form-wrap {
+            background: var(--surface-soft);
+            border: 1px solid rgba(92, 72, 38, 0.08);
+            box-shadow: 0 14px 35px rgba(0,0,0,0.08);
+            padding: 38px;
+        }
+
+        .contact-form-wrap h3 {
+            color: var(--gold-deep);
+            margin-bottom: 10px;
+        }
+
+        .contact-form-wrap p {
+            margin-bottom: 24px;
+        }
+
+        .lead-form {
+            display: grid;
+            gap: 18px;
+        }
+
+        .form-row {
+            display: grid;
+            gap: 18px;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--black);
+            margin-bottom: 8px;
+        }
+
+        .form-group label .required {
+            color: #b12b2b;
+        }
+
+        .lead-form input,
+        .lead-form textarea {
+            width: 100%;
+            padding: 14px 15px;
+            border: 1px solid #d8d8d8;
+            background: var(--white);
+            font-family: 'Montserrat', sans-serif;
+            font-size: 16px;
+            color: var(--text-grey);
+            transition: border-color 0.25s, box-shadow 0.25s;
+            appearance: none;
+            border-radius: 0;
+        }
+
+        .lead-form input:focus,
+        .lead-form textarea:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.15);
+        }
+
+        .lead-form textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        .form-note {
+            font-size: 0.88rem;
+            color: #666;
+            margin-top: -4px;
+            margin-bottom: 6px;
+        }
+
+        .submit-btn {
+            display: inline-block;
+            background: var(--gold);
+            color: var(--black);
+            border: none;
+            padding: 16px 28px;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: 0.25s ease;
+        }
+
+        .submit-btn:hover {
+            background: var(--gold-deep);
+            color: var(--white);
+        }
+
+        .privacy-note {
+            font-size: 0.82rem;
+            color: #777;
+            margin-top: 6px;
+            line-height: 1.7;
+        }
+
+        .bottom-strip-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 28px;
+        }
+
+        .bottom-card {
+            background: rgba(255,255,255,0.78);
+            border: 1px solid rgba(92,72,38,0.1);
+            padding: 28px;
+            box-shadow: var(--soft-shadow);
+        }
+
+        .bottom-card h3 {
+            margin-bottom: 12px;
+        }
+
+        .bottom-card a {
+            color: var(--text-grey);
+            text-decoration: none;
+        }
+
+        .bottom-card a:hover {
+            color: var(--gold-deep);
+        }
+
+        .success-page-fallback {
+            display: none;
+        }
+
+        @media (max-width: 992px) {
+            .contact-grid,
+            .bottom-strip-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         @media (max-width: 768px) {
-            .contact-hero {
-                height: 48vh;
-                padding-top: 40px;
-            }
-
-            .contact-section,
-            .contact-details-strip {
+            .contact-main,
+            .bottom-strip {
                 padding: 70px 6%;
             }
 
-            .form-wrapper {
-                padding: 15px;
+            .contact-form-wrap {
+                padding: 24px;
             }
 
-            .google-form-container iframe {
-                min-height: 1250px;
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .contact-hero {
+                min-height: auto;
+                padding: 110px 18px 60px;
+            }
+
+            .contact-hero h1 {
+                font-size: clamp(2rem, 9vw, 3rem);
+            }
+
+            .contact-hero p {
+                font-size: 0.98rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .contact-hero {
+                padding: 96px 16px 52px;
+            }
+
+            .contact-hero p {
+                font-size: 0.94rem;
+            }
+
+            .contact-main,
+            .bottom-strip {
+                padding: 56px 16px;
+            }
+
+            .service-point,
+            .bottom-card {
+                padding: 20px;
+            }
+
+            .contact-form-wrap {
+                padding: 20px 18px;
+            }
+
+            .service-area-tags {
+                gap: 8px;
+            }
+
+            .service-area-tags span {
+                width: 100%;
+                text-align: center;
+            }
+
+            .submit-btn {
+                width: 100%;
             }
         }
     </style>
 </head>
 <body>
-
+    <a class="skip-link" href="#main-content">Skip to content</a>
     <nav class="navbar">
-        <a href="index.html" style="text-decoration: none;">
-            <div class="brand-name">GOLDEN BRICK</div>
+        <a href="/" class="brand-link" aria-label="Golden Brick Construction home">
+            <span class="brand-mark" aria-hidden="true"></span>
+            <div class="brand-name">Golden Brick</div>
         </a>
-        <ul class="nav-links">
-            <li><a href="residential.html">Residential</a></li>
-            <li><a href="commercial.html">Commercial</a></li>
-            <li><a href="investors.html">Investors</a></li>
-            <li><a href="portfolio.html">Projects</a></li>
-            <li><a href="contact.html" class="btn-nav">Contact Us</a></li>
+
+        <button class="mobile-menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="site-menu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
+        <ul class="nav-links" id="site-menu">
+            <li><a href="residential.html">Residential Services</a></li>
+            <li><a href="investors.html">Investor Services</a></li>
+            <li><a href="about.html">About</a></li>
+            <li><a href="contact.html" class="btn-nav">Get a Quote</a></li>
         </ul>
     </nav>
 
+    <main id="main-content">
     <header class="contact-hero">
         <div class="hero-content">
             <span class="hero-subtitle">Philadelphia & Surrounding Pennsylvania Suburbs</span>
             <h1>Request a Quote</h1>
             <p>
-                Planning a kitchen remodel, bathroom renovation, full gut rehab, or new construction project?
-                Tell us about your project and our team will review your request.
+                Tell us about your project and our team will review your information.
+                We work with homeowners, investors, and developers on major renovations,
+                full gut rehabs, kitchens, bathrooms, and new construction.
             </p>
         </div>
     </header>
 
-    <section class="contact-section">
-        <div class="contact-intro">
-            <h2>Let’s Talk About Your Project</h2>
-            <div style="width: 60px; height: 4px; background: var(--gold); margin: 20px auto;"></div>
-            <p>
-                Golden Brick Construction works with homeowners, investors, and developers on major renovation
-                and construction projects throughout Philadelphia and nearby Pennsylvania suburbs.
-            </p>
-            <p>
-                We specialize in kitchen remodels, bathroom remodels, full gut renovations, and new construction
-                homes and multifamily projects.
-            </p>
-
-            <div class="service-areas">
-                <div class="service-area-card">Philadelphia</div>
-                <div class="service-area-card">Bucks County</div>
-                <div class="service-area-card">Montgomery County</div>
-                <div class="service-area-card">Delaware County</div>
-                <div class="service-area-card">Main Line Area</div>
-                <div class="service-area-card">Surrounding PA Suburbs</div>
-            </div>
-        </div>
-
-        <div class="form-wrapper">
-            <div class="form-header">
-                <h3>Project Inquiry Form</h3>
+    <section class="contact-main">
+        <div class="contact-grid">
+            <div class="contact-info">
+                <h2>Let’s Talk About Your Project</h2>
+                <div class="gold-line"></div>
                 <p>
-                    Fill out the form below with your project details. The more information you provide,
-                    the better we can understand your goals and next steps.
+                    Golden Brick Construction is a Philadelphia-area general contractor focused on
+                    serious residential renovations and development projects. Whether you’re planning
+                    a kitchen remodel, bathroom remodel, full home renovation, full gut rehab, or
+                    new construction project, we’re ready to learn more.
                 </p>
+                <p>
+                    Submit your information and project details below. Your inquiry will go through
+                    our existing lead process so our team can review and follow up efficiently.
+                </p>
+
+                <div class="service-points">
+                    <div class="service-point">
+                        <strong>Who We Work With</strong>
+                        Homeowners, real estate investors, and developers.
+                    </div>
+                    <div class="service-point">
+                        <strong>Core Services</strong>
+                        Kitchen remodels, bathroom remodels, full gut renovations, and new construction.
+                    </div>
+                    <div class="service-point">
+                        <strong>Service Area</strong>
+                        Philadelphia and surrounding suburbs in Pennsylvania.
+                    </div>
+                </div>
+
+                <div class="service-area-tags">
+                    <span>Philadelphia</span>
+                    <span>Bucks County</span>
+                    <span>Montgomery County</span>
+                    <span>Delaware County</span>
+                    <span>Main Line</span>
+                    <span>Surrounding PA Suburbs</span>
+                </div>
             </div>
 
-            <div class="google-form-container">
-                <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSfXdTjB6kVg6RH1Vy3Ru5gTdKdTjqKnHMCerbMepvx_Zpg8Cg/viewform?embedded=true" width="640" height="1036" frameborder="0" marginheight="0" marginwidth="0">Loading…</iframe>
+            <div class="contact-form-wrap">
+                <h3>Project Inquiry</h3>
+                <p>
+                    Fill out the form below and we’ll receive your lead through our internal system.
+                </p>
+
+                <form
+                    class="lead-form"
+                    action="https://docs.google.com/forms/d/e/1FAIpQLSfXdTjB6kVg6RH1Vy3Ru5gTdKdTjqKnHMCerbMepvx_Zpg8Cg/formResponse"
+                    method="POST"
+                    target="hidden_iframe"
+                    onsubmit="showSuccessMessage();"
+                >
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="name">Name <span class="required">*</span></label>
+                            <input type="text" id="name" name="entry.1938418565" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Email Address</label>
+                            <input type="email" id="email" name="entry.2064255771">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="phone">Phone Number <span class="required">*</span></label>
+                            <input type="text" id="phone" name="entry.940072979" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="address">Project Address</label>
+                            <input type="text" id="address" name="entry.1570481540">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="notes">Notes for Us</label>
+                        <textarea
+                            id="notes"
+                            name="entry.1309691449"
+                            placeholder="Tell us about the project, property, goals, timeline, or anything else you'd like us to know."
+                        ></textarea>
+                    </div>
+
+                    <div class="form-note">
+                        Required fields are marked with an asterisk.
+                    </div>
+
+                    <button type="submit" class="submit-btn">Submit Request</button>
+
+                    <p class="privacy-note">
+                        By submitting this form, your information will be sent to our project inquiry system for review.
+                    </p>
+                </form>
+
+                <iframe name="hidden_iframe" style="display:none;" title="Hidden form submission target"></iframe>
+
+                <div id="success-message" class="success-page-fallback" style="margin-top: 24px; padding: 18px 20px; background: #f6f6f6; border-left: 4px solid var(--gold);">
+                    <strong style="display:block; margin-bottom:8px; color: var(--black); text-transform: uppercase; letter-spacing: 0.8px;">Thank you.</strong>
+                    <span style="color:#555;">Your inquiry has been submitted. We’ll review your information and follow up.</span>
+                </div>
             </div>
         </div>
     </section>
 
-    <section class="contact-details-strip">
-        <div class="contact-details-grid">
-            <div class="detail-box">
+    <section class="bottom-strip">
+        <div class="bottom-strip-grid">
+            <div class="bottom-card">
                 <h3>What We Do</h3>
-                <p>
-                    Kitchen remodels, bathroom remodels, full home renovations, full gut rehabs,
-                    and new construction for homes and multifamily properties.
-                </p>
+                <p>Major residential renovations, kitchens, bathrooms, full gut rehabs, and new construction.</p>
             </div>
 
-            <div class="detail-box">
-                <h3>Who We Work With</h3>
-                <p>
-                    Homeowners, real estate investors, and developers looking for a serious general contractor
-                    for major projects.
-                </p>
+            <div class="bottom-card">
+                <h3>Where We Work</h3>
+                <p>Philadelphia and surrounding Pennsylvania suburbs including Bucks, Montgomery, and Delaware Counties.</p>
             </div>
 
-            <div class="detail-box">
-                <h3>Service Area</h3>
-                <p>
-                    Philadelphia and surrounding suburbs across Bucks, Montgomery, and Delaware Counties.
-                </p>
-            </div>
-
-            <div class="detail-box">
-                <h3>Email</h3>
-                <p>
-                    <a href="mailto:info@goldenbrickc.com">info@goldenbrickc.com</a>
-                </p>
+            <div class="bottom-card">
+                <h3>Contact</h3>
+                <p><a href="mailto:info@goldenbrickc.com">info@goldenbrickc.com</a></p>
+                <p><a href="tel:2677155557">(267) 715-5557</a></p>
+                <p>Philadelphia General Contractor Licence #065157</p>
             </div>
         </div>
     </section>
 
-    <section class="bottom-cta">
-        <h2>Ready to Build?</h2>
-        <p>
-            Whether you're planning a private home renovation or an investor construction project,
-            Golden Brick Construction is ready to help bring it to life.
-        </p>
-        <a href="index.html" class="btn-nav">Back to Home</a>
+    <section class="faq-section">
+        <div class="faq-shell">
+            <div class="faq-intro">
+                <span class="section-kicker">Before You Submit</span>
+                <h2>Quick Answers Before You Send the Form</h2>
+                <p>
+                    Reducing uncertainty helps more good leads turn into real conversations. These are the questions people usually have right before they submit.
+                </p>
+            </div>
+
+            <div class="faq-grid">
+                <details class="faq-item">
+                    <summary>What details should I include in my quote request?</summary>
+                    <p>The most useful details are the property address, project type, rooms involved, goals, any timing you have in mind, and whether the property is owner-occupied, an investment, or under contract.</p>
+                </details>
+
+                <details class="faq-item">
+                    <summary>Do you work with both homeowners and investors?</summary>
+                    <p>Yes. We support homeowners, investors, and developers. The more clearly you explain the project goals in the form, the easier it is for us to route the inquiry well.</p>
+                </details>
+
+                <details class="faq-item">
+                    <summary>Do you only work in Philadelphia?</summary>
+                    <p>No. We serve Philadelphia and nearby Pennsylvania suburbs including Bucks County, Montgomery County, Delaware County, and the Main Line.</p>
+                </details>
+
+                <details class="faq-item">
+                    <summary>What happens after I submit the form?</summary>
+                    <p>Your inquiry goes into the existing review process so the team can look at the scope, property, and fit before following up. Including better detail on the front end makes that review faster and more useful.</p>
+                </details>
+
+                <details class="faq-item">
+                    <summary>Can I call instead of using the form?</summary>
+                    <p>Yes. If the project is easier to explain by phone, call <a href="tel:2677155557">(267) 715-5557</a>. The form is still the best option when you want to include written scope details.</p>
+                </details>
+            </div>
+        </div>
     </section>
+    </main>
 
     <footer>
         <div class="footer-grid">
-            <div class="footer-left">
-                <h2>GOLDEN BRICK</h2>
-                <p>Building Philadelphia, One Project at a Time.</p>
-                <br>
-                <p style="color: #666;"><strong>Serving:</strong> Philadelphia, Bucks, Montgomery, and Delaware Counties.</p>
-                <p style="color: #666;"><strong>Email:</strong> info@goldenbrickc.com</p>
+            <div class="footer-column footer-left">
+                <a href="/" class="brand-link footer-brand" aria-label="Golden Brick Construction home">
+                    <span class="brand-mark" aria-hidden="true"></span>
+                    <div class="brand-name">Golden Brick</div>
+                </a>
+                <p class="footer-blurb">Send us the project details and we’ll review the scope, property, and timeline through our existing inquiry process.</p>
+                <div class="footer-contact-list">
+                    <p><strong>Serving</strong> Philadelphia, Bucks, Montgomery, and Delaware Counties</p>
+                    <p><strong>Email</strong> <a href="mailto:info@goldenbrickc.com">info@goldenbrickc.com</a></p>
+                    <p><strong>Phone</strong> <a href="tel:2677155557">(267) 715-5557</a></p>
+                </div>
             </div>
-            <div class="footer-right" style="text-align: right; display: flex; flex-direction: column; justify-content: center; align-items: flex-end;">
-                <h3 style="color: var(--white); margin-bottom: 20px;">Have a Project in Mind?</h3>
-                <a href="#top" class="btn-footer" onclick="window.scrollTo({ top: 0, behavior: 'smooth' }); return false;">Start Here</a>
+
+            <div class="footer-column">
+                <div class="footer-eyebrow">Explore</div>
+                <div class="footer-links">
+                    <a href="residential.html">Residential Services</a>
+                    <a href="investors.html">Investor Services</a>
+                    <a href="about.html">About Golden Brick</a>
+                    <a href="contact.html">Request a Quote</a>
+                </div>
+            </div>
+
+            <div class="footer-column footer-right">
+                <div class="footer-eyebrow">Need a Quote?</div>
+                <p class="footer-cta-copy">Tell us what you’re planning and we’ll route the inquiry through our internal review process.</p>
+                <a href="contact.html" class="btn-footer">Start Here</a>
             </div>
         </div>
         <div class="copyright">
-            &copy; 2025 Golden Brick Construction. Pennsylvania Licensed Contractor.
+            &copy; <span data-current-year>2026</span> Golden Brick Construction. Philadelphia General Contractor Licence #065157.
         </div>
     </footer>
 
+    <script src="site.js"></script>
+    <script>
+        function showSuccessMessage() {
+            const form = document.querySelector('.lead-form');
+            const success = document.getElementById('success-message');
+
+            setTimeout(() => {
+                form.reset();
+                success.style.display = 'block';
+                success.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 800);
+        }
+    </script>
 </body>
 </html>

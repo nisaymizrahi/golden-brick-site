@@ -3,120 +3,1261 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Golden Brick Construction is a Philadelphia general contractor serving homeowners and real estate investors with managed renovations, rehabs, and new construction.">
     <title>Golden Brick Construction | Philadelphia General Contractors</title>
+    <meta name="theme-color" content="#f4eee5">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="canonical" href="https://www.goldenbrickc.com/">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Golden Brick Construction">
+    <meta property="og:title" content="Golden Brick Construction | Philadelphia General Contractors">
+    <meta property="og:description" content="Golden Brick Construction is a Philadelphia general contractor serving homeowners and real estate investors with managed renovations, rehabs, and new construction.">
+    <meta property="og:url" content="https://www.goldenbrickc.com/">
+    <meta property="og:image" content="https://www.goldenbrickc.com/images/constructionphoto.jpg">
+    <meta property="og:image:alt" content="Golden Brick Construction project site">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Golden Brick Construction | Philadelphia General Contractors">
+    <meta name="twitter:description" content="Golden Brick Construction is a Philadelphia general contractor serving homeowners and real estate investors with managed renovations, rehabs, and new construction.">
+    <meta name="twitter:image" content="https://www.goldenbrickc.com/images/constructionphoto.jpg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="style.css">
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "Organization",
+                    "@id": "https://www.goldenbrickc.com/#organization",
+                    "name": "Golden Brick Construction",
+                    "url": "https://www.goldenbrickc.com/",
+                    "logo": "https://www.goldenbrickc.com/images/logo.jpg",
+                    "image": "https://www.goldenbrickc.com/images/constructionphoto.jpg",
+                    "description": "Philadelphia general contractor serving homeowners and real estate investors with managed renovations, rehabs, and new construction.",
+                    "email": "info@goldenbrickc.com",
+                    "telephone": "+1-267-715-5557",
+                    "address": {
+                        "@type": "PostalAddress",
+                        "addressLocality": "Philadelphia",
+                        "addressRegion": "PA",
+                        "addressCountry": "US"
+                    },
+                    "areaServed": [
+                        {
+                            "@type": "City",
+                            "name": "Philadelphia"
+                        },
+                        {
+                            "@type": "AdministrativeArea",
+                            "name": "Bucks County, PA"
+                        },
+                        {
+                            "@type": "AdministrativeArea",
+                            "name": "Montgomery County, PA"
+                        },
+                        {
+                            "@type": "AdministrativeArea",
+                            "name": "Delaware County, PA"
+                        },
+                        {
+                            "@type": "Place",
+                            "name": "Main Line, PA"
+                        }
+                    ],
+                    "contactPoint": {
+                        "@type": "ContactPoint",
+                        "contactType": "customer service",
+                        "telephone": "+1-267-715-5557",
+                        "email": "info@goldenbrickc.com",
+                        "availableLanguage": "en"
+                    }
+                },
+                {
+                    "@type": "WebSite",
+                    "@id": "https://www.goldenbrickc.com/#website",
+                    "url": "https://www.goldenbrickc.com/",
+                    "name": "Golden Brick Construction",
+                    "publisher": {
+                        "@id": "https://www.goldenbrickc.com/#organization"
+                    }
+                }
+            ]
+        }
+    </script>
+    <style>
+        .hero-home,
+        .positioning-home,
+        .pathways-section,
+        .management-section,
+        .process-home,
+        .why-home,
+        .cta-home {
+            padding: 0;
+        }
+
+        .hero-shell,
+        .positioning-shell,
+        .pathways-shell,
+        .management-shell,
+        .process-shell,
+        .why-shell,
+        .cta-shell {
+            width: var(--content-width);
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        .hero-home {
+            position: relative;
+            min-height: 100svh;
+            display: flex;
+            align-items: center;
+            padding: 148px 0 88px;
+            background:
+                linear-gradient(rgba(15, 12, 9, 0.62), rgba(15, 12, 9, 0.62)),
+                url("images/constructionphoto.jpg") center/cover no-repeat;
+        }
+
+        .hero-home::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, rgba(15, 12, 9, 0.12), rgba(15, 12, 9, 0.03) 55%, rgba(15, 12, 9, 0.18));
+            pointer-events: none;
+        }
+
+        .hero-grid {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+            gap: 40px;
+            align-items: end;
+        }
+
+        .hero-copy {
+            max-width: 690px;
+        }
+
+        .hero-copy .section-kicker {
+            color: #ead7b0;
+        }
+
+        .hero-copy .section-kicker::before {
+            background: #ead7b0;
+            opacity: 0.5;
+        }
+
+        .hero-copy h1 {
+            color: var(--white);
+            font-size: clamp(3rem, 5.4vw, 5rem);
+            margin-bottom: 22px;
+            max-width: 11ch;
+        }
+
+        .hero-copy p {
+            color: rgba(255, 255, 255, 0.84);
+            font-size: 1.04rem;
+            max-width: 620px;
+            margin-bottom: 0;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin: 30px 0 24px;
+        }
+
+        .hero-primary,
+        .hero-secondary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 52px;
+            padding: 14px 24px;
+            text-decoration: none;
+            font-size: 0.82rem;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+        }
+
+        .hero-primary {
+            background: var(--gold);
+            color: var(--black);
+            border: 1px solid var(--gold);
+        }
+
+        .hero-primary:hover {
+            background: #d2b174;
+            border-color: #d2b174;
+        }
+
+        .hero-secondary {
+            border: 1px solid rgba(255, 255, 255, 0.38);
+            color: var(--white);
+            background: transparent;
+        }
+
+        .hero-secondary:hover {
+            border-color: var(--gold);
+            color: #f3e7ce;
+        }
+
+        .hero-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px 18px;
+        }
+
+        .hero-meta span {
+            display: inline-flex;
+            align-items: center;
+            padding-left: 12px;
+            border-left: 2px solid rgba(184, 148, 82, 0.86);
+            color: rgba(255, 255, 255, 0.82);
+            font-size: 0.74rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .hero-proof {
+            display: grid;
+            gap: 18px;
+        }
+
+        .hero-panel {
+            padding: 30px;
+            background: rgba(250, 247, 241, 0.94);
+            border-top: 4px solid var(--gold);
+            box-shadow: var(--deep-shadow);
+        }
+
+        .hero-panel-primary {
+            color: var(--black);
+        }
+
+        .panel-label {
+            display: block;
+            margin-bottom: 16px;
+            color: var(--gold-deep);
+            font-size: 0.74rem;
+            font-weight: 800;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+
+        .audience-grid {
+            display: grid;
+            gap: 16px;
+        }
+
+        .audience-card {
+            padding-top: 14px;
+            border-top: 1px solid rgba(92, 72, 38, 0.14);
+        }
+
+        .audience-card strong {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--black);
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .audience-card p {
+            color: var(--text-grey);
+            max-width: 100%;
+            margin-bottom: 0;
+            font-size: 0.95rem;
+        }
+
+        .hero-stats {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .stat-card {
+            min-height: 144px;
+            padding: 22px 20px;
+            background: rgba(248, 243, 234, 0.98);
+            border-top: 4px solid var(--gold);
+            box-shadow: var(--soft-shadow);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .stat-card strong {
+            font-family: "Playfair Display", serif;
+            font-size: 2.4rem;
+            line-height: 1;
+            color: var(--black);
+        }
+
+        .stat-card span {
+            color: var(--muted);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .positioning-home {
+            padding: 92px 0;
+            background: var(--white);
+        }
+
+        .positioning-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
+            gap: 34px;
+            align-items: start;
+        }
+
+        .statement-card {
+            background: var(--white);
+            border-top: 4px solid var(--gold);
+            box-shadow: var(--soft-shadow);
+            padding: 40px;
+        }
+
+        .statement-card p:last-child,
+        .highlight-card p:last-child,
+        .support-card p:last-child,
+        .process-card-home p:last-child,
+        .why-home-card p:last-child {
+            margin-bottom: 0;
+        }
+
+        .highlight-stack {
+            display: grid;
+            gap: 16px;
+        }
+
+        .highlight-card {
+            padding: 24px;
+            background: var(--sand);
+            border-left: 3px solid var(--gold);
+        }
+
+        .highlight-card strong {
+            display: block;
+            color: var(--black);
+            font-size: 0.84rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .service-area-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .service-area-tags span {
+            display: inline-flex;
+            align-items: center;
+            min-height: 38px;
+            padding: 9px 13px;
+            background: var(--surface-panel-strong);
+            border: 1px solid rgba(92, 72, 38, 0.08);
+            color: var(--black);
+            font-size: 0.74rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .pathways-section {
+            background: var(--sand);
+            padding: 92px 0;
+        }
+
+        .pathways-intro p {
+            max-width: 760px;
+        }
+
+        .pathways-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 22px;
+            margin-top: 38px;
+        }
+
+        .pathway-card {
+            padding: 30px;
+            background: var(--white);
+            border-top: 4px solid var(--gold);
+            box-shadow: var(--soft-shadow);
+        }
+
+        .pathway-card.featured {
+            background: #f7f1e7;
+        }
+
+        .pathway-icon {
+            width: 48px;
+            height: 48px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 18px;
+            border: 1px solid var(--stone);
+            background: #fffaf2;
+            color: var(--gold-deep);
+            font-size: 1rem;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+        }
+
+        .pathway-card h3 {
+            color: var(--black);
+            margin-bottom: 14px;
+        }
+
+        .pathway-card p {
+            color: var(--text-grey);
+            max-width: 100%;
+        }
+
+        .pathway-list,
+        .management-list {
+            padding-left: 18px;
+            line-height: 1.9;
+        }
+
+        .pathway-list {
+            color: var(--text-grey);
+            margin-bottom: 22px;
+        }
+
+        .pathway-link {
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+            color: var(--black);
+            font-size: 0.8rem;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            border-bottom: 2px solid var(--gold);
+            padding-bottom: 5px;
+        }
+
+        .management-section {
+            padding: 98px 0;
+            background: var(--white);
+        }
+
+        .management-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.02fr) minmax(300px, 0.98fr);
+            gap: 30px;
+            align-items: start;
+        }
+
+        .management-copy p {
+            max-width: 100%;
+        }
+
+        .management-panel {
+            background: var(--surface-panel);
+            color: var(--black);
+            padding: 30px;
+            border-top: 4px solid var(--gold);
+            box-shadow: var(--soft-shadow);
+        }
+
+        .management-panel p {
+            color: var(--text-grey);
+            max-width: 100%;
+        }
+
+        .management-list {
+            color: var(--text-grey);
+            margin-top: 16px;
+        }
+
+        .support-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 18px;
+            margin-top: 28px;
+        }
+
+        .support-card {
+            padding: 24px;
+            background: var(--sand);
+            border-left: 3px solid var(--gold);
+        }
+
+        .support-card h3 {
+            color: var(--black);
+        }
+
+        .support-card p {
+            max-width: 100%;
+        }
+
+        .process-home {
+            background: #f5efe5;
+            padding: 92px 0;
+        }
+
+        .process-home p {
+            max-width: 760px;
+        }
+
+        .process-grid-home {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 18px;
+            margin-top: 34px;
+        }
+
+        .process-card-home {
+            padding: 26px;
+            background: var(--white);
+            border-left: 4px solid var(--gold);
+            box-shadow: var(--soft-shadow);
+        }
+
+        .process-number-home {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            margin-bottom: 16px;
+            background: var(--surface-panel-strong);
+            color: var(--gold-deep);
+            font-size: 0.82rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+        }
+
+        .process-card-home h3 {
+            color: var(--black);
+            margin-bottom: 12px;
+        }
+
+        .process-card-home p {
+            max-width: 100%;
+        }
+
+        .why-home {
+            background: linear-gradient(180deg, #f2eadf 0%, #ebdfcf 100%);
+            padding: 92px 0;
+            color: var(--black);
+        }
+
+        .why-home h2 {
+            color: var(--black);
+        }
+
+        .why-home > .why-shell > p {
+            color: var(--text-grey);
+            max-width: 760px;
+        }
+
+        .why-home-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 18px;
+            margin-top: 36px;
+        }
+
+        .why-home-card {
+            padding: 26px;
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid rgba(92, 72, 38, 0.1);
+            border-left: 3px solid var(--gold);
+            box-shadow: var(--soft-shadow);
+        }
+
+        .why-home-card h3 {
+            color: var(--gold-deep);
+        }
+
+        .why-home-card p {
+            max-width: 100%;
+            color: var(--text-grey);
+        }
+
+        .cta-home {
+            padding: 96px 0;
+            background: var(--white);
+        }
+
+        .cta-panel {
+            display: grid;
+            grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
+            gap: 30px;
+            padding: 40px;
+            background: var(--surface-panel);
+            border-top: 4px solid var(--gold);
+            box-shadow: var(--soft-shadow);
+        }
+
+        .cta-panel h2 {
+            color: var(--black);
+        }
+
+        .cta-panel p {
+            color: var(--text-grey);
+            max-width: 100%;
+        }
+
+        .cta-panel .hero-actions {
+            margin-bottom: 0;
+        }
+
+        .cta-details {
+            display: grid;
+            gap: 14px;
+        }
+
+        .cta-detail {
+            padding: 18px 20px;
+            background: rgba(255, 255, 255, 0.62);
+            border: 1px solid rgba(92, 72, 38, 0.08);
+            border-left: 3px solid rgba(184, 148, 82, 0.9);
+        }
+
+        .cta-detail strong {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--gold-deep);
+            font-size: 0.76rem;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .cta-detail a,
+        .cta-detail span {
+            color: var(--black);
+            text-decoration: none;
+        }
+
+        @media (max-width: 1100px) {
+            .hero-grid,
+            .positioning-grid,
+            .management-grid,
+            .cta-panel {
+                grid-template-columns: 1fr;
+            }
+
+            .pathways-grid,
+            .support-grid,
+            .process-grid-home,
+            .why-home-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .hero-copy h1 {
+                max-width: 12ch;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .hero-shell,
+            .positioning-shell,
+            .pathways-shell,
+            .management-shell,
+            .process-shell,
+            .why-shell,
+            .cta-shell {
+                padding: 0 12px;
+            }
+
+            .hero-home {
+                min-height: auto;
+                padding: 118px 0 70px;
+            }
+
+            .hero-copy h1 {
+                font-size: clamp(2.35rem, 11vw, 3.45rem);
+                max-width: 100%;
+            }
+
+            .hero-actions,
+            .cta-panel .hero-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .hero-primary,
+            .hero-secondary {
+                width: 100%;
+            }
+
+            .hero-meta {
+                gap: 10px;
+            }
+
+            .hero-meta span {
+                width: 100%;
+            }
+
+            .hero-stats,
+            .pathways-grid,
+            .support-grid,
+            .process-grid-home,
+            .why-home-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .positioning-home,
+            .pathways-section,
+            .management-section,
+            .process-home,
+            .why-home,
+            .cta-home {
+                padding: 72px 0;
+            }
+
+            .hero-panel,
+            .statement-card,
+            .pathway-card,
+            .management-panel,
+            .support-card,
+            .process-card-home,
+            .why-home-card,
+            .cta-panel {
+                padding: 24px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero-shell,
+            .positioning-shell,
+            .pathways-shell,
+            .management-shell,
+            .process-shell,
+            .why-shell,
+            .cta-shell {
+                width: 100%;
+                padding: 0 10px;
+            }
+
+            .hero-home {
+                padding: 106px 0 56px;
+            }
+
+            .hero-copy h1 {
+                font-size: clamp(1.9rem, 12vw, 2.65rem);
+            }
+
+            .hero-copy p {
+                font-size: 0.95rem;
+            }
+
+            .hero-actions {
+                gap: 10px;
+                margin: 24px 0 18px;
+            }
+
+            .hero-primary,
+            .hero-secondary {
+                min-height: 50px;
+                padding: 14px 20px;
+                font-size: 0.8rem;
+            }
+
+            .positioning-home,
+            .pathways-section,
+            .management-section,
+            .process-home,
+            .why-home,
+            .cta-home {
+                padding: 58px 0;
+            }
+
+            .hero-panel,
+            .statement-card,
+            .pathway-card,
+            .management-panel,
+            .support-card,
+            .process-card-home,
+            .why-home-card,
+            .cta-panel {
+                padding: 20px;
+            }
+        }
+    </style>
 </head>
 <body>
-
+    <a class="skip-link" href="#main-content">Skip to content</a>
     <nav class="navbar">
-        <a href="index.html" style="text-decoration: none;">
-            <div class="brand-name">GOLDEN BRICK</div>
+        <a href="/" class="brand-link" aria-label="Golden Brick Construction home">
+            <span class="brand-mark" aria-hidden="true"></span>
+            <div class="brand-name">Golden Brick</div>
         </a>
-        <ul class="nav-links">
-            <li><a href="residential.html">Residential</a></li>
-            <li><a href="commercial.html">Commercial</a></li>
-            <li><a href="investors.html">Investors</a></li>
-            <li><a href="portfolio.html">Projects</a></li>
-            <li><a href="contact.html" class="btn-nav">Contact Us</a></li>
+
+        <button class="mobile-menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="site-menu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
+        <ul class="nav-links" id="site-menu">
+            <li><a href="residential.html">Residential Services</a></li>
+            <li><a href="investors.html">Investor Services</a></li>
+            <li><a href="about.html">About</a></li>
+            <li><a href="contact.html" class="btn-nav">Get a Quote</a></li>
         </ul>
     </nav>
 
-    <header class="hero">
-        <div class="hero-content">
-            <span class="hero-subtitle">Serving Philadelphia & Pennsylvania</span>
-            <h1>We Build<br>This City.</h1>
-            <p style="color: #ddd; margin: 20px auto;">Premier General Contracting for Investors, Businesses, and Homeowners.</p>
-        </div>
-    </header>
+    <main id="main-content">
+        <header class="hero-home">
+            <div class="hero-shell">
+                <div class="hero-grid">
+                    <div class="hero-copy">
+                        <span class="section-kicker">Philadelphia & Surrounding Pennsylvania Suburbs</span>
+                        <h1>Philadelphia General Contractors for Well-Managed Renovations</h1>
+                        <p>
+                            Golden Brick Construction helps homeowners and real estate investors plan, budget, permit,
+                            and execute renovation and new-build work with a more managed, accountable construction process.
+                        </p>
 
-    <div class="cred-strip">
-        <span class="cred-item">Licensed & Insured (PA)</span>
-        <span class="cred-item">General Contractors</span>
-        <span class="cred-item">Permitting & Management</span>
-    </div>
+                        <div class="hero-actions">
+                            <a href="contact.html" class="hero-primary">Request a Quote</a>
+                            <a href="tel:2677155557" class="hero-secondary" onclick="handleCallClick(event)">Call (267) 715-5557</a>
+                        </div>
 
-    <section class="split-section">
-        <div class="split-image img-res"></div> <div class="split-text">
-            <h3>Residential GC</h3>
-            <h2>Structural Integrity.</h2>
-            <p>We are not handymen. We are General Contractors handling complex renovations, additions, and new builds. From pulling permits in City Hall to the final structural inspection, we manage the entire build.</p>
-            <a href="residential.html" class="btn-arrow">Residential Services</a>
-        </div>
-    </section>
+                        <div class="hero-meta">
+                            <span>Licensed & Insured</span>
+                            <span>PA License #065157</span>
+                            <span>Planning, Permits, Project Management</span>
+                        </div>
+                    </div>
 
-    <section class="split-section bg-concrete">
-        <div class="split-text">
-            <h3>Commercial</h3>
-            <h2>Built for Business.</h2>
-            <p>Retail fit-outs, white-boxing, and office renovations in the Greater Philadelphia area. We understand strict commercial codes, ADA compliance, and tight timelines to get your doors open.</p>
-            <a href="commercial.html" class="btn-arrow">Commercial Services</a>
-        </div>
-        <div class="split-image img-com"></div> </section>
+                    <div class="hero-proof">
+                        <div class="hero-panel hero-panel-primary">
+                            <span class="panel-label">Built around two clear client paths</span>
 
-    <section class="split-section bg-dark">
-        <div class="split-image img-inv"></div> <div class="split-text">
-            <h3>Investors</h3>
-            <h2>Development & Flips.</h2>
-            <p>We work with Pennsylvania's top real estate investors. We specialize in maximizing ARV through efficient project management, durable material selection, and rapid turnover speeds.</p>
-            <a href="investors.html" class="btn-arrow">Investor Pricing</a>
-        </div>
-    </section>
+                            <div class="audience-grid">
+                                <div class="audience-card">
+                                    <strong>For Homeowners</strong>
+                                    <p>Major kitchens, bathrooms, flooring, full-home renovations, additions, and new builds.</p>
+                                </div>
 
-    <section class="signature-project">
-        <div class="project-content">
-            <h2>See Our Work</h2>
-            <p>From shell to finish. View our recent projects in Philly.</p>
-            <a href="portfolio.html" class="btn-nav">View Portfolio</a>
-        </div>
-    </section>
+                                <div class="audience-card">
+                                    <strong>For Investors</strong>
+                                    <p>Flips, rental rehabs, multifamily renovations, full gut projects, and construction strategy support.</p>
+                                </div>
+                            </div>
+                        </div>
 
-    <section class="standards-section">
-        <div style="max-width: 700px; margin: 0 auto;">
-            <h2>The General Contractor Standard</h2>
-            <div style="width: 50px; height: 4px; background: var(--gold); margin: 20px auto;"></div>
-            <p>Construction in Philadelphia requires navigating old structures and complex zoning. We handle the headaches so you don't have to.</p>
-        </div>
-
-        <div class="standards-grid">
-            <div class="icon-box">
-                <div style="font-size: 2rem; color: var(--gold);">🏗</div>
-                <h4>Project Management</h4>
-                <p style="font-size: 0.9rem;">We coordinate all trades, inspections, and material deliveries.</p>
+                        <div class="hero-stats">
+                            <div class="stat-card">
+                                <strong>25+</strong>
+                                <span>Years of Philadelphia real estate experience</span>
+                            </div>
+                            <div class="stat-card">
+                                <strong>7</strong>
+                                <span>Active projects in Philadelphia right now</span>
+                            </div>
+                            <div class="stat-card">
+                                <strong>32</strong>
+                                <span>Residential units currently under renovation</span>
+                            </div>
+                            <div class="stat-card">
+                                <strong>5</strong>
+                                <span>Core service areas across city and nearby counties</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="icon-box">
-                <div style="font-size: 2rem; color: var(--gold);">📜</div>
-                <h4>Permitting</h4>
-                <p style="font-size: 0.9rem;">We handle the paperwork with the City of Philadelphia.</p>
+        </header>
+
+        <section class="positioning-home">
+            <div class="positioning-shell">
+                <div class="positioning-grid">
+                    <div class="statement-card">
+                        <span class="section-kicker">Why Golden Brick</span>
+                        <h2>We're Built for Projects That Need Coordination, Not Guesswork</h2>
+                        <p>
+                            Golden Brick Construction is not a handyman service. We're structured for renovation and building
+                            projects where planning, sequencing, trusted trades, and budget discipline matter.
+                        </p>
+                        <p>
+                            That means clearer scopes, better communication, more realistic decision-making, and a contractor
+                            partner who understands both construction execution and property strategy.
+                        </p>
+                    </div>
+
+                    <div class="highlight-stack">
+                        <div class="highlight-card">
+                            <strong>Residential Scope</strong>
+                            Kitchens, bathrooms, flooring, drywall, painting, roofing, additions, full home renovations, and new residential builds.
+                        </div>
+
+                        <div class="highlight-card">
+                            <strong>Investor Scope</strong>
+                            Flips, rental renovations, multifamily rehabs, full guts, construction budgeting, and pre-project direction.
+                        </div>
+
+                        <div class="highlight-card">
+                            <strong>Service Footprint</strong>
+                            Philadelphia, Main Line, Bucks County, Montgomery County, Delaware County, and surrounding Pennsylvania suburbs.
+
+                            <div class="service-area-tags">
+                                <span>Philadelphia</span>
+                                <span>Main Line</span>
+                                <span>Bucks County</span>
+                                <span>Montgomery County</span>
+                                <span>Delaware County</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="icon-box">
-                <div style="font-size: 2rem; color: var(--gold);">🤝</div>
-                <h4>Transparency</h4>
-                <p style="font-size: 0.9rem;">Clear scopes of work and contracts. No surprise costs.</p>
+        </section>
+
+        <section class="pathways-section">
+            <div class="pathways-shell">
+                <div class="pathways-intro">
+                    <span class="section-kicker">Two Service Tracks</span>
+                    <h2>Two Service Paths, One Standard of Work</h2>
+                    <p>
+                        Whether the project starts with a family home or an investment property, our process is built to clarify scope, improve decision-making, and keep execution organized.
+                    </p>
+                </div>
+
+                <div class="pathways-grid">
+                    <div class="pathway-card featured">
+                        <div class="pathway-icon">01</div>
+                        <h3>Residential Services</h3>
+                        <p>
+                            We help homeowners renovate with a process that brings more order to design decisions, budgeting, scheduling, and execution.
+                        </p>
+                        <ul class="pathway-list">
+                            <li>Kitchen and bathroom remodeling</li>
+                            <li>Flooring, drywall, and interior finishes</li>
+                            <li>Full home renovations and additions</li>
+                            <li>Exterior work and new residential construction</li>
+                        </ul>
+                        <a href="residential.html" class="pathway-link">Explore Residential Services</a>
+                    </div>
+
+                    <div class="pathway-card">
+                        <div class="pathway-icon">02</div>
+                        <h3>Investor Services</h3>
+                        <p>
+                            We support investors from early project review through construction management, helping deals move with more clarity and discipline.
+                        </p>
+                        <ul class="pathway-list">
+                            <li>Fix-and-flip and rental renovation planning</li>
+                            <li>Multifamily and full gut rehab execution</li>
+                            <li>Scope, budget, and deal viability discussions</li>
+                            <li>Contractor coordination and project delivery</li>
+                        </ul>
+                        <a href="investors.html" class="pathway-link">Explore Investor Services</a>
+                    </div>
+                </div>
             </div>
-        </div>
-    </section>
+        </section>
+
+        <section class="resource-section">
+            <div class="resource-shell">
+                <div class="resource-intro">
+                    <span class="section-kicker">Popular Search Paths</span>
+                    <h2>Project Pages Built Around the Jobs People Actually Search For</h2>
+                    <p>
+                        People ready to hire usually search the exact project, not a broad construction phrase.
+                        These pages give homeowners and investors a clearer path into the renovation scopes we get asked about most in Philadelphia and the surrounding suburbs.
+                    </p>
+                </div>
+
+                <div class="resource-grid">
+                    <article class="resource-card">
+                        <span class="resource-tag">Philadelphia Kitchen Remodeling</span>
+                        <h3>Kitchen Remodeling</h3>
+                        <p>Planning, layout support, finish coordination, and managed execution for serious kitchen upgrades.</p>
+                        <a href="kitchen-remodeling-philadelphia.html" class="text-link">Explore Kitchen Remodeling</a>
+                    </article>
+
+                    <article class="resource-card">
+                        <span class="resource-tag">Philadelphia Bathroom Remodeling</span>
+                        <h3>Bathroom Remodeling</h3>
+                        <p>Bathroom renovation support built around sequencing, finish quality, and a cleaner project experience.</p>
+                        <a href="bathroom-remodeling-philadelphia.html" class="text-link">Explore Bathroom Remodeling</a>
+                    </article>
+
+                    <article class="resource-card">
+                        <span class="resource-tag">Philadelphia Full Gut Rehab</span>
+                        <h3>Full Gut Rehab</h3>
+                        <p>Major rehab planning and project management for homeowners and investors tackling full-property transformations.</p>
+                        <a href="full-gut-rehab-philadelphia.html" class="text-link">Explore Full Gut Rehab</a>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="management-section">
+            <div class="management-shell">
+                <div class="management-grid">
+                    <div class="management-copy">
+                        <span class="section-kicker">Full-Service Support</span>
+                        <h2>Project Management Matters as Much as the Build</h2>
+                        <p>
+                            Clients don't just need labor. They need help defining scope, identifying risks, lining up the right specialists,
+                            and keeping a project moving once construction starts.
+                        </p>
+                        <p>
+                            That's why Golden Brick's value is not limited to trade work. It's the structure that holds the project together.
+                        </p>
+
+                        <div class="support-grid">
+                            <div class="support-card">
+                                <h3>Pre-Construction</h3>
+                                <p>Scope definition, property walk-throughs, rough planning, budget direction, and early decision support.</p>
+                            </div>
+
+                            <div class="support-card">
+                                <h3>Execution Oversight</h3>
+                                <p>Scheduling, coordination, trade sequencing, issue resolution, and keeping the build moving forward.</p>
+                            </div>
+
+                            <div class="support-card">
+                                <h3>Partner Network</h3>
+                                <p>Architects, designers, lenders, specialty contractors, and adjacent service partners when the project needs them.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="management-panel">
+                        <span class="panel-label">What managed construction looks like</span>
+                        <p>
+                            A strong construction experience is usually the result of better systems, not better improvisation.
+                        </p>
+                        <ul class="management-list">
+                            <li>Property review and scope clarification before work begins</li>
+                            <li>Budget conversations grounded in actual project requirements</li>
+                            <li>Permit and planning support where the project calls for it</li>
+                            <li>Trade coordination and problem-solving during execution</li>
+                            <li>Final delivery with the next step already in mind</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="process-home">
+            <div class="process-shell">
+                <span class="section-kicker">How It Works</span>
+                <h2>A Straightforward Four-Step Process</h2>
+                <p>
+                    Every project moves through the same core stages so clients understand what happens first, what gets decided next, and how the work stays on track.
+                </p>
+
+                <div class="process-grid-home">
+                    <div class="process-card-home">
+                        <div class="process-number-home">01</div>
+                        <h3>Consultation</h3>
+                        <p>We review the property, understand the goals, and identify what kind of project support is actually needed.</p>
+                    </div>
+
+                    <div class="process-card-home">
+                        <div class="process-number-home">02</div>
+                        <h3>Planning</h3>
+                        <p>Scope, budgeting direction, permits, trade considerations, and sequencing are shaped before execution gets expensive.</p>
+                    </div>
+
+                    <div class="process-card-home">
+                        <div class="process-number-home">03</div>
+                        <h3>Construction</h3>
+                        <p>We coordinate labor, decisions, and site progress so the project moves forward with more control and less drift.</p>
+                    </div>
+
+                    <div class="process-card-home">
+                        <div class="process-number-home">04</div>
+                        <h3>Delivery</h3>
+                        <p>The finished project is delivered ready for living, sale, rent-up, or the client's next strategic move.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="why-home">
+            <div class="why-shell">
+                <span class="section-kicker">Why Clients Choose Golden Brick</span>
+                <h2>Why Philadelphia Clients Work With Golden Brick</h2>
+                <p>
+                    Our clients typically need more than a crew. They need a contractor who can help plan the work, organize the moving parts, and keep the project focused from first walkthrough to final handoff.
+                </p>
+
+                <div class="why-home-grid">
+                    <div class="why-home-card">
+                        <h3>Clear Project Leadership</h3>
+                        <p>We help define scope, sequencing, responsibilities, and next steps so the project starts with stronger alignment.</p>
+                    </div>
+
+                    <div class="why-home-card">
+                        <h3>Experience With Investor and Homeowner Work</h3>
+                        <p>Because we understand both renovation execution and property strategy, we can support projects with different goals and constraints.</p>
+                    </div>
+
+                    <div class="why-home-card">
+                        <h3>Better Coordination Across Trades</h3>
+                        <p>Projects move more smoothly when one team is keeping timelines, decisions, and site progress connected throughout the job.</p>
+                    </div>
+
+                    <div class="why-home-card">
+                        <h3>Focused on the Full Path to Completion</h3>
+                        <p>We look beyond individual tasks and help clients move from early review through execution and final delivery with more confidence.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="faq-section">
+            <div class="faq-shell">
+                <div class="faq-intro">
+                    <span class="section-kicker">Questions Before Contact</span>
+                    <h2>What People Usually Want to Know Before They Reach Out</h2>
+                    <p>
+                        Strong leads usually start with a few practical questions. These answers help set expectations before the first call or quote request.
+                    </p>
+                </div>
+
+                <div class="faq-grid">
+                    <details class="faq-item">
+                        <summary>What kinds of projects are the best fit for Golden Brick?</summary>
+                        <p>We are best suited for projects that need planning, coordination, and real project management, including kitchens, bathrooms, full-home renovations, full gut rehabs, investor renovations, and new residential construction.</p>
+                    </details>
+
+                    <details class="faq-item">
+                        <summary>Do you only work inside Philadelphia city limits?</summary>
+                        <p>No. We work in Philadelphia and nearby Pennsylvania suburbs, including Bucks County, Montgomery County, Delaware County, and the Main Line when the project fits our scope.</p>
+                    </details>
+
+                    <details class="faq-item">
+                        <summary>Can you help with planning, permits, and early decisions?</summary>
+                        <p>Yes. Many of the projects we support need scope clarification, finish decisions, planning input, or permit coordination before construction can move efficiently.</p>
+                    </details>
+
+                    <details class="faq-item">
+                        <summary>Do you work with both homeowners and investors?</summary>
+                        <p>Yes. The site is organized into residential and investor paths because the goals are different, but both audiences benefit from the same managed construction approach.</p>
+                    </details>
+
+                    <details class="faq-item">
+                        <summary>What is the fastest way to start a quote?</summary>
+                        <p>The quickest step is the quote form on the contact page. Include the property address, project type, goals, and timeline so we can review the fit and respond more efficiently.</p>
+                    </details>
+                </div>
+            </div>
+        </section>
+
+        <section class="cta-home">
+            <div class="cta-shell">
+                <div class="cta-panel">
+                    <div>
+                        <span class="section-kicker">Next Step</span>
+                        <h2>Ready to Talk Through Your Project?</h2>
+                        <p>
+                            Whether you're planning a major home renovation or sizing up an investment property, we can help shape the scope and the path forward.
+                        </p>
+
+                        <div class="hero-actions">
+                            <a href="contact.html" class="hero-primary">Request a Quote</a>
+                            <a href="residential.html" class="hero-secondary">Residential Services</a>
+                        </div>
+                    </div>
+
+                    <div class="cta-details">
+                        <div class="cta-detail">
+                            <strong>Phone</strong>
+                            <a href="tel:2677155557">(267) 715-5557</a>
+                        </div>
+
+                        <div class="cta-detail">
+                            <strong>Email</strong>
+                            <a href="mailto:info@goldenbrickc.com">info@goldenbrickc.com</a>
+                        </div>
+
+                        <div class="cta-detail">
+                            <strong>Service Area</strong>
+                            <span>Philadelphia, Bucks, Montgomery, Delaware, and surrounding suburbs</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
 
     <footer>
         <div class="footer-grid">
-            <div class="footer-left">
-                <h2>GOLDEN BRICK</h2>
-                <p>Building Philadelphia, One Project at a Time.</p>
-                <br>
-                <p style="color: #666;"><strong>Serving:</strong> Philadelphia, Bucks, Montgomery, and Delaware Counties.</p>
-                <p style="color: #666;"><strong>Email:</strong> info@goldenbrickc.com</p>
+            <div class="footer-column footer-left">
+                <a href="/" class="brand-link footer-brand" aria-label="Golden Brick Construction home">
+                    <span class="brand-mark" aria-hidden="true"></span>
+                    <div class="brand-name">Golden Brick</div>
+                </a>
+                <p class="footer-blurb">Building Philadelphia one well-managed project at a time for homeowners and investors who need planning, coordination, and reliable execution.</p>
+                <div class="footer-contact-list">
+                    <p><strong>Serving</strong> Philadelphia, Bucks, Montgomery, and Delaware Counties</p>
+                    <p><strong>Email</strong> <a href="mailto:info@goldenbrickc.com">info@goldenbrickc.com</a></p>
+                    <p><strong>Phone</strong> <a href="tel:2677155557">(267) 715-5557</a></p>
+                </div>
             </div>
-            <div class="footer-right" style="text-align: right; display: flex; flex-direction: column; justify-content: center; align-items: flex-end;">
-                <h3 style="color: var(--white); margin-bottom: 20px;">Ready to Build?</h3>
-                <a href="contact.html" class="btn-footer">Get a Bid</a>
+
+            <div class="footer-column">
+                <div class="footer-eyebrow">Explore</div>
+                <div class="footer-links">
+                    <a href="residential.html">Residential Services</a>
+                    <a href="investors.html">Investor Services</a>
+                    <a href="about.html">About Golden Brick</a>
+                    <a href="contact.html">Request a Quote</a>
+                </div>
+            </div>
+
+            <div class="footer-column footer-right">
+                <div class="footer-eyebrow">Start the Conversation</div>
+                <p class="footer-cta-copy">Tell us about your scope, timing, and goals and we'll help you figure out the right next move.</p>
+                <a href="contact.html" class="btn-footer">Get a Quote</a>
             </div>
         </div>
+
         <div class="copyright">
-            &copy; 2025 Golden Brick Construction. Pennsylvania Licensed Contractor.
+            &copy; <span data-current-year>2026</span> Golden Brick Construction. Pennsylvania Licensed Contractor. PA License #065157.
         </div>
     </footer>
 
+    <script src="site.js"></script>
+    <script>
+        function handleCallClick(event) {
+            const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent)
+                || window.matchMedia("(pointer: coarse)").matches;
+
+            if (!isMobile) {
+                event.preventDefault();
+
+                const phoneRaw = "2677155557";
+                const phoneDisplay = "(267) 715-5557";
+
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(phoneRaw).catch(function () {});
+                }
+
+                alert("Call us now at " + phoneDisplay + ". The number has been copied for you.");
+            }
+        }
+    </script>
 </body>
 </html>
