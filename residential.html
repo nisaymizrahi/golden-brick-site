@@ -4,131 +4,699 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Residential Services | Golden Brick Construction</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <style>
-        /* Specific Styles for Residential Page */
-        .res-hero {
-            /* Different image than the homepage */
-            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2000&auto=format&fit=crop') center/cover;
-            height: 60vh; /* Slightly shorter than homepage hero */
+        .service-hero {
+            background: linear-gradient(rgba(0,0,0,0.62), rgba(0,0,0,0.78)), url('https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=2000&auto=format&fit=crop') center/cover;
+            min-height: 62vh;
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
             color: var(--white);
-        }
-        
-        .service-detail-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 50px;
-            align-items: center;
-            margin-bottom: 80px;
+            padding: 120px 20px 70px;
         }
 
-        .service-text h3 {
-            font-size: 2rem;
-            color: var(--dark);
-            margin-bottom: 20px;
+        .service-hero h1,
+        .service-hero p {
+            color: var(--white);
         }
-        
-        .service-img img {
-            width: 100%;
-            border-radius: 4px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+
+        .service-hero p {
+            color: #ddd;
+            max-width: 850px;
+            margin: 0 auto;
+        }
+
+        .intro-section,
+        .services-overview,
+        .support-section,
+        .process-section,
+        .detail-section,
+        .why-section {
+            padding: 90px 10%;
+        }
+
+        .intro-section,
+        .support-section,
+        .detail-section {
+            background: var(--white);
+        }
+
+        .services-overview,
+        .process-section {
+            background: var(--concrete);
+            text-align: center;
+        }
+
+        .why-section {
+            background: var(--charcoal);
+            color: var(--white);
+            text-align: center;
+        }
+
+        .why-section h2 {
+            color: var(--white);
+        }
+
+        .why-section p {
+            color: #cfcfcf;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .intro-grid,
+        .support-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 40px;
+            align-items: start;
+        }
+
+        .gold-line {
+            width: 60px;
+            height: 4px;
+            background: var(--gold);
+            margin: 18px 0 24px;
+        }
+
+        .intro-box {
+            background: #f7f7f7;
+            border-left: 4px solid var(--gold);
+            padding: 24px;
+            margin-bottom: 18px;
+            box-shadow: var(--soft-shadow);
+        }
+
+        .intro-box strong {
+            display: block;
+            color: var(--black);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.88rem;
+            margin-bottom: 8px;
+        }
+
+        .service-area-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 24px;
+        }
+
+        .service-area-tags span {
+            background: var(--black);
+            color: var(--white);
+            padding: 10px 14px;
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .services-overview p,
+        .process-section p {
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .services-grid,
+        .process-grid,
+        .detail-grid,
+        .why-grid {
+            margin-top: 50px;
+            gap: 24px;
+        }
+
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            text-align: left;
+        }
+
+        .service-card {
+            background: var(--white);
+            padding: 30px 28px;
+            border-top: 4px solid var(--gold);
+            box-shadow: var(--soft-shadow);
+        }
+
+        .service-icon {
+            width: 52px;
+            height: 52px;
+            border: 1px solid var(--soft-border);
+            background: #fbfbfb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+        }
+
+        .service-card h3 {
+            color: var(--black);
+            margin-bottom: 14px;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+        }
+
+        .service-card p,
+        .support-copy p,
+        .detail-card p,
+        .why-card p {
+            max-width: 100%;
+        }
+
+        .support-panel {
+            background: var(--charcoal);
+            color: var(--white);
+            border-top: 4px solid var(--gold);
+            padding: 34px;
+            box-shadow: var(--soft-shadow);
+        }
+
+        .support-panel h3 {
+            color: var(--gold);
+            margin-bottom: 14px;
+        }
+
+        .support-list {
+            padding-left: 18px;
+            line-height: 1.9;
+            color: #d3d3d3;
+            margin-top: 16px;
+        }
+
+        .process-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            text-align: left;
+        }
+
+        .process-card {
+            background: var(--white);
+            padding: 28px;
+            box-shadow: var(--soft-shadow);
+            border-left: 4px solid var(--gold);
+        }
+
+        .process-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            background: var(--black);
+            color: var(--gold);
+            font-weight: 800;
+            margin-bottom: 16px;
+        }
+
+        .process-card h3,
+        .detail-card h3 {
+            color: var(--black);
+            margin-bottom: 12px;
+        }
+
+        .detail-header {
+            text-align: center;
+            max-width: 900px;
+            margin: 0 auto 55px;
+        }
+
+        .detail-header p {
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .detail-card {
+            background: #fafafa;
+            border: 1px solid #ececec;
+            padding: 30px 28px;
+            box-shadow: var(--soft-shadow);
+        }
+
+        .detail-list {
+            padding-left: 18px;
+            line-height: 1.9;
+            color: #555;
+        }
+
+        .why-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            text-align: left;
+        }
+
+        .why-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 26px;
+        }
+
+        .why-card h3 {
+            color: var(--gold);
+            margin-bottom: 12px;
+        }
+
+        .cta-section {
+            background: var(--black);
+            color: var(--white);
+            text-align: center;
+            padding: 70px 20px;
+        }
+
+        .cta-section h2 {
+            color: var(--white);
+            margin-bottom: 16px;
+        }
+
+        .cta-section p {
+            color: #ccc;
+            margin: 0 auto 28px;
+            max-width: 780px;
+        }
+
+        @media (max-width: 992px) {
+            .intro-grid,
+            .services-grid,
+            .support-grid,
+            .process-grid,
+            .detail-grid,
+            .why-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         @media (max-width: 768px) {
-            .service-detail-grid { grid-template-columns: 1fr; }
-            .service-img { order: -1; margin-bottom: 20px; } /* Puts image on top on mobile */
+            .intro-section,
+            .services-overview,
+            .support-section,
+            .process-section,
+            .detail-section,
+            .why-section {
+                padding: 70px 6%;
+            }
+
+            .service-hero {
+                min-height: auto;
+                padding: 110px 18px 60px;
+            }
+
+            .service-hero h1 {
+                font-size: clamp(2rem, 9vw, 3rem);
+            }
+
+            .service-hero p {
+                font-size: 0.98rem;
+            }
+
+            .service-card,
+            .support-panel,
+            .process-card,
+            .detail-card,
+            .why-card,
+            .intro-box {
+                padding: 24px;
+            }
         }
     </style>
 </head>
 <body>
-
     <nav class="navbar">
-        <div class="logo-container">
-            <a href="index.html" style="text-decoration: none; color: inherit;">
-                <span class="brand-name">GOLDEN BRICK</span>
-            </a>
-        </div>
-        <ul class="nav-links">
-            <li><a href="index.html">Services</a></li>
-            <li><a href="portfolio.html">Portfolio</a></li>
-            <li><a href="about.html">About Us</a></li>
-            <li><a href="contact.html" class="btn-contact">Contact Us</a></li>
+        <a href="index.html" style="text-decoration: none;">
+            <div class="brand-name">GOLDEN BRICK</div>
+        </a>
+
+        <button class="mobile-menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="site-menu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
+        <ul class="nav-links" id="site-menu">
+            <li><a href="residential.html">Residential Services</a></li>
+            <li><a href="investors.html">Investor Services</a></li>
+            <li><a href="about.html">About</a></li>
+            <li><a href="contact.html" class="btn-nav">Get a Quote</a></li>
         </ul>
     </nav>
 
-    <header class="res-hero">
+    <header class="service-hero">
         <div class="hero-content">
-            <h1>Elevate Your Living Space</h1>
-            <p>From luxury renovations to ground-up new construction.</p>
+            <span class="hero-subtitle">Philadelphia Home Renovation Services</span>
+            <h1>Residential Services</h1>
+            <p>
+                Full-service support for homeowners planning kitchen remodels, bathroom remodels,
+                flooring, drywall, painting, roofing, exterior upgrades, whole-home renovations,
+                full-gut rehabs, and new residential construction across Philadelphia and the
+                surrounding Pennsylvania suburbs.
+            </p>
         </div>
     </header>
 
-    <section class="section" style="padding: 80px 10%;">
-        
-        <div class="service-detail-grid">
-            <div class="service-text">
-                <h3>Kitchens & Bathrooms</h3>
-                <p>The heart of the home requires precision. We handle everything from custom cabinetry and quartz countertop installation to plumbing reconfiguration and luxury tile work.</p>
-                <ul style="margin-top: 20px; padding-left: 20px; line-height: 1.8;">
-                    <li>Full Gut Renovations</li>
-                    <li>Custom Island Installation</li>
-                    <li>Spa-Inspired Master Baths</li>
-                    <li>High-end Fixtures & Lighting</li>
-                </ul>
+    <section class="intro-section">
+        <div class="intro-grid">
+            <div>
+                <h2>We Help Homeowners Plan and Complete Serious Renovations</h2>
+                <div class="gold-line"></div>
+                <p>
+                    Golden Brick Construction works with homeowners who need more than labor alone.
+                    We help shape the scope, coordinate the moving parts, and manage the project
+                    from early planning through final execution.
+                </p>
+                <p>
+                    Whether the project is a kitchen remodel, bathroom renovation, full-home upgrade,
+                    full-gut rehab, exterior improvement, or new build, we bring a more organized
+                    process designed to keep the work clean, structured, and moving in the right direction.
+                </p>
             </div>
-            <div class="service-img">
-                <img src="https://images.unsplash.com/photo-1556911220-e15b29be8c8f?q=80&w=800" alt="Luxury Kitchen Renovation">
+
+            <div>
+                <div class="intro-box">
+                    <strong>Who We Work With</strong>
+                    Homeowners, owner-occupants, buyers preparing a newly purchased home, and families improving long-term residences.
+                </div>
+                <div class="intro-box">
+                    <strong>Project Types</strong>
+                    Kitchens, bathrooms, flooring, drywall, painting, roofing, exterior work, whole-home renovations, full-gut rehabs, and new residential builds.
+                </div>
+                <div class="intro-box">
+                    <strong>Approach</strong>
+                    Full-service project management with planning support, scheduling, site protection, finish guidance, and coordinated execution.
+                </div>
+
+                <div class="service-area-tags">
+                    <span>Philadelphia</span>
+                    <span>Kitchens</span>
+                    <span>Bathrooms</span>
+                    <span>Whole-Home Renovations</span>
+                    <span>Roofing & Exterior</span>
+                    <span>Surrounding PA Suburbs</span>
+                </div>
             </div>
         </div>
-
-        <div class="service-detail-grid">
-            <div class="service-img">
-                <img src="https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?q=80&w=800" alt="Hardwood Flooring">
-            </div>
-            <div class="service-text">
-                <h3>Flooring & Finishes</h3>
-                <p>Details matter. Whether it’s restoring original hardwood, installing modern LVP, or executing complex trim and crown molding, our finish work sets the standard for the entire home.</p>
-                <ul style="margin-top: 20px; padding-left: 20px; line-height: 1.8;">
-                    <li>Hardwood Installation & Refinishing</li>
-                    <li>Luxury Vinyl Plank (LVP)</li>
-                    <li>Tile & Stone Work</li>
-                    <li>Crown Molding & Baseboards</li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="service-detail-grid">
-            <div class="service-text">
-                <h3>New Builds & Additions</h3>
-                <p>Need more space? We manage the entire lifecycle of major structural projects. From pouring the foundation to the final coat of paint, we build with structural integrity and code compliance.</p>
-                <ul style="margin-top: 20px; padding-left: 20px; line-height: 1.8;">
-                    <li>Ground-Up Construction</li>
-                    <li>Home Additions & Extensions</li>
-                    <li>Structural Alterations</li>
-                    <li>Permit Management</li>
-                </ul>
-            </div>
-            <div class="service-img">
-                <img src="https://images.unsplash.com/photo-1503387762-592deb58ef4e?q=80&w=800" alt="New Construction Framing">
-            </div>
-        </div>
-
     </section>
 
-    <section style="background-color: var(--dark); color: var(--white); text-align: center; padding: 60px 20px;">
-        <h2 style="margin-bottom: 20px; color: var(--gold);">Ready to transform your home?</h2>
-        <p style="margin-bottom: 30px; max-width: 600px; margin-left: auto; margin-right: auto;">Schedule a consultation to discuss your vision and get a detailed estimate.</p>
-        <a href="contact.html" class="btn-contact" style="background: var(--gold); color: var(--dark)!important; font-weight: 700;">Get a Quote</a>
+    <section class="services-overview">
+        <h2>What We Help Homeowners With</h2>
+        <div style="width: 60px; height: 4px; background: var(--gold); margin: 20px auto;"></div>
+        <p>
+            Our residential services are built for projects that require planning, coordination,
+            and reliable execution rather than piecing everything together on your own.
+        </p>
+
+        <div class="services-grid">
+            <div class="service-card">
+                <div class="service-icon">⌂</div>
+                <h3>Kitchen Remodeling</h3>
+                <p>We help homeowners redesign and renovate kitchens with coordinated demolition, build-back, finish work, and project oversight.</p>
+            </div>
+
+            <div class="service-card">
+                <div class="service-icon">◫</div>
+                <h3>Bathroom Remodeling</h3>
+                <p>From layout updates to full rebuilds, we manage bathroom renovations with attention to sequencing, cleanliness, and finish quality.</p>
+            </div>
+
+            <div class="service-card">
+                <div class="service-icon">▤</div>
+                <h3>Flooring, Drywall & Painting</h3>
+                <p>We coordinate the interior finish work that helps refresh worn spaces and tie larger renovation scopes together.</p>
+            </div>
+
+            <div class="service-card">
+                <div class="service-icon">◆</div>
+                <h3>Whole-Home Renovations</h3>
+                <p>We manage broader residential renovations where multiple rooms, trades, and decisions need to stay aligned under one plan.</p>
+            </div>
+
+            <div class="service-card">
+                <div class="service-icon">▦</div>
+                <h3>Full-Gut Rehabs</h3>
+                <p>For homes requiring major transformation, we help coordinate the scope, sequencing, and full execution needed to rebuild correctly.</p>
+            </div>
+
+            <div class="service-card">
+                <div class="service-icon">▲</div>
+                <h3>Roofing & Exterior Work</h3>
+                <p>We support residential exterior improvements that protect the home and improve the finished appearance of the property.</p>
+            </div>
+
+            <div class="service-card">
+                <div class="service-icon">▣</div>
+                <h3>New Residential Construction</h3>
+                <p>We help homeowners move new-build projects from early planning into coordinated construction and final delivery.</p>
+            </div>
+
+            <div class="service-card">
+                <div class="service-icon">◧</div>
+                <h3>Planning & Permit Coordination</h3>
+                <p>When a project requires plans, design input, or submissions, we help coordinate the early steps that keep the job moving forward.</p>
+            </div>
+
+            <div class="service-card">
+                <div class="service-icon">◼</div>
+                <h3>Design & Finish Guidance</h3>
+                <p>We can help organize selections, shopping days, and finish decisions so the project stays cohesive and practical to execute.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="support-section">
+        <div class="support-grid">
+            <div class="support-copy">
+                <h2>Full-Service Support for Homeowners</h2>
+                <div class="gold-line"></div>
+                <p>
+                    One of the biggest challenges in a residential renovation is keeping all the
+                    moving parts organized. We help homeowners avoid the stress of coordinating
+                    every trade, schedule, and decision on their own.
+                </p>
+                <p>
+                    Our process is designed to make the project clearer from the beginning:
+                    define the scope, map out the path forward, prepare the site properly,
+                    and manage execution so the work can progress with fewer surprises.
+                </p>
+                <p>
+                    For occupied homes especially, we focus on protection, cleanliness, communication,
+                    and careful staging so the job is handled more responsibly while work is underway.
+                </p>
+            </div>
+
+            <div class="support-panel">
+                <h3>What Full-Service Can Include</h3>
+                <ul class="support-list">
+                    <li>Project consultation and scope development</li>
+                    <li>Budget direction and renovation planning</li>
+                    <li>Design guidance and finish-selection support</li>
+                    <li>Permit and submission coordination when needed</li>
+                    <li>Site preparation and protection of existing areas</li>
+                    <li>Scheduling and coordination across trades</li>
+                    <li>Construction oversight from start to finish</li>
+                    <li>Final walkthrough, punch list, and closeout support</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section class="process-section">
+        <h2>How We Help Homeowners</h2>
+        <div style="width: 60px; height: 4px; background: var(--gold); margin: 20px auto;"></div>
+        <p>
+            We approach residential projects as a managed process so clients can move from idea
+            to finished space with more clarity, better coordination, and stronger oversight.
+        </p>
+
+        <div class="process-grid">
+            <div class="process-card">
+                <div class="process-number">01</div>
+                <h3>Project Consultation</h3>
+                <p>We review the property, understand the goals, and discuss the renovation scope, constraints, and priorities.</p>
+            </div>
+
+            <div class="process-card">
+                <div class="process-number">02</div>
+                <h3>Scope & Budget Planning</h3>
+                <p>We help shape the renovation path with scope clarification, sequencing, early budgeting direction, and practical recommendations.</p>
+            </div>
+
+            <div class="process-card">
+                <div class="process-number">03</div>
+                <h3>Design, Selections & Prep</h3>
+                <p>When needed, we coordinate plans, finish decisions, shopping support, site preparation, and the next steps needed before construction begins.</p>
+            </div>
+
+            <div class="process-card">
+                <div class="process-number">04</div>
+                <h3>Construction & Coordination</h3>
+                <p>We organize the right teams, specialists, and schedule so the renovation progresses in a more controlled and efficient way.</p>
+            </div>
+
+            <div class="process-card">
+                <div class="process-number">05</div>
+                <h3>Quality Checks & Final Details</h3>
+                <p>We keep an eye on the details, track punch items, and help ensure the completed work matches the intended scope and finish level.</p>
+            </div>
+
+            <div class="process-card">
+                <div class="process-number">06</div>
+                <h3>Completion & Walkthrough</h3>
+                <p>We bring the project to closeout with final review, handoff, and a completed space that is ready for everyday use.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="detail-section">
+        <div class="detail-header">
+            <h2>Residential Projects We Support</h2>
+            <div style="width: 60px; height: 4px; background: var(--gold); margin: 20px auto;"></div>
+            <p>
+                Our residential work is built around homeowner projects where thoughtful planning,
+                finish quality, and day-to-day coordination all matter.
+            </p>
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-card">
+                <h3>Kitchens & Bathrooms</h3>
+                <p>We help homeowners update the most heavily used spaces in the home with practical planning and managed execution.</p>
+                <ul class="detail-list">
+                    <li>Layout refreshes and full remodels</li>
+                    <li>Demolition and build-back coordination</li>
+                    <li>Cabinet, tile, fixture, and finish planning</li>
+                    <li>Sequencing across trades and material deliveries</li>
+                    <li>Quality-focused finish installation support</li>
+                    <li>Clean, organized project management</li>
+                </ul>
+            </div>
+
+            <div class="detail-card">
+                <h3>Whole-Home Renovations & Full Guts</h3>
+                <p>For broader transformations, we help manage the complexity of larger residential scopes from start to completion.</p>
+                <ul class="detail-list">
+                    <li>Multi-room renovation planning</li>
+                    <li>Flooring, drywall, painting, and finish coordination</li>
+                    <li>Full-gut rehabilitation support</li>
+                    <li>Sequenced construction across larger scopes</li>
+                    <li>Protection and staging for occupied homes where possible</li>
+                    <li>Oversight through final walkthrough</li>
+                </ul>
+            </div>
+
+            <div class="detail-card">
+                <h3>Exterior Work & New Builds</h3>
+                <p>We also support homeowners taking on major exterior upgrades or starting from the ground up with a new home project.</p>
+                <ul class="detail-list">
+                    <li>Roofing and exterior improvement coordination</li>
+                    <li>Curb-appeal and protection-focused upgrades</li>
+                    <li>Planning support for larger residential scopes</li>
+                    <li>Permit and submission coordination when required</li>
+                    <li>New residential construction management</li>
+                    <li>Organized execution through project completion</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section class="why-section">
+        <h2>Why Homeowners Work With Golden Brick</h2>
+        <div style="width: 60px; height: 4px; background: var(--gold); margin: 20px auto;"></div>
+        <p>
+            We combine planning, project management, and hands-on renovation experience to help
+            homeowners move forward with more confidence and less chaos.
+        </p>
+
+        <div class="why-grid">
+            <div class="why-card">
+                <h3>Organized Process</h3>
+                <p>We bring structure to complex projects so clients have a clearer path from consultation to final completion.</p>
+            </div>
+
+            <div class="why-card">
+                <h3>Clean, Responsible Job Management</h3>
+                <p>Occupied homes need thoughtful staging, protection, and communication, not a messy or improvised process.</p>
+            </div>
+
+            <div class="why-card">
+                <h3>Coordinated Execution</h3>
+                <p>We help line up the right specialists, materials, and timing so the work can progress with fewer disconnects.</p>
+            </div>
+
+            <div class="why-card">
+                <h3>Homeowner-Focused Guidance</h3>
+                <p>We help clients make practical decisions around scope, finishes, and sequencing without losing sight of the end result.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section">
+        <h2>Planning a Residential Renovation?</h2>
+        <p>
+            Whether you are updating a kitchen, remodeling a bathroom, renovating an entire home,
+            tackling a full-gut rehab, improving the exterior, or planning a new build, our team is
+            ready to help you move forward with the right scope and a better-managed process.
+        </p>
+        <a href="contact.html" class="btn-nav">Request a Quote</a>
     </section>
 
     <footer>
-        <p>&copy; 2025 Golden Brick Construction. Licensed & Insured.</p>
+        <div class="footer-grid">
+            <div class="footer-left">
+                <h2>GOLDEN BRICK</h2>
+                <p>Building Philadelphia, One Project at a Time.</p>
+                <br>
+                <p style="color: #666;"><strong>Serving:</strong> Philadelphia, Bucks, Montgomery, and Delaware Counties.</p>
+                <p style="color: #666;"><strong>Email:</strong> info@goldenbrickc.com</p>
+                <p style="color: #666;"><strong>Phone:</strong> <a href="tel:2677155557" style="color:#666;text-decoration:none;">(267) 715-5557</a></p>
+            </div>
+            <div class="footer-right" style="text-align: right; display: flex; flex-direction: column; justify-content: center; align-items: flex-end;">
+                <h3 style="color: var(--white); margin-bottom: 20px;">Need a Residential Quote?</h3>
+                <a href="contact.html" class="btn-footer">Start Here</a>
+            </div>
+        </div>
+        <div class="copyright">
+            &copy; 2025 Golden Brick Construction. Philadelphia General Contractor Licence #065157.
+        </div>
     </footer>
 
+    <script>
+        (function () {
+            const toggle = document.querySelector('.mobile-menu-toggle');
+            const menu = document.querySelector('.nav-links');
+
+            if (!toggle || !menu) return;
+
+            toggle.addEventListener('click', function () {
+                const isOpen = menu.classList.toggle('is-open');
+                toggle.classList.toggle('is-active', isOpen);
+                toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                document.body.classList.toggle('menu-open', isOpen);
+            });
+
+            menu.querySelectorAll('a').forEach(function (link) {
+                link.addEventListener('click', function () {
+                    menu.classList.remove('is-open');
+                    toggle.classList.remove('is-active');
+                    toggle.setAttribute('aria-expanded', 'false');
+                    document.body.classList.remove('menu-open');
+                });
+            });
+
+            window.addEventListener('resize', function () {
+                if (window.innerWidth > 900) {
+                    menu.classList.remove('is-open');
+                    toggle.classList.remove('is-active');
+                    toggle.setAttribute('aria-expanded', 'false');
+                    document.body.classList.remove('menu-open');
+                }
+            });
+        })();
+    </script>
 </body>
 </html>
