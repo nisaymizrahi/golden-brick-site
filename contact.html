@@ -287,50 +287,9 @@
             margin-bottom: 6px;
         }
 
-        .form-guidance {
-            margin-bottom: 0;
-            color: #5e5447;
-        }
-
-        .detail-hint-list {
-            padding-left: 18px;
-            display: grid;
-            gap: 8px;
-            margin-top: 10px;
-            color: var(--text-grey);
-        }
-
-        .contact-method-grid {
-            display: grid;
-            gap: 12px;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-
-        .contact-method-option {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 14px 15px;
-            border: 1px solid rgba(92, 72, 38, 0.12);
-            background: var(--white);
-        }
-
-        .contact-method-option input {
-            width: auto;
-            margin: 0;
-            accent-color: var(--gold-deep);
-        }
-
-        .contact-method-option label {
-            margin: 0;
-            font-size: 0.8rem;
-            letter-spacing: 0.08em;
-            cursor: pointer;
-        }
-
         .consent-block {
             display: grid;
-            gap: 12px;
+            gap: 10px;
             padding: 18px;
             background: rgba(255, 255, 255, 0.82);
             border: 1px solid rgba(92, 72, 38, 0.12);
@@ -360,6 +319,44 @@
 
         .policy-link {
             color: var(--gold-deep);
+        }
+
+        .quick-contact-row {
+            display: grid;
+            gap: 14px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            margin-bottom: 8px;
+        }
+
+        .quick-contact-card {
+            padding: 18px;
+            background: rgba(255, 255, 255, 0.82);
+            border: 1px solid rgba(92, 72, 38, 0.12);
+        }
+
+        .quick-contact-card strong,
+        .quick-contact-card p,
+        .quick-contact-card a {
+            max-width: none;
+        }
+
+        .quick-contact-card strong {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--black);
+            text-transform: uppercase;
+            font-size: 0.82rem;
+            letter-spacing: 0.08em;
+        }
+
+        .quick-contact-card p {
+            margin-bottom: 0;
+        }
+
+        .quick-contact-card a {
+            color: var(--gold-deep);
+            text-decoration: none;
+            font-weight: 700;
         }
 
         .submit-btn {
@@ -473,7 +470,7 @@
                 font-size: 0.98rem;
             }
 
-            .contact-method-grid {
+            .quick-contact-row {
                 grid-template-columns: 1fr;
             }
         }
@@ -612,14 +609,16 @@
                 <p>
                     Fill out the form below so we can review the project, reach out, and prepare for a more useful first conversation.
                 </p>
-                <p class="form-guidance">
-                    The most helpful details are:
-                </p>
-                <ul class="detail-hint-list">
-                    <li>The property address or neighborhood</li>
-                    <li>The kind of renovation or construction work you need</li>
-                    <li>Your goals, timing, and whether the property is owner-occupied or an investment</li>
-                </ul>
+                <div class="quick-contact-row">
+                    <div class="quick-contact-card">
+                        <strong>Call For Faster Help</strong>
+                        <p><a href="tel:2677155557">(267) 715-5557</a></p>
+                    </div>
+                    <div class="quick-contact-card">
+                        <strong>Best Details To Include</strong>
+                        <p>Property address, project goals, and the work you want done.</p>
+                    </div>
+                </div>
 
                 <form
                     class="lead-form"
@@ -654,72 +653,12 @@
                         </div>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="project-type">Project Type</label>
-                            <select id="project-type" class="lead-extra-field" data-extra-label="Project type">
-                                <option value="">Select project type</option>
-                                <option value="Bathroom remodel">Bathroom remodel</option>
-                                <option value="Kitchen remodel">Kitchen remodel</option>
-                                <option value="Full gut rehab">Full gut rehab</option>
-                                <option value="Investor renovation">Investor renovation</option>
-                                <option value="New construction">New construction</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="timeline">Ideal Timeline</label>
-                            <select id="timeline" class="lead-extra-field" data-extra-label="Timeline">
-                                <option value="">Select timeline</option>
-                                <option value="As soon as possible">As soon as possible</option>
-                                <option value="Within 30 days">Within 30 days</option>
-                                <option value="1 to 3 months">1 to 3 months</option>
-                                <option value="3+ months">3+ months</option>
-                                <option value="Just researching">Just researching</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="property-status">Property Type Or Status</label>
-                            <select id="property-status" class="lead-extra-field" data-extra-label="Property type or status">
-                                <option value="">Select property type or status</option>
-                                <option value="Owner-occupied home">Owner-occupied home</option>
-                                <option value="Vacant property">Vacant property</option>
-                                <option value="Investment property">Investment property</option>
-                                <option value="Under contract">Under contract</option>
-                                <option value="Rental property">Rental property</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Best Way To Reach You</label>
-                            <div class="contact-method-grid">
-                                <div class="contact-method-option">
-                                    <input type="radio" id="contact-by-call" name="contact_method" value="Call" data-extra-label="Preferred contact method" data-extra-value="Call">
-                                    <label for="contact-by-call">Call</label>
-                                </div>
-                                <div class="contact-method-option">
-                                    <input type="radio" id="contact-by-text" name="contact_method" value="Text" data-extra-label="Preferred contact method" data-extra-value="Text">
-                                    <label for="contact-by-text">Text</label>
-                                </div>
-                                <div class="contact-method-option">
-                                    <input type="radio" id="contact-by-email" name="contact_method" value="Email" data-extra-label="Preferred contact method" data-extra-value="Email">
-                                    <label for="contact-by-email">Email</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="form-group">
                         <label for="notes">Notes for Us</label>
                         <textarea
                             id="notes"
                             name="entry.1309691449"
-                            placeholder="Tell us what you want to change, what stage the project is in, your goals, and anything else that would make the consultation more useful."
+                            placeholder="Tell us about the project, property, goals, timeline, or anything else you'd like us to know."
                         ></textarea>
                     </div>
 
@@ -730,55 +669,23 @@
                                 id="contact-consent"
                                 class="lead-extra-field"
                                 data-extra-label="Inquiry contact consent"
-                                data-record-unchecked="true"
                                 data-checked-value="Agreed"
-                                data-unchecked-value="Not agreed"
                                 required
                             >
                             <label for="contact-consent">
-                                I agree that Golden Brick Construction may contact me by phone, text, and email about my inquiry, quote request, and free consultation, and I agree to the <a href="privacy-policy.html" class="policy-link">Privacy Policy</a>. <span class="required">*</span>
-                            </label>
-                        </div>
-
-                        <div class="consent-option">
-                            <input
-                                type="checkbox"
-                                id="marketing-email-consent"
-                                class="lead-extra-field"
-                                data-extra-label="Marketing email opt-in"
-                                data-record-unchecked="true"
-                                data-checked-value="Opted in"
-                                data-unchecked-value="Not opted in"
-                            >
-                            <label for="marketing-email-consent">
-                                Yes, you may also send me occasional project updates, promotions, and marketing emails.
-                            </label>
-                        </div>
-
-                        <div class="consent-option">
-                            <input
-                                type="checkbox"
-                                id="marketing-text-consent"
-                                class="lead-extra-field"
-                                data-extra-label="Marketing call or text opt-in"
-                                data-record-unchecked="true"
-                                data-checked-value="Opted in"
-                                data-unchecked-value="Not opted in"
-                            >
-                            <label for="marketing-text-consent">
-                                Yes, you may also send me promotional calls and texts about services, updates, or offers. Consent is not a condition of purchase.
+                                I agree that Golden Brick Construction may contact me by phone, text, and email about my inquiry and free consultation, and I agree to the <a href="privacy-policy.html" class="policy-link">Privacy Policy</a>. <span class="required">*</span>
                             </label>
                         </div>
                     </div>
 
                     <div class="form-note">
-                        Required fields are marked with an asterisk. The required consent above covers follow-up about your inquiry. Marketing communication checkboxes are optional.
+                        Required fields are marked with an asterisk.
                     </div>
 
                     <button type="submit" class="submit-btn">Request Free Consultation</button>
 
                     <p class="privacy-note">
-                        By submitting this form, your information will be sent to our project inquiry system so we can follow up about the project and free consultation. Marketing updates are optional and based on your selections above.
+                        By submitting this form, your information will be sent to our project inquiry system so we can follow up about the project and free consultation.
                     </p>
                 </form>
 
