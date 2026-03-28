@@ -25,6 +25,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="style.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-S6KDFHPM7Y"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-S6KDFHPM7Y');
+    </script>
     <script type="application/ld+json">
         {
             "@context": "https://schema.org",
@@ -159,6 +166,14 @@
             text-transform: none;
             letter-spacing: 0.01em;
             line-height: 1.02;
+        }
+
+        .hero-tagline {
+            color: rgba(248, 241, 228, 0.78);
+            font-size: clamp(0.98rem, 1.6vw, 1.15rem);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 18px;
         }
 
         .hero-copy p {
@@ -830,7 +845,8 @@
                 <div class="hero-grid">
                     <div class="hero-copy">
                         <span class="section-kicker">Philadelphia & Surrounding Pennsylvania Suburbs</span>
-                        <h1>Philadelphia general contractors for thoughtful renovations</h1>
+                        <h1>Philadelphia general contractors</h1>
+                        <div class="hero-tagline">Building Philadelphia brick by brick</div>
                         <p>
                             Golden Brick Construction helps homeowners and real estate investors plan, budget, permit,
                             and execute renovation and new-build work with a more managed, accountable construction process.
