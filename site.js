@@ -20,6 +20,144 @@
 
     window.trackSiteEvent = trackSiteEvent;
 
+    function mergeLeadFormExtras(form) {
+        const mergeTargetSelector = form.getAttribute('data-merge-extra-into');
+        if (!mergeTargetSelector) return;
+
+        const targetField = form.querySelector(mergeTargetSelector);
+        if (!targetField) return;
+
+        const baseValue = (targetField.dataset.userValue || targetField.value || '').trim();
+        const extraLines = [];
+        const handledRadioGroups = new Set();
+
+        form.querySelectorAll('[data-extra-label]').forEach(function (field) {
+            const label = field.getAttribute('data-extra-label');
+            if (!label) return;
+
+            if (field.type === 'radio') {
+                if (!field.name || handledRadioGroups.has(field.name)) return;
+                handledRadioGroups.add(field.name);
+
+                const checked = form.querySelector('input[type="radio"][name="' + field.name + '"]:checked');
+                if (!checked) return;
+
+                extraLines.push(label + ': ' + (checked.getAttribute('data-extra-value') || checked.value || 'Selected'));
+                return;
+            }
+
+            if (field.type === 'checkbox') {
+                if (!field.checked && field.getAttribute('data-record-unchecked') !== 'true') return;
+
+                extraLines.push(label + ': ' + (
+                    field.checked
+                        ? (field.getAttribute('data-checked-value') || 'Yes')
+                        : (field.getAttribute('data-unchecked-value') || 'No')
+                ));
+                return;
+            }
+
+            const value = (field.value || '').trim();
+            if (!value) return;
+
+            extraLines.push(label + ': ' + value);
+        });
+
+        if (!extraLines.length) return;
+
+        const mergedParts = [];
+
+        if (baseValue) {
+            mergedParts.push(baseValue);
+        }
+
+        mergedParts.push('---');
+        mergedParts.push('Consultation Details');
+        extraLines.forEach(function (line) {
+            mergedParts.push(line);
+        });
+
+        targetField.value = mergedParts.join('\n');
+
+        window.setTimeout(function () {
+            targetField.value = targetField.dataset.userValue || '';
+        }, 0);
+    }
+
+    function handleLeadFormSuccess(form) {
+        const successId = form.getAttribute('data-success-message-id');
+        const successMessage = successId ? document.getElementById(successId) : null;
+        const formName = form.getAttribute('data-form-name') || 'project_inquiry';
+        const mergeTargetSelector = form.getAttribute('data-merge-extra-into');
+
+        form.reset();
+
+        if (mergeTargetSelector) {
+            const targetField = form.querySelector(mergeTargetSelector);
+            if (targetField) {
+                targetField.dataset.userValue = '';
+            }
+        }
+
+        if (successMessage) {
+            successMessage.style.display = 'block';
+            successMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        trackSiteEvent('generate_lead', {
+            lead_type: 'quote_request',
+            form_name: formName
+        });
+    }
+
+    document.querySelectorAll('.lead-form').forEach(function (form) {
+        const targetName = form.getAttribute('target');
+        const successId = form.getAttribute('data-success-message-id');
+        const successMessage = successId ? document.getElementById(successId) : null;
+        const mergeTargetSelector = form.getAttribute('data-merge-extra-into');
+        const mergeTarget = mergeTargetSelector ? form.querySelector(mergeTargetSelector) : null;
+        let isSubmitting = false;
+
+        if (successMessage) {
+            successMessage.style.display = 'none';
+        }
+
+        if (mergeTarget) {
+            mergeTarget.dataset.userValue = mergeTarget.value || '';
+            mergeTarget.addEventListener('input', function () {
+                mergeTarget.dataset.userValue = mergeTarget.value;
+            });
+        }
+
+        form.addEventListener('submit', function () {
+            mergeLeadFormExtras(form);
+            isSubmitting = true;
+
+            if (successMessage) {
+                successMessage.style.display = 'none';
+            }
+        });
+
+        if (!targetName) {
+            form.addEventListener('submit', function () {
+                handleLeadFormSuccess(form);
+            });
+            return;
+        }
+
+        const targetFrame = Array.from(document.querySelectorAll('iframe[name]')).find(function (iframe) {
+            return iframe.getAttribute('name') === targetName;
+        });
+
+        if (!targetFrame) return;
+
+        targetFrame.addEventListener('load', function () {
+            if (!isSubmitting) return;
+            isSubmitting = false;
+            handleLeadFormSuccess(form);
+        });
+    });
+
     function setMenuState(isOpen) {
         if (!toggle || !menu) return;
         menu.classList.toggle('is-open', isOpen);
@@ -104,7 +242,10 @@
             return;
         }
 
-        if (href.indexOf('contact.html') !== -1 && link.matches('.btn-nav, .btn-footer, .hero-primary, .pathway-link, .text-link')) {
+        if (
+            link.matches('.btn-nav, .btn-footer, .hero-primary, .pathway-link, .text-link') &&
+            (href.indexOf('contact.html') !== -1 || href.charAt(0) === '#')
+        ) {
             trackSiteEvent('cta_click', {
                 cta_type: 'quote',
                 link_text: label || 'Request a Quote',
@@ -112,16 +253,6 @@
             });
         }
     });
-
-    const leadForm = document.querySelector('.lead-form');
-    if (leadForm) {
-        leadForm.addEventListener('submit', function () {
-            trackSiteEvent('generate_lead', {
-                lead_type: 'quote_request',
-                form_name: 'project_inquiry'
-            });
-        });
-    }
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) {
         return;
