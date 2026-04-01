@@ -152,12 +152,21 @@
 
         .hero-highlight {
             margin-top: 18px;
-            max-width: 620px;
-            padding: 16px 18px;
+            max-width: 560px;
+            padding: 14px 18px;
             background: rgba(255, 255, 255, 0.08);
             border-left: 3px solid var(--gold);
             color: rgba(255, 255, 255, 0.9);
             font-size: 1rem;
+        }
+
+        .hero-microcopy {
+            margin-top: 14px;
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
         }
 
         .hero-actions {
@@ -296,8 +305,37 @@
             text-transform: uppercase;
         }
 
+        .panel-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .panel-secondary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 50px;
+            padding: 12px 18px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            color: var(--white);
+            text-decoration: none;
+            font-size: 0.82rem;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+        }
+
+        .panel-secondary:hover {
+            color: #f3e7ce;
+            border-color: var(--gold);
+            transform: translateY(-1px);
+        }
+
         .trust-section {
-            padding: 78px 0;
+            padding: 60px 0;
             background: var(--white);
         }
 
@@ -317,12 +355,12 @@
         .trust-grid {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 24px;
-            margin-top: 38px;
+            gap: 18px;
+            margin-top: 28px;
         }
 
         .trust-card {
-            padding: 28px;
+            padding: 22px;
             background: var(--surface-soft);
             border-top: 4px solid var(--gold);
             box-shadow: var(--soft-shadow);
@@ -340,22 +378,22 @@
         }
 
         .services-section {
-            padding: 78px 0;
+            padding: 60px 0;
             background: var(--concrete);
         }
 
         .services-grid {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 24px;
-            margin-top: 38px;
+            gap: 18px;
+            margin-top: 28px;
         }
 
         .service-card {
             display: flex;
             flex-direction: column;
-            gap: 14px;
-            padding: 26px;
+            gap: 10px;
+            padding: 22px;
             background: var(--white);
             border-top: 4px solid var(--gold);
             box-shadow: var(--soft-shadow);
@@ -391,32 +429,7 @@
         .service-card p {
             max-width: none;
             margin-bottom: 0;
-            font-size: 0.95rem;
-        }
-
-        .service-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: auto;
-            color: var(--gold-deep);
-            font-size: 0.79rem;
-            font-weight: 800;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            text-decoration: none;
-            transition: color 0.2s ease, transform 0.2s ease;
-        }
-
-        .service-link::after {
-            content: "+";
-            font-size: 1rem;
-            line-height: 1;
-        }
-
-        .service-link:hover {
-            color: var(--black);
-            transform: translateX(2px);
+            font-size: 0.92rem;
         }
 
         .consultation-section {
@@ -427,8 +440,8 @@
         .consultation-panel {
             display: grid;
             grid-template-columns: minmax(0, 1fr) minmax(340px, 0.94fr);
-            gap: 32px;
-            padding: 38px;
+            gap: 28px;
+            padding: 34px;
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.08));
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: var(--deep-shadow);
@@ -586,6 +599,132 @@
             color: #666;
         }
 
+        .desktop-call-modal[hidden] {
+            display: none;
+        }
+
+        .desktop-call-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 1200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(14, 11, 8, 0.72);
+        }
+
+        .desktop-call-dialog {
+            position: relative;
+            width: min(100%, 520px);
+            padding: 34px 30px 30px;
+            background: #faf7f1;
+            border-top: 4px solid var(--gold);
+            box-shadow: var(--deep-shadow);
+        }
+
+        .desktop-call-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 42px;
+            height: 42px;
+            border: 0;
+            background: transparent;
+            color: var(--text-grey);
+            font-size: 1.5rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .desktop-call-title {
+            margin-bottom: 12px;
+            color: var(--black);
+            text-transform: none;
+        }
+
+        .desktop-call-copy,
+        .desktop-call-note {
+            margin-bottom: 0;
+        }
+
+        .desktop-call-number {
+            margin: 18px 0 10px;
+            color: var(--black);
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            font-weight: 800;
+            letter-spacing: 0.04em;
+        }
+
+        .desktop-call-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 22px;
+        }
+
+        .desktop-call-primary,
+        .desktop-call-secondary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 54px;
+            padding: 14px 20px;
+            text-decoration: none;
+            font-size: 0.8rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+        }
+
+        .desktop-call-primary {
+            border: 0;
+            background: var(--gold);
+            color: var(--black);
+            cursor: pointer;
+        }
+
+        .desktop-call-primary:hover {
+            background: #d2b174;
+            transform: translateY(-1px);
+        }
+
+        .desktop-call-secondary {
+            border: 1px solid rgba(92, 72, 38, 0.24);
+            background: transparent;
+            color: var(--charcoal);
+        }
+
+        .desktop-call-secondary:hover {
+            border-color: var(--gold);
+            color: var(--black);
+            transform: translateY(-1px);
+        }
+
+        .desktop-device-call {
+            display: inline-flex;
+            margin-top: 16px;
+            color: var(--gold-deep);
+            font-size: 0.84rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            text-decoration: none;
+        }
+
+        .desktop-copy-feedback {
+            min-height: 1.4em;
+            margin-top: 12px;
+            color: #6b5a37;
+            font-size: 0.88rem;
+            font-weight: 600;
+        }
+
+        body.desktop-modal-open {
+            overflow: hidden;
+        }
+
         .success-message-local {
             display: none;
             margin-top: 20px;
@@ -655,14 +794,18 @@
             }
 
             .hero-actions,
-            .consultation-actions {
+            .consultation-actions,
+            .panel-actions {
                 flex-direction: column;
             }
 
             .hero-primary,
             .hero-secondary,
             .submit-btn,
-            .panel-phone {
+            .panel-phone,
+            .panel-secondary,
+            .desktop-call-primary,
+            .desktop-call-secondary {
                 width: 100%;
             }
 
@@ -718,6 +861,14 @@
                 background: var(--charcoal);
                 color: var(--white);
             }
+
+            .desktop-call-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .desktop-call-dialog {
+                padding: 28px 22px 24px;
+            }
         }
     </style>
 </head>
@@ -736,7 +887,7 @@
         </button>
 
         <ul class="nav-links" id="site-menu">
-            <li><a href="tel:2677155557">Call (267) 715-5557</a></li>
+            <li><a href="tel:2677155557" data-desktop-call-trigger data-call-source="nav">Call (267) 715-5557</a></li>
             <li><a href="#free-consultation" class="btn-nav">Free Consultation</a></li>
         </ul>
     </nav>
@@ -757,14 +908,16 @@
                         <span class="section-kicker">Philadelphia Home Renovation Contractor</span>
                         <h1>Full and Partial Home Renovations in Philadelphia</h1>
                         <p>
-                            Golden Brick Construction helps homeowners and qualified property owners move forward with clearer scope, stronger coordination, and one team accountable from planning through final delivery.
+                            Planning a full renovation or a smaller remodel? Golden Brick helps Philadelphia homeowners talk through scope, budget direction, permits, and the right next step with one accountable team.
                         </p>
-                        <p class="hero-highlight">We specialize in both full home renovations and partial remodeling projects, including kitchens, bathrooms, basements, and interior upgrades.</p>
+                        <p class="hero-highlight">Full home renovations, kitchens, bathrooms, basements, and interior remodels managed with a clear process.</p>
 
                         <div class="hero-actions">
-                            <a href="tel:2677155557" class="hero-primary">Call Now</a>
+                            <a href="tel:2677155557" class="hero-primary" data-desktop-call-trigger data-call-source="hero">Call Now</a>
                             <a href="#free-consultation" class="hero-secondary">Leave Your Info</a>
                         </div>
+
+                        <p class="hero-microcopy">Free consultation. Fast follow-up. Licensed and insured.</p>
 
                         <div class="hero-trust" aria-label="Business trust signals">
                             <span>Licensed &amp; Insured</span>
@@ -774,20 +927,23 @@
                     </div>
 
                     <aside class="hero-panel">
-                        <span class="panel-label">Why Homeowners Contact Us</span>
-                        <h2>A Better-Managed Renovation Process</h2>
+                        <span class="panel-label">Free Consultation</span>
+                        <h2>Talk Through Your Project Before You Commit</h2>
                         <p>
-                            People usually reach out because they want more than labor. They want a professional team that can guide the project and keep the work organized.
+                            If you are comparing contractors or trying to understand the project better, start with a quick conversation about fit, scope, and next steps.
                         </p>
 
                         <ul class="panel-list">
                             <li>Full home renovations and partial remodeling projects</li>
                             <li>Planning, budgeting direction, permit support, and trade coordination</li>
                             <li>Kitchens, bathrooms, basements, interiors, and larger whole-home scopes</li>
-                            <li>Clear next steps from first conversation to final delivery</li>
+                            <li>Clear next steps after the first conversation</li>
                         </ul>
 
-                        <a href="tel:2677155557" class="panel-phone">Call (267) 715-5557</a>
+                        <div class="panel-actions">
+                            <a href="tel:2677155557" class="panel-phone" data-desktop-call-trigger data-call-source="panel">Call (267) 715-5557</a>
+                            <a href="#free-consultation" class="panel-secondary">Leave Your Info</a>
+                        </div>
                     </aside>
                 </div>
             </div>
@@ -797,26 +953,26 @@
             <div class="trust-shell">
                 <div class="trust-intro">
                     <span class="section-kicker">Why Homeowners Reach Out</span>
-                    <h2>Professional, Organized, and Easy to Contact</h2>
+                    <h2>Serious Help, Not Just Labor</h2>
                     <p>
-                        As a Philadelphia home renovation contractor, we make it easier for homeowners to understand the project, see the path forward, and feel comfortable reaching out.
+                        People contact us because they want a contractor who can help them understand the job, organize the process, and give them a clear next step.
                     </p>
                 </div>
 
                 <div class="trust-grid">
                     <article class="trust-card">
-                        <h3>Clearer Scope</h3>
-                        <p>We help homeowners sort through priorities, project fit, and the best next move before the work starts creating pressure.</p>
+                        <h3>Talk Through Scope</h3>
+                        <p>We help homeowners sort through project fit, priorities, and what should happen first.</p>
                     </article>
 
                     <article class="trust-card">
-                        <h3>Better Coordination</h3>
-                        <p>Renovations move better when decisions, trades, and timing stay connected under one organized process.</p>
+                        <h3>Get Clearer Next Steps</h3>
+                        <p>From consultation to construction, the goal is to make the process feel more organized and manageable.</p>
                     </article>
 
                     <article class="trust-card">
                         <h3>Full or Partial Projects</h3>
-                        <p>Whether the job is a full home renovation Philadelphia scope or a partial home remodeling Philadelphia update, we can help guide it.</p>
+                        <p>We specialize in both full home renovations and partial remodeling projects throughout Philadelphia.</p>
                     </article>
                 </div>
             </div>
@@ -826,9 +982,9 @@
             <div class="services-shell">
                 <div class="services-intro">
                     <span class="section-kicker">Our Renovation Services</span>
-                    <h2>Services Homeowners Ask Us About Most</h2>
+                    <h2>Services We Handle Most Often</h2>
                     <p>
-                        We keep the page focused, but we still want people to quickly see the kinds of work we handle across full and partial renovation projects.
+                        We work on both full home renovation Philadelphia projects and smaller partial remodeling scopes.
                     </p>
                 </div>
 
@@ -836,64 +992,55 @@
                     <article class="service-card">
                         <div class="service-icon" aria-hidden="true">FH</div>
                         <h3>Full Home Renovations</h3>
-                        <p>Whole-home remodels that need planning, coordination, and one team guiding the project from start to finish.</p>
-                        <a href="#" class="service-link">Service Details</a>
+                        <p>Whole-home remodels with one team coordinating planning, sequencing, and delivery.</p>
                     </article>
 
                     <article class="service-card">
                         <div class="service-icon" aria-hidden="true">PR</div>
                         <h3>Partial Home Renovations</h3>
-                        <p>Smaller-scope remodels for homeowners improving one part of the home while still wanting strong project control.</p>
-                        <a href="#" class="service-link">Service Details</a>
+                        <p>Focused remodels for one area of the home with clearer scope and control.</p>
                     </article>
 
                     <article class="service-card">
                         <div class="service-icon" aria-hidden="true">KT</div>
                         <h3>Kitchen Remodeling</h3>
-                        <p>Kitchens that need layout review, finish coordination, and cleaner execution from demolition through closeout.</p>
-                        <a href="#" class="service-link">Service Details</a>
+                        <p>Kitchen remodels that need layout, finish, and trade coordination.</p>
                     </article>
 
                     <article class="service-card">
                         <div class="service-icon" aria-hidden="true">BA</div>
                         <h3>Bathroom Remodeling</h3>
-                        <p>Bathrooms with tighter coordination, clearer sequencing, and a more polished finished result.</p>
-                        <a href="#" class="service-link">Service Details</a>
+                        <p>Bathroom remodels with tighter sequencing and cleaner execution.</p>
                     </article>
 
                     <article class="service-card">
                         <div class="service-icon" aria-hidden="true">BS</div>
                         <h3>Basement Finishing</h3>
-                        <p>Basement projects that need scope clarity, infrastructure planning, and dependable build-out support.</p>
-                        <a href="#" class="service-link">Service Details</a>
+                        <p>Basement finishing and upgrades with better planning and build-out support.</p>
                     </article>
 
                     <article class="service-card">
                         <div class="service-icon" aria-hidden="true">IN</div>
                         <h3>Interior Renovations</h3>
-                        <p>Interior updates that bring multiple rooms, finishes, and trades together under one clear renovation plan.</p>
-                        <a href="#" class="service-link">Service Details</a>
+                        <p>Interior renovations across rooms, layouts, finishes, and upgrades.</p>
                     </article>
 
                     <article class="service-card">
                         <div class="service-icon" aria-hidden="true">FL</div>
                         <h3>Flooring Installation</h3>
-                        <p>Flooring work that supports full remodels or stands alone as part of a partial renovation scope.</p>
-                        <a href="#" class="service-link">Service Details</a>
+                        <p>Flooring installation as part of a remodel or as a standalone update.</p>
                     </article>
 
                     <article class="service-card">
                         <div class="service-icon" aria-hidden="true">PD</div>
                         <h3>Painting &amp; Drywall</h3>
-                        <p>Painting and drywall work that helps reset interiors and tighten the finished look of the home.</p>
-                        <a href="#" class="service-link">Service Details</a>
+                        <p>Painting and drywall work that helps sharpen the finished result.</p>
                     </article>
 
                     <article class="service-card">
                         <div class="service-icon" aria-hidden="true">CC</div>
                         <h3>Custom Carpentry</h3>
-                        <p>Trim, finish carpentry, and custom interior details installed with care and better coordination.</p>
-                        <a href="#" class="service-link">Service Details</a>
+                        <p>Trim, finish carpentry, and custom interior details installed with care.</p>
                     </article>
                 </div>
             </div>
@@ -907,14 +1054,11 @@
                         <h2>Get a Free Renovation Consultation</h2>
                         <p class="consultation-subheadline">Full or Partial Home Renovations in Philadelphia</p>
                         <p>
-                            If you want a serious contractor that looks organized, professional, and easy to work with, this is the next step.
-                        </p>
-                        <p>
-                            Call now or leave your contact info and project type. We’ll follow up about the right next move.
+                            Tell us what you are planning and how to reach you. We will help you understand fit, scope, and the right next step.
                         </p>
 
                         <div class="consultation-actions">
-                            <a href="tel:2677155557" class="hero-primary">Call (267) 715-5557</a>
+                            <a href="tel:2677155557" class="hero-primary" data-desktop-call-trigger data-call-source="consultation">Call (267) 715-5557</a>
                         </div>
 
                         <div class="consultation-trust">
@@ -940,19 +1084,19 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="consultation-name">Name <span class="required">*</span></label>
-                                    <input type="text" id="consultation-name" name="entry.1938418565" required>
+                                    <input type="text" id="consultation-name" name="entry.1938418565" autocomplete="name" required>
                                 </div>
 
                                 <div class="form-group">
                                     <label for="consultation-phone">Phone <span class="required">*</span></label>
-                                    <input type="tel" id="consultation-phone" name="entry.940072979" required>
+                                    <input type="tel" id="consultation-phone" name="entry.940072979" autocomplete="tel" required>
                                 </div>
                             </div>
 
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="consultation-email">Email</label>
-                                    <input type="email" id="consultation-email" name="entry.2064255771">
+                                    <input type="email" id="consultation-email" name="entry.2064255771" autocomplete="email">
                                 </div>
 
                                 <div class="form-group">
@@ -973,10 +1117,10 @@
                                 <textarea id="consultation-notes" name="entry.1309691449" tabindex="-1">Free consultation request from the Full Renovation Philadelphia landing page.</textarea>
                             </div>
 
-                            <button type="submit" class="submit-btn">Get Free Consultation</button>
+                            <button type="submit" class="submit-btn">Request Free Consultation</button>
 
                             <p class="consultation-note">
-                                By submitting this form, your information will be sent to our project inquiry system so we can follow up.
+                                Short form. Fast follow-up. We use this information only to contact you about your renovation project.
                             </p>
                         </form>
 
@@ -1028,11 +1172,145 @@
         </div>
     </footer>
 
+    <div class="desktop-call-modal" id="desktop-call-modal" aria-hidden="true" hidden>
+        <div class="desktop-call-dialog" role="dialog" aria-modal="true" aria-labelledby="desktop-call-title">
+            <button type="button" class="desktop-call-close" aria-label="Close call details">&times;</button>
+            <span class="panel-label">Free Consultation</span>
+            <h2 class="desktop-call-title" id="desktop-call-title">Call Golden Brick Construction</h2>
+            <p class="desktop-call-copy">Use this number to reach our team about full home renovations, partial remodeling, kitchens, bathrooms, basements, and interior upgrades in Philadelphia.</p>
+            <div class="desktop-call-number">(267) 715-5557</div>
+            <p class="desktop-call-note">If it is easier, copy the number now or leave your information and we will follow up.</p>
+            <div class="desktop-call-actions">
+                <button type="button" class="desktop-call-primary" id="desktop-copy-number">Copy Number</button>
+                <a href="#free-consultation" class="desktop-call-secondary" id="desktop-leave-info">Leave Your Info</a>
+            </div>
+            <a href="tel:2677155557" class="desktop-device-call">Use this device to call</a>
+            <p class="desktop-copy-feedback" id="desktop-copy-feedback" aria-live="polite"></p>
+        </div>
+    </div>
+
     <div class="mobile-cta-bar" aria-label="Mobile contact actions">
         <a href="tel:2677155557" class="mobile-call">Call Now</a>
         <a href="#free-consultation" class="mobile-quote">Leave Info</a>
     </div>
 
     <script src="/site.js"></script>
+    <script>
+        (function () {
+            const modal = document.getElementById('desktop-call-modal');
+            if (!modal) return;
+
+            const dialog = modal.querySelector('.desktop-call-dialog');
+            const closeButton = modal.querySelector('.desktop-call-close');
+            const copyButton = document.getElementById('desktop-copy-number');
+            const leaveInfoLink = document.getElementById('desktop-leave-info');
+            const feedback = document.getElementById('desktop-copy-feedback');
+            const triggers = document.querySelectorAll('[data-desktop-call-trigger]');
+            let lastTrigger = null;
+
+            function isDesktopCallMode() {
+                return window.innerWidth > 768 && !window.matchMedia('(pointer: coarse)').matches;
+            }
+
+            function openModal(trigger) {
+                lastTrigger = trigger || null;
+                modal.hidden = false;
+                modal.setAttribute('aria-hidden', 'false');
+                document.body.classList.add('desktop-modal-open');
+                if (feedback) {
+                    feedback.textContent = '';
+                }
+                window.setTimeout(function () {
+                    if (copyButton) {
+                        copyButton.focus();
+                    }
+                }, 0);
+
+                if (typeof window.trackSiteEvent === 'function') {
+                    window.trackSiteEvent('desktop_phone_modal_open', {
+                        cta_source: trigger && trigger.getAttribute('data-call-source') ? trigger.getAttribute('data-call-source') : 'call_button'
+                    });
+                }
+            }
+
+            function closeModal() {
+                modal.hidden = true;
+                modal.setAttribute('aria-hidden', 'true');
+                document.body.classList.remove('desktop-modal-open');
+                if (lastTrigger) {
+                    lastTrigger.focus();
+                }
+            }
+
+            triggers.forEach(function (trigger) {
+                trigger.addEventListener('click', function (event) {
+                    if (!isDesktopCallMode()) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    openModal(trigger);
+                });
+            });
+
+            if (copyButton) {
+                copyButton.addEventListener('click', function () {
+                    const number = '(267) 715-5557';
+
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(number).then(function () {
+                            if (feedback) {
+                                feedback.textContent = 'Number copied. Call us at ' + number + '.';
+                            }
+                        }).catch(function () {
+                            if (feedback) {
+                                feedback.textContent = 'Call us at ' + number + '.';
+                            }
+                        });
+                    } else if (feedback) {
+                        feedback.textContent = 'Call us at ' + number + '.';
+                    }
+
+                    if (typeof window.trackSiteEvent === 'function') {
+                        window.trackSiteEvent('desktop_phone_number_copy', {
+                            contact_method: 'phone'
+                        });
+                    }
+                });
+            }
+
+            if (leaveInfoLink) {
+                leaveInfoLink.addEventListener('click', function () {
+                    closeModal();
+
+                    if (typeof window.trackSiteEvent === 'function') {
+                        window.trackSiteEvent('cta_click', {
+                            cta_type: 'quote',
+                            link_text: 'Leave Your Info',
+                            destination: '#free-consultation'
+                        });
+                    }
+                });
+            }
+
+            if (closeButton) {
+                closeButton.addEventListener('click', closeModal);
+            }
+
+            modal.addEventListener('click', function (event) {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && modal.getAttribute('aria-hidden') === 'false') {
+                    closeModal();
+                }
+            });
+
+            dialog.addEventListener('click', function (event) {
+                event.stopPropagation();
+            });
+        })();
+    </script>
 </body>
 </html>
