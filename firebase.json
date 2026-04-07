@@ -18,6 +18,29 @@
   "hosting": {
     "site": "golden-brick-construction",
     "public": ".",
+    "rewrites": [
+      {
+        "source": "/api/public/lead-intake",
+        "function": {
+          "functionId": "publicLeadIntake",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/auth/sync-session",
+        "function": {
+          "functionId": "syncStaffSession",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/staff/estimate-draft",
+        "function": {
+          "functionId": "generateEstimateDraft",
+          "region": "us-central1"
+        }
+      }
+    ],
     "ignore": [
       "firebase.json",
       ".gitignore",
