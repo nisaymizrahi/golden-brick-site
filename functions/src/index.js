@@ -73,6 +73,14 @@ function normalisePhone(value) {
   return digits;
 }
 
+function normaliseChangeOrderStatus(value) {
+  const status = safeString(value).toLowerCase();
+  if (status === "approved" || status === "void") {
+    return status;
+  }
+  return "draft";
+}
+
 function statusLabel(status) {
   return LEAD_STATUSES[status] || LEAD_STATUSES.new_lead;
 }
@@ -321,13 +329,45 @@ function buildProjectAccessUids(projectData = {}) {
   ]);
 }
 
-function computeFinanceSummary(projectData, expenseDocs, paymentDocs) {
+function buildLockedCommissionSnapshot(summary = {}) {
+  return {
+    baseContractValue: toNumber(summary.baseContractValue),
+    approvedChangeOrdersTotal: toNumber(summary.approvedChangeOrdersTotal),
+    totalContractRevenue: toNumber(summary.totalContractRevenue),
+    totalExpenses: toNumber(summary.totalExpenses),
+    totalPayments: toNumber(summary.totalPayments),
+    projectedGrossProfit: toNumber(summary.projectedGrossProfit),
+    cashPosition: toNumber(summary.cashPosition),
+    balanceRemaining: toNumber(summary.balanceRemaining),
+    companyShare: toNumber(summary.companyShare),
+    workerPool: toNumber(summary.workerPool),
+    workerBreakdown: Array.isArray(summary.workerBreakdown)
+      ? summary.workerBreakdown.map((worker) => ({
+        uid: safeString(worker.uid),
+        name: safeString(worker.name),
+        email: normaliseEmail(worker.email),
+        percent: toNumber(worker.percent),
+        amount: toNumber(worker.amount)
+      }))
+      : [],
+    lockedAt: FieldValue.serverTimestamp()
+  };
+}
+
+function computeFinanceSummary(projectData, expenseDocs, paymentDocs, changeOrderDocs = []) {
+  const baseContractValue = toNumber(projectData.baseContractValue || projectData.jobValue || 0);
+  const approvedChangeOrdersTotal = changeOrderDocs
+    .filter((doc) => normaliseChangeOrderStatus(doc.status) === "approved")
+    .reduce((sum, doc) => sum + toNumber(doc.amount), 0);
+  const totalContractRevenue = baseContractValue + approvedChangeOrdersTotal;
   const totalExpenses = expenseDocs.reduce((sum, doc) => sum + toNumber(doc.amount), 0);
   const totalPayments = paymentDocs.reduce((sum, doc) => sum + toNumber(doc.amount), 0);
-  const rawProfit = totalPayments - totalExpenses;
+  const rawProfit = totalContractRevenue - totalExpenses;
   const distributableProfit = Math.max(rawProfit, 0);
   const companyShare = distributableProfit * 0.5;
   const workerPool = distributableProfit * 0.5;
+  const cashPosition = totalPayments - totalExpenses;
+  const balanceRemaining = totalContractRevenue - totalPayments;
 
   const assignedWorkers = normaliseAssignedWorkers(projectData.assignedWorkers);
   const totalPercent = assignedWorkers.reduce((sum, worker) => sum + worker.percent, 0);
@@ -352,10 +392,16 @@ function computeFinanceSummary(projectData, expenseDocs, paymentDocs) {
   });
 
   return {
+    baseContractValue: Number(baseContractValue.toFixed(2)),
+    approvedChangeOrdersTotal: Number(approvedChangeOrdersTotal.toFixed(2)),
+    totalContractRevenue: Number(totalContractRevenue.toFixed(2)),
     totalExpenses: Number(totalExpenses.toFixed(2)),
     totalPayments: Number(totalPayments.toFixed(2)),
     profit: Number(rawProfit.toFixed(2)),
+    projectedGrossProfit: Number(rawProfit.toFixed(2)),
     distributableProfit: Number(distributableProfit.toFixed(2)),
+    cashPosition: Number(cashPosition.toFixed(2)),
+    balanceRemaining: Number(balanceRemaining.toFixed(2)),
     companyShare: Number(companyShare.toFixed(2)),
     workerPool: Number(workerPool.toFixed(2)),
     workerBreakdown,
@@ -493,6 +539,19 @@ async function addLeadActivity(leadId, data) {
   });
 }
 
+async function addProjectActivity(projectId, data) {
+  const activityRef = db.collection("projects").doc(projectId).collection("activities").doc();
+
+  await activityRef.set({
+    ...data,
+    body: safeString(data.body),
+    title: safeString(data.title),
+    activityType: safeString(data.activityType) || "system",
+    visibility: safeString(data.visibility) || "staff",
+    createdAt: FieldValue.serverTimestamp()
+  });
+}
+
 async function parseRequestPayload(request) {
   if (request.is("application/json")) {
     return request.body || {};
@@ -595,24 +654,49 @@ async function syncProjectFinancials(projectId) {
     return;
   }
 
-  const [expensesSnap, paymentsSnap] = await Promise.all([
+  const [expensesSnap, paymentsSnap, changeOrdersSnap] = await Promise.all([
     projectRef.collection("expenses").get(),
-    projectRef.collection("payments").get()
+    projectRef.collection("payments").get(),
+    projectRef.collection("changeOrders").get()
   ]);
 
   const summary = computeFinanceSummary(
     projectSnap.data(),
     expensesSnap.docs.map((snapshot) => snapshot.data()),
-    paymentsSnap.docs.map((snapshot) => snapshot.data())
+    paymentsSnap.docs.map((snapshot) => snapshot.data()),
+    changeOrdersSnap.docs.map((snapshot) => snapshot.data())
   );
+  const projectData = projectSnap.data() || {};
+  const updates = {
+    baseContractValue: summary.baseContractValue,
+    approvedChangeOrdersTotal: summary.approvedChangeOrdersTotal,
+    totalContractRevenue: summary.totalContractRevenue,
+    cashPosition: summary.cashPosition,
+    balanceRemaining: summary.balanceRemaining,
+    jobValue: summary.totalContractRevenue,
+    financials: summary,
+    updatedAt: FieldValue.serverTimestamp()
+  };
+  const shouldAutoLockCommission = projectData.commissionLocked !== true
+    && safeString(projectData.status) === "completed";
 
-  await projectRef.set(
-    {
-      financials: summary,
-      updatedAt: FieldValue.serverTimestamp()
-    },
-    { merge: true }
-  );
+  if (shouldAutoLockCommission) {
+    updates.commissionLocked = true;
+    updates.lockedCommissionSnapshot = buildLockedCommissionSnapshot(summary);
+  }
+
+  await projectRef.set(updates, { merge: true });
+
+  if (shouldAutoLockCommission) {
+    await addProjectActivity(projectId, {
+      activityType: "commission",
+      title: "Commission locked",
+      body: "The job was marked completed and the payout snapshot was locked.",
+      actorName: "Golden Brick System",
+      actorUid: "system",
+      actorRole: "system"
+    });
+  }
 }
 
 async function syncCustomerSummary(customerId) {
@@ -649,7 +733,9 @@ async function syncCustomerSummary(customerId) {
     ])
   ]);
   const estimateLead = latestByUpdated(openLeads.filter((lead) => Boolean(lead.hasEstimate)));
-  const totalWonSales = projects.reduce((sum, project) => sum + toNumber(project.jobValue || 0), 0);
+  const totalWonSales = projects.reduce((sum, project) => {
+    return sum + toNumber(project.totalContractRevenue || project.jobValue || project.baseContractValue || 0);
+  }, 0);
   const totalPaymentsReceived = projects.reduce((sum, project) => sum + toNumber(project.financials && project.financials.totalPayments), 0);
 
   await customerRef.set({
@@ -1012,6 +1098,15 @@ exports.convertLeadToProject = onRequest(
       ]);
       const projectRef = db.collection("projects").doc(leadId);
       const batch = db.batch();
+      const initialSummary = computeFinanceSummary(
+        {
+          baseContractValue: toNumber(refreshedLead.estimateSubtotal || 0),
+          assignedWorkers
+        },
+        [],
+        [],
+        []
+      );
 
       batch.set(projectRef, {
         id: leadId,
@@ -1024,20 +1119,19 @@ exports.convertLeadToProject = onRequest(
         projectAddress: safeString(refreshedLead.projectAddress),
         projectType: safeString(refreshedLead.projectType),
         status: "in_progress",
-        jobValue: toNumber(refreshedLead.estimateSubtotal || 0),
+        baseContractValue: initialSummary.baseContractValue,
+        approvedChangeOrdersTotal: initialSummary.approvedChangeOrdersTotal,
+        totalContractRevenue: initialSummary.totalContractRevenue,
+        cashPosition: initialSummary.cashPosition,
+        balanceRemaining: initialSummary.balanceRemaining,
+        jobValue: initialSummary.totalContractRevenue,
         assignedLeadOwnerUid: leadOwnerUid || null,
         assignedWorkers,
         assignedWorkerIds: assignedWorkers.map((worker) => worker.uid).filter(Boolean),
         allowedStaffUids,
-        financials: {
-          totalExpenses: 0,
-          totalPayments: 0,
-          profit: 0,
-          distributableProfit: 0,
-          companyShare: 0,
-          workerPool: 0,
-          workerBreakdown: []
-        },
+        commissionLocked: false,
+        lockedCommissionSnapshot: null,
+        financials: initialSummary,
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp()
       }, { merge: true });
@@ -1057,6 +1151,15 @@ exports.convertLeadToProject = onRequest(
         activityType: "system",
         title: "Lead converted to job",
         body: "Won job created and linked to the customer record.",
+        actorName: staff.profile.displayName,
+        actorUid: staff.profile.uid,
+        actorRole: staff.profile.role
+      });
+
+      await addProjectActivity(leadId, {
+        activityType: "system",
+        title: "Job created from won lead",
+        body: "The won lead was converted into the operational job record.",
         actorName: staff.profile.displayName,
         actorUid: staff.profile.uid,
         actorRole: staff.profile.role
@@ -1209,6 +1312,16 @@ exports.syncProjectFinancialsOnPayments = onDocumentWritten(
   }
 );
 
+exports.syncProjectFinancialsOnChangeOrders = onDocumentWritten(
+  {
+    region: "us-central1",
+    document: "projects/{projectId}/changeOrders/{changeOrderId}"
+  },
+  async (event) => {
+    await syncProjectFinancials(event.params.projectId);
+  }
+);
+
 exports.syncProjectDerivedDataOnWrite = onDocumentWritten(
   {
     region: "us-central1",
@@ -1229,6 +1342,10 @@ exports.syncProjectDerivedDataOnWrite = onDocumentWritten(
     const afterWorkers = JSON.stringify(afterData.assignedWorkers || []);
     const desiredAccess = buildProjectAccessUids(afterData);
     const currentAccess = uniqueValues(afterData.allowedStaffUids || []);
+    const beforeRevenue = toNumber(beforeData.baseContractValue || beforeData.jobValue || 0);
+    const afterRevenue = toNumber(afterData.baseContractValue || afterData.jobValue || 0);
+    const statusChanged = safeString(beforeData.status) !== safeString(afterData.status);
+    const commissionLockChanged = Boolean(beforeData.commissionLocked) !== Boolean(afterData.commissionLocked);
 
     if (JSON.stringify(desiredAccess) !== JSON.stringify(currentAccess)) {
       await event.data.after.ref.set({
@@ -1237,7 +1354,7 @@ exports.syncProjectDerivedDataOnWrite = onDocumentWritten(
       }, { merge: true });
     }
 
-    if (!event.data.before.exists || beforeWorkers !== afterWorkers) {
+    if (!event.data.before.exists || beforeWorkers !== afterWorkers || beforeRevenue !== afterRevenue || statusChanged || commissionLockChanged) {
       await syncProjectFinancials(event.params.projectId);
     }
 

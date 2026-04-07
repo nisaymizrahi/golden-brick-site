@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="stylesheet" href="/staff/staff.css?v=20260407-leads-redesign-1">
+    <link rel="stylesheet" href="/staff/staff.css?v=20260407-jobs-redesign-1">
 </head>
 <body>
     <div class="staff-page">
@@ -725,154 +725,342 @@
                                 When a lead is won, the job becomes the operational record for staffing, expenses, payments, margin, and worker payout.
                             </div>
 
-                            <div class="record-shell" id="job-record-shell" hidden>
-                                <form class="stack-form" id="job-core-form">
-                                    <div class="form-grid three">
-                                        <label>
-                                            <span>Job status</span>
-                                            <select id="job-status-select">
-                                                <option value="in_progress">In Progress</option>
-                                                <option value="completed">Completed</option>
-                                            </select>
-                                        </label>
-                                        <label>
-                                            <span>Contract value</span>
-                                            <input type="number" id="job-value-input" min="0" step="0.01">
-                                        </label>
-                                        <label>
-                                            <span>Lead owner</span>
-                                            <select id="job-owner-select"></select>
-                                        </label>
-                                    </div>
-
-                                    <div class="form-grid two">
-                                        <label>
-                                            <span>Linked customer</span>
-                                            <input type="text" id="job-customer-display" disabled>
-                                        </label>
-                                        <label>
-                                            <span>Project address</span>
-                                            <input type="text" id="job-address-display" disabled>
-                                        </label>
-                                    </div>
-
-                                    <div class="subpanel">
-                                        <div class="subpanel-head">
-                                            <h3>Assigned workers and payout split</h3>
-                                            <p>Company share stays at 50% of positive profit. The remaining 50% follows the worker percentages here.</p>
-                                        </div>
-                                        <div class="worker-assignment-list" id="worker-assignment-list"></div>
-                                    </div>
-
-                                    <div class="inline-actions">
-                                        <button type="submit" class="primary-button admin-only">Save job setup</button>
-                                        <button type="button" class="ghost-button" id="job-open-lead-button">Open linked lead</button>
-                                    </div>
-                                </form>
+                            <div class="record-shell job-record-shell" id="job-record-shell" hidden>
+                                <div class="record-actions">
+                                    <button type="submit" form="job-core-form" class="primary-button admin-only">Save job setup</button>
+                                    <button type="button" class="secondary-button" id="job-add-expense-button">Add expense</button>
+                                    <button type="button" class="secondary-button admin-only" id="job-add-payment-button">Record payment</button>
+                                    <button type="button" class="secondary-button" id="job-add-document-button">Add document</button>
+                                    <button type="button" class="ghost-button" id="job-add-note-button">Add note</button>
+                                    <button type="button" class="ghost-button" id="job-open-lead-button">Open linked lead</button>
+                                </div>
 
                                 <div class="record-context-strip" id="job-record-context"></div>
+                                <div class="job-summary-strip" id="job-summary-strip"></div>
 
-                                <div class="finance-summary" id="finance-summary"></div>
+                                <div class="tab-strip" aria-label="Job record tabs">
+                                    <button type="button" class="tab-button" data-job-tab="overview">Overview</button>
+                                    <button type="button" class="tab-button is-active" data-job-tab="financials">Financials</button>
+                                    <button type="button" class="tab-button" data-job-tab="team">Team &amp; Commission</button>
+                                    <button type="button" class="tab-button" data-job-tab="history">History</button>
+                                    <button type="button" class="tab-button" data-job-tab="documents">Documents</button>
+                                </div>
 
-                                <div class="two-column-detail">
+                                <div class="tab-pane" id="job-tab-overview">
+                                    <div class="two-column-detail">
+                                        <form class="stack-form subpanel" id="job-core-form">
+                                            <div class="subpanel-head">
+                                                <h3>Job overview</h3>
+                                                <p>Keep the base contract, job status, lead owner, and linked records in one operational setup panel.</p>
+                                            </div>
+
+                                            <div class="form-grid three">
+                                                <label>
+                                                    <span>Job status</span>
+                                                    <select id="job-status-select">
+                                                        <option value="in_progress">In Progress</option>
+                                                        <option value="completed">Completed</option>
+                                                    </select>
+                                                </label>
+                                                <label>
+                                                    <span>Base contract value</span>
+                                                    <input type="number" id="job-base-contract-input" min="0" step="0.01">
+                                                </label>
+                                                <label>
+                                                    <span>Lead owner</span>
+                                                    <select id="job-owner-select"></select>
+                                                </label>
+                                            </div>
+
+                                            <div class="form-grid three">
+                                                <label>
+                                                    <span>Linked customer</span>
+                                                    <input type="text" id="job-customer-display" disabled>
+                                                </label>
+                                                <label>
+                                                    <span>Project address</span>
+                                                    <input type="text" id="job-address-display" disabled>
+                                                </label>
+                                                <label>
+                                                    <span>Total contract revenue</span>
+                                                    <input type="text" id="job-total-revenue-display" disabled>
+                                                </label>
+                                            </div>
+
+                                            <label>
+                                                <span>Linked lead</span>
+                                                <input type="text" id="job-linked-lead-display" disabled>
+                                            </label>
+                                        </form>
+
+                                        <div class="job-overview-rail">
+                                            <section class="subpanel">
+                                                <div class="subpanel-head">
+                                                    <h3>Overview summary</h3>
+                                                    <p>Quick-read job context: staffing, balance remaining, and the next operational step.</p>
+                                                </div>
+                                                <div class="summary-grid job-overview-summary" id="job-overview-summary"></div>
+                                            </section>
+
+                                            <section class="subpanel">
+                                                <div class="subpanel-head subpanel-head-split">
+                                                    <div>
+                                                        <h3>Next actions</h3>
+                                                        <p>Tasks tied to this job stay visible from the operational record and the main task queue.</p>
+                                                    </div>
+                                                    <button type="button" class="secondary-button" id="job-task-drawer-button">Add task</button>
+                                                </div>
+                                                <div class="stack-list" id="job-task-list"></div>
+                                            </section>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="tab-pane is-active" id="job-tab-financials">
+                                    <div class="two-column-detail">
+                                        <section class="subpanel">
+                                            <div class="subpanel-head">
+                                                <h3>Revenue and change orders</h3>
+                                                <p>Base contract plus approved add-ons define the full job revenue target.</p>
+                                            </div>
+
+                                            <div class="finance-summary finance-summary-compact" id="job-revenue-summary"></div>
+
+                                            <form class="stack-form admin-only" id="change-order-form">
+                                                <div class="form-grid two">
+                                                    <label>
+                                                        <span>Change order title</span>
+                                                        <input type="text" id="change-order-title" placeholder="Add bath exhaust scope, revise flooring allowance">
+                                                    </label>
+                                                    <label>
+                                                        <span>Amount</span>
+                                                        <input type="number" id="change-order-amount" min="0" step="0.01">
+                                                    </label>
+                                                </div>
+                                                <div class="form-grid two">
+                                                    <label>
+                                                        <span>Status</span>
+                                                        <select id="change-order-status">
+                                                            <option value="draft">Draft</option>
+                                                            <option value="approved">Approved</option>
+                                                            <option value="void">Void</option>
+                                                        </select>
+                                                    </label>
+                                                    <label>
+                                                        <span>Date</span>
+                                                        <input type="date" id="change-order-date">
+                                                    </label>
+                                                </div>
+                                                <label>
+                                                    <span>Note</span>
+                                                    <textarea id="change-order-note" rows="3" placeholder="What changed, why, and what was approved."></textarea>
+                                                </label>
+                                                <button type="submit" class="primary-button">Add change order</button>
+                                            </form>
+
+                                            <div class="stack-list" id="change-order-list"></div>
+                                        </section>
+
+                                        <section class="subpanel">
+                                            <div class="subpanel-head">
+                                                <h3>Client payments</h3>
+                                                <p>Track deposits, progress draws, adjustments, and the final payment against the full contract value.</p>
+                                            </div>
+                                            <form class="stack-form admin-only" id="payment-form">
+                                                <div class="form-grid two">
+                                                    <label>
+                                                        <span>Payment amount</span>
+                                                        <input type="number" id="payment-amount" min="0" step="0.01">
+                                                    </label>
+                                                    <label>
+                                                        <span>Date</span>
+                                                        <input type="date" id="payment-date">
+                                                    </label>
+                                                </div>
+                                                <div class="form-grid two">
+                                                    <label>
+                                                        <span>Type</span>
+                                                        <select id="payment-type">
+                                                            <option value="deposit">Deposit</option>
+                                                            <option value="progress">Progress</option>
+                                                            <option value="final">Final</option>
+                                                            <option value="adjustment">Adjustment</option>
+                                                        </select>
+                                                    </label>
+                                                    <label>
+                                                        <span>Method</span>
+                                                        <input type="text" id="payment-method" placeholder="ACH, check, cash, wire">
+                                                    </label>
+                                                </div>
+                                                <label>
+                                                    <span>Payment note</span>
+                                                    <textarea id="payment-note" rows="3" placeholder="Deposit, draw, final balance, or payment details."></textarea>
+                                                </label>
+                                                <button type="submit" class="primary-button">Record payment</button>
+                                            </form>
+                                            <div class="stack-list" id="payment-list"></div>
+                                        </section>
+                                    </div>
+
                                     <section class="subpanel">
                                         <div class="subpanel-head">
                                             <h3>Expenses</h3>
-                                            <p>Track materials, labor, permits, dumpsters, subs, and other costs.</p>
+                                            <p>Track materials, labor, dumpsters, permits, delivery, and any other cost that affects the real margin on the job.</p>
                                         </div>
                                         <form class="stack-form" id="expense-form">
-                                            <div class="form-grid two">
+                                            <div class="form-grid three">
                                                 <label>
                                                     <span>Expense amount</span>
                                                     <input type="number" id="expense-amount" min="0" step="0.01">
                                                 </label>
                                                 <label>
+                                                    <span>Date</span>
+                                                    <input type="date" id="expense-date">
+                                                </label>
+                                                <label>
                                                     <span>Category</span>
-                                                    <input type="text" id="expense-category" placeholder="Materials, labor, permit">
+                                                    <input type="text" id="expense-category" placeholder="Materials, labor, permit, dumpster">
+                                                </label>
+                                            </div>
+                                            <div class="form-grid two">
+                                                <label>
+                                                    <span>Vendor / payee</span>
+                                                    <input type="text" id="expense-vendor" placeholder="Home Depot, ABC Supply, subcontractor name">
+                                                </label>
+                                                <label>
+                                                    <span>Linked receipt</span>
+                                                    <select id="expense-receipt-select"></select>
                                                 </label>
                                             </div>
                                             <label>
                                                 <span>Expense note</span>
-                                                <textarea id="expense-note" rows="3" placeholder="What was this expense for?"></textarea>
+                                                <textarea id="expense-note" rows="3" placeholder="What was this expense for and where does it sit in the job?"></textarea>
                                             </label>
                                             <button type="submit" class="primary-button">Add expense</button>
                                         </form>
                                         <div class="stack-list" id="expense-list"></div>
                                     </section>
+                                </div>
 
-                                    <section class="subpanel">
-                                        <div class="subpanel-head">
-                                            <h3>Payments</h3>
-                                            <p>Manual payment tracking for deposits, progress draws, and final client payments.</p>
-                                        </div>
-                                        <form class="stack-form admin-only" id="payment-form">
-                                            <div class="form-grid two">
-                                                <label>
-                                                    <span>Payment amount</span>
-                                                    <input type="number" id="payment-amount" min="0" step="0.01">
-                                                </label>
-                                                <label>
-                                                    <span>Method</span>
-                                                    <input type="text" id="payment-method" placeholder="ACH, check, cash, wire">
-                                                </label>
+                                <div class="tab-pane" id="job-tab-team">
+                                    <div class="two-column-detail">
+                                        <section class="subpanel">
+                                            <div class="subpanel-head">
+                                                <h3>Team assignment and payout split</h3>
+                                                <p>Company share stays at 50% of positive profit. The remaining 50% follows the worker percentages saved here.</p>
+                                            </div>
+                                            <div class="worker-assignment-list" id="worker-assignment-list"></div>
+                                            <div class="inline-actions">
+                                                <button type="submit" form="job-core-form" class="primary-button admin-only">Save team setup</button>
+                                            </div>
+                                        </section>
+
+                                        <section class="subpanel">
+                                            <div class="subpanel-head">
+                                                <h3>Commission status</h3>
+                                                <p>Projected payouts stay live while the job is open. Once completed, the current split locks for payroll history.</p>
+                                            </div>
+                                            <div class="detail-summary" id="job-commission-status"></div>
+                                            <div class="finance-summary finance-summary-compact" id="job-team-financial-summary"></div>
+                                            <div class="stack-list" id="commission-breakdown"></div>
+                                            <div class="detail-summary" id="job-commission-snapshot"></div>
+                                            <div class="inline-actions">
+                                                <button type="button" class="secondary-button admin-only" id="job-reopen-unlock-button" hidden>Reopen and recalculate</button>
+                                            </div>
+                                        </section>
+                                    </div>
+                                </div>
+
+                                <div class="tab-pane" id="job-tab-history">
+                                    <div class="two-column-detail">
+                                        <form class="stack-form subpanel" id="job-note-form">
+                                            <div class="subpanel-head">
+                                                <h3>Job note</h3>
+                                                <p>Add internal coordination notes that should live in the lead-to-job timeline.</p>
                                             </div>
                                             <label>
-                                                <span>Payment note</span>
-                                                <textarea id="payment-note" rows="3" placeholder="Deposit, draw, final balance"></textarea>
+                                                <span>Note</span>
+                                                <textarea id="job-note-body" rows="8" placeholder="Field coordination, client update summary, risk notes, scope clarification, or closeout items."></textarea>
                                             </label>
-                                            <button type="submit" class="primary-button">Record payment</button>
+                                            <button type="submit" class="primary-button">Save note</button>
                                         </form>
-                                        <div class="stack-list" id="payment-list"></div>
-                                    </section>
+
+                                        <section class="subpanel">
+                                            <div class="subpanel-head">
+                                                <h3>History timeline</h3>
+                                                <p>Inherited lead activity plus every important job event in one feed.</p>
+                                            </div>
+                                            <div class="timeline-list" id="job-history-list"></div>
+                                        </section>
+                                    </div>
                                 </div>
 
-                                <div class="two-column-detail">
-                                    <section class="subpanel">
-                                        <div class="subpanel-head">
-                                            <h3>Commission breakdown</h3>
-                                            <p>Live split of the worker pool based on the saved percentages above.</p>
-                                        </div>
-                                        <div class="stack-list" id="commission-breakdown"></div>
-                                    </section>
+                                <div class="tab-pane" id="job-tab-documents">
+                                    <div class="two-column-detail">
+                                        <section class="subpanel">
+                                            <div class="subpanel-head">
+                                                <h3>Document center</h3>
+                                                <p>Store agreements, receipts, permits, invoices, and closeout files in the job record or link them in manually.</p>
+                                            </div>
+                                            <div class="summary-grid job-document-summary" id="job-document-summary"></div>
+                                            <form class="stack-form" id="job-document-form">
+                                                <div class="form-grid three">
+                                                    <label>
+                                                        <span>Category</span>
+                                                        <select id="job-document-category">
+                                                            <option value="agreement">Agreement</option>
+                                                            <option value="estimate">Estimate</option>
+                                                            <option value="change_order">Change order</option>
+                                                            <option value="receipt">Receipt</option>
+                                                            <option value="permit">Permit</option>
+                                                            <option value="invoice">Invoice</option>
+                                                            <option value="photo">Photo</option>
+                                                            <option value="closeout">Closeout</option>
+                                                            <option value="other">Other</option>
+                                                        </select>
+                                                    </label>
+                                                    <label>
+                                                        <span>Source</span>
+                                                        <select id="job-document-source-type">
+                                                            <option value="upload">Upload file</option>
+                                                            <option value="link">External link</option>
+                                                            <option value="manual">Manual record</option>
+                                                        </select>
+                                                    </label>
+                                                    <label>
+                                                        <span>Related date</span>
+                                                        <input type="date" id="job-document-date">
+                                                    </label>
+                                                </div>
+                                                <label>
+                                                    <span>Title</span>
+                                                    <input type="text" id="job-document-title" placeholder="Signed agreement, permit card, receipt, invoice, progress photos">
+                                                </label>
+                                                <label id="job-document-url-row">
+                                                    <span>Document URL</span>
+                                                    <input type="url" id="job-document-url" placeholder="https://drive.google.com/...">
+                                                </label>
+                                                <label id="job-document-file-row">
+                                                    <span>File upload</span>
+                                                    <input type="file" id="job-document-file">
+                                                </label>
+                                                <label>
+                                                    <span>Note</span>
+                                                    <textarea id="job-document-note" rows="4" placeholder="What this document covers, how it was signed, or where it came from."></textarea>
+                                                </label>
+                                                <button type="submit" class="primary-button">Save document</button>
+                                            </form>
+                                        </section>
 
-                                    <section class="subpanel">
-                                        <div class="subpanel-head">
-                                            <h3>Job tasks</h3>
-                                            <p>Tasks tied to this job stay visible from the operational record and the main task list.</p>
-                                        </div>
-                                        <div class="stack-list" id="job-task-list"></div>
-                                    </section>
+                                        <section class="subpanel">
+                                            <div class="subpanel-head">
+                                                <h3>Job documents</h3>
+                                                <p>Every agreement, receipt, invoice, permit, and manual document record tied to this job.</p>
+                                            </div>
+                                            <div class="stack-list" id="job-document-list"></div>
+                                        </section>
+                                    </div>
                                 </div>
-
-                                <form class="stack-form subpanel" id="job-task-form">
-                                    <div class="subpanel-head">
-                                        <h3>Create job task</h3>
-                                        <p>Use this for purchasing, field coordination, payment collection, punch list work, or closeout.</p>
-                                    </div>
-                                    <label>
-                                        <span>Task title</span>
-                                        <input type="text" id="job-task-title" placeholder="Confirm material order, schedule inspection, collect final check">
-                                    </label>
-                                    <div class="form-grid three">
-                                        <label>
-                                            <span>Due date</span>
-                                            <input type="datetime-local" id="job-task-due">
-                                        </label>
-                                        <label>
-                                            <span>Priority</span>
-                                            <select id="job-task-priority">
-                                                <option value="high">High</option>
-                                                <option value="medium">Medium</option>
-                                                <option value="low">Low</option>
-                                            </select>
-                                        </label>
-                                        <label>
-                                            <span>Assignee</span>
-                                            <select id="job-task-assignee"></select>
-                                        </label>
-                                    </div>
-                                    <button type="submit" class="primary-button">Create task</button>
-                                </form>
                             </div>
                         </section>
                     </div>
@@ -1133,6 +1321,6 @@
         <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
     </div>
 
-    <script type="module" src="/staff/staff.js?v=20260407-leads-redesign-1"></script>
+    <script type="module" src="/staff/staff.js?v=20260407-jobs-redesign-1"></script>
 </body>
 </html>

@@ -150,7 +150,10 @@ service cloud.firestore {
       allow delete: if isAdmin();
 
       match /activities/{activityId} {
-        allow read: if canReadLead(get(/databases/$(database)/documents/leads/$(leadId)).data);
+        allow read: if canReadLead(get(/databases/$(database)/documents/leads/$(leadId)).data) || (
+          exists(/databases/$(database)/documents/projects/$(leadId)) &&
+          canReadProject(get(/databases/$(database)/documents/projects/$(leadId)).data)
+        );
         allow create, update: if isAdmin() || canReadLead(get(/databases/$(database)/documents/leads/$(leadId)).data);
         allow delete: if isAdmin();
       }
@@ -216,6 +219,29 @@ service cloud.firestore {
       match /payments/{paymentId} {
         allow read: if canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
         allow create, update, delete: if isAdmin();
+      }
+
+      match /changeOrders/{changeOrderId} {
+        allow read: if canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow create, update, delete: if isAdmin();
+      }
+
+      match /documents/{documentId} {
+        allow read: if canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow create, update: if isAdmin() || canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow delete: if isAdmin();
+      }
+
+      match /notes/{noteId} {
+        allow read: if canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow create, update: if isAdmin() || canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow delete: if isAdmin();
+      }
+
+      match /activities/{activityId} {
+        allow read: if canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow create: if isAdmin() || canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow update, delete: if isAdmin();
       }
     }
   }
