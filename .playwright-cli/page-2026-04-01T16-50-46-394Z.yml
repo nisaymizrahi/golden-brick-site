@@ -1,0 +1,222 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content":
+    - /url: "#main-content"
+  - navigation [ref=e2]:
+    - link "Golden Brick Construction home" [ref=e3] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e5]: Golden Brick
+    - list [ref=e6]:
+      - listitem [ref=e7]:
+        - link "Residential Services" [ref=e8] [cursor=pointer]:
+          - /url: residential.html
+      - listitem [ref=e9]:
+        - link "Investor Services" [ref=e10] [cursor=pointer]:
+          - /url: investors.html
+      - listitem [ref=e11]:
+        - link "About" [ref=e12] [cursor=pointer]:
+          - /url: about.html
+      - listitem [ref=e13]:
+        - link "Get a Quote" [ref=e14] [cursor=pointer]:
+          - /url: contact.html
+  - main [ref=e15]:
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - navigation "Breadcrumb" [ref=e20]:
+          - link "Home" [ref=e21] [cursor=pointer]:
+            - /url: /
+          - generic [ref=e22]: /
+          - link "Residential Services" [ref=e23] [cursor=pointer]:
+            - /url: residential.html
+          - generic [ref=e24]: /
+          - link "Investor Services" [ref=e25] [cursor=pointer]:
+            - /url: investors.html
+          - generic [ref=e26]: /
+          - generic [ref=e27]: Full Gut Rehab
+        - generic [ref=e28]: Philadelphia Full Gut Rehab
+        - heading "Full Gut Rehab in Philadelphia" [level=1] [ref=e29]
+        - paragraph [ref=e30]: Golden Brick Construction supports homeowners and investors taking on major renovation projects that require a full-property reset. We help review scope, shape the path forward, coordinate the moving parts, and manage execution through demolition, rebuild, finishes, and handoff.
+        - generic [ref=e31]:
+          - link "Request a Quote" [ref=e32] [cursor=pointer]:
+            - /url: contact.html
+          - link "Investor Services" [ref=e33] [cursor=pointer]:
+            - /url: investors.html
+        - generic [ref=e34]:
+          - generic [ref=e35]:
+            - strong [ref=e36]: Best Fit
+            - paragraph [ref=e37]: Homeowners, flippers, rental owners, and developers taking on projects that need a true full-scope renovation plan.
+          - generic [ref=e38]:
+            - strong [ref=e39]: Service Area
+            - paragraph [ref=e40]: Philadelphia, Main Line, Bucks County, Montgomery County, Delaware County, and surrounding suburbs.
+          - generic [ref=e41]:
+            - strong [ref=e42]: Support
+            - paragraph [ref=e43]: Scope review, permit coordination, sequencing, rough-in planning, build-back, project management, and final turnover support.
+      - complementary [ref=e44]:
+        - generic [ref=e45]: What a full gut rehab usually involves
+        - list [ref=e46]:
+          - listitem [ref=e47]: Property review and renovation feasibility conversations
+          - listitem [ref=e48]: Scope definition tied to layout, systems, and finish goals
+          - listitem [ref=e49]: Planning, permits, and specialist coordination where needed
+          - listitem [ref=e50]: Sequencing demolition, rough work, build-back, and finishes
+          - listitem [ref=e51]: Project oversight from early strategy through closeout
+    - generic [ref=e53]:
+      - generic [ref=e54]:
+        - generic [ref=e55]: Full Gut Rehab Photos
+        - heading "The Middle of the Job Matters Here" [level=2] [ref=e56]
+        - paragraph [ref=e57]: Full gut projects are won or lost in the messy middle. These images show the kind of structural opening, protection, and build-back stages that are more useful than polished marketing shots when clients want to understand how a serious rehab really moves.
+        - generic [ref=e58]: Real in-progress rehab conditions from active work.
+      - generic [ref=e59]:
+        - article [ref=e60]:
+          - img "Occupied home with ceiling opened and furnishings protected during renovation" [ref=e62]
+          - generic [ref=e63]:
+            - generic [ref=e64]: Protection & Demo
+            - heading "Structural Work in an Active Home" [level=3] [ref=e65]
+            - paragraph [ref=e66]: Projects like this need stronger control around demolition, site protection, cleanup, and the order of work once ceilings and framing open up.
+        - article [ref=e67]:
+          - img "Room in build-back phase during a major renovation" [ref=e69]
+          - generic [ref=e70]:
+            - generic [ref=e71]: Build-Back
+            - heading "Mid-Project Control After Rough Work" [level=3] [ref=e72]
+            - paragraph [ref=e73]: Once the rough phases are complete, the rehab still needs disciplined build-back planning so the project keeps moving cleanly toward finishes.
+        - article [ref=e74]:
+          - img "Living room with open framing during a deep renovation" [ref=e76]
+          - generic [ref=e77]:
+            - generic [ref=e78]: Open Framing
+            - heading "Real Full-Scope Conditions" [level=3] [ref=e79]
+            - paragraph [ref=e80]: This is the part of the job where layout changes, structural coordination, and the transition back to finished space all have to stay under one plan.
+    - generic [ref=e82]:
+      - generic [ref=e83]:
+        - generic [ref=e84]: Rehab Scope
+        - heading "What Our Full Gut Rehab Support Can Include" [level=2] [ref=e85]
+        - paragraph [ref=e86]: Full gut rehabs create complexity quickly. The project usually touches layout, systems, finishes, permits, scheduling, and the order of work across multiple trades. We help keep that larger scope organized from early review through final delivery.
+      - generic [ref=e87]:
+        - generic [ref=e88]:
+          - heading "Property & Scope Review" [level=3] [ref=e89]
+          - paragraph [ref=e90]: We help clarify what the project really requires, what the property is telling us, and where the largest planning decisions will sit.
+        - generic [ref=e91]:
+          - heading "Planning & Permit Coordination" [level=3] [ref=e92]
+          - paragraph [ref=e93]: When the project needs plans, submissions, or outside specialists, we help coordinate the early work that keeps execution from getting stuck.
+        - generic [ref=e94]:
+          - heading "Demolition & Structural Sequence" [level=3] [ref=e95]
+          - paragraph [ref=e96]: Major rehab jobs depend on the early phases being organized correctly so the next stages do not inherit avoidable problems.
+        - generic [ref=e97]:
+          - heading "Systems & Rough Work" [level=3] [ref=e98]
+          - paragraph [ref=e99]: Mechanical, electrical, plumbing, layout changes, and infrastructure upgrades all need a realistic sequence in a full gut project.
+        - generic [ref=e100]:
+          - heading "Build-Back & Finish Coordination" [level=3] [ref=e101]
+          - paragraph [ref=e102]: Once the major rough work is in place, the project still needs disciplined management to move through drywall, flooring, kitchens, bathrooms, and final finishes.
+        - generic [ref=e103]:
+          - heading "Turnover & Next-Step Planning" [level=3] [ref=e104]
+          - paragraph [ref=e105]: We help close the project toward its next purpose, whether that is move-in, sale, refinance, rent-up, or transition to property management.
+    - generic [ref=e107]:
+      - generic [ref=e108]: Process
+      - heading "How a Full Gut Rehab Moves Forward" [level=2] [ref=e109]
+      - paragraph [ref=e110]: Full gut projects work best when the strategy, scope, and sequence are clearer before the demolition creates pressure.
+      - generic [ref=e111]:
+        - generic [ref=e112]:
+          - generic [ref=e113]: "01"
+          - heading "Review the Property" [level=3] [ref=e114]
+          - paragraph [ref=e115]: We assess the property condition, goals, risk points, and the level of rehab the project really calls for.
+        - generic [ref=e116]:
+          - generic [ref=e117]: "02"
+          - heading "Frame the Scope" [level=3] [ref=e118]
+          - paragraph [ref=e119]: We help shape the scope, the likely sequence, and the key decisions that need to be locked in early.
+        - generic [ref=e120]:
+          - generic [ref=e121]: "03"
+          - heading "Plan the Work" [level=3] [ref=e122]
+          - paragraph [ref=e123]: Permits, specialists, design input, and material considerations are coordinated where the project needs them.
+        - generic [ref=e124]:
+          - generic [ref=e125]: "04"
+          - heading "Execute the Rehab" [level=3] [ref=e126]
+          - paragraph [ref=e127]: We coordinate demolition, rough phases, build-back, and finish work so the project keeps moving under one plan.
+        - generic [ref=e128]:
+          - generic [ref=e129]: "05"
+          - heading "Close Out Strong" [level=3] [ref=e130]
+          - paragraph [ref=e131]: The project finishes with walkthrough, punch review, and a clearer handoff to the next business or living use.
+    - generic [ref=e133]:
+      - generic [ref=e134]:
+        - generic [ref=e135]: Project Fit
+        - heading "Who This Full Gut Rehab Page Is For" [level=2] [ref=e136]
+        - paragraph [ref=e137]: Full gut rehab work can start from different goals, but it almost always needs stronger planning, broader sequencing, and more project oversight than a basic remodel.
+      - generic [ref=e138]:
+        - generic [ref=e139]:
+          - heading "Homeowners Resetting a Property" [level=3] [ref=e140]
+          - paragraph [ref=e141]: Some homes need far more than a room-by-room update. When the renovation touches multiple systems and spaces, the project usually needs a broader plan.
+          - list [ref=e142]:
+            - listitem [ref=e143]: Older homes needing major reset work
+            - listitem [ref=e144]: Projects with large layout and finish changes
+            - listitem [ref=e145]: Renovations tied to long-term livability goals
+        - generic [ref=e146]:
+          - heading "Investors Repositioning a Deal" [level=3] [ref=e147]
+          - paragraph [ref=e148]: Flips, rentals, and multifamily value-add projects often need stronger scope discipline and renovation strategy before construction starts.
+          - list [ref=e149]:
+            - listitem [ref=e150]: Flip projects with major transformation
+            - listitem [ref=e151]: Rental and refinance repositioning work
+            - listitem [ref=e152]: Projects where budget and execution must stay aligned
+        - generic [ref=e153]:
+          - heading "Projects With Bigger Planning Needs" [level=3] [ref=e154]
+          - paragraph [ref=e155]: Some full gut rehabs also depend on permits, outside professionals, financing coordination, or post-rehab next steps.
+          - list [ref=e156]:
+            - listitem [ref=e157]: Permitting or planning-sensitive projects
+            - listitem [ref=e158]: Jobs tied to specialist partners or lenders
+            - listitem [ref=e159]: Rehabs moving toward sale, rent-up, or occupancy
+    - generic [ref=e161]:
+      - generic [ref=e162]:
+        - generic [ref=e163]: Full Gut Rehab FAQ
+        - heading "Questions People Ask Before a Major Rehab Project" [level=2] [ref=e164]
+        - paragraph [ref=e165]: These are the common questions that come up when someone is comparing contractors for full gut rehab work in Philadelphia.
+      - generic [ref=e166]:
+        - group [ref=e167]:
+          - generic "What makes a project a full gut rehab instead of a regular renovation? +" [ref=e168] [cursor=pointer]
+        - group [ref=e169]:
+          - generic "Do you work with both homeowners and investors on full guts? +" [ref=e170] [cursor=pointer]
+        - group [ref=e171]:
+          - generic "Can you help with planning and permits when needed? +" [ref=e172] [cursor=pointer]
+        - group [ref=e173]:
+          - generic "Do you cover full gut rehab projects outside Philadelphia too? +" [ref=e174] [cursor=pointer]
+        - group [ref=e175]:
+          - generic "What should I send when I request a quote or project review? +" [ref=e176] [cursor=pointer]
+    - generic [ref=e178]:
+      - generic [ref=e179]: Next Step
+      - heading "Planning a Full Gut Rehab in Philadelphia?" [level=2] [ref=e180]
+      - paragraph [ref=e181]: If the property needs a full-scope renovation and you want clearer planning, better coordination, and a more realistic path from review to completion, send us the details and we’ll take a look.
+      - generic [ref=e182]:
+        - link "Request a Quote" [ref=e183] [cursor=pointer]:
+          - /url: contact.html
+        - link "Residential Services" [ref=e184] [cursor=pointer]:
+          - /url: residential.html
+  - contentinfo [ref=e185]:
+    - generic [ref=e186]:
+      - generic [ref=e187]:
+        - link "Golden Brick Construction home" [ref=e188] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e190]: Golden Brick
+        - paragraph [ref=e191]: Philadelphia-area full gut rehab support for homeowners and investors who need stronger planning, clearer sequencing, and a managed path to completion.
+        - generic [ref=e192]:
+          - paragraph [ref=e193]:
+            - strong [ref=e194]: Serving
+            - text: Philadelphia, Bucks, Montgomery, and Delaware Counties
+          - paragraph [ref=e195]:
+            - strong [ref=e196]: Email
+            - link "info@goldenbrickc.com" [ref=e197] [cursor=pointer]:
+              - /url: mailto:info@goldenbrickc.com
+          - paragraph [ref=e198]:
+            - strong [ref=e199]: Phone
+            - link "(267) 715-5557" [ref=e200] [cursor=pointer]:
+              - /url: tel:2677155557
+      - generic [ref=e201]:
+        - generic [ref=e202]: Explore
+        - generic [ref=e203]:
+          - link "Residential Services" [ref=e204] [cursor=pointer]:
+            - /url: residential.html
+          - link "Investor Services" [ref=e205] [cursor=pointer]:
+            - /url: investors.html
+          - link "Kitchen Remodeling" [ref=e206] [cursor=pointer]:
+            - /url: kitchen-remodeling-philadelphia.html
+          - link "Request a Quote" [ref=e207] [cursor=pointer]:
+            - /url: contact.html
+      - generic [ref=e208]:
+        - generic [ref=e209]: Need a Rehab Review?
+        - paragraph [ref=e210]: Send the property, the condition, and the end goal so we can review the scope and the right next move.
+        - link "Start Here" [ref=e211] [cursor=pointer]:
+          - /url: contact.html
+    - generic [ref=e212]: "© 2026 Golden Brick Construction. Philadelphia General Contractor Licence #065157."

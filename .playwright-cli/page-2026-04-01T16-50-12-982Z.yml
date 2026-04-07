@@ -1,0 +1,227 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content":
+    - /url: "#main-content"
+  - navigation [ref=e2]:
+    - link "Golden Brick Construction home" [ref=e3] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e5]: Golden Brick
+    - list [ref=e6]:
+      - listitem [ref=e7]:
+        - link "Call (267) 715-5557" [ref=e8] [cursor=pointer]:
+          - /url: tel:2677155557
+      - listitem [ref=e9]:
+        - link "Request a Quote" [ref=e10] [cursor=pointer]:
+          - /url: "#bathroom-quote"
+  - main [ref=e11]:
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]: Philadelphia Bathroom Remodeling Contractor
+        - heading "Bathroom Remodeling in Philadelphia" [level=1] [ref=e17]
+        - paragraph [ref=e18]: Golden Brick Construction works with Philadelphia homeowners planning hall bath, guest bath, and primary bathroom renovations. We help manage demolition, layout changes, rough-ins, tile, vanities, fixtures, waterproofing-aware sequencing, and finish coordination from start to finish.
+        - generic [ref=e19]:
+          - link "Request a Bathroom Quote" [ref=e20] [cursor=pointer]:
+            - /url: "#bathroom-quote"
+          - link "Call (267) 715-5557" [ref=e21] [cursor=pointer]:
+            - /url: tel:2677155557
+        - generic "Business trust signals" [ref=e22]:
+          - generic [ref=e23]: "Philadelphia Licence #065157"
+          - generic [ref=e24]: Bathrooms in Philly + Nearby Suburbs
+          - generic [ref=e25]: Occupied Homes + Major Renovations
+        - generic [ref=e26]:
+          - generic [ref=e27]:
+            - strong [ref=e28]: Project Types
+            - paragraph [ref=e29]: Hall baths, primary baths, shower upgrades, tile refreshes, vanity replacements, and full bathroom rebuilds.
+          - generic [ref=e30]:
+            - strong [ref=e31]: Service Area
+            - paragraph [ref=e32]: Philadelphia, Main Line, Bucks County, Montgomery County, Delaware County, and surrounding suburbs.
+          - generic [ref=e33]:
+            - strong [ref=e34]: What To Send
+            - paragraph [ref=e35]: Include the property address, what is changing, and your ideal timing so we can review the bathroom scope faster.
+      - complementary [ref=e36]:
+        - generic [ref=e37]: Request a Bathroom Quote
+        - heading "Tell us about the bathroom, property, and timing." [level=2] [ref=e38]
+        - paragraph [ref=e39]: Share the basics here and we’ll review the bathroom scope and next step.
+        - link "(267) 715-5557" [ref=e40] [cursor=pointer]:
+          - /url: tel:2677155557
+        - paragraph [ref=e41]: Prefer to talk first? Call us now.
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - generic [ref=e44]:
+              - generic [ref=e45]: Name
+              - textbox "Name" [ref=e46]
+            - generic [ref=e47]:
+              - generic [ref=e48]: Phone
+              - textbox "Phone" [ref=e49]
+          - generic [ref=e50]:
+            - generic [ref=e51]:
+              - generic [ref=e52]: Email
+              - textbox "Email" [ref=e53]
+            - generic [ref=e54]:
+              - generic [ref=e55]: Project Address
+              - textbox "Project Address" [ref=e56]
+          - generic [ref=e57]:
+            - generic [ref=e58]: Bathroom Project Details
+            - textbox "Bathroom Project Details" [ref=e59]:
+              - /placeholder: Tell us what bathroom you want to remodel, what is changing, and any timing goals.
+          - paragraph [ref=e60]: "Required fields: name and phone."
+          - button "Send Bathroom Quote Request" [ref=e61] [cursor=pointer]
+          - paragraph [ref=e62]: By submitting this form, your information is sent to our internal inquiry system for review.
+        - paragraph [ref=e63]: Common quote requests include primary baths, hall baths, shower conversions, and bathrooms inside larger renovations.
+    - generic [ref=e65]:
+      - generic [ref=e66]:
+        - generic [ref=e67]: Bathroom Project Photos
+        - heading "Recent Bathroom Finishes We Can Point To" [level=2] [ref=e68]
+        - paragraph [ref=e69]: Bathroom work is easiest to trust when you can see the finish level. These photos show real bathroom projects with different tile styles, shower layouts, tub work, and glass details.
+        - generic [ref=e70]: Real finished bathrooms, not catalog placeholders.
+      - generic [ref=e71]:
+        - article [ref=e72]:
+          - img "Finished green tile bathroom with glass shower enclosure" [ref=e74]
+          - generic [ref=e75]:
+            - generic [ref=e76]: Finished Bath
+            - heading "Tile, Glass, and Fixture Coordination" [level=3] [ref=e77]
+            - paragraph [ref=e78]: A completed bathroom where the shower, tile direction, vanity, and fixtures all had to land cleanly together.
+        - article [ref=e79]:
+          - img "Finished shower with textured wall tile and pebble floor" [ref=e81]
+          - generic [ref=e82]:
+            - generic [ref=e83]: Shower Build
+            - heading "Detail-Heavy Shower Work" [level=3] [ref=e84]
+            - paragraph [ref=e85]: Projects like this depend on tighter control around tile layout, shower glass, transitions, and final finish quality.
+        - article [ref=e86]:
+          - img "Finished bathroom with tub, white tile, and glass enclosure" [ref=e88]
+          - generic [ref=e89]:
+            - generic [ref=e90]: Tub & Glass
+            - heading "Compact Bathrooms Still Need Precision" [level=3] [ref=e91]
+            - paragraph [ref=e92]: Even smaller bathrooms ask for careful sequencing once tile, tub lines, mirrors, lighting, and glass are all part of the same remodel.
+    - generic [ref=e94]:
+      - generic [ref=e95]:
+        - generic [ref=e96]: Bathroom Scope
+        - heading "Bathroom Remodeling Services Homeowners Ask Us About" [level=2] [ref=e97]
+        - paragraph [ref=e98]: Philadelphia bathroom remodels move faster when the scope is clear, the finish package is organized early, and the trades are sequenced properly.
+      - generic [ref=e99]:
+        - generic [ref=e100]:
+          - heading "Full Bathroom Renovations" [level=3] [ref=e101]
+          - paragraph [ref=e102]: Complete bathroom rebuilds that require demolition, rough work, waterproofing, tile, fixtures, and coordinated finish installation.
+        - generic [ref=e103]:
+          - heading "Shower & Tub Upgrades" [level=3] [ref=e104]
+          - paragraph [ref=e105]: Projects focused on shower rebuilds, tub replacements, glass, waterproofing, and the finish details that make the space feel complete.
+        - generic [ref=e106]:
+          - heading "Tile, Vanity & Fixture Packages" [level=3] [ref=e107]
+          - paragraph [ref=e108]: Bathrooms depend on finish selections that need to line up early if the room is going to feel cohesive and stay on schedule.
+        - generic [ref=e109]:
+          - heading "Layout Changes & Rough-Ins" [level=3] [ref=e110]
+          - paragraph [ref=e111]: When plumbing, electrical, ventilation, or fixture positions need to move, the job needs tighter planning before the bathroom is opened up.
+        - generic [ref=e112]:
+          - heading "Occupied-Home Bathroom Work" [level=3] [ref=e113]
+          - paragraph [ref=e114]: Bathrooms affect daily life fast, so staging, site protection, cleanliness, and communication matter when the home is lived in.
+        - generic [ref=e115]:
+          - heading "Bathrooms Inside Larger Renovations" [level=3] [ref=e116]
+          - paragraph [ref=e117]: Some bathroom remodels are part of wider kitchen, whole-home, or full gut renovation scopes and need stronger overall coordination.
+    - generic [ref=e119]:
+      - generic [ref=e120]: Process
+      - heading "How a Bathroom Remodel Moves Forward" [level=2] [ref=e121]
+      - paragraph [ref=e122]: Bathrooms run better when the rough work, finish decisions, and installation sequence are organized before the job starts creating pressure.
+      - generic [ref=e123]:
+        - generic [ref=e124]:
+          - generic [ref=e125]: "01"
+          - heading "Consultation" [level=3] [ref=e126]
+          - paragraph [ref=e127]: We review the existing bathroom, the goals, and the level of renovation the space really needs.
+        - generic [ref=e128]:
+          - generic [ref=e129]: "02"
+          - heading "Planning" [level=3] [ref=e130]
+          - paragraph [ref=e131]: Scope, fixtures, tile direction, layout changes, and project constraints are clarified before execution begins.
+        - generic [ref=e132]:
+          - generic [ref=e133]: "03"
+          - heading "Construction" [level=3] [ref=e134]
+          - paragraph [ref=e135]: We coordinate demolition, rough work, waterproofing-related sequencing, tile and finish installation, and the details that hold the project together.
+        - generic [ref=e136]:
+          - generic [ref=e137]: "04"
+          - heading "Walkthrough" [level=3] [ref=e138]
+          - paragraph [ref=e139]: The project closes with a final review, punch items, and a completed bathroom that is ready for daily use.
+    - generic [ref=e141]:
+      - generic [ref=e142]:
+        - generic [ref=e143]: Why Homeowners Reach Out
+        - heading "Why Homeowners Choose Golden Brick For Bathroom Remodeling" [level=2] [ref=e144]
+        - paragraph [ref=e145]: Most bathroom quote requests come from homeowners who want clearer scope, faster decisions, and a contractor who understands how many details have to line up in a small room.
+      - generic [ref=e146]:
+        - generic [ref=e147]:
+          - heading "Clearer Scope Before Demo" [level=3] [ref=e148]
+          - paragraph [ref=e149]: Getting the scope, layout, finish package, and bathroom priorities lined up early helps reduce surprises later in the job.
+          - list [ref=e150]:
+            - listitem [ref=e151]: Fixture and finish decisions before pressure builds
+            - listitem [ref=e152]: Layout conversations before rough work starts
+            - listitem [ref=e153]: Better information when you request a quote
+        - generic [ref=e154]:
+          - heading "Better Coordination During Build" [level=3] [ref=e155]
+          - paragraph [ref=e156]: Bathrooms depend on the right sequence across demolition, rough-ins, waterproofing, tile, glass, paint, and fixture installation.
+          - list [ref=e157]:
+            - listitem [ref=e158]: Plumbing, electrical, and ventilation sequencing
+            - listitem [ref=e159]: Waterproofing-aware build-back planning
+            - listitem [ref=e160]: Cleaner project control in occupied homes
+        - generic [ref=e161]:
+          - heading "Stronger Closeout And Handoff" [level=3] [ref=e162]
+          - paragraph [ref=e163]: A bathroom remodel should end with the last details handled, punch items reviewed, and a finished room ready for daily use.
+          - list [ref=e164]:
+            - listitem [ref=e165]: Final walkthrough and closeout review
+            - listitem [ref=e166]: Bathroom finishes that feel complete
+            - listitem [ref=e167]: A more direct path from quote to next step
+    - generic [ref=e169]:
+      - generic [ref=e170]:
+        - generic [ref=e171]: Bathroom Remodeling FAQ
+        - heading "Questions Homeowners Ask Before a Bathroom Quote" [level=2] [ref=e172]
+        - paragraph [ref=e173]: These are the common questions that come up when someone is comparing bathroom remodeling contractors in Philadelphia.
+      - generic [ref=e174]:
+        - group [ref=e175]:
+          - generic "Do you handle full bathroom rebuilds or smaller remodels too? +" [ref=e176] [cursor=pointer]
+        - group [ref=e177]:
+          - generic "Can you help with tile, fixture, and finish decisions? +" [ref=e178] [cursor=pointer]
+        - group [ref=e179]:
+          - generic "Do you work in occupied homes? +" [ref=e180] [cursor=pointer]
+        - group [ref=e181]:
+          - generic "Do you serve bathrooms outside Philadelphia too? +" [ref=e182] [cursor=pointer]
+        - group [ref=e183]:
+          - generic "What should I send when I request a quote? +" [ref=e184] [cursor=pointer]
+    - generic [ref=e186]:
+      - generic [ref=e187]: Next Step
+      - heading "Planning a Bathroom Remodel in Philadelphia?" [level=2] [ref=e188]
+      - paragraph [ref=e189]: If you need a bathroom contractor in Philadelphia, send the property address, the bathroom scope, and your timing goals. You can also call us directly if the project is easier to explain by phone.
+      - generic [ref=e190]:
+        - link "Request a Bathroom Quote" [ref=e191] [cursor=pointer]:
+          - /url: "#bathroom-quote"
+        - link "Call (267) 715-5557" [ref=e192] [cursor=pointer]:
+          - /url: tel:2677155557
+  - contentinfo [ref=e193]:
+    - generic [ref=e194]:
+      - generic [ref=e195]:
+        - link "Golden Brick Construction home" [ref=e196] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e198]: Golden Brick
+        - paragraph [ref=e199]: Philadelphia-area bathroom remodeling support for homeowners who need clearer planning, better sequencing, and a cleaner renovation process.
+        - generic [ref=e200]:
+          - paragraph [ref=e201]:
+            - strong [ref=e202]: Serving
+            - text: Philadelphia, Bucks, Montgomery, and Delaware Counties
+          - paragraph [ref=e203]:
+            - strong [ref=e204]: Email
+            - link "info@goldenbrickc.com" [ref=e205] [cursor=pointer]:
+              - /url: mailto:info@goldenbrickc.com
+          - paragraph [ref=e206]:
+            - strong [ref=e207]: Phone
+            - link "(267) 715-5557" [ref=e208] [cursor=pointer]:
+              - /url: tel:2677155557
+      - generic [ref=e209]:
+        - generic [ref=e210]: Explore
+        - generic [ref=e211]:
+          - link "Residential Services" [ref=e212] [cursor=pointer]:
+            - /url: residential.html
+          - link "Kitchen Remodeling" [ref=e213] [cursor=pointer]:
+            - /url: kitchen-remodeling-philadelphia.html
+          - link "Full Gut Rehab" [ref=e214] [cursor=pointer]:
+            - /url: full-gut-rehab-philadelphia.html
+          - link "Request a Quote" [ref=e215] [cursor=pointer]:
+            - /url: contact.html
+      - generic [ref=e216]:
+        - generic [ref=e217]: Need a Bathroom Quote?
+        - paragraph [ref=e218]: Send the address, the bathroom goals, and the scope you have in mind so we can review the next step.
+        - link "Start Here" [ref=e219] [cursor=pointer]:
+          - /url: contact.html
+    - generic [ref=e220]: "© 2026 Golden Brick Construction. Philadelphia General Contractor Licence #065157."

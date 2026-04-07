@@ -1,0 +1,266 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content":
+    - /url: "#main-content"
+  - navigation [ref=e2]:
+    - link "Golden Brick Construction home" [ref=e3] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e5]: Golden Brick
+    - list [ref=e6]:
+      - listitem [ref=e7]:
+        - link "Residential Services" [ref=e8] [cursor=pointer]:
+          - /url: residential.html
+      - listitem [ref=e9]:
+        - link "Investor Services" [ref=e10] [cursor=pointer]:
+          - /url: investors.html
+      - listitem [ref=e11]:
+        - link "About" [ref=e12] [cursor=pointer]:
+          - /url: about.html
+      - listitem [ref=e13]:
+        - link "Get a Quote" [ref=e14] [cursor=pointer]:
+          - /url: contact.html
+  - main [ref=e15]:
+    - generic [ref=e17]:
+      - generic [ref=e18]: Philadelphia Investment Property Services
+      - heading "Investor Services" [level=1] [ref=e19]
+      - paragraph [ref=e20]: Full-service support for investors doing fix and flips, rental renovations, multifamily rehabs, full gut projects, and new construction. We help source, analyze, finance, plan, and execute projects across Philadelphia and surrounding Pennsylvania suburbs.
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - heading "We Help Investors From Opportunity to Execution" [level=2] [ref=e24]
+        - paragraph [ref=e26]: Golden Brick Construction works with real estate investors who need more than a contractor. We help evaluate opportunities, build renovation strategy, coordinate financing relationships, plan the scope, and manage the project through execution.
+        - paragraph [ref=e27]: Whether the goal is a flip, rental renovation, multifamily repositioning, full gut rehab, new construction, or a rent-by-room strategy, we help investors make more informed decisions by combining construction knowledge with deep Philadelphia real estate experience.
+      - generic [ref=e28]:
+        - generic [ref=e29]:
+          - strong [ref=e30]: Who We Work With
+          - text: Investors, landlords, developers, and buyers evaluating value-add residential and multifamily projects.
+        - generic [ref=e31]:
+          - strong [ref=e32]: Project Types
+          - text: Fix and flip, fix and rent, DSCR and rental deals, multifamily renovations, full gut rehabs, and new construction.
+        - generic [ref=e33]:
+          - strong [ref=e34]: Experience
+          - text: 25 years of real estate experience in Philadelphia, backed by trusted construction, lending, and management relationships.
+        - generic [ref=e35]:
+          - generic [ref=e36]: Philadelphia
+          - generic [ref=e37]: Multifamily
+          - generic [ref=e38]: Flips
+          - generic [ref=e39]: Rentals
+          - generic [ref=e40]: New Construction
+          - generic [ref=e41]: Surrounding PA Suburbs
+    - generic [ref=e42]:
+      - heading "What We Help Investors With" [level=2] [ref=e43]
+      - paragraph [ref=e45]: We support investors through the full lifecycle of a deal, from sourcing and underwriting through renovation execution and post-project strategy.
+      - generic [ref=e46]:
+        - generic [ref=e47]:
+          - generic [ref=e48]: ⌕
+          - heading "Deal Sourcing Support" [level=3] [ref=e49]
+          - paragraph [ref=e50]: We help source promising opportunities through trusted partners and local relationships, especially for investors looking for Philadelphia-area value-add projects.
+        - generic [ref=e51]:
+          - generic [ref=e52]: ▦
+          - heading "Feasibility Review" [level=3] [ref=e53]
+          - paragraph [ref=e54]: We review the property, scope, location, and opportunity to help investors better understand what makes sense before they commit.
+        - generic [ref=e55]:
+          - generic [ref=e56]: ◫
+          - heading "Construction Estimates" [level=3] [ref=e57]
+          - paragraph [ref=e58]: We prepare project cost estimates tied to the renovation scope so investors can underwrite more accurately and plan with greater confidence.
+        - generic [ref=e59]:
+          - generic [ref=e60]: ◆
+          - heading "Full Gut & Multifamily Rehabs" [level=3] [ref=e61]
+          - paragraph [ref=e62]: We manage larger-scale renovation projects for flips, rentals, and multifamily properties, including full-gut repositioning work.
+          - link "See Full Gut Rehab Details" [ref=e63] [cursor=pointer]:
+            - /url: full-gut-rehab-philadelphia.html
+        - generic [ref=e64]:
+          - generic [ref=e65]: ▲
+          - heading "New Construction" [level=3] [ref=e66]
+          - paragraph [ref=e67]: We support new build projects for investors and developers, from early planning through coordinated execution.
+        - generic [ref=e68]:
+          - generic [ref=e69]: ◼
+          - heading "Strategy Guidance" [level=3] [ref=e70]
+          - paragraph [ref=e71]: We help determine the best path for the property, whether the project makes more sense as a flip, hold, rent-by-room, or another investment strategy.
+        - generic [ref=e72]:
+          - generic [ref=e73]: ◧
+          - heading "Financing Introductions" [level=3] [ref=e74]
+          - paragraph [ref=e75]: We help connect investors with trusted lending partners for fix and flip loans, fix and rent loans, DSCR loans, and construction financing.
+        - generic [ref=e76]:
+          - generic [ref=e77]: ▣
+          - heading "Planning & Execution" [level=3] [ref=e78]
+          - paragraph [ref=e79]: We help manage design direction, planning coordination, permits, and renovation execution to keep the project moving.
+        - generic [ref=e80]:
+          - generic [ref=e81]: ▤
+          - heading "Rental Management Support" [level=3] [ref=e82]
+          - paragraph [ref=e83]: After completion, we can connect investors with trusted management partners for long-term rental oversight and rent-by-room operations.
+    - generic [ref=e85]:
+      - generic [ref=e86]:
+        - heading "Our Investor Report Package" [level=2] [ref=e87]
+        - paragraph [ref=e89]: One of the most valuable things we provide investors is a more complete picture of the deal. For sourced properties, owned properties, or properties an investor is considering purchasing, we help assemble a professional report package to support decision-making.
+        - paragraph [ref=e90]: This package is designed to help investors assess feasibility, understand renovation scope, review value potential, and compare strategies before moving forward.
+        - paragraph [ref=e91]: Rather than relying on guesswork, investors receive a more structured evaluation that combines comps, scope, projected numbers, and strategy insight based on real local experience.
+      - generic [ref=e92]:
+        - heading "What the Report Can Include" [level=3] [ref=e93]
+        - list [ref=e94]:
+          - listitem [ref=e95]: As-is comps report for the current property condition
+          - listitem [ref=e96]: Construction estimate tied to the proposed scope
+          - listitem [ref=e97]: ARV comps report based on the planned improvements
+          - listitem [ref=e98]: Projected income and expense review
+          - listitem [ref=e99]: Rental comps and cap rate support
+          - listitem [ref=e100]: Strategy discussion based on property type and location
+          - listitem [ref=e101]: Key issues to watch out for before moving forward
+          - listitem [ref=e102]: Guidance for flip, rental, multifamily, or rent-by-room positioning
+    - generic [ref=e103]:
+      - heading "How We Help Investors" [level=2] [ref=e104]
+      - paragraph [ref=e106]: We approach investor projects as a full-service process, helping clients move from opportunity identification to completed execution with more clarity and control.
+      - generic [ref=e107]:
+        - generic [ref=e108]:
+          - generic [ref=e109]: "01"
+          - heading "Source or Review the Property" [level=3] [ref=e110]
+          - paragraph [ref=e111]: We help identify opportunities through partners or review a property the investor already owns or is considering purchasing.
+        - generic [ref=e112]:
+          - generic [ref=e113]: "02"
+          - heading "Analyze Feasibility" [level=3] [ref=e114]
+          - paragraph [ref=e115]: We assess location, scope, risk points, improvement potential, and whether the deal supports the intended strategy.
+        - generic [ref=e116]:
+          - generic [ref=e117]: "03"
+          - heading "Build the Report Package" [level=3] [ref=e118]
+          - paragraph [ref=e119]: We assemble comps, estimate data, ARV support, rental metrics, and strategy notes to help the investor make a more informed decision.
+        - generic [ref=e120]:
+          - generic [ref=e121]: "04"
+          - heading "Coordinate Financing & Planning" [level=3] [ref=e122]
+          - paragraph [ref=e123]: When needed, we connect investors with lending partners and help coordinate planning, design, and permit-related next steps.
+        - generic [ref=e124]:
+          - generic [ref=e125]: "05"
+          - heading "Execute the Renovation" [level=3] [ref=e126]
+          - paragraph [ref=e127]: We manage the renovation or construction process from planning through execution, using the right teams and specialists for the scope.
+        - generic [ref=e128]:
+          - generic [ref=e129]: "06"
+          - heading "Support the Exit or Hold Strategy" [level=3] [ref=e130]
+          - paragraph [ref=e131]: After completion, we help investors move toward the right next step, whether that means sale, refinance, rent-up, long-term hold, or rent-by-room management support.
+    - generic [ref=e132]:
+      - generic [ref=e133]:
+        - heading "Investor Projects We Support" [level=2] [ref=e134]
+        - paragraph [ref=e136]: Our investor services are built for serious Philadelphia-area real estate projects where strategy, renovation execution, and numbers all need to align.
+      - generic [ref=e137]:
+        - generic [ref=e138]:
+          - heading "Fix & Flip Projects" [level=3] [ref=e139]
+          - paragraph [ref=e140]: We help investors evaluate, budget, and execute projects intended for resale, with a focus on renovation efficiency and ARV-driven improvements.
+          - list [ref=e141]:
+            - listitem [ref=e142]: As-is and after-repair evaluation support
+            - listitem [ref=e143]: Construction scope and estimate planning
+            - listitem [ref=e144]: Value-add renovation strategy
+            - listitem [ref=e145]: Execution management from start to finish
+            - listitem [ref=e146]: Support in identifying risk factors
+            - listitem [ref=e147]: Planning around sale-ready finished product
+        - generic [ref=e148]:
+          - heading "Rental & Multifamily Renovations" [level=3] [ref=e149]
+          - paragraph [ref=e150]: We help investors preparing properties for long-term rental, refinance, repositioning, multifamily stabilization, or rent-by-room operations.
+          - list [ref=e151]:
+            - listitem [ref=e152]: Rental renovation and repositioning scope
+            - listitem [ref=e153]: Income and expense review support
+            - listitem [ref=e154]: Rental comps and cap-rate-oriented analysis
+            - listitem [ref=e155]: Multifamily renovation planning
+            - listitem [ref=e156]: Rent-by-room strategy support where appropriate
+            - listitem [ref=e157]: Management partner introductions after completion
+        - generic [ref=e158]:
+          - heading "Full Guts & New Construction" [level=3] [ref=e159]
+          - paragraph [ref=e160]: For larger repositioning or development projects, we support investors with the planning, coordination, and execution needed for major transformation.
+          - list [ref=e161]:
+            - listitem [ref=e162]: Full gut rehab project planning
+            - listitem [ref=e163]: Major layout and scope transformation
+            - listitem [ref=e164]: Multifamily and value-add repositioning
+            - listitem [ref=e165]: Ground-up construction support
+            - listitem [ref=e166]: Coordination with design and specialty professionals
+            - listitem [ref=e167]: Project management through completion
+    - generic [ref=e169]:
+      - generic [ref=e170]:
+        - generic [ref=e171]: Investor Search Pages
+        - heading "Pages That Match the Rehab Scopes Investors Commonly Research" [level=2] [ref=e172]
+        - paragraph [ref=e173]: Search traffic from serious investors is usually tied to the renovation scope, not just the word “contractor.” These pages help connect deal-review traffic to the project types investors most often ask us about.
+      - generic [ref=e174]:
+        - article [ref=e175]:
+          - generic [ref=e176]: Philadelphia Full Gut Rehab
+          - heading "Full Gut Rehab" [level=3] [ref=e177]
+          - paragraph [ref=e178]: For flips, rentals, and multifamily repositioning projects that need scope discipline, sequencing, and execution oversight.
+          - link "Explore Full Gut Rehab" [ref=e179] [cursor=pointer]:
+            - /url: full-gut-rehab-philadelphia.html
+        - article [ref=e180]:
+          - generic [ref=e181]: Philadelphia Kitchen Remodeling
+          - heading "Kitchen Remodeling" [level=3] [ref=e182]
+          - paragraph [ref=e183]: Useful when resale value or rent-ready presentation depends on a more strategic kitchen renovation plan.
+          - link "Explore Kitchen Remodeling" [ref=e184] [cursor=pointer]:
+            - /url: kitchen-remodeling-philadelphia.html
+        - article [ref=e185]:
+          - generic [ref=e186]: Philadelphia Bathroom Remodeling
+          - heading "Bathroom Remodeling" [level=3] [ref=e187]
+          - paragraph [ref=e188]: A common value-add scope for flips and rentals where layout, finishes, and timing all affect the numbers.
+          - link "Explore Bathroom Remodeling" [ref=e189] [cursor=pointer]:
+            - /url: bathroom-remodeling-philadelphia.html
+    - generic [ref=e190]:
+      - heading "Why Investors Work With Golden Brick" [level=2] [ref=e191]
+      - paragraph [ref=e193]: We combine real estate insight, renovation execution, and trusted partner relationships to help investors make better decisions and move projects forward with more confidence.
+      - generic [ref=e194]:
+        - generic [ref=e195]:
+          - heading "25 Years of Philadelphia Real Estate Experience" [level=3] [ref=e196]
+          - paragraph [ref=e197]: We bring deep local market familiarity to deal review, renovation strategy, and property positioning.
+        - generic [ref=e198]:
+          - heading "Decision-Making Support" [level=3] [ref=e199]
+          - paragraph [ref=e200]: Our reports and evaluations help investors assess feasibility, understand risk, and compare strategies before committing.
+        - generic [ref=e201]:
+          - heading "Trusted Partner Network" [level=3] [ref=e202]
+          - paragraph [ref=e203]: We coordinate with lending, design, management, and specialty partners to support the project where needed.
+        - generic [ref=e204]:
+          - heading "From Deal to Execution" [level=3] [ref=e205]
+          - paragraph [ref=e206]: We help investors move from sourcing and analysis into planning, construction, and post-renovation next steps.
+    - generic [ref=e208]:
+      - generic [ref=e209]:
+        - generic [ref=e210]: Investor FAQ
+        - heading "Questions Investors Ask Before They Move Forward" [level=2] [ref=e211]
+        - paragraph [ref=e212]: These are the practical topics that usually come up before an investor requests a review, estimate, or project conversation.
+      - generic [ref=e213]:
+        - group [ref=e214]:
+          - generic "Can you review a deal before I buy it? +" [ref=e215] [cursor=pointer]
+        - group [ref=e216]:
+          - generic "Do you only work with flips? +" [ref=e217] [cursor=pointer]
+        - group [ref=e218]:
+          - generic "Can you help with scope and budget before the plans are final? +" [ref=e219] [cursor=pointer]
+        - group [ref=e220]:
+          - generic "Do you coordinate with lenders, designers, and management partners? +" [ref=e221] [cursor=pointer]
+        - group [ref=e222]:
+          - generic "What areas do you cover for investor work? +" [ref=e223] [cursor=pointer]
+    - generic [ref=e224]:
+      - heading "Evaluating an Investment Property?" [level=2] [ref=e225]
+      - paragraph [ref=e226]: Whether you are sourcing a new deal, reviewing a property you already own, planning a flip, repositioning a rental, renovating a multifamily building, or preparing for new construction, our team is ready to help you assess the opportunity and manage the project.
+      - link "Request a Quote" [ref=e227] [cursor=pointer]:
+        - /url: contact.html
+  - contentinfo [ref=e228]:
+    - generic [ref=e229]:
+      - generic [ref=e230]:
+        - link "Golden Brick Construction home" [ref=e231] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e233]: Golden Brick
+        - paragraph [ref=e234]: Investor-oriented construction support for Philadelphia projects that need budget discipline, execution oversight, and a realistic path from deal to completion.
+        - generic [ref=e235]:
+          - paragraph [ref=e236]:
+            - strong [ref=e237]: Serving
+            - text: Philadelphia, Bucks, Montgomery, and Delaware Counties
+          - paragraph [ref=e238]:
+            - strong [ref=e239]: Email
+            - link "info@goldenbrickc.com" [ref=e240] [cursor=pointer]:
+              - /url: mailto:info@goldenbrickc.com
+          - paragraph [ref=e241]:
+            - strong [ref=e242]: Phone
+            - link "(267) 715-5557" [ref=e243] [cursor=pointer]:
+              - /url: tel:2677155557
+      - generic [ref=e244]:
+        - generic [ref=e245]: Explore
+        - generic [ref=e246]:
+          - link "Residential Services" [ref=e247] [cursor=pointer]:
+            - /url: residential.html
+          - link "Investor Services" [ref=e248] [cursor=pointer]:
+            - /url: investors.html
+          - link "About Golden Brick" [ref=e249] [cursor=pointer]:
+            - /url: about.html
+          - link "Request a Quote" [ref=e250] [cursor=pointer]:
+            - /url: contact.html
+      - generic [ref=e251]:
+        - generic [ref=e252]: Need an Investor Quote?
+        - paragraph [ref=e253]: Share the property, the strategy, and the construction questions you need answered and we’ll help you frame the opportunity.
+        - link "Start Here" [ref=e254] [cursor=pointer]:
+          - /url: contact.html
+    - generic [ref=e255]: "© 2026 Golden Brick Construction. Philadelphia General Contractor Licence #065157."

@@ -1,0 +1,123 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content":
+    - /url: "#main-content"
+  - navigation [ref=e2]:
+    - link "Golden Brick Construction home" [ref=e3] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e5]: Golden Brick
+    - list [ref=e6]:
+      - listitem [ref=e7]:
+        - link "Residential Services" [ref=e8] [cursor=pointer]:
+          - /url: residential.html
+      - listitem [ref=e9]:
+        - link "Investor Services" [ref=e10] [cursor=pointer]:
+          - /url: investors.html
+      - listitem [ref=e11]:
+        - link "About" [ref=e12] [cursor=pointer]:
+          - /url: about.html
+      - listitem [ref=e13]:
+        - link "Get a Quote" [ref=e14] [cursor=pointer]:
+          - /url: contact.html
+  - main [ref=e15]:
+    - generic [ref=e17]:
+      - generic [ref=e18]: Philadelphia Construction & Development
+      - heading "About Golden Brick Construction" [level=1] [ref=e19]
+      - paragraph [ref=e20]: Golden Brick Construction provides renovation, construction, and project management services for homeowners and real estate investors across Philadelphia and surrounding suburbs.
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - heading "Built on Real Construction Experience" [level=2] [ref=e24]
+        - paragraph [ref=e26]: Golden Brick Construction works with homeowners and real estate investors on serious renovation and construction projects across Philadelphia.
+        - paragraph [ref=e27]: Our work includes kitchen and bathroom renovations, full gut rehabs, multifamily renovations, rental property upgrades, and new residential construction.
+        - paragraph [ref=e28]:
+          - text: With more than
+          - strong [ref=e29]: 25 years of experience in Philadelphia real estate
+          - text: ", we understand both the construction side and the investment strategy behind successful projects."
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - strong [ref=e32]: What We Do
+          - text: Residential renovations, investor renovation projects, multifamily rehabs, full gut renovations, and new construction.
+        - generic [ref=e33]:
+          - strong [ref=e34]: Who We Work With
+          - text: Homeowners planning renovations and real estate investors developing flip or rental projects.
+        - generic [ref=e35]:
+          - strong [ref=e36]: Service Area
+          - text: Philadelphia and surrounding suburbs across Bucks, Montgomery, and Delaware counties.
+    - generic [ref=e37]:
+      - heading "Active Work Across Philadelphia" [level=2] [ref=e38]
+      - paragraph [ref=e40]: Golden Brick Construction is currently managing multiple renovation and development projects throughout the Philadelphia area.
+      - generic [ref=e41]:
+        - generic [ref=e42]:
+          - heading "7" [level=2] [ref=e43]
+          - paragraph [ref=e44]: Active Projects
+        - generic [ref=e45]:
+          - heading "32" [level=2] [ref=e46]
+          - paragraph [ref=e47]: Total Residential Units
+        - generic [ref=e48]:
+          - heading "25+" [level=2] [ref=e49]
+          - paragraph [ref=e50]: Years Real Estate Experience
+    - generic [ref=e52]:
+      - generic [ref=e53]:
+        - heading "Helping Investors Choose the Right Strategy" [level=2] [ref=e54]
+        - paragraph [ref=e56]: Many of our clients are real estate investors looking to evaluate projects before committing to construction.
+        - paragraph [ref=e57]: Because we are actively working on multiple projects across Philadelphia, clients can see different investment strategies in real time and learn from proven projects.
+        - list [ref=e58]:
+          - listitem [ref=e59]: Fix and flip projects
+          - listitem [ref=e60]: Long term rental renovations
+          - listitem [ref=e61]: Multifamily repositioning
+          - listitem [ref=e62]: Rent by room investment strategy
+          - listitem [ref=e63]: Short term rental opportunities
+      - img "Occupied home renovation with structural work underway" [ref=e65]
+    - generic [ref=e66]:
+      - heading "Project Walkthroughs for Clients" [level=2] [ref=e67]
+      - paragraph [ref=e69]: We regularly offer site visits for new clients to see our projects in person and understand how renovation projects progress from early stages to completion.
+      - generic [ref=e70]:
+        - generic [ref=e71]:
+          - heading "Active Construction Sites" [level=3] [ref=e72]
+          - paragraph [ref=e73]: Clients can visit projects currently under renovation to understand the scope of work and construction process.
+        - generic [ref=e74]:
+          - heading "Projects In Progress" [level=3] [ref=e75]
+          - paragraph [ref=e76]: We show properties in different phases of renovation so clients can see how projects evolve through construction.
+        - generic [ref=e77]:
+          - heading "Recently Completed Projects" [level=3] [ref=e78]
+          - paragraph [ref=e79]: Finished properties allow clients to see final results and understand the potential of renovation strategies.
+    - generic [ref=e80]:
+      - heading "Discuss Your Project" [level=2] [ref=e81]
+      - paragraph [ref=e82]: Whether you are planning a renovation or evaluating a real estate investment project, our team can help guide you through planning, strategy, and construction.
+      - link "Request a Consultation" [ref=e83] [cursor=pointer]:
+        - /url: contact.html
+  - contentinfo [ref=e84]:
+    - generic [ref=e85]:
+      - generic [ref=e86]:
+        - link "Golden Brick Construction home" [ref=e87] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e89]: Golden Brick
+        - paragraph [ref=e90]: Construction and development support for Philadelphia-area homeowners and investors who need strategy as much as execution.
+        - generic [ref=e91]:
+          - paragraph [ref=e92]:
+            - strong [ref=e93]: Serving
+            - text: Philadelphia, Bucks, Montgomery, and Delaware Counties
+          - paragraph [ref=e94]:
+            - strong [ref=e95]: Email
+            - link "info@goldenbrickc.com" [ref=e96] [cursor=pointer]:
+              - /url: mailto:info@goldenbrickc.com
+          - paragraph [ref=e97]:
+            - strong [ref=e98]: Phone
+            - link "(267) 715-5557" [ref=e99] [cursor=pointer]:
+              - /url: tel:2677155557
+      - generic [ref=e100]:
+        - generic [ref=e101]: Explore
+        - generic [ref=e102]:
+          - link "Residential Services" [ref=e103] [cursor=pointer]:
+            - /url: residential.html
+          - link "Investor Services" [ref=e104] [cursor=pointer]:
+            - /url: investors.html
+          - link "About Golden Brick" [ref=e105] [cursor=pointer]:
+            - /url: about.html
+          - link "Request a Quote" [ref=e106] [cursor=pointer]:
+            - /url: contact.html
+      - generic [ref=e107]:
+        - generic [ref=e108]: Need a Quote?
+        - paragraph [ref=e109]: If you’re evaluating a renovation or a development opportunity, we can help shape the right plan.
+        - link "Start Here" [ref=e110] [cursor=pointer]:
+          - /url: contact.html
+    - generic [ref=e111]: "© 2026 Golden Brick Construction. Philadelphia General Contractor Licence #065157."

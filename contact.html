@@ -622,34 +622,37 @@
 
                 <form
                     class="lead-form"
-                    action="https://docs.google.com/forms/d/e/1FAIpQLSfXdTjB6kVg6RH1Vy3Ru5gTdKdTjqKnHMCerbMepvx_Zpg8Cg/formResponse"
+                    action="/api/public/lead-intake"
                     method="POST"
                     target="hidden_iframe"
                     data-form-name="project_inquiry"
                     data-success-message-id="success-message"
+                    data-error-message-id="error-message"
                     data-merge-extra-into="#notes"
+                    data-default-project-type="General Consultation"
                 >
+                    <input type="hidden" data-lead-field="projectType" value="General Consultation">
                     <div class="form-row">
                         <div class="form-group">
                             <label for="name">Name <span class="required">*</span></label>
-                            <input type="text" id="name" name="entry.1938418565" required>
+                            <input type="text" id="name" name="entry.1938418565" data-lead-field="clientName" required>
                         </div>
 
                         <div class="form-group">
                             <label for="email">Email Address</label>
-                            <input type="email" id="email" name="entry.2064255771">
+                            <input type="email" id="email" name="entry.2064255771" data-lead-field="clientEmail">
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
                             <label for="phone">Phone Number <span class="required">*</span></label>
-                            <input type="text" id="phone" name="entry.940072979" required>
+                            <input type="text" id="phone" name="entry.940072979" data-lead-field="clientPhone" required>
                         </div>
 
                         <div class="form-group">
                             <label for="address">Project Address</label>
-                            <input type="text" id="address" name="entry.1570481540">
+                            <input type="text" id="address" name="entry.1570481540" data-lead-field="projectAddress">
                         </div>
                     </div>
 
@@ -658,6 +661,7 @@
                         <textarea
                             id="notes"
                             name="entry.1309691449"
+                            data-lead-field="notes"
                             placeholder="Tell us about the project, property, goals, timeline, or anything else you'd like us to know."
                         ></textarea>
                     </div>
@@ -668,6 +672,7 @@
                                 type="checkbox"
                                 id="contact-consent"
                                 class="lead-extra-field"
+                                data-lead-field="consent"
                                 data-extra-label="Inquiry contact consent"
                                 data-checked-value="Agreed"
                                 required
@@ -690,6 +695,10 @@
                 </form>
 
                 <iframe name="hidden_iframe" style="display:none;" title="Hidden form submission target"></iframe>
+
+                <div id="error-message" class="success-page-fallback" style="margin-top: 24px; padding: 18px 20px; background: #fff2f0; border-left: 4px solid #a93f34; color: #6e2a21;">
+                    We could not submit the request right now. Please call us at (267) 715-5557.
+                </div>
 
                 <div id="success-message" class="success-page-fallback" style="margin-top: 24px; padding: 18px 20px; background: #f6f6f6; border-left: 4px solid var(--gold);">
                     <strong style="display:block; margin-bottom:8px; color: var(--black); text-transform: uppercase; letter-spacing: 0.8px;">Thank you.</strong>

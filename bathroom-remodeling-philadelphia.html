@@ -555,33 +555,36 @@
 
                         <form
                             class="lead-form"
-                            action="https://docs.google.com/forms/d/e/1FAIpQLSfXdTjB6kVg6RH1Vy3Ru5gTdKdTjqKnHMCerbMepvx_Zpg8Cg/formResponse"
+                            action="/api/public/lead-intake"
                             method="POST"
                             target="bathroom_quote_iframe"
                             data-form-name="bathroom_quote"
                             data-success-message-id="bathroom-success-message"
+                            data-error-message-id="bathroom-error-message"
+                            data-default-project-type="Bathroom Remodel"
                         >
+                            <input type="hidden" data-lead-field="projectType" value="Bathroom Remodel">
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="bathroom-name">Name</label>
-                                    <input type="text" id="bathroom-name" name="entry.1938418565" required>
+                                    <input type="text" id="bathroom-name" name="entry.1938418565" data-lead-field="clientName" required>
                                 </div>
 
                                 <div class="form-group">
                                     <label for="bathroom-phone">Phone</label>
-                                    <input type="tel" id="bathroom-phone" name="entry.940072979" required>
+                                    <input type="tel" id="bathroom-phone" name="entry.940072979" data-lead-field="clientPhone" required>
                                 </div>
                             </div>
 
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="bathroom-email">Email</label>
-                                    <input type="email" id="bathroom-email" name="entry.2064255771">
+                                    <input type="email" id="bathroom-email" name="entry.2064255771" data-lead-field="clientEmail">
                                 </div>
 
                                 <div class="form-group">
                                     <label for="bathroom-address">Project Address</label>
-                                    <input type="text" id="bathroom-address" name="entry.1570481540">
+                                    <input type="text" id="bathroom-address" name="entry.1570481540" data-lead-field="projectAddress">
                                 </div>
                             </div>
 
@@ -590,6 +593,7 @@
                                 <textarea
                                     id="bathroom-notes"
                                     name="entry.1309691449"
+                                    data-lead-field="notes"
                                     placeholder="Tell us what bathroom you want to remodel, what is changing, and any timing goals."
                                 ></textarea>
                             </div>
@@ -600,6 +604,11 @@
                         </form>
 
                         <iframe name="bathroom_quote_iframe" style="display:none;" title="Hidden bathroom quote submission target"></iframe>
+
+                        <div id="bathroom-error-message" class="success-message-local" style="background: rgba(169, 63, 52, 0.18); border-left-color: #d07b74;">
+                            <strong>We could not send that right now.</strong>
+                            <span>Please call (267) 715-5557 and we will get your bathroom quote request moving.</span>
+                        </div>
 
                         <div id="bathroom-success-message" class="success-message-local">
                             <strong>Thank you.</strong>

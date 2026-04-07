@@ -1,4 +1,20 @@
 {
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    }
+  ],
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
   "hosting": {
     "site": "golden-brick-construction",
     "public": ".",
@@ -12,10 +28,33 @@
       "**/.firebase/**",
       ".playwright-cli/**",
       "**/.playwright-cli/**",
+      "output/**",
+      "**/output/**",
       ".DS_Store",
       "**/.DS_Store",
+      "images/projects/in-progress/**",
+      "images/projects/completed/**",
+      "images/projects/README.md",
       "**/.*",
       "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/api/public/lead-intake",
+        "function": "publicLeadIntake"
+      },
+      {
+        "source": "/api/auth/sync-session",
+        "function": "syncStaffSession"
+      },
+      {
+        "source": "/api/staff/estimate-draft",
+        "function": "generateEstimateDraft"
+      },
+      {
+        "source": "/api/staff/send-estimate",
+        "function": "sendEstimateEmail"
+      }
     ]
   }
 }

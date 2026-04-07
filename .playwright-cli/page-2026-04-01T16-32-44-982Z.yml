@@ -1,0 +1,276 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content":
+    - /url: "#main-content"
+  - navigation [ref=e2]:
+    - link "Golden Brick Construction home" [ref=e3] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e5]: Golden Brick
+    - list [ref=e6]:
+      - listitem [ref=e7]:
+        - link "Residential Services" [ref=e8] [cursor=pointer]:
+          - /url: residential.html
+      - listitem [ref=e9]:
+        - link "Investor Services" [ref=e10] [cursor=pointer]:
+          - /url: investors.html
+      - listitem [ref=e11]:
+        - link "About" [ref=e12] [cursor=pointer]:
+          - /url: about.html
+      - listitem [ref=e13]:
+        - link "Get a Quote" [ref=e14] [cursor=pointer]:
+          - /url: contact.html
+  - main [ref=e15]:
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]: Philadelphia & Surrounding Pennsylvania Suburbs
+        - heading "Philadelphia general contractors" [level=1] [ref=e21]
+        - generic [ref=e22]: Building Philadelphia brick by brick
+        - paragraph [ref=e23]: Golden Brick Construction helps homeowners and real estate investors plan, budget, permit, and execute renovation and new-build work with a more managed, accountable construction process.
+        - generic [ref=e24]:
+          - link "Request a Quote" [ref=e25] [cursor=pointer]:
+            - /url: contact.html
+          - link "Call (267) 715-5557" [ref=e26] [cursor=pointer]:
+            - /url: tel:2677155557
+        - generic [ref=e27]:
+          - generic [ref=e28]: Licensed & Insured
+          - generic [ref=e29]: "PA License #065157"
+          - generic [ref=e30]: Planning, Permits, Project Management
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - generic [ref=e33]: Built around two clear client paths
+          - generic [ref=e34]:
+            - generic [ref=e35]:
+              - strong [ref=e36]: For Homeowners
+              - paragraph [ref=e37]: Major kitchens, bathrooms, flooring, full-home renovations, additions, and new builds.
+            - generic [ref=e38]:
+              - strong [ref=e39]: For Investors
+              - paragraph [ref=e40]: Flips, rental rehabs, multifamily renovations, full gut projects, and construction strategy support.
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - strong [ref=e43]: 25+
+            - generic [ref=e44]: Years of Philadelphia real estate experience
+          - generic [ref=e45]:
+            - strong [ref=e46]: "7"
+            - generic [ref=e47]: Active projects in Philadelphia right now
+          - generic [ref=e48]:
+            - strong [ref=e49]: "32"
+            - generic [ref=e50]: Residential units currently under renovation
+          - generic [ref=e51]:
+            - strong [ref=e52]: "5"
+            - generic [ref=e53]: Core service areas across city and nearby counties
+    - generic [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]: Why Golden Brick
+        - heading "We're Built for Projects That Need Coordination, Not Guesswork" [level=2] [ref=e59]
+        - paragraph [ref=e60]: Golden Brick Construction is not a handyman service. We're structured for renovation and building projects where planning, sequencing, trusted trades, and budget discipline matter.
+        - paragraph [ref=e61]: That means clearer scopes, better communication, more realistic decision-making, and a contractor partner who understands both construction execution and property strategy.
+      - generic [ref=e62]:
+        - generic [ref=e63]:
+          - strong [ref=e64]: Residential Scope
+          - text: Kitchens, bathrooms, flooring, drywall, painting, roofing, additions, full home renovations, and new residential builds.
+        - generic [ref=e65]:
+          - strong [ref=e66]: Investor Scope
+          - text: Flips, rental renovations, multifamily rehabs, full guts, construction budgeting, and pre-project direction.
+        - generic [ref=e67]:
+          - strong [ref=e68]: Service Footprint
+          - text: Philadelphia, Main Line, Bucks County, Montgomery County, Delaware County, and surrounding Pennsylvania suburbs.
+          - generic [ref=e69]:
+            - generic [ref=e70]: Philadelphia
+            - generic [ref=e71]: Main Line
+            - generic [ref=e72]: Bucks County
+            - generic [ref=e73]: Montgomery County
+            - generic [ref=e74]: Delaware County
+    - generic [ref=e76]:
+      - generic [ref=e77]:
+        - generic [ref=e78]: Two Service Tracks
+        - heading "Two Service Paths, One Standard of Work" [level=2] [ref=e79]
+        - paragraph [ref=e80]: Whether the project starts with a family home or an investment property, our process is built to clarify scope, improve decision-making, and keep execution organized.
+      - generic [ref=e81]:
+        - generic [ref=e82]:
+          - generic [ref=e83]: "01"
+          - heading "Residential Services" [level=3] [ref=e84]
+          - paragraph [ref=e85]: We help homeowners renovate with a process that brings more order to design decisions, budgeting, scheduling, and execution.
+          - list [ref=e86]:
+            - listitem [ref=e87]: Kitchen and bathroom remodeling
+            - listitem [ref=e88]: Flooring, drywall, and interior finishes
+            - listitem [ref=e89]: Full home renovations and additions
+            - listitem [ref=e90]: Exterior work and new residential construction
+          - link "Explore Residential Services" [ref=e91] [cursor=pointer]:
+            - /url: residential.html
+        - generic [ref=e92]:
+          - generic [ref=e93]: "02"
+          - heading "Investor Services" [level=3] [ref=e94]
+          - paragraph [ref=e95]: We support investors from early project review through construction management, helping deals move with more clarity and discipline.
+          - list [ref=e96]:
+            - listitem [ref=e97]: Fix-and-flip and rental renovation planning
+            - listitem [ref=e98]: Multifamily and full gut rehab execution
+            - listitem [ref=e99]: Scope, budget, and deal viability discussions
+            - listitem [ref=e100]: Contractor coordination and project delivery
+          - link "Explore Investor Services" [ref=e101] [cursor=pointer]:
+            - /url: investors.html
+    - generic [ref=e103]:
+      - generic [ref=e104]:
+        - generic [ref=e105]: Popular Search Paths
+        - heading "Project Pages Built Around the Jobs People Actually Search For" [level=2] [ref=e106]
+        - paragraph [ref=e107]: People ready to hire usually search the exact project, not a broad construction phrase. These pages give homeowners and investors a clearer path into the renovation scopes we get asked about most in Philadelphia and the surrounding suburbs.
+      - generic [ref=e108]:
+        - article [ref=e109]:
+          - generic [ref=e110]: Philadelphia Full Home Renovation
+          - heading "Full Home Renovation" [level=3] [ref=e111]
+          - paragraph [ref=e112]: Planning, budgeting direction, permits, trade coordination, and managed execution for major home renovations.
+          - link "Explore Full Home Renovation" [ref=e113] [cursor=pointer]:
+            - /url: /full-renovation-philadelphia
+        - article [ref=e114]:
+          - generic [ref=e115]: Philadelphia Kitchen Remodeling
+          - heading "Kitchen Remodeling" [level=3] [ref=e116]
+          - paragraph [ref=e117]: Planning, layout support, finish coordination, and managed execution for serious kitchen upgrades.
+          - link "Explore Kitchen Remodeling" [ref=e118] [cursor=pointer]:
+            - /url: kitchen-remodeling-philadelphia.html
+        - article [ref=e119]:
+          - generic [ref=e120]: Philadelphia Bathroom Remodeling
+          - heading "Bathroom Remodeling" [level=3] [ref=e121]
+          - paragraph [ref=e122]: Bathroom renovation support built around sequencing, finish quality, and a cleaner project experience.
+          - link "Explore Bathroom Remodeling" [ref=e123] [cursor=pointer]:
+            - /url: bathroom-remodeling-philadelphia.html
+        - article [ref=e124]:
+          - generic [ref=e125]: Philadelphia Full Gut Rehab
+          - heading "Full Gut Rehab" [level=3] [ref=e126]
+          - paragraph [ref=e127]: Major rehab planning and project management for homeowners and investors tackling full-property transformations.
+          - link "Explore Full Gut Rehab" [ref=e128] [cursor=pointer]:
+            - /url: full-gut-rehab-philadelphia.html
+    - generic [ref=e131]:
+      - generic [ref=e132]:
+        - generic [ref=e133]: Full-Service Support
+        - heading "Project Management Matters as Much as the Build" [level=2] [ref=e134]
+        - paragraph [ref=e135]: Clients don't just need labor. They need help defining scope, identifying risks, lining up the right specialists, and keeping a project moving once construction starts.
+        - paragraph [ref=e136]: That's why Golden Brick's value is not limited to trade work. It's the structure that holds the project together.
+        - generic [ref=e137]:
+          - generic [ref=e138]:
+            - heading "Pre-Construction" [level=3] [ref=e139]
+            - paragraph [ref=e140]: Scope definition, property walk-throughs, rough planning, budget direction, and early decision support.
+          - generic [ref=e141]:
+            - heading "Execution Oversight" [level=3] [ref=e142]
+            - paragraph [ref=e143]: Scheduling, coordination, trade sequencing, issue resolution, and keeping the build moving forward.
+          - generic [ref=e144]:
+            - heading "Partner Network" [level=3] [ref=e145]
+            - paragraph [ref=e146]: Architects, designers, lenders, specialty contractors, and adjacent service partners when the project needs them.
+      - generic [ref=e147]:
+        - generic [ref=e148]: What managed construction looks like
+        - paragraph [ref=e149]: A strong construction experience is usually the result of better systems, not better improvisation.
+        - list [ref=e150]:
+          - listitem [ref=e151]: Property review and scope clarification before work begins
+          - listitem [ref=e152]: Budget conversations grounded in actual project requirements
+          - listitem [ref=e153]: Permit and planning support where the project calls for it
+          - listitem [ref=e154]: Trade coordination and problem-solving during execution
+          - listitem [ref=e155]: Final delivery with the next step already in mind
+    - generic [ref=e157]:
+      - generic [ref=e158]: How It Works
+      - heading "A Straightforward Four-Step Process" [level=2] [ref=e159]
+      - paragraph [ref=e160]: Every project moves through the same core stages so clients understand what happens first, what gets decided next, and how the work stays on track.
+      - generic [ref=e161]:
+        - generic [ref=e162]:
+          - generic [ref=e163]: "01"
+          - heading "Consultation" [level=3] [ref=e164]
+          - paragraph [ref=e165]: We review the property, understand the goals, and identify what kind of project support is actually needed.
+        - generic [ref=e166]:
+          - generic [ref=e167]: "02"
+          - heading "Planning" [level=3] [ref=e168]
+          - paragraph [ref=e169]: Scope, budgeting direction, permits, trade considerations, and sequencing are shaped before execution gets expensive.
+        - generic [ref=e170]:
+          - generic [ref=e171]: "03"
+          - heading "Construction" [level=3] [ref=e172]
+          - paragraph [ref=e173]: We coordinate labor, decisions, and site progress so the project moves forward with more control and less drift.
+        - generic [ref=e174]:
+          - generic [ref=e175]: "04"
+          - heading "Delivery" [level=3] [ref=e176]
+          - paragraph [ref=e177]: The finished project is delivered ready for living, sale, rent-up, or the client's next strategic move.
+    - generic [ref=e179]:
+      - generic [ref=e180]: Why Clients Choose Golden Brick
+      - heading "Why Philadelphia Clients Work With Golden Brick" [level=2] [ref=e181]
+      - paragraph [ref=e182]: Our clients typically need more than a crew. They need a contractor who can help plan the work, organize the moving parts, and keep the project focused from first walkthrough to final handoff.
+      - generic [ref=e183]:
+        - generic [ref=e184]:
+          - heading "Clear Project Leadership" [level=3] [ref=e185]
+          - paragraph [ref=e186]: We help define scope, sequencing, responsibilities, and next steps so the project starts with stronger alignment.
+        - generic [ref=e187]:
+          - heading "Experience With Investor and Homeowner Work" [level=3] [ref=e188]
+          - paragraph [ref=e189]: Because we understand both renovation execution and property strategy, we can support projects with different goals and constraints.
+        - generic [ref=e190]:
+          - heading "Better Coordination Across Trades" [level=3] [ref=e191]
+          - paragraph [ref=e192]: Projects move more smoothly when one team is keeping timelines, decisions, and site progress connected throughout the job.
+        - generic [ref=e193]:
+          - heading "Focused on the Full Path to Completion" [level=3] [ref=e194]
+          - paragraph [ref=e195]: We look beyond individual tasks and help clients move from early review through execution and final delivery with more confidence.
+    - generic [ref=e197]:
+      - generic [ref=e198]:
+        - generic [ref=e199]: Questions Before Contact
+        - heading "What People Usually Want to Know Before They Reach Out" [level=2] [ref=e200]
+        - paragraph [ref=e201]: Strong leads usually start with a few practical questions. These answers help set expectations before the first call or quote request.
+      - generic [ref=e202]:
+        - group [ref=e203]:
+          - generic "What kinds of projects are the best fit for Golden Brick? +" [ref=e204] [cursor=pointer]
+        - group [ref=e205]:
+          - generic "Do you only work inside Philadelphia city limits? +" [ref=e206] [cursor=pointer]
+        - group [ref=e207]:
+          - generic "Can you help with planning, permits, and early decisions? +" [ref=e208] [cursor=pointer]
+        - group [ref=e209]:
+          - generic "Do you work with both homeowners and investors? +" [ref=e210] [cursor=pointer]
+        - group [ref=e211]:
+          - generic "What is the fastest way to start a quote? +" [ref=e212] [cursor=pointer]
+    - generic [ref=e215]:
+      - generic [ref=e216]:
+        - generic [ref=e217]: Next Step
+        - heading "Ready to Talk Through Your Project?" [level=2] [ref=e218]
+        - paragraph [ref=e219]: Whether you're planning a major home renovation or sizing up an investment property, we can help shape the scope and the path forward.
+        - generic [ref=e220]:
+          - link "Request a Quote" [ref=e221] [cursor=pointer]:
+            - /url: contact.html
+          - link "Residential Services" [ref=e222] [cursor=pointer]:
+            - /url: residential.html
+      - generic [ref=e223]:
+        - generic [ref=e224]:
+          - strong [ref=e225]: Phone
+          - link "(267) 715-5557" [ref=e226] [cursor=pointer]:
+            - /url: tel:2677155557
+        - generic [ref=e227]:
+          - strong [ref=e228]: Email
+          - link "info@goldenbrickc.com" [ref=e229] [cursor=pointer]:
+            - /url: mailto:info@goldenbrickc.com
+        - generic [ref=e230]:
+          - strong [ref=e231]: Service Area
+          - text: Philadelphia, Bucks, Montgomery, Delaware, and surrounding suburbs
+  - contentinfo [ref=e232]:
+    - generic [ref=e233]:
+      - generic [ref=e234]:
+        - link "Golden Brick Construction home" [ref=e235] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e237]: Golden Brick
+        - paragraph [ref=e238]: Building Philadelphia one well-managed project at a time for homeowners and investors who need planning, coordination, and reliable execution.
+        - generic [ref=e239]:
+          - paragraph [ref=e240]:
+            - strong [ref=e241]: Serving
+            - text: Philadelphia, Bucks, Montgomery, and Delaware Counties
+          - paragraph [ref=e242]:
+            - strong [ref=e243]: Email
+            - link "info@goldenbrickc.com" [ref=e244] [cursor=pointer]:
+              - /url: mailto:info@goldenbrickc.com
+          - paragraph [ref=e245]:
+            - strong [ref=e246]: Phone
+            - link "(267) 715-5557" [ref=e247] [cursor=pointer]:
+              - /url: tel:2677155557
+      - generic [ref=e248]:
+        - generic [ref=e249]: Explore
+        - generic [ref=e250]:
+          - link "Residential Services" [ref=e251] [cursor=pointer]:
+            - /url: residential.html
+          - link "Investor Services" [ref=e252] [cursor=pointer]:
+            - /url: investors.html
+          - link "About Golden Brick" [ref=e253] [cursor=pointer]:
+            - /url: about.html
+          - link "Request a Quote" [ref=e254] [cursor=pointer]:
+            - /url: contact.html
+      - generic [ref=e255]:
+        - generic [ref=e256]: Start the Conversation
+        - paragraph [ref=e257]: Tell us about your scope, timing, and goals and we'll help you figure out the right next move.
+        - link "Get a Quote" [ref=e258] [cursor=pointer]:
+          - /url: contact.html
+    - generic [ref=e259]: "© 2026 Golden Brick Construction. Pennsylvania Licensed Contractor. PA License #065157."

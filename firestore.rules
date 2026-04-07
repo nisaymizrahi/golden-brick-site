@@ -1,0 +1,111 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userData() {
+      return signedIn() && userDoc().exists() ? userDoc().data : null;
+    }
+
+    function isActiveStaff() {
+      return userData() != null && userData().active == true;
+    }
+
+    function isAdmin() {
+      return isActiveStaff() && userData().role == "admin";
+    }
+
+    function isAssignedLead(leadData) {
+      return isActiveStaff() && leadData.assignedToUid == request.auth.uid;
+    }
+
+    function isAssignedProject(projectData) {
+      return isActiveStaff() && (
+        ((projectData.assignedWorkerIds is list) && projectData.assignedWorkerIds.hasAny([request.auth.uid])) ||
+        projectData.assignedLeadOwnerUid == request.auth.uid
+      );
+    }
+
+    match /allowedStaff/{staffKey} {
+      allow read, write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isAdmin() || (isActiveStaff() && request.auth.uid == userId);
+      allow write: if isAdmin();
+    }
+
+    match /emailTemplates/{templateId} {
+      allow read: if isActiveStaff();
+      allow write: if isAdmin();
+    }
+
+    match /leads/{leadId} {
+      allow read: if isAdmin() || isAssignedLead(resource.data);
+      allow create: if false;
+      allow update: if isAdmin() || (
+        isAssignedLead(resource.data) &&
+        request.resource.data.assignedToUid == resource.data.assignedToUid
+      );
+      allow delete: if isAdmin();
+
+      match /activities/{activityId} {
+        allow read: if isAdmin() || isAssignedLead(get(/databases/$(database)/documents/leads/$(leadId)).data);
+        allow create, update: if isAdmin() || isAssignedLead(get(/databases/$(database)/documents/leads/$(leadId)).data);
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /reminders/{reminderId} {
+      allow read: if isAdmin() || (
+        isActiveStaff() &&
+        resource.data.assignedToUid == request.auth.uid
+      );
+      allow create: if isAdmin() || (
+        isActiveStaff() &&
+        request.resource.data.assignedToUid == request.auth.uid
+      );
+      allow update: if isAdmin() || (
+        isActiveStaff() &&
+        resource.data.assignedToUid == request.auth.uid &&
+        request.resource.data.assignedToUid == resource.data.assignedToUid
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /estimates/{estimateId} {
+      function estimateLead() {
+        return get(/databases/$(database)/documents/leads/$(resource.data.leadId));
+      }
+
+      allow read: if isAdmin() || (
+        isActiveStaff() &&
+        estimateLead().exists() &&
+        estimateLead().data.assignedToUid == request.auth.uid
+      );
+      allow write: if isAdmin();
+    }
+
+    match /projects/{projectId} {
+      allow read: if isAdmin() || isAssignedProject(resource.data);
+      allow create, update, delete: if isAdmin();
+
+      match /expenses/{expenseId} {
+        allow read: if isAdmin() || isAssignedProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow create, update: if isAdmin() || isAssignedProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow delete: if isAdmin();
+      }
+
+      match /payments/{paymentId} {
+        allow read: if isAdmin() || isAssignedProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow create, update, delete: if isAdmin();
+      }
+    }
+  }
+}

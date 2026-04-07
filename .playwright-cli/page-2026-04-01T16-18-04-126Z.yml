@@ -1,0 +1,199 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content":
+    - /url: "#main-content"
+  - navigation [ref=e2]:
+    - link "Golden Brick Construction home" [ref=e3] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e5]: Golden Brick
+    - list [ref=e6]:
+      - listitem [ref=e7]:
+        - link "Call (267) 715-5557" [ref=e8] [cursor=pointer]:
+          - /url: tel:2677155557
+      - listitem [ref=e9]:
+        - link "Free Consultation" [ref=e10] [cursor=pointer]:
+          - /url: "#free-consultation"
+  - main [ref=e11]:
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - navigation "Breadcrumb" [ref=e16]:
+          - link "Home" [ref=e17] [cursor=pointer]:
+            - /url: /
+          - generic [ref=e18]: /
+          - link "Residential Services" [ref=e19] [cursor=pointer]:
+            - /url: /residential.html
+          - generic [ref=e20]: /
+          - generic [ref=e21]: Full Renovation Philadelphia
+        - generic [ref=e22]: Philadelphia Home Renovation Contractor
+        - heading "Full and Partial Home Renovations in Philadelphia" [level=1] [ref=e23]
+        - paragraph [ref=e24]: Golden Brick Construction helps homeowners and qualified property owners move forward with clearer scope, stronger coordination, and one team accountable from planning through final delivery.
+        - paragraph [ref=e25]: We specialize in both full home renovations and partial remodeling projects, including kitchens, bathrooms, basements, and interior upgrades.
+        - generic [ref=e26]:
+          - link "Call Now" [ref=e27] [cursor=pointer]:
+            - /url: tel:2677155557
+          - link "Leave Your Info" [ref=e28] [cursor=pointer]:
+            - /url: "#free-consultation"
+        - generic "Business trust signals" [ref=e29]:
+          - generic [ref=e30]: Licensed & Insured
+          - generic [ref=e31]: "PA License #065157"
+          - generic [ref=e32]: Philadelphia & Surrounding Suburbs
+      - complementary [ref=e33]:
+        - generic [ref=e34]: Why Homeowners Contact Us
+        - heading "A Better-Managed Renovation Process" [level=2] [ref=e35]
+        - paragraph [ref=e36]: People usually reach out because they want more than labor. They want a professional team that can guide the project and keep the work organized.
+        - list [ref=e37]:
+          - listitem [ref=e38]: Full home renovations and partial remodeling projects
+          - listitem [ref=e39]: Planning, budgeting direction, permit support, and trade coordination
+          - listitem [ref=e40]: Kitchens, bathrooms, basements, interiors, and larger whole-home scopes
+          - listitem [ref=e41]: Clear next steps from first conversation to final delivery
+        - link "Call (267) 715-5557" [ref=e42] [cursor=pointer]:
+          - /url: tel:2677155557
+    - generic [ref=e44]:
+      - generic [ref=e45]:
+        - generic [ref=e46]: Why Homeowners Reach Out
+        - heading "Professional, Organized, and Easy to Contact" [level=2] [ref=e47]
+        - paragraph [ref=e48]: As a Philadelphia home renovation contractor, we make it easier for homeowners to understand the project, see the path forward, and feel comfortable reaching out.
+      - generic [ref=e49]:
+        - article [ref=e50]:
+          - heading "Clearer Scope" [level=3] [ref=e51]
+          - paragraph [ref=e52]: We help homeowners sort through priorities, project fit, and the best next move before the work starts creating pressure.
+        - article [ref=e53]:
+          - heading "Better Coordination" [level=3] [ref=e54]
+          - paragraph [ref=e55]: Renovations move better when decisions, trades, and timing stay connected under one organized process.
+        - article [ref=e56]:
+          - heading "Full or Partial Projects" [level=3] [ref=e57]
+          - paragraph [ref=e58]: Whether the job is a full home renovation Philadelphia scope or a partial home remodeling Philadelphia update, we can help guide it.
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]: Our Renovation Services
+        - heading "Services Homeowners Ask Us About Most" [level=2] [ref=e63]
+        - paragraph [ref=e64]: We keep the page focused, but we still want people to quickly see the kinds of work we handle across full and partial renovation projects.
+      - generic [ref=e65]:
+        - article [ref=e66]:
+          - generic [ref=e67]: FH
+          - heading "Full Home Renovations" [level=3] [ref=e68]
+          - paragraph [ref=e69]: Whole-home remodels that need planning, coordination, and one team guiding the project from start to finish.
+          - link "Service Details +" [ref=e70] [cursor=pointer]:
+            - /url: "#"
+        - article [ref=e71]:
+          - generic [ref=e72]: PR
+          - heading "Partial Home Renovations" [level=3] [ref=e73]
+          - paragraph [ref=e74]: Smaller-scope remodels for homeowners improving one part of the home while still wanting strong project control.
+          - link "Service Details +" [ref=e75] [cursor=pointer]:
+            - /url: "#"
+        - article [ref=e76]:
+          - generic [ref=e77]: KT
+          - heading "Kitchen Remodeling" [level=3] [ref=e78]
+          - paragraph [ref=e79]: Kitchens that need layout review, finish coordination, and cleaner execution from demolition through closeout.
+          - link "Service Details +" [ref=e80] [cursor=pointer]:
+            - /url: "#"
+        - article [ref=e81]:
+          - generic [ref=e82]: BA
+          - heading "Bathroom Remodeling" [level=3] [ref=e83]
+          - paragraph [ref=e84]: Bathrooms with tighter coordination, clearer sequencing, and a more polished finished result.
+          - link "Service Details +" [ref=e85] [cursor=pointer]:
+            - /url: "#"
+        - article [ref=e86]:
+          - generic [ref=e87]: BS
+          - heading "Basement Finishing" [level=3] [ref=e88]
+          - paragraph [ref=e89]: Basement projects that need scope clarity, infrastructure planning, and dependable build-out support.
+          - link "Service Details +" [ref=e90] [cursor=pointer]:
+            - /url: "#"
+        - article [ref=e91]:
+          - generic [ref=e92]: IN
+          - heading "Interior Renovations" [level=3] [ref=e93]
+          - paragraph [ref=e94]: Interior updates that bring multiple rooms, finishes, and trades together under one clear renovation plan.
+          - link "Service Details +" [ref=e95] [cursor=pointer]:
+            - /url: "#"
+        - article [ref=e96]:
+          - generic [ref=e97]: FL
+          - heading "Flooring Installation" [level=3] [ref=e98]
+          - paragraph [ref=e99]: Flooring work that supports full remodels or stands alone as part of a partial renovation scope.
+          - link "Service Details +" [ref=e100] [cursor=pointer]:
+            - /url: "#"
+        - article [ref=e101]:
+          - generic [ref=e102]: PD
+          - heading "Painting & Drywall" [level=3] [ref=e103]
+          - paragraph [ref=e104]: Painting and drywall work that helps reset interiors and tighten the finished look of the home.
+          - link "Service Details +" [ref=e105] [cursor=pointer]:
+            - /url: "#"
+        - article [ref=e106]:
+          - generic [ref=e107]: CC
+          - heading "Custom Carpentry" [level=3] [ref=e108]
+          - paragraph [ref=e109]: Trim, finish carpentry, and custom interior details installed with care and better coordination.
+          - link "Service Details +" [ref=e110] [cursor=pointer]:
+            - /url: "#"
+    - generic [ref=e113]:
+      - generic [ref=e114]:
+        - generic [ref=e115]: Free Consultation
+        - heading "Get a Free Renovation Consultation" [level=2] [ref=e116]
+        - paragraph [ref=e117]: Full or Partial Home Renovations in Philadelphia
+        - paragraph [ref=e118]: If you want a serious contractor that looks organized, professional, and easy to work with, this is the next step.
+        - paragraph [ref=e119]: Call now or leave your contact info and project type. We’ll follow up about the right next move.
+        - link "Call (267) 715-5557" [ref=e121] [cursor=pointer]:
+          - /url: tel:2677155557
+        - generic [ref=e122]:
+          - generic [ref=e123]: Licensed & Insured
+          - generic [ref=e124]: "PA License #065157"
+          - generic [ref=e125]: Philadelphia-Focused
+      - generic [ref=e126]:
+        - heading "Leave Your Info" [level=3] [ref=e127]
+        - paragraph [ref=e128]: Short form. Fast follow-up.
+        - generic [ref=e129]:
+          - generic [ref=e130]:
+            - generic [ref=e131]:
+              - generic [ref=e132]: Name *
+              - textbox "Name *" [ref=e133]
+            - generic [ref=e134]:
+              - generic [ref=e135]: Phone *
+              - textbox "Phone *" [ref=e136]
+          - generic [ref=e137]:
+            - generic [ref=e138]:
+              - generic [ref=e139]: Email
+              - textbox "Email" [ref=e140]
+            - generic [ref=e141]:
+              - generic [ref=e142]: Project Type *
+              - combobox "Project Type *" [ref=e143]:
+                - option "Select a project type" [selected]
+                - option "Full Renovation"
+                - option "Kitchen"
+                - option "Bathroom"
+                - option "Basement"
+                - option "Other"
+          - button "Get Free Consultation" [ref=e144] [cursor=pointer]
+          - paragraph [ref=e145]: By submitting this form, your information will be sent to our project inquiry system so we can follow up.
+  - contentinfo [ref=e146]:
+    - generic [ref=e147]:
+      - generic [ref=e148]:
+        - link "Golden Brick Construction home" [ref=e149] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e151]: Golden Brick
+        - paragraph [ref=e152]: Philadelphia home renovation contractor for homeowners who want clearer planning, better coordination, and a professional path to completion.
+        - generic [ref=e153]:
+          - paragraph [ref=e154]:
+            - strong [ref=e155]: Serving
+            - text: Philadelphia, Bucks, Montgomery, Delaware, and surrounding suburbs
+          - paragraph [ref=e156]:
+            - strong [ref=e157]: Email
+            - link "info@goldenbrickc.com" [ref=e158] [cursor=pointer]:
+              - /url: mailto:info@goldenbrickc.com
+          - paragraph [ref=e159]:
+            - strong [ref=e160]: Phone
+            - link "(267) 715-5557" [ref=e161] [cursor=pointer]:
+              - /url: tel:2677155557
+      - generic [ref=e162]:
+        - generic [ref=e163]: Explore
+        - generic [ref=e164]:
+          - link "Residential Services" [ref=e165] [cursor=pointer]:
+            - /url: /residential.html
+          - link "Kitchen Remodeling" [ref=e166] [cursor=pointer]:
+            - /url: /kitchen-remodeling-philadelphia.html
+          - link "Bathroom Remodeling" [ref=e167] [cursor=pointer]:
+            - /url: /bathroom-remodeling-philadelphia.html
+          - link "Contact" [ref=e168] [cursor=pointer]:
+            - /url: /contact.html
+      - generic [ref=e169]:
+        - generic [ref=e170]: Ready To Talk?
+        - paragraph [ref=e171]: Call now or leave your information and we’ll help you understand the right next step.
+        - link "Free Consultation" [ref=e172] [cursor=pointer]:
+          - /url: "#free-consultation"
+    - generic [ref=e173]: "© 2026 Golden Brick Construction. Pennsylvania Licensed Contractor. PA License #065157."

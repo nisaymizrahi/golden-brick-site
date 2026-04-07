@@ -1,0 +1,215 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content":
+    - /url: "#main-content"
+  - navigation [ref=e2]:
+    - link "Golden Brick Construction home" [ref=e3] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e5]: Golden Brick
+    - list [ref=e6]:
+      - listitem [ref=e7]:
+        - link "Call (267) 715-5557" [ref=e8] [cursor=pointer]:
+          - /url: tel:2677155557
+      - listitem [ref=e9]:
+        - link "Free Consultation" [ref=e10] [cursor=pointer]:
+          - /url: "#free-consultation"
+  - main [ref=e11]:
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - navigation "Breadcrumb" [ref=e16]:
+          - link "Home" [ref=e17] [cursor=pointer]:
+            - /url: /
+          - generic [ref=e18]: /
+          - link "Residential Services" [ref=e19] [cursor=pointer]:
+            - /url: /residential.html
+          - generic [ref=e20]: /
+          - generic [ref=e21]: Full Renovation Philadelphia
+        - generic [ref=e22]: Philadelphia Home Renovation Contractor
+        - heading "Full and Partial Home Renovations in Philadelphia" [level=1] [ref=e23]
+        - paragraph [ref=e24]: Planning a full renovation or a smaller remodel? Golden Brick helps Philadelphia homeowners talk through scope, budget direction, permits, and the right next step with one accountable team.
+        - paragraph [ref=e25]: Full home renovations, kitchens, bathrooms, basements, and interior remodels managed with a clear process.
+        - generic [ref=e26]:
+          - link "Call Now" [ref=e27] [cursor=pointer]:
+            - /url: tel:2677155557
+          - link "Leave Your Info" [ref=e28] [cursor=pointer]:
+            - /url: "#free-consultation"
+        - paragraph [ref=e29]: Free consultation. Fast follow-up. Licensed and insured.
+        - generic "Business trust signals" [ref=e30]:
+          - generic [ref=e31]: Licensed & Insured
+          - generic [ref=e32]: "PA License #065157"
+          - generic [ref=e33]: Philadelphia & Surrounding Suburbs
+      - complementary [ref=e34]:
+        - generic [ref=e35]: Free Consultation
+        - heading "Talk Through Your Project Before You Commit" [level=2] [ref=e36]
+        - paragraph [ref=e37]: If you are comparing contractors or trying to understand the project better, start with a quick conversation about fit, scope, and next steps.
+        - list [ref=e38]:
+          - listitem [ref=e39]: Full home renovations and partial remodeling projects
+          - listitem [ref=e40]: Planning, budgeting direction, permit support, and trade coordination
+          - listitem [ref=e41]: Kitchens, bathrooms, basements, interiors, and larger whole-home scopes
+          - listitem [ref=e42]: Clear next steps after the first conversation
+        - generic [ref=e43]:
+          - link "Call (267) 715-5557" [ref=e44] [cursor=pointer]:
+            - /url: tel:2677155557
+          - link "Leave Your Info" [ref=e45] [cursor=pointer]:
+            - /url: "#free-consultation"
+    - generic [ref=e47]:
+      - generic [ref=e48]:
+        - generic [ref=e49]: Whole-Home Renovation Photos
+        - heading "Full Renovations Need Proof Across More Than One Stage" [level=2] [ref=e50]
+        - paragraph [ref=e51]: "A whole-home project is not just one finished reveal. These photos show the range that matters: protection during heavier work, build-back after rough phases, and the finished spaces clients care about at handoff."
+        - generic [ref=e52]: Real renovation phases from active and recently completed jobs.
+      - generic [ref=e53]:
+        - article [ref=e54]:
+          - img "Occupied home protected during major renovation work" [ref=e56]
+          - generic [ref=e57]:
+            - generic [ref=e58]: Occupied Home
+            - heading "Protection While the Structure Opens Up" [level=3] [ref=e59]
+            - paragraph [ref=e60]: For larger home renovations, project control starts with keeping the site protected and workable while the heavier phases move.
+        - article [ref=e61]:
+          - img "Room in build-back phase after major renovation work" [ref=e63]
+          - generic [ref=e64]:
+            - generic [ref=e65]: Build-Back
+            - heading "Progress After the Rough Work" [level=3] [ref=e66]
+            - paragraph [ref=e67]: Once systems and framing are handled, the build-back phase still needs clean scheduling and finish decisions to keep momentum.
+        - article [ref=e68]:
+          - img "Finished walk-in closet as part of a home renovation" [ref=e70]
+          - generic [ref=e71]:
+            - generic [ref=e72]: Finished Interior
+            - heading "Trimmed-Out Living Spaces" [level=3] [ref=e73]
+            - paragraph [ref=e74]: Completed storage and interior rooms are where planning, trade coordination, and final detail work become visible to the homeowner.
+        - article [ref=e75]:
+          - img "Finished bathroom installed as part of a whole-home renovation" [ref=e77]
+          - generic [ref=e78]:
+            - generic [ref=e79]: Finished Bath
+            - heading "Room-by-Room Finish Quality" [level=3] [ref=e80]
+            - paragraph [ref=e81]: Whole-home renovations still succeed one room at a time, with bathrooms and other key spaces needing careful closeout and finish control.
+    - generic [ref=e83]:
+      - generic [ref=e84]:
+        - generic [ref=e85]: Why Homeowners Reach Out
+        - heading "Serious Help, Not Just Labor" [level=2] [ref=e86]
+        - paragraph [ref=e87]: People contact us because they want a contractor who can help them understand the job, organize the process, and give them a clear next step.
+      - generic [ref=e88]:
+        - article [ref=e89]:
+          - heading "Talk Through Scope" [level=3] [ref=e90]
+          - paragraph [ref=e91]: We help homeowners sort through project fit, priorities, and what should happen first.
+        - article [ref=e92]:
+          - heading "Get Clearer Next Steps" [level=3] [ref=e93]
+          - paragraph [ref=e94]: From consultation to construction, the goal is to make the process feel more organized and manageable.
+        - article [ref=e95]:
+          - heading "Full or Partial Projects" [level=3] [ref=e96]
+          - paragraph [ref=e97]: We specialize in both full home renovations and partial remodeling projects throughout Philadelphia.
+    - generic [ref=e99]:
+      - generic [ref=e100]:
+        - generic [ref=e101]: Our Renovation Services
+        - heading "Services We Handle Most Often" [level=2] [ref=e102]
+        - paragraph [ref=e103]: We work on both full home renovation Philadelphia projects and smaller partial remodeling scopes.
+      - generic [ref=e104]:
+        - article [ref=e105]:
+          - generic [ref=e106]: FH
+          - heading "Full Home Renovations" [level=3] [ref=e107]
+          - paragraph [ref=e108]: Whole-home remodels with one team coordinating planning, sequencing, and delivery.
+        - article [ref=e109]:
+          - generic [ref=e110]: PR
+          - heading "Partial Home Renovations" [level=3] [ref=e111]
+          - paragraph [ref=e112]: Focused remodels for one area of the home with clearer scope and control.
+        - article [ref=e113]:
+          - generic [ref=e114]: KT
+          - heading "Kitchen Remodeling" [level=3] [ref=e115]
+          - paragraph [ref=e116]: Kitchen remodels that need layout, finish, and trade coordination.
+        - article [ref=e117]:
+          - generic [ref=e118]: BA
+          - heading "Bathroom Remodeling" [level=3] [ref=e119]
+          - paragraph [ref=e120]: Bathroom remodels with tighter sequencing and cleaner execution.
+        - article [ref=e121]:
+          - generic [ref=e122]: BS
+          - heading "Basement Finishing" [level=3] [ref=e123]
+          - paragraph [ref=e124]: Basement finishing and upgrades with better planning and build-out support.
+        - article [ref=e125]:
+          - generic [ref=e126]: IN
+          - heading "Interior Renovations" [level=3] [ref=e127]
+          - paragraph [ref=e128]: Interior renovations across rooms, layouts, finishes, and upgrades.
+        - article [ref=e129]:
+          - generic [ref=e130]: FL
+          - heading "Flooring Installation" [level=3] [ref=e131]
+          - paragraph [ref=e132]: Flooring installation as part of a remodel or as a standalone update.
+        - article [ref=e133]:
+          - generic [ref=e134]: PD
+          - heading "Painting & Drywall" [level=3] [ref=e135]
+          - paragraph [ref=e136]: Painting and drywall work that helps sharpen the finished result.
+        - article [ref=e137]:
+          - generic [ref=e138]: CC
+          - heading "Custom Carpentry" [level=3] [ref=e139]
+          - paragraph [ref=e140]: Trim, finish carpentry, and custom interior details installed with care.
+    - generic [ref=e143]:
+      - generic [ref=e144]:
+        - generic [ref=e145]: Free Consultation
+        - heading "Get a Free Renovation Consultation" [level=2] [ref=e146]
+        - paragraph [ref=e147]: Full or Partial Home Renovations in Philadelphia
+        - paragraph [ref=e148]: Tell us what you are planning and how to reach you. We will help you understand fit, scope, and the right next step.
+        - link "Call (267) 715-5557" [ref=e150] [cursor=pointer]:
+          - /url: tel:2677155557
+        - generic [ref=e151]:
+          - generic [ref=e152]: Licensed & Insured
+          - generic [ref=e153]: "PA License #065157"
+          - generic [ref=e154]: Philadelphia-Focused
+      - generic [ref=e155]:
+        - heading "Leave Your Info" [level=3] [ref=e156]
+        - paragraph [ref=e157]: Short form. Fast follow-up.
+        - generic [ref=e158]:
+          - generic [ref=e159]:
+            - generic [ref=e160]:
+              - generic [ref=e161]: Name *
+              - textbox "Name *" [ref=e162]
+            - generic [ref=e163]:
+              - generic [ref=e164]: Phone *
+              - textbox "Phone *" [ref=e165]
+          - generic [ref=e166]:
+            - generic [ref=e167]:
+              - generic [ref=e168]: Email
+              - textbox "Email" [ref=e169]
+            - generic [ref=e170]:
+              - generic [ref=e171]: Project Type *
+              - combobox "Project Type *" [ref=e172]:
+                - option "Select a project type" [selected]
+                - option "Full Renovation"
+                - option "Kitchen"
+                - option "Bathroom"
+                - option "Basement"
+                - option "Other"
+          - button "Request Free Consultation" [ref=e173] [cursor=pointer]
+          - paragraph [ref=e174]: Short form. Fast follow-up. We use this information only to contact you about your renovation project.
+  - contentinfo [ref=e175]:
+    - generic [ref=e176]:
+      - generic [ref=e177]:
+        - link "Golden Brick Construction home" [ref=e178] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e180]: Golden Brick
+        - paragraph [ref=e181]: Philadelphia home renovation contractor for homeowners who want clearer planning, better coordination, and a professional path to completion.
+        - generic [ref=e182]:
+          - paragraph [ref=e183]:
+            - strong [ref=e184]: Serving
+            - text: Philadelphia, Bucks, Montgomery, Delaware, and surrounding suburbs
+          - paragraph [ref=e185]:
+            - strong [ref=e186]: Email
+            - link "info@goldenbrickc.com" [ref=e187] [cursor=pointer]:
+              - /url: mailto:info@goldenbrickc.com
+          - paragraph [ref=e188]:
+            - strong [ref=e189]: Phone
+            - link "(267) 715-5557" [ref=e190] [cursor=pointer]:
+              - /url: tel:2677155557
+      - generic [ref=e191]:
+        - generic [ref=e192]: Explore
+        - generic [ref=e193]:
+          - link "Residential Services" [ref=e194] [cursor=pointer]:
+            - /url: /residential.html
+          - link "Kitchen Remodeling" [ref=e195] [cursor=pointer]:
+            - /url: /kitchen-remodeling-philadelphia.html
+          - link "Bathroom Remodeling" [ref=e196] [cursor=pointer]:
+            - /url: /bathroom-remodeling-philadelphia.html
+          - link "Contact" [ref=e197] [cursor=pointer]:
+            - /url: /contact.html
+      - generic [ref=e198]:
+        - generic [ref=e199]: Ready To Talk?
+        - paragraph [ref=e200]: Call now or leave your information and we’ll help you understand the right next step.
+        - link "Free Consultation" [ref=e201] [cursor=pointer]:
+          - /url: "#free-consultation"
+    - generic [ref=e202]: "© 2026 Golden Brick Construction. Pennsylvania Licensed Contractor. PA License #065157."

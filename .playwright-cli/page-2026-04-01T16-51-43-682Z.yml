@@ -1,0 +1,174 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content":
+    - /url: "#main-content"
+  - navigation [ref=e2]:
+    - link "Golden Brick Construction home" [ref=e3] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e5]: Golden Brick
+    - list [ref=e6]:
+      - listitem [ref=e7]:
+        - link "Residential Services" [ref=e8] [cursor=pointer]:
+          - /url: residential.html
+      - listitem [ref=e9]:
+        - link "Investor Services" [ref=e10] [cursor=pointer]:
+          - /url: investors.html
+      - listitem [ref=e11]:
+        - link "About" [ref=e12] [cursor=pointer]:
+          - /url: about.html
+      - listitem [ref=e13]:
+        - link "Free Consultation" [ref=e14] [cursor=pointer]:
+          - /url: contact.html
+  - main [ref=e15]:
+    - generic [ref=e17]:
+      - generic [ref=e18]: Free Consultation For Philadelphia Renovation Projects
+      - heading "Request a Free Consultation" [level=1] [ref=e19]
+      - paragraph [ref=e20]: Call us now or send the details below. We work with homeowners, investors, and developers on bathrooms, kitchens, full gut rehabs, investment property renovations, and new construction across Philadelphia and surrounding suburbs.
+      - generic [ref=e21]:
+        - link "Call (267) 715-5557" [ref=e22] [cursor=pointer]:
+          - /url: tel:2677155557
+        - link "Leave Project Details" [ref=e23] [cursor=pointer]:
+          - /url: "#consultation-form"
+      - generic "Consultation highlights" [ref=e24]:
+        - generic [ref=e25]: Free Consultation
+        - generic [ref=e26]: Call Or Form Submission
+        - generic [ref=e27]: "Philadelphia Licence #065157"
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - heading "Talk Through The Project Before It Starts" [level=2] [ref=e31]
+        - paragraph [ref=e33]: Golden Brick Construction is a Philadelphia-area general contractor focused on serious residential renovations and development projects. Whether you’re planning a kitchen remodel, bathroom remodel, full home renovation, full gut rehab, or new construction project, we’re ready to learn more through a free consultation.
+        - paragraph [ref=e34]: If it is easier to talk first, call us. If you want a stronger consultation, leave the property address, project type, scope, timing, and goals in the form so we can review the job faster and follow up with more context.
+        - generic [ref=e35]:
+          - strong [ref=e36]: Prefer To Call?
+          - paragraph [ref=e37]:
+            - text: Call
+            - link "(267) 715-5557" [ref=e38] [cursor=pointer]:
+              - /url: tel:2677155557
+            - text: for a free consultation if the project is easier to explain by phone.
+        - generic [ref=e39]:
+          - generic [ref=e40]:
+            - strong [ref=e41]: Free Consultation
+            - text: Start with a call or submit the form and we’ll review whether the project is a fit for the next step.
+          - generic [ref=e42]:
+            - strong [ref=e43]: Best Details To Send
+            - text: Property address, project type, goals, timing, occupancy or deal stage, and what you want to change.
+          - generic [ref=e44]:
+            - strong [ref=e45]: Service Area
+            - text: Philadelphia and surrounding suburbs in Pennsylvania.
+        - generic [ref=e46]:
+          - generic [ref=e47]: Philadelphia
+          - generic [ref=e48]: Bucks County
+          - generic [ref=e49]: Montgomery County
+          - generic [ref=e50]: Delaware County
+          - generic [ref=e51]: Main Line
+          - generic [ref=e52]: Surrounding PA Suburbs
+      - generic [ref=e53]:
+        - heading "Request Your Free Consultation" [level=3] [ref=e54]
+        - paragraph [ref=e55]: Fill out the form below so we can review the project, reach out, and prepare for a more useful first conversation.
+        - generic [ref=e56]:
+          - generic [ref=e57]:
+            - strong [ref=e58]: Call For Faster Help
+            - paragraph [ref=e59]:
+              - link "(267) 715-5557" [ref=e60] [cursor=pointer]:
+                - /url: tel:2677155557
+          - generic [ref=e61]:
+            - strong [ref=e62]: Best Details To Include
+            - paragraph [ref=e63]: Property address, project goals, and the work you want done.
+        - generic [ref=e64]:
+          - generic [ref=e65]:
+            - generic [ref=e66]:
+              - generic [ref=e67]: Name *
+              - textbox "Name *" [ref=e68]
+            - generic [ref=e69]:
+              - generic [ref=e70]: Email Address
+              - textbox "Email Address" [ref=e71]
+          - generic [ref=e72]:
+            - generic [ref=e73]:
+              - generic [ref=e74]: Phone Number *
+              - textbox "Phone Number *" [ref=e75]
+            - generic [ref=e76]:
+              - generic [ref=e77]: Project Address
+              - textbox "Project Address" [ref=e78]
+          - generic [ref=e79]:
+            - generic [ref=e80]: Notes for Us
+            - textbox "Notes for Us" [ref=e81]:
+              - /placeholder: Tell us about the project, property, goals, timeline, or anything else you'd like us to know.
+          - generic [ref=e83]:
+            - checkbox "I agree that Golden Brick Construction may contact me by phone, text, and email about my inquiry and free consultation, and I agree to the Privacy Policy. *" [ref=e84]
+            - generic [ref=e85]:
+              - text: I agree that Golden Brick Construction may contact me by phone, text, and email about my inquiry and free consultation, and I agree to the
+              - link "Privacy Policy" [ref=e86] [cursor=pointer]:
+                - /url: privacy-policy.html
+              - text: . *
+          - generic [ref=e87]: Required fields are marked with an asterisk.
+          - button "Request Free Consultation" [ref=e88] [cursor=pointer]
+          - paragraph [ref=e89]: By submitting this form, your information will be sent to our project inquiry system so we can follow up about the project and free consultation.
+    - generic [ref=e91]:
+      - generic [ref=e92]:
+        - heading "What We Do" [level=3] [ref=e93]
+        - paragraph [ref=e94]: Major residential renovations, kitchens, bathrooms, full gut rehabs, and new construction.
+      - generic [ref=e95]:
+        - heading "Where We Work" [level=3] [ref=e96]
+        - paragraph [ref=e97]: Philadelphia and surrounding Pennsylvania suburbs including Bucks, Montgomery, and Delaware Counties.
+      - generic [ref=e98]:
+        - heading "Contact" [level=3] [ref=e99]
+        - paragraph [ref=e100]:
+          - link "info@goldenbrickc.com" [ref=e101] [cursor=pointer]:
+            - /url: mailto:info@goldenbrickc.com
+        - paragraph [ref=e102]:
+          - link "(267) 715-5557" [ref=e103] [cursor=pointer]:
+            - /url: tel:2677155557
+        - paragraph [ref=e104]: "Philadelphia General Contractor Licence #065157"
+    - generic [ref=e106]:
+      - generic [ref=e107]:
+        - generic [ref=e108]: Before You Submit
+        - heading "Quick Answers Before You Send the Form" [level=2] [ref=e109]
+        - paragraph [ref=e110]: Reducing uncertainty helps more good leads turn into real conversations. These are the questions people usually have right before they submit.
+      - generic [ref=e111]:
+        - group [ref=e112]:
+          - generic "What details should I include in my quote request? +" [ref=e113] [cursor=pointer]
+        - group [ref=e114]:
+          - generic "Do you work with both homeowners and investors? +" [ref=e115] [cursor=pointer]
+        - group [ref=e116]:
+          - generic "Do you only work in Philadelphia? +" [ref=e117] [cursor=pointer]
+        - group [ref=e118]:
+          - generic "What happens after I submit the form? +" [ref=e119] [cursor=pointer]
+        - group [ref=e120]:
+          - generic "Can I call instead of using the form? +" [ref=e121] [cursor=pointer]
+  - contentinfo [ref=e122]:
+    - generic [ref=e123]:
+      - generic [ref=e124]:
+        - link "Golden Brick Construction home" [ref=e125] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e127]: Golden Brick
+        - paragraph [ref=e128]: Send us the project details and we’ll review the scope, property, and timeline through our existing inquiry process.
+        - generic [ref=e129]:
+          - paragraph [ref=e130]:
+            - strong [ref=e131]: Serving
+            - text: Philadelphia, Bucks, Montgomery, and Delaware Counties
+          - paragraph [ref=e132]:
+            - strong [ref=e133]: Email
+            - link "info@goldenbrickc.com" [ref=e134] [cursor=pointer]:
+              - /url: mailto:info@goldenbrickc.com
+          - paragraph [ref=e135]:
+            - strong [ref=e136]: Phone
+            - link "(267) 715-5557" [ref=e137] [cursor=pointer]:
+              - /url: tel:2677155557
+      - generic [ref=e138]:
+        - generic [ref=e139]: Explore
+        - generic [ref=e140]:
+          - link "Residential Services" [ref=e141] [cursor=pointer]:
+            - /url: residential.html
+          - link "Investor Services" [ref=e142] [cursor=pointer]:
+            - /url: investors.html
+          - link "About Golden Brick" [ref=e143] [cursor=pointer]:
+            - /url: about.html
+          - link "Free Consultation" [ref=e144] [cursor=pointer]:
+            - /url: contact.html
+          - link "Privacy Policy" [ref=e145] [cursor=pointer]:
+            - /url: privacy-policy.html
+      - generic [ref=e146]:
+        - generic [ref=e147]: Need a Free Consultation?
+        - paragraph [ref=e148]: Tell us what you’re planning and we’ll route the inquiry through our internal review process.
+        - link "Start Here" [ref=e149] [cursor=pointer]:
+          - /url: contact.html
+    - generic [ref=e150]: "© 2026 Golden Brick Construction. Philadelphia General Contractor Licence #065157."

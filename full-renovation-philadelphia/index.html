@@ -1133,34 +1133,35 @@
 
                         <form
                             class="lead-form"
-                            action="https://docs.google.com/forms/d/e/1FAIpQLSfXdTjB6kVg6RH1Vy3Ru5gTdKdTjqKnHMCerbMepvx_Zpg8Cg/formResponse"
+                            action="/api/public/lead-intake"
                             method="POST"
                             target="free_consultation_iframe"
                             data-form-name="free_consultation"
                             data-success-message-id="free-consultation-success-message"
+                            data-error-message-id="free-consultation-error-message"
                             data-merge-extra-into="#consultation-notes"
                         >
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="consultation-name">Name <span class="required">*</span></label>
-                                    <input type="text" id="consultation-name" name="entry.1938418565" autocomplete="name" required>
+                                    <input type="text" id="consultation-name" name="entry.1938418565" data-lead-field="clientName" autocomplete="name" required>
                                 </div>
 
                                 <div class="form-group">
                                     <label for="consultation-phone">Phone <span class="required">*</span></label>
-                                    <input type="tel" id="consultation-phone" name="entry.940072979" autocomplete="tel" required>
+                                    <input type="tel" id="consultation-phone" name="entry.940072979" data-lead-field="clientPhone" autocomplete="tel" required>
                                 </div>
                             </div>
 
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="consultation-email">Email</label>
-                                    <input type="email" id="consultation-email" name="entry.2064255771" autocomplete="email">
+                                    <input type="email" id="consultation-email" name="entry.2064255771" data-lead-field="clientEmail" autocomplete="email">
                                 </div>
 
                                 <div class="form-group">
                                     <label for="consultation-project-type">Project Type <span class="required">*</span></label>
-                                    <select id="consultation-project-type" data-extra-label="Project type" required>
+                                    <select id="consultation-project-type" data-lead-field="projectType" data-extra-label="Project type" required>
                                         <option value="">Select a project type</option>
                                         <option value="Full Renovation">Full Renovation</option>
                                         <option value="Kitchen">Kitchen</option>
@@ -1173,7 +1174,7 @@
 
                             <div class="consultation-hidden" aria-hidden="true">
                                 <label for="consultation-notes">Consultation Notes</label>
-                                <textarea id="consultation-notes" name="entry.1309691449" tabindex="-1">Free consultation request from the Full Renovation Philadelphia landing page.</textarea>
+                                <textarea id="consultation-notes" name="entry.1309691449" data-lead-field="notes" tabindex="-1">Free consultation request from the Full Renovation Philadelphia landing page.</textarea>
                             </div>
 
                             <button type="submit" class="submit-btn">Request Free Consultation</button>
@@ -1184,6 +1185,11 @@
                         </form>
 
                         <iframe name="free_consultation_iframe" style="display:none;" title="Hidden free consultation submission target"></iframe>
+
+                        <div id="free-consultation-error-message" class="success-message-local" style="background: #fff2f0; border-left-color: #a93f34;">
+                            <strong>We could not send that right now.</strong>
+                            <span>Please call (267) 715-5557 and we will help you move the consultation forward.</span>
+                        </div>
 
                         <div id="free-consultation-success-message" class="success-message-local">
                             <strong>Thank you.</strong>

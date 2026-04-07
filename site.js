@@ -110,17 +110,103 @@
         });
     }
 
-    document.querySelectorAll('.lead-form').forEach(function (form) {
-        const targetName = form.getAttribute('target');
+    function handleLeadFormError(form, message) {
+        const errorId = form.getAttribute('data-error-message-id');
+        const errorMessage = errorId ? document.getElementById(errorId) : null;
+
+        if (!errorMessage) {
+            window.alert(message);
+            return;
+        }
+
+        errorMessage.textContent = message;
+        errorMessage.style.display = 'block';
+        errorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function hideLeadFormMessages(form) {
         const successId = form.getAttribute('data-success-message-id');
+        const errorId = form.getAttribute('data-error-message-id');
         const successMessage = successId ? document.getElementById(successId) : null;
-        const mergeTargetSelector = form.getAttribute('data-merge-extra-into');
-        const mergeTarget = mergeTargetSelector ? form.querySelector(mergeTargetSelector) : null;
-        let isSubmitting = false;
+        const errorMessage = errorId ? document.getElementById(errorId) : null;
 
         if (successMessage) {
             successMessage.style.display = 'none';
         }
+
+        if (errorMessage) {
+            errorMessage.style.display = 'none';
+        }
+    }
+
+    function getLeadFieldValue(field, form) {
+        if (field.type === 'checkbox') {
+            return field.checked;
+        }
+
+        if (field.type === 'radio') {
+            if (!field.name) return '';
+            const checked = form.querySelector('input[type="radio"][name="' + field.name + '"]:checked');
+            return checked ? checked.value : '';
+        }
+
+        return (field.value || '').trim();
+    }
+
+    function buildLeadPayload(form) {
+        const payload = {
+            formName: form.getAttribute('data-form-name') || 'project_inquiry',
+            sourcePage: document.title,
+            sourcePath: window.location.pathname,
+            sourceUrl: window.location.href
+        };
+
+        form.querySelectorAll('[data-lead-field]').forEach(function (field) {
+            const key = field.getAttribute('data-lead-field');
+            if (!key) return;
+
+            const value = getLeadFieldValue(field, form);
+
+            if (typeof value === 'boolean') {
+                payload[key] = value;
+                return;
+            }
+
+            if (!value) return;
+            payload[key] = value;
+        });
+
+        if (!payload.projectType) {
+            const defaultProjectType = form.getAttribute('data-default-project-type');
+            if (defaultProjectType) {
+                payload.projectType = defaultProjectType;
+            }
+        }
+
+        return payload;
+    }
+
+    function setLeadFormSubmitting(form, isSubmitting) {
+        const submitButton = form.querySelector('button[type="submit"], input[type="submit"]');
+        if (!submitButton) return;
+
+        if (!submitButton.dataset.defaultLabel) {
+            submitButton.dataset.defaultLabel = submitButton.textContent || submitButton.value || 'Submit';
+        }
+
+        submitButton.disabled = isSubmitting;
+
+        if ('textContent' in submitButton) {
+            submitButton.textContent = isSubmitting ? 'Sending...' : submitButton.dataset.defaultLabel;
+        }
+    }
+
+    document.querySelectorAll('.lead-form').forEach(function (form) {
+        const mergeTargetSelector = form.getAttribute('data-merge-extra-into');
+        const mergeTarget = mergeTargetSelector ? form.querySelector(mergeTargetSelector) : null;
+        let isSubmitting = false;
+
+        hideLeadFormMessages(form);
 
         if (mergeTarget) {
             mergeTarget.dataset.userValue = mergeTarget.value || '';
@@ -129,32 +215,40 @@
             });
         }
 
-        form.addEventListener('submit', function () {
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            if (isSubmitting) return;
+
             mergeLeadFormExtras(form);
             isSubmitting = true;
+            hideLeadFormMessages(form);
+            setLeadFormSubmitting(form, true);
 
-            if (successMessage) {
-                successMessage.style.display = 'none';
-            }
-        });
+            fetch(form.getAttribute('action') || '/api/public/lead-intake', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(buildLeadPayload(form))
+            }).then(function (response) {
+                return response.json().catch(function () {
+                    return {};
+                }).then(function (data) {
+                    if (!response.ok) {
+                        throw new Error(data.message || 'We could not submit the form right now. Please call us at (267) 715-5557.');
+                    }
 
-        if (!targetName) {
-            form.addEventListener('submit', function () {
+                    return data;
+                });
+            }).then(function () {
                 handleLeadFormSuccess(form);
+            }).catch(function (error) {
+                handleLeadFormError(form, error.message || 'We could not submit the form right now. Please call us at (267) 715-5557.');
+            }).finally(function () {
+                isSubmitting = false;
+                setLeadFormSubmitting(form, false);
             });
-            return;
-        }
-
-        const targetFrame = Array.from(document.querySelectorAll('iframe[name]')).find(function (iframe) {
-            return iframe.getAttribute('name') === targetName;
-        });
-
-        if (!targetFrame) return;
-
-        targetFrame.addEventListener('load', function () {
-            if (!isSubmitting) return;
-            isSubmitting = false;
-            handleLeadFormSuccess(form);
         });
     });
 
