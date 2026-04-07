@@ -18,6 +18,35 @@
   "hosting": {
     "site": "golden-brick-construction",
     "public": ".",
+    "headers": [
+      {
+        "source": "/staff",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
+      },
+      {
+        "source": "/staff/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
+      },
+      {
+        "source": "/staff/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
+      }
+    ],
     "rewrites": [
       {
         "source": "/api/public/lead-intake",
@@ -30,6 +59,20 @@
         "source": "/api/auth/sync-session",
         "function": {
           "functionId": "syncStaffSession",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/staff/lead-customer-link",
+        "function": {
+          "functionId": "syncLeadCustomerLink",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/staff/convert-lead",
+        "function": {
+          "functionId": "convertLeadToProject",
           "region": "us-central1"
         }
       },

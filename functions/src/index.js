@@ -61,6 +61,18 @@ function safeString(value) {
   return String(value || "").trim();
 }
 
+function normaliseEmail(value) {
+  return safeString(value).toLowerCase();
+}
+
+function normalisePhone(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return digits.slice(1);
+  }
+  return digits;
+}
+
 function statusLabel(status) {
   return LEAD_STATUSES[status] || LEAD_STATUSES.new_lead;
 }
@@ -98,6 +110,156 @@ function latestByUpdated(items) {
   })[0];
 }
 
+async function findMatchingCustomers(leadData = {}) {
+  const normalisedLeadEmail = normaliseEmail(leadData.clientEmail);
+  const normalisedLeadPhone = normalisePhone(leadData.clientPhone);
+
+  if (!normalisedLeadEmail && !normalisedLeadPhone) {
+    return [];
+  }
+
+  const customerSnap = await db.collection("customers").get();
+  const matches = customerSnap.docs
+    .map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }))
+    .filter((customer) => {
+      const customerEmail = normaliseEmail(customer.searchEmail || customer.primaryEmail);
+      const customerPhone = normalisePhone(customer.searchPhone || customer.primaryPhone);
+      return (normalisedLeadEmail && customerEmail === normalisedLeadEmail)
+        || (normalisedLeadPhone && customerPhone === normalisedLeadPhone);
+    });
+
+  return matches.sort((left, right) => {
+    return normaliseMillis(right.updatedAt || right.createdAt) - normaliseMillis(left.updatedAt || left.createdAt);
+  });
+}
+
+function buildCustomerPayloadFromLead(leadData = {}, existingCustomer = {}) {
+  return {
+    name: safeString(existingCustomer.name || leadData.customerName || leadData.clientName || "Unnamed customer"),
+    primaryEmail: safeString(existingCustomer.primaryEmail || leadData.clientEmail),
+    primaryPhone: safeString(existingCustomer.primaryPhone || leadData.clientPhone),
+    primaryAddress: safeString(existingCustomer.primaryAddress || leadData.projectAddress),
+    notes: safeString(existingCustomer.notes),
+    searchEmail: normaliseEmail(existingCustomer.searchEmail || existingCustomer.primaryEmail || leadData.clientEmail),
+    searchPhone: normalisePhone(existingCustomer.searchPhone || existingCustomer.primaryPhone || leadData.clientPhone),
+    allowedStaffUids: uniqueValues([
+      ...(existingCustomer.allowedStaffUids || []),
+      safeString(leadData.assignedToUid)
+    ])
+  };
+}
+
+async function ensureCustomerDocument(customerRef, leadData = {}) {
+  const customerSnap = await customerRef.get();
+  const existingCustomer = customerSnap.exists ? customerSnap.data() : {};
+  const payload = buildCustomerPayloadFromLead(leadData, existingCustomer);
+
+  await customerRef.set({
+    id: customerRef.id,
+    ...payload,
+    createdAt: existingCustomer.createdAt || FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  return {
+    id: customerRef.id,
+    name: payload.name
+  };
+}
+
+async function ensureLeadCustomerLink(leadRef, leadData = {}) {
+  if (leadData.customerId) {
+    const linkedCustomer = await ensureCustomerDocument(
+      db.collection("customers").doc(leadData.customerId),
+      leadData
+    );
+
+    await leadRef.set({
+      customerId: linkedCustomer.id,
+      customerName: linkedCustomer.name,
+      customerMatchResult: "linked",
+      customerReviewRequired: false,
+      customerMatchIds: [linkedCustomer.id]
+    }, { merge: true });
+
+    return {
+      customerId: linkedCustomer.id,
+      customerName: linkedCustomer.name,
+      matchResult: "linked",
+      reviewRequired: false,
+      customerMatchIds: [linkedCustomer.id]
+    };
+  }
+
+  const matches = await findMatchingCustomers(leadData);
+
+  if (matches.length > 1) {
+    const customerMatchIds = matches.map((customer) => customer.id);
+
+    await leadRef.set({
+      customerId: null,
+      customerName: "",
+      customerMatchResult: "review_required",
+      customerReviewRequired: true,
+      customerMatchIds
+    }, { merge: true });
+
+    return {
+      customerId: null,
+      customerName: "",
+      matchResult: "review_required",
+      reviewRequired: true,
+      customerMatchIds
+    };
+  }
+
+  if (matches.length === 1) {
+    const linkedCustomer = await ensureCustomerDocument(
+      db.collection("customers").doc(matches[0].id),
+      {
+        ...leadData,
+        customerId: matches[0].id,
+        customerName: matches[0].name || leadData.clientName
+      }
+    );
+
+    await leadRef.set({
+      customerId: linkedCustomer.id,
+      customerName: linkedCustomer.name,
+      customerMatchResult: "linked",
+      customerReviewRequired: false,
+      customerMatchIds: [linkedCustomer.id]
+    }, { merge: true });
+
+    return {
+      customerId: linkedCustomer.id,
+      customerName: linkedCustomer.name,
+      matchResult: "linked",
+      reviewRequired: false,
+      customerMatchIds: [linkedCustomer.id]
+    };
+  }
+
+  const customerRef = db.collection("customers").doc();
+  const createdCustomer = await ensureCustomerDocument(customerRef, leadData);
+
+  await leadRef.set({
+    customerId: createdCustomer.id,
+    customerName: createdCustomer.name,
+    customerMatchResult: "created",
+    customerReviewRequired: false,
+    customerMatchIds: [createdCustomer.id]
+  }, { merge: true });
+
+  return {
+    customerId: createdCustomer.id,
+    customerName: createdCustomer.name,
+    matchResult: "created",
+    reviewRequired: false,
+    customerMatchIds: [createdCustomer.id]
+  };
+}
+
 function defaultEstimateTemplate() {
   return {
     id: "estimate-default",
@@ -110,6 +272,34 @@ function defaultEstimateTemplate() {
       "Please review the scope, note any revisions, and let us know if you want to move into the next planning step.",
     terms:
       "Pricing is a planning estimate until scope, access, existing conditions, and finish selections are confirmed on site."
+  };
+}
+
+function normaliseStaffRole(value) {
+  return safeString(value).toLowerCase() === "admin" ? "admin" : "employee";
+}
+
+function buildStaffProfile(decoded, allowedData = {}) {
+  return {
+    uid: safeString(decoded.uid),
+    email: safeString(decoded.email).toLowerCase(),
+    displayName: safeString(decoded.name || decoded.email || allowedData.displayName || allowedData.email),
+    role: normaliseStaffRole(allowedData.role),
+    active: true,
+    defaultLeadAssignee: Boolean(allowedData.defaultLeadAssignee),
+    lastLoginAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  };
+}
+
+function serialiseStaffProfile(profile = {}) {
+  return {
+    uid: safeString(profile.uid),
+    email: safeString(profile.email).toLowerCase(),
+    displayName: safeString(profile.displayName || profile.email),
+    role: normaliseStaffRole(profile.role),
+    active: profile.active !== false,
+    defaultLeadAssignee: Boolean(profile.defaultLeadAssignee)
   };
 }
 
@@ -350,16 +540,51 @@ async function verifyStaffRequest(request) {
   }
 
   const decoded = await admin.auth().verifyIdToken(matches[1]);
+  const email = safeString(decoded.email).toLowerCase();
   const userSnap = await db.collection("users").doc(decoded.uid).get();
 
-  if (!userSnap.exists || userSnap.data().active !== true) {
+  if (userSnap.exists && userSnap.data().active === true) {
+    return {
+      token: decoded,
+      profile: serialiseStaffProfile(userSnap.data())
+    };
+  }
+
+  if (!email) {
+    throw new Error("User is not authorised for the staff portal.");
+  }
+
+  const allowedSnap = await db.collection("allowedStaff").doc(sanitizeEmailKey(email)).get();
+  if (!allowedSnap.exists || allowedSnap.data().active !== true) {
     throw new Error("User is not authorised for the staff portal.");
   }
 
   return {
     token: decoded,
-    profile: userSnap.data()
+    profile: serialiseStaffProfile(buildStaffProfile(decoded, allowedSnap.data()))
   };
+}
+
+async function verifyLeadStaffAccess(leadId, profile = {}) {
+  const leadRef = db.collection("leads").doc(leadId);
+  const leadSnap = await leadRef.get();
+
+  if (!leadSnap.exists) {
+    const error = new Error("Lead not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  const leadData = leadSnap.data();
+  const canAccess = profile.role === "admin" || safeString(leadData.assignedToUid) === safeString(profile.uid);
+
+  if (!canAccess) {
+    const error = new Error("You do not have access to this lead.");
+    error.status = 403;
+    throw error;
+  }
+
+  return { leadRef, leadData };
 }
 
 async function syncProjectFinancials(projectId) {
@@ -432,6 +657,8 @@ async function syncCustomerSummary(customerId) {
     primaryEmail: safeString(existing.primaryEmail || latestLead?.clientEmail || latestProject?.clientEmail),
     primaryPhone: safeString(existing.primaryPhone || latestLead?.clientPhone || latestProject?.clientPhone),
     primaryAddress: safeString(existing.primaryAddress || latestLead?.projectAddress || latestProject?.projectAddress),
+    searchEmail: normaliseEmail(existing.searchEmail || existing.primaryEmail || latestLead?.clientEmail || latestProject?.clientEmail),
+    searchPhone: normalisePhone(existing.searchPhone || existing.primaryPhone || latestLead?.clientPhone || latestProject?.clientPhone),
     leadIds,
     jobIds,
     openLeadIds: openLeads.map((lead) => lead.id),
@@ -491,8 +718,7 @@ exports.publicLeadIntake = onRequest(
       const assignee = await resolveLeadAssignee();
       const leadRef = db.collection("leads").doc();
       const createdAt = FieldValue.serverTimestamp();
-
-      await leadRef.set({
+      const leadPayload = {
         id: leadRef.id,
         customerId: null,
         customerName: "",
@@ -515,9 +741,15 @@ exports.publicLeadIntake = onRequest(
         hasEstimate: false,
         estimateSubtotal: 0,
         estimateTitle: "",
+        customerMatchResult: "",
+        customerReviewRequired: false,
+        customerMatchIds: [],
         createdAt,
         updatedAt: createdAt
-      });
+      };
+
+      await leadRef.set(leadPayload);
+      const customerLink = await ensureLeadCustomerLink(leadRef, leadPayload);
 
       await addLeadActivity(leadRef.id, {
         activityType: "system",
@@ -530,7 +762,9 @@ exports.publicLeadIntake = onRequest(
 
       respondJson(response, 200, {
         ok: true,
-        leadId: leadRef.id
+        leadId: leadRef.id,
+        customerId: customerLink.customerId || null,
+        customerMatchResult: customerLink.matchResult
       });
     } catch (error) {
       logger.error("Lead intake failed.", error);
@@ -604,16 +838,7 @@ exports.syncStaffSession = onRequest(
 
       await ensureDefaultTemplate();
 
-      const profile = {
-        uid: decoded.uid,
-        email,
-        displayName: safeString(decoded.name || decoded.email),
-        role: safeString(allowedData.role || "employee"),
-        active: true,
-        defaultLeadAssignee: Boolean(allowedData.defaultLeadAssignee),
-        lastLoginAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp()
-      };
+      const profile = buildStaffProfile(decoded, allowedData);
 
       await Promise.all([
         db.collection("users").doc(decoded.uid).set(
@@ -628,28 +853,33 @@ exports.syncStaffSession = onRequest(
             uid: decoded.uid,
             email,
             displayName: safeString(decoded.name || decoded.email),
+            role: profile.role,
+            active: true,
+            defaultLeadAssignee: profile.defaultLeadAssignee,
             lastLoginAt: FieldValue.serverTimestamp(),
             updatedAt: FieldValue.serverTimestamp()
           },
           { merge: true }
-        ),
-        admin.auth().setCustomUserClaims(decoded.uid, {
+        )
+      ]);
+
+      let claimsSynced = true;
+      try {
+        await admin.auth().setCustomUserClaims(decoded.uid, {
           role: profile.role,
           staff: true
-        })
-      ]);
+        });
+      } catch (error) {
+        claimsSynced = false;
+        logger.warn("Staff session claims sync degraded.", error);
+      }
 
       respondJson(response, 200, {
         ok: true,
         authorised: true,
-        profile: {
-          uid: profile.uid,
-          email: profile.email,
-          displayName: profile.displayName,
-          role: profile.role,
-          active: profile.active,
-          defaultLeadAssignee: profile.defaultLeadAssignee
-        }
+        mode: "api",
+        claimsSynced,
+        profile: serialiseStaffProfile(profile)
       });
     } catch (error) {
       logger.error("Staff session sync failed.", error);
@@ -657,6 +887,192 @@ exports.syncStaffSession = onRequest(
         ok: false,
         authorised: false,
         message: "Could not verify this staff account."
+      });
+    }
+  }
+);
+
+exports.syncLeadCustomerLink = onRequest(
+  {
+    region: "us-central1",
+    cors: true
+  },
+  async (request, response) => {
+    applyCors(response);
+
+    if (request.method === "OPTIONS") {
+      response.status(204).send("");
+      return;
+    }
+
+    if (request.method !== "POST") {
+      response.status(405).send("Method not allowed.");
+      return;
+    }
+
+    try {
+      const staff = await verifyStaffRequest(request);
+      const payload = request.body || {};
+      const leadId = safeString(payload.leadId);
+
+      if (!leadId) {
+        respondJson(response, 400, {
+          ok: false,
+          message: "leadId is required."
+        });
+        return;
+      }
+
+      const { leadRef, leadData } = await verifyLeadStaffAccess(leadId, staff.profile);
+      const customerLink = await ensureLeadCustomerLink(leadRef, leadData);
+
+      respondJson(response, 200, {
+        ok: true,
+        ...customerLink
+      });
+    } catch (error) {
+      logger.error("Lead customer sync failed.", error);
+      respondJson(response, error.status || 500, {
+        ok: false,
+        message: error.message || "Could not sync the lead customer."
+      });
+    }
+  }
+);
+
+exports.convertLeadToProject = onRequest(
+  {
+    region: "us-central1",
+    cors: true
+  },
+  async (request, response) => {
+    applyCors(response);
+
+    if (request.method === "OPTIONS") {
+      response.status(204).send("");
+      return;
+    }
+
+    if (request.method !== "POST") {
+      response.status(405).send("Method not allowed.");
+      return;
+    }
+
+    try {
+      const staff = await verifyStaffRequest(request);
+      const payload = request.body || {};
+      const leadId = safeString(payload.leadId);
+
+      if (!leadId) {
+        respondJson(response, 400, {
+          ok: false,
+          message: "leadId is required."
+        });
+        return;
+      }
+
+      const { leadRef, leadData } = await verifyLeadStaffAccess(leadId, staff.profile);
+      const existingProjectSnap = await db.collection("projects").doc(leadId).get();
+
+      if (existingProjectSnap.exists) {
+        respondJson(response, 200, {
+          ok: true,
+          existing: true,
+          projectId: leadId
+        });
+        return;
+      }
+
+      const customerLink = await ensureLeadCustomerLink(leadRef, leadData);
+
+      if (customerLink.matchResult === "review_required") {
+        respondJson(response, 409, {
+          ok: false,
+          message: "Customer review is required before converting this lead.",
+          matchResult: customerLink.matchResult,
+          customerMatchIds: customerLink.customerMatchIds
+        });
+        return;
+      }
+
+      const refreshedLeadSnap = await leadRef.get();
+      const refreshedLead = refreshedLeadSnap.data();
+      const leadOwnerUid = safeString(refreshedLead.assignedToUid || staff.profile.uid);
+      const leadOwnerName = safeString(refreshedLead.assignedToName || staff.profile.displayName || staff.profile.email);
+      const leadOwnerEmail = normaliseEmail(refreshedLead.assignedToEmail || staff.profile.email);
+      const assignedWorkers = leadOwnerUid ? [{
+        uid: leadOwnerUid,
+        name: leadOwnerName,
+        email: leadOwnerEmail,
+        percent: 100
+      }] : [];
+      const allowedStaffUids = uniqueValues([
+        leadOwnerUid,
+        ...assignedWorkers.map((worker) => worker.uid)
+      ]);
+      const projectRef = db.collection("projects").doc(leadId);
+      const batch = db.batch();
+
+      batch.set(projectRef, {
+        id: leadId,
+        leadId,
+        customerId: customerLink.customerId,
+        customerName: customerLink.customerName,
+        clientName: safeString(refreshedLead.clientName),
+        clientEmail: normaliseEmail(refreshedLead.clientEmail),
+        clientPhone: safeString(refreshedLead.clientPhone),
+        projectAddress: safeString(refreshedLead.projectAddress),
+        projectType: safeString(refreshedLead.projectType),
+        status: "in_progress",
+        jobValue: toNumber(refreshedLead.estimateSubtotal || 0),
+        assignedLeadOwnerUid: leadOwnerUid || null,
+        assignedWorkers,
+        assignedWorkerIds: assignedWorkers.map((worker) => worker.uid).filter(Boolean),
+        allowedStaffUids,
+        financials: {
+          totalExpenses: 0,
+          totalPayments: 0,
+          profit: 0,
+          distributableProfit: 0,
+          companyShare: 0,
+          workerPool: 0,
+          workerBreakdown: []
+        },
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      batch.set(leadRef, {
+        status: "closed_won",
+        statusLabel: statusLabel("closed_won"),
+        customerId: customerLink.customerId,
+        customerName: customerLink.customerName,
+        wonProjectId: leadId,
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      await batch.commit();
+
+      await addLeadActivity(leadId, {
+        activityType: "system",
+        title: "Lead converted to job",
+        body: "Won job created and linked to the customer record.",
+        actorName: staff.profile.displayName,
+        actorUid: staff.profile.uid,
+        actorRole: staff.profile.role
+      });
+
+      respondJson(response, 200, {
+        ok: true,
+        existing: false,
+        projectId: leadId,
+        matchResult: customerLink.matchResult
+      });
+    } catch (error) {
+      logger.error("Lead conversion failed.", error);
+      respondJson(response, error.status || 500, {
+        ok: false,
+        message: error.message || "Could not convert the lead right now."
       });
     }
   }

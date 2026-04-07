@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="stylesheet" href="/staff/staff.css">
+    <link rel="stylesheet" href="/staff/staff.css?v=20260407-leads-redesign-1">
 </head>
 <body>
     <div class="staff-page">
@@ -277,8 +277,8 @@
                 <section class="view" id="leads-view" hidden>
                     <div class="metrics-strip" id="lead-metrics"></div>
 
-                    <div class="workspace-grid">
-                        <section class="panel list-panel">
+                    <div class="lead-workspace">
+                        <section class="panel lead-pipeline-panel">
                             <div class="panel-head">
                                 <div>
                                     <span class="panel-kicker">Pipeline</span>
@@ -295,20 +295,30 @@
                                         <option value="closed_lost">Closed Lost</option>
                                         <option value="open">Open only</option>
                                     </select>
-                                    <div class="segmented-control" id="lead-layout-toggle">
-                                        <button type="button" class="segmented-button is-active" data-lead-layout="list">List</button>
-                                        <button type="button" class="segmented-button" data-lead-layout="board">Board</button>
-                                    </div>
                                     <button type="button" class="secondary-button admin-only" id="lead-new-button">New lead</button>
                                 </div>
                             </div>
-                            <div class="panel-body">
-                                <div class="record-list" id="lead-list"></div>
-                                <div class="pipeline-board" id="lead-board" hidden></div>
+                            <div class="panel-body lead-pipeline-body">
+                                <div class="lead-board-intro">
+                                    <p>Drag opportunities across the pipeline to keep Golden Brick's investor work moving without losing the customer, estimate, and job context underneath.</p>
+                                    <span>Drag to <strong>Closed Won</strong> to create the linked job record. Drag to <strong>Closed Lost</strong> to close the lead immediately.</span>
+                                </div>
+
+                                <div class="pipeline-board-wrap">
+                                    <div class="pipeline-board" id="lead-board"></div>
+                                </div>
+
+                                <div class="lead-result-shell">
+                                    <div class="subpanel-head">
+                                        <h3>Lead results</h3>
+                                        <p>Keep a compact searchable list under the pipeline when you need to jump directly to a specific record.</p>
+                                    </div>
+                                    <div class="record-list lead-result-list" id="lead-list"></div>
+                                </div>
                             </div>
                         </section>
 
-                        <section class="panel record-panel">
+                        <section class="panel lead-record-panel">
                             <div class="panel-head">
                                 <div>
                                     <span class="panel-kicker">Lead record</span>
@@ -321,83 +331,18 @@
                                 Leads now open as full records so customer details, estimate work, notes, tasks, and the won job stay together.
                             </div>
 
-                            <div class="record-shell" id="lead-record-shell" hidden>
+                            <div class="record-shell lead-record-shell" id="lead-record-shell" hidden>
                                 <div class="record-actions">
                                     <button type="submit" form="lead-core-form" class="primary-button">Save lead</button>
                                     <button type="button" class="secondary-button" id="lead-create-task-button">Create task</button>
-                                    <button type="button" class="secondary-button admin-only" id="estimate-ai-button">Create Draft</button>
-                                    <button type="button" class="secondary-button admin-only" id="lead-mark-won-button">Mark won</button>
+                                    <button type="button" class="secondary-button admin-only" id="estimate-ai-button">Draft estimate</button>
+                                    <button type="button" class="secondary-button" id="lead-mark-won-button">Mark won</button>
                                     <button type="button" class="ghost-button" id="lead-mark-lost-button">Mark lost</button>
                                 </div>
 
                                 <div class="record-context-strip" id="lead-record-context"></div>
 
-                                <form class="stack-form" id="lead-core-form">
-                                    <div class="form-grid three">
-                                        <label>
-                                            <span>Client name</span>
-                                            <input type="text" id="lead-client-name" required>
-                                        </label>
-                                        <label>
-                                            <span>Client email</span>
-                                            <input type="email" id="lead-client-email">
-                                        </label>
-                                        <label>
-                                            <span>Client phone</span>
-                                            <input type="text" id="lead-client-phone" required>
-                                        </label>
-                                    </div>
-
-                                    <div class="form-grid two">
-                                        <label>
-                                            <span>Project address</span>
-                                            <input type="text" id="lead-project-address">
-                                        </label>
-                                        <label>
-                                            <span>Project type</span>
-                                            <input type="text" id="lead-project-type" placeholder="Bathroom, kitchen, full rehab, investor turn">
-                                        </label>
-                                    </div>
-
-                                    <div class="form-grid three">
-                                        <label>
-                                            <span>Stage</span>
-                                            <select id="lead-stage-select">
-                                                <option value="new_lead">New Lead</option>
-                                                <option value="follow_up">Follow Up</option>
-                                                <option value="estimate_sent">Estimate Sent</option>
-                                                <option value="closed_won">Closed Won</option>
-                                                <option value="closed_lost">Closed Lost</option>
-                                            </select>
-                                        </label>
-                                        <label>
-                                            <span>Assigned staff</span>
-                                            <select id="lead-assignee-select"></select>
-                                        </label>
-                                        <label>
-                                            <span>Linked customer</span>
-                                            <select id="lead-customer-select"></select>
-                                        </label>
-                                    </div>
-
-                                    <div class="form-grid two">
-                                        <label>
-                                            <span>Lead source</span>
-                                            <input type="text" id="lead-source-display" disabled>
-                                        </label>
-                                        <label>
-                                            <span>Current estimate total</span>
-                                            <input type="text" id="lead-estimate-display" disabled>
-                                        </label>
-                                    </div>
-
-                                    <label>
-                                        <span>Scope notes</span>
-                                        <textarea id="lead-notes-input" rows="5" placeholder="Scope, investment goals, timing, occupancy, access, pricing posture, and fit notes."></textarea>
-                                    </label>
-                                </form>
-
-                                <div class="detail-summary" id="lead-meta"></div>
+                                <div class="detail-summary lead-customer-match" id="lead-customer-match" hidden></div>
 
                                 <div class="tab-strip" aria-label="Lead record tabs">
                                     <button type="button" class="tab-button is-active" data-lead-tab="overview">Overview</button>
@@ -408,7 +353,94 @@
                                 </div>
 
                                 <div class="tab-pane is-active" id="lead-tab-overview">
-                                    <div class="summary-grid" id="lead-overview-summary"></div>
+                                    <div class="two-column-detail lead-overview-layout">
+                                        <form class="stack-form subpanel" id="lead-core-form">
+                                            <div class="subpanel-head">
+                                                <h3>Lead overview</h3>
+                                                <p>Keep the contact, scope, stage, customer link, and team owner in one clean working panel.</p>
+                                            </div>
+
+                                            <div class="form-grid three">
+                                                <label>
+                                                    <span>Client name</span>
+                                                    <input type="text" id="lead-client-name" required>
+                                                </label>
+                                                <label>
+                                                    <span>Client email</span>
+                                                    <input type="email" id="lead-client-email">
+                                                </label>
+                                                <label>
+                                                    <span>Client phone</span>
+                                                    <input type="text" id="lead-client-phone" required>
+                                                </label>
+                                            </div>
+
+                                            <div class="form-grid two">
+                                                <label>
+                                                    <span>Project address</span>
+                                                    <input type="text" id="lead-project-address">
+                                                </label>
+                                                <label>
+                                                    <span>Project type</span>
+                                                    <input type="text" id="lead-project-type" placeholder="Bathroom, kitchen, full rehab, investor turn">
+                                                </label>
+                                            </div>
+
+                                            <div class="form-grid three">
+                                                <label>
+                                                    <span>Stage</span>
+                                                    <select id="lead-stage-select">
+                                                        <option value="new_lead">New Lead</option>
+                                                        <option value="follow_up">Follow Up</option>
+                                                        <option value="estimate_sent">Estimate Sent</option>
+                                                        <option value="closed_lost">Closed Lost</option>
+                                                    </select>
+                                                </label>
+                                                <label>
+                                                    <span>Assigned staff</span>
+                                                    <select id="lead-assignee-select"></select>
+                                                </label>
+                                                <label>
+                                                    <span>Linked customer</span>
+                                                    <select id="lead-customer-select"></select>
+                                                </label>
+                                            </div>
+
+                                            <div class="form-grid two">
+                                                <label>
+                                                    <span>Lead source</span>
+                                                    <input type="text" id="lead-source-display" disabled>
+                                                </label>
+                                                <label>
+                                                    <span>Current estimate total</span>
+                                                    <input type="text" id="lead-estimate-display" disabled>
+                                                </label>
+                                            </div>
+
+                                            <label>
+                                                <span>Scope notes</span>
+                                                <textarea id="lead-notes-input" rows="5" placeholder="Scope, investment goals, timing, occupancy, access, pricing posture, and fit notes."></textarea>
+                                            </label>
+                                        </form>
+
+                                        <div class="lead-overview-rail">
+                                            <section class="subpanel">
+                                                <div class="subpanel-head">
+                                                    <h3>Lead summary</h3>
+                                                    <p>Quick-read context for assignment, estimate value, job state, and customer memory.</p>
+                                                </div>
+                                                <div class="summary-grid lead-summary-grid" id="lead-overview-summary"></div>
+                                            </section>
+
+                                            <section class="subpanel">
+                                                <div class="subpanel-head">
+                                                    <h3>Record detail</h3>
+                                                    <p>Timing, source, and linked-customer metadata for the selected lead.</p>
+                                                </div>
+                                                <div class="detail-summary" id="lead-meta"></div>
+                                            </section>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="tab-pane" id="lead-tab-estimate">
@@ -464,45 +496,16 @@
                                 </div>
 
                                 <div class="tab-pane" id="lead-tab-tasks">
-                                    <div class="two-column-detail">
-                                        <section class="subpanel">
-                                            <div class="subpanel-head">
+                                    <section class="subpanel">
+                                        <div class="subpanel-head subpanel-head-split">
+                                            <div>
                                                 <h3>Lead tasks</h3>
-                                                <p>Tasks tied directly to this opportunity stay visible from the lead record and the main task list.</p>
+                                                <p>Attach the next move from a quick drawer without losing the lead record underneath.</p>
                                             </div>
-                                            <div class="stack-list" id="lead-task-list"></div>
-                                        </section>
-
-                                        <form class="stack-form subpanel" id="lead-task-form">
-                                            <div class="subpanel-head">
-                                                <h3>Create lead task</h3>
-                                                <p>Assign the next move without leaving the lead record.</p>
-                                            </div>
-                                            <label>
-                                                <span>Task title</span>
-                                                <input type="text" id="lead-task-title" placeholder="Call about site visit, revise scope, confirm deposit">
-                                            </label>
-                                            <div class="form-grid three">
-                                                <label>
-                                                    <span>Due date</span>
-                                                    <input type="datetime-local" id="lead-task-due">
-                                                </label>
-                                                <label>
-                                                    <span>Priority</span>
-                                                    <select id="lead-task-priority">
-                                                        <option value="high">High</option>
-                                                        <option value="medium">Medium</option>
-                                                        <option value="low">Low</option>
-                                                    </select>
-                                                </label>
-                                                <label>
-                                                    <span>Assignee</span>
-                                                    <select id="lead-task-assignee"></select>
-                                                </label>
-                                            </div>
-                                            <button type="submit" class="primary-button">Create task</button>
-                                        </form>
-                                    </div>
+                                            <button type="button" class="secondary-button" id="lead-task-drawer-button">Add task</button>
+                                        </div>
+                                        <div class="stack-list" id="lead-task-list"></div>
+                                    </section>
                                 </div>
 
                                 <div class="tab-pane" id="lead-tab-activity">
@@ -530,7 +533,13 @@
                                 </div>
 
                                 <div class="tab-pane" id="lead-tab-job">
-                                    <div class="detail-summary" id="lead-job-summary"></div>
+                                    <section class="subpanel">
+                                        <div class="subpanel-head">
+                                            <h3>Linked job</h3>
+                                            <p>Won leads create the operational job record used for staffing, expenses, payments, and split tracking.</p>
+                                        </div>
+                                        <div class="detail-summary" id="lead-job-summary"></div>
+                                    </section>
                                 </div>
                             </div>
                         </section>
@@ -974,9 +983,156 @@
             </main>
         </div>
 
+        <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+
+        <aside class="entity-drawer" id="entity-drawer" hidden aria-hidden="true">
+            <div class="drawer-shell">
+                <div class="drawer-head">
+                    <div>
+                        <span class="panel-kicker" id="drawer-kicker">Quick add</span>
+                        <h2 id="drawer-title">New item</h2>
+                        <p id="drawer-subtitle">Create records without losing the CRM context underneath.</p>
+                    </div>
+                    <button type="button" class="ghost-button" id="drawer-close-button">Close</button>
+                </div>
+
+                <div class="drawer-body">
+                    <form class="stack-form drawer-form" id="drawer-lead-form" hidden>
+                        <div class="form-grid two">
+                            <label>
+                                <span>Client name</span>
+                                <input type="text" id="drawer-lead-client-name" required>
+                            </label>
+                            <label>
+                                <span>Client phone</span>
+                                <input type="text" id="drawer-lead-client-phone" required>
+                            </label>
+                        </div>
+
+                        <div class="form-grid two">
+                            <label>
+                                <span>Client email</span>
+                                <input type="email" id="drawer-lead-client-email">
+                            </label>
+                            <label>
+                                <span>Project address</span>
+                                <input type="text" id="drawer-lead-project-address">
+                            </label>
+                        </div>
+
+                        <div class="form-grid two">
+                            <label>
+                                <span>Project type</span>
+                                <input type="text" id="drawer-lead-project-type" placeholder="Bathroom, kitchen, full rehab, investor turn">
+                            </label>
+                            <label>
+                                <span>Assigned staff</span>
+                                <select id="drawer-lead-assignee"></select>
+                            </label>
+                        </div>
+
+                        <label>
+                            <span>Scope notes</span>
+                            <textarea id="drawer-lead-notes" rows="5" placeholder="Fast intake notes, investor goals, timing, occupancy, and pricing posture."></textarea>
+                        </label>
+
+                        <div class="detail-summary" id="drawer-lead-context"></div>
+
+                        <div class="inline-actions">
+                            <button type="submit" class="primary-button">Create lead</button>
+                            <button type="button" class="ghost-button drawer-cancel-button">Cancel</button>
+                        </div>
+                    </form>
+
+                    <form class="stack-form drawer-form" id="drawer-customer-form" hidden>
+                        <div class="form-grid two">
+                            <label>
+                                <span>Customer name</span>
+                                <input type="text" id="drawer-customer-name" required>
+                            </label>
+                            <label>
+                                <span>Email</span>
+                                <input type="email" id="drawer-customer-email">
+                            </label>
+                        </div>
+
+                        <div class="form-grid two">
+                            <label>
+                                <span>Phone</span>
+                                <input type="text" id="drawer-customer-phone">
+                            </label>
+                            <label>
+                                <span>Main address</span>
+                                <input type="text" id="drawer-customer-address">
+                            </label>
+                        </div>
+
+                        <label>
+                            <span>Notes</span>
+                            <textarea id="drawer-customer-notes" rows="5" placeholder="Investor profile, preferred scope, ownership details, or relationship context."></textarea>
+                        </label>
+
+                        <div class="inline-actions">
+                            <button type="submit" class="primary-button">Create customer</button>
+                            <button type="button" class="ghost-button drawer-cancel-button">Cancel</button>
+                        </div>
+                    </form>
+
+                    <form class="stack-form drawer-form" id="drawer-task-form" hidden>
+                        <label>
+                            <span>Task title</span>
+                            <input type="text" id="drawer-task-title" required>
+                        </label>
+
+                        <div class="form-grid three">
+                            <label>
+                                <span>Due date</span>
+                                <input type="datetime-local" id="drawer-task-due">
+                            </label>
+                            <label>
+                                <span>Assignee</span>
+                                <select id="drawer-task-assignee"></select>
+                            </label>
+                            <label>
+                                <span>Priority</span>
+                                <select id="drawer-task-priority">
+                                    <option value="high">High</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="low">Low</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div class="form-grid two">
+                            <label>
+                                <span>Linked record type</span>
+                                <select id="drawer-task-linked-type">
+                                    <option value="">No linked record</option>
+                                    <option value="lead">Lead</option>
+                                    <option value="customer">Customer</option>
+                                    <option value="project">Job</option>
+                                </select>
+                            </label>
+                            <label>
+                                <span>Linked record</span>
+                                <select id="drawer-task-linked-record"></select>
+                            </label>
+                        </div>
+
+                        <div class="detail-summary" id="drawer-task-context"></div>
+
+                        <div class="inline-actions">
+                            <button type="submit" class="primary-button">Create task</button>
+                            <button type="button" class="ghost-button drawer-cancel-button">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </aside>
+
         <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
     </div>
 
-    <script type="module" src="/staff/staff.js"></script>
+    <script type="module" src="/staff/staff.js?v=20260407-leads-redesign-1"></script>
 </body>
 </html>

@@ -153,6 +153,7 @@ const refs = {
     leadEstimateDisplay: document.getElementById("lead-estimate-display"),
     leadNotesInput: document.getElementById("lead-notes-input"),
     leadMeta: document.getElementById("lead-meta"),
+    leadCustomerMatch: document.getElementById("lead-customer-match"),
     leadRecordContext: document.getElementById("lead-record-context"),
     leadOverviewSummary: document.getElementById("lead-overview-summary"),
     leadTabButtons: Array.from(document.querySelectorAll("[data-lead-tab]")),
@@ -168,11 +169,7 @@ const refs = {
     estimateSubtotal: document.getElementById("estimate-subtotal"),
     estimatePreview: document.getElementById("estimate-preview"),
     leadTaskList: document.getElementById("lead-task-list"),
-    leadTaskForm: document.getElementById("lead-task-form"),
-    leadTaskTitle: document.getElementById("lead-task-title"),
-    leadTaskDue: document.getElementById("lead-task-due"),
-    leadTaskPriority: document.getElementById("lead-task-priority"),
-    leadTaskAssignee: document.getElementById("lead-task-assignee"),
+    leadTaskDrawerButton: document.getElementById("lead-task-drawer-button"),
     noteForm: document.getElementById("note-form"),
     noteBody: document.getElementById("note-body"),
     noteList: document.getElementById("note-list"),
@@ -259,7 +256,38 @@ const refs = {
     templateGreeting: document.getElementById("template-greeting"),
     templateIntro: document.getElementById("template-intro"),
     templateOutro: document.getElementById("template-outro"),
-    templateTerms: document.getElementById("template-terms")
+    templateTerms: document.getElementById("template-terms"),
+
+    drawerBackdrop: document.getElementById("drawer-backdrop"),
+    entityDrawer: document.getElementById("entity-drawer"),
+    drawerKicker: document.getElementById("drawer-kicker"),
+    drawerTitle: document.getElementById("drawer-title"),
+    drawerSubtitle: document.getElementById("drawer-subtitle"),
+    drawerCloseButton: document.getElementById("drawer-close-button"),
+    drawerCancelButtons: Array.from(document.querySelectorAll(".drawer-cancel-button")),
+    drawerLeadForm: document.getElementById("drawer-lead-form"),
+    drawerLeadClientName: document.getElementById("drawer-lead-client-name"),
+    drawerLeadClientPhone: document.getElementById("drawer-lead-client-phone"),
+    drawerLeadClientEmail: document.getElementById("drawer-lead-client-email"),
+    drawerLeadProjectAddress: document.getElementById("drawer-lead-project-address"),
+    drawerLeadProjectType: document.getElementById("drawer-lead-project-type"),
+    drawerLeadAssignee: document.getElementById("drawer-lead-assignee"),
+    drawerLeadNotes: document.getElementById("drawer-lead-notes"),
+    drawerLeadContext: document.getElementById("drawer-lead-context"),
+    drawerCustomerForm: document.getElementById("drawer-customer-form"),
+    drawerCustomerName: document.getElementById("drawer-customer-name"),
+    drawerCustomerEmail: document.getElementById("drawer-customer-email"),
+    drawerCustomerPhone: document.getElementById("drawer-customer-phone"),
+    drawerCustomerAddress: document.getElementById("drawer-customer-address"),
+    drawerCustomerNotes: document.getElementById("drawer-customer-notes"),
+    drawerTaskForm: document.getElementById("drawer-task-form"),
+    drawerTaskTitle: document.getElementById("drawer-task-title"),
+    drawerTaskDue: document.getElementById("drawer-task-due"),
+    drawerTaskAssignee: document.getElementById("drawer-task-assignee"),
+    drawerTaskPriority: document.getElementById("drawer-task-priority"),
+    drawerTaskLinkedType: document.getElementById("drawer-task-linked-type"),
+    drawerTaskLinkedRecord: document.getElementById("drawer-task-linked-record"),
+    drawerTaskContext: document.getElementById("drawer-task-context")
 };
 
 const state = {
@@ -298,9 +326,19 @@ const state = {
     jobStatus: "active",
     taskSearch: "",
     taskBucket: "open",
+    dragLeadId: null,
+    dragLeadOverStatus: null,
+    drawer: {
+        type: null,
+        context: {},
+        leadDraft: null,
+        customerDraft: null,
+        taskDraft: null
+    },
     sessionResetting: false,
     unsubs: {
         base: [],
+        scopedProjects: [],
         leadDetail: [],
         projectDetail: []
     }
@@ -479,6 +517,48 @@ function normaliseStaffProfile(user, source = {}) {
     };
 }
 
+function normaliseEmail(value) {
+    return safeString(value).toLowerCase();
+}
+
+function normalisePhone(value) {
+    const digits = String(value || "").replace(/\D/g, "");
+    if (digits.length === 11 && digits.startsWith("1")) {
+        return digits.slice(1);
+    }
+    return digits;
+}
+
+function setDrawerVisibility(isOpen) {
+    refs.drawerBackdrop.hidden = !isOpen;
+    refs.entityDrawer.hidden = !isOpen;
+    refs.entityDrawer.setAttribute("aria-hidden", String(!isOpen));
+    document.body.classList.toggle("drawer-open", isOpen);
+}
+
+function drawerLinkedEntityLabel(type, id) {
+    if (!type || !id) {
+        return "No linked record";
+    }
+
+    if (type === "lead") {
+        const lead = state.leads.find((item) => item.id === id);
+        return lead?.clientName || lead?.projectAddress || "Lead record";
+    }
+
+    if (type === "customer") {
+        const customer = state.customers.find((item) => item.id === id);
+        return customer?.name || "Customer record";
+    }
+
+    if (type === "project") {
+        const project = state.projects.find((item) => item.id === id);
+        return project?.clientName || project?.projectAddress || "Job record";
+    }
+
+    return "No linked record";
+}
+
 function isPermissionDeniedError(error) {
     return error?.code === "permission-denied"
         || /permission[- ]denied/i.test(error?.message || "");
@@ -525,8 +605,10 @@ async function resetAuthSession(message) {
 
     state.sessionResetting = true;
     clearUnsubs(state.unsubs.base);
+    clearUnsubs(state.unsubs.scopedProjects);
     clearUnsubs(state.unsubs.leadDetail);
     clearUnsubs(state.unsubs.projectDetail);
+    closeDrawer();
     setBanner("", "info");
     setSyncStatus("Access blocked");
     showAuthShell(message);
@@ -725,6 +807,63 @@ function refreshScopedCustomers() {
     state.customers = buildEmployeeCustomerRecords();
 }
 
+function syncScopedProjects() {
+    clearUnsubs(state.unsubs.scopedProjects);
+    state.unsubs.scopedProjects = [];
+
+    if (isAdmin()) {
+        return;
+    }
+
+    const projectIds = uniqueValues([
+        ...state.leads.flatMap((lead) => {
+            const ids = [lead.wonProjectId];
+            if ((lead.status === "closed_won" || lead.wonProjectId) && lead.id) {
+                ids.push(lead.id);
+            }
+            return ids;
+        }),
+        ...state.tasks.map((task) => task.projectId)
+    ]);
+
+    if (!projectIds.length) {
+        state.projects = [];
+        refreshScopedCustomers();
+        resetSelectionFromSnapshots();
+        subscribeProjectDetail();
+        renderAll();
+        return;
+    }
+
+    const projectMap = new Map(state.projects.map((project) => [project.id, project]));
+    const syncProjectState = () => {
+        state.projects = sortByUpdatedDesc(Array.from(projectMap.values()));
+        refreshScopedCustomers();
+        resetSelectionFromSnapshots();
+        subscribeProjectDetail();
+        renderAll();
+    };
+
+    projectIds.forEach((projectId) => {
+        state.unsubs.scopedProjects.push(onSnapshot(doc(state.db, "projects", projectId), (snapshot) => {
+            if (snapshot.exists()) {
+                projectMap.set(snapshot.id, normaliseFirestoreDoc(snapshot));
+            } else {
+                projectMap.delete(projectId);
+            }
+            syncProjectState();
+        }, (error) => {
+            console.error("Scoped job subscription failed.", error);
+            projectMap.delete(projectId);
+            syncProjectState();
+
+            if (!isPermissionDeniedError(error)) {
+                setBanner("Some job records could not load right now.", "error");
+            }
+        }));
+    });
+}
+
 function defaultLeadDraft(customer = null) {
     const assignee = preferredLeadAssignee();
     return {
@@ -778,6 +917,218 @@ function defaultTaskDraft(linked = {}) {
         customerId: linked.customerId || null,
         projectId: linked.projectId || null
     };
+}
+
+function closeDrawer() {
+    state.drawer = {
+        type: null,
+        context: {},
+        leadDraft: null,
+        customerDraft: null,
+        taskDraft: null
+    };
+    setDrawerVisibility(false);
+}
+
+function openLeadDrawer({ customerId = null } = {}) {
+    const customer = customerId ? state.customers.find((item) => item.id === customerId) : null;
+    state.drawer = {
+        type: "lead",
+        context: { customerId: customer?.id || null },
+        leadDraft: {
+            ...defaultLeadDraft(customer || null),
+            customerId: customer?.id || null,
+            customerName: customer?.name || ""
+        },
+        customerDraft: null,
+        taskDraft: null
+    };
+    renderActiveDrawer();
+    queueFocus(refs.drawerLeadClientName);
+}
+
+function openCustomerDrawer(seed = {}) {
+    state.drawer = {
+        type: "customer",
+        context: {},
+        leadDraft: null,
+        customerDraft: {
+            ...defaultCustomerDraft(),
+            name: seed.name || "",
+            primaryEmail: seed.primaryEmail || "",
+            primaryPhone: seed.primaryPhone || "",
+            primaryAddress: seed.primaryAddress || "",
+            notes: seed.notes || ""
+        },
+        taskDraft: null
+    };
+    renderActiveDrawer();
+    queueFocus(refs.drawerCustomerName);
+}
+
+function openTaskDrawer(linked = {}) {
+    const preferredType = linked.preferredType
+        || (linked.projectId ? "project" : linked.leadId ? "lead" : linked.customerId ? "customer" : "");
+    state.drawer = {
+        type: "task",
+        context: { ...linked, preferredType },
+        leadDraft: null,
+        customerDraft: null,
+        taskDraft: defaultTaskDraft(linked)
+    };
+    renderActiveDrawer();
+    queueFocus(refs.drawerTaskTitle);
+}
+
+function drawerTaskLinkedType(taskDraft) {
+    const preferredType = state.drawer.context?.preferredType;
+    if (preferredType === "project" && taskDraft?.projectId) return "project";
+    if (preferredType === "lead" && taskDraft?.leadId) return "lead";
+    if (preferredType === "customer" && taskDraft?.customerId) return "customer";
+    if (taskDraft?.projectId) return "project";
+    if (taskDraft?.leadId) return "lead";
+    if (taskDraft?.customerId) return "customer";
+    return "";
+}
+
+function renderDrawerLead() {
+    const leadDraft = state.drawer.leadDraft;
+    refs.drawerLeadForm.hidden = false;
+    refs.drawerCustomerForm.hidden = true;
+    refs.drawerTaskForm.hidden = true;
+    refs.drawerKicker.textContent = "Quick add";
+    refs.drawerTitle.textContent = "New lead";
+    refs.drawerSubtitle.textContent = "Capture the lead fast, then open the full record underneath the board for estimate, tasks, notes, and the won-job flow.";
+    refs.drawerLeadClientName.value = leadDraft?.clientName || "";
+    refs.drawerLeadClientPhone.value = leadDraft?.clientPhone || "";
+    refs.drawerLeadClientEmail.value = leadDraft?.clientEmail || "";
+    refs.drawerLeadProjectAddress.value = leadDraft?.projectAddress || "";
+    refs.drawerLeadProjectType.value = leadDraft?.projectType || "";
+    refs.drawerLeadNotes.value = leadDraft?.notes || "";
+
+    const assignee = leadDraft?.assignedToUid || preferredLeadAssignee()?.uid || "";
+    renderTaskAssigneeOptions(refs.drawerLeadAssignee, assignee);
+    refs.drawerLeadAssignee.disabled = !isAdmin();
+
+    const linkedCustomer = leadDraft?.customerId ? state.customers.find((item) => item.id === leadDraft.customerId) : null;
+    refs.drawerLeadContext.innerHTML = linkedCustomer
+        ? `<div><strong>Linked customer:</strong> ${escapeHtml(linkedCustomer.name || "Customer")}</div><div>${escapeHtml(linkedCustomer.primaryPhone || linkedCustomer.primaryEmail || linkedCustomer.primaryAddress || "Existing customer record will stay attached.")}</div>`
+        : `This lead will look for an exact customer match by phone or email. If there is no exact match, the CRM will create a new customer automatically.`;
+}
+
+function renderDrawerCustomer() {
+    const customerDraft = state.drawer.customerDraft;
+    refs.drawerLeadForm.hidden = true;
+    refs.drawerCustomerForm.hidden = false;
+    refs.drawerTaskForm.hidden = true;
+    refs.drawerKicker.textContent = "Quick add";
+    refs.drawerTitle.textContent = "New customer";
+    refs.drawerSubtitle.textContent = "Create a clean investor or owner record without leaving the CRM workspace behind.";
+    refs.drawerCustomerName.value = customerDraft?.name || "";
+    refs.drawerCustomerEmail.value = customerDraft?.primaryEmail || "";
+    refs.drawerCustomerPhone.value = customerDraft?.primaryPhone || "";
+    refs.drawerCustomerAddress.value = customerDraft?.primaryAddress || "";
+    refs.drawerCustomerNotes.value = customerDraft?.notes || "";
+}
+
+function renderDrawerTaskRecordOptions() {
+    const taskDraft = state.drawer.taskDraft;
+    const linkedType = refs.drawerTaskLinkedType.value || drawerTaskLinkedType(taskDraft);
+    const selectedId = linkedType === "lead"
+        ? taskDraft?.leadId
+        : linkedType === "customer"
+            ? taskDraft?.customerId
+            : linkedType === "project"
+                ? taskDraft?.projectId
+                : "";
+
+    let options = [];
+
+    if (linkedType === "lead") {
+        options = sortByUpdatedDesc(state.leads).map((lead) => ({
+            value: lead.id,
+            label: `${lead.clientName || "Unnamed lead"} · ${lead.projectAddress || "Address pending"}`
+        }));
+    } else if (linkedType === "customer") {
+        options = sortByUpdatedDesc(state.customers).map((customer) => ({
+            value: customer.id,
+            label: `${customer.name || "Unnamed customer"} · ${customer.primaryAddress || customer.primaryEmail || customer.primaryPhone || "No contact info"}`
+        }));
+    } else if (linkedType === "project") {
+        options = sortByUpdatedDesc(state.projects).map((project) => ({
+            value: project.id,
+            label: `${project.clientName || "Unnamed job"} · ${project.projectAddress || "Address pending"}`
+        }));
+    }
+
+    refs.drawerTaskLinkedRecord.disabled = !linkedType;
+    refs.drawerTaskLinkedRecord.innerHTML = !linkedType
+        ? `<option value="">No linked record</option>`
+        : options.length
+            ? options.map((option) => `
+                <option value="${escapeHtml(option.value)}" ${selectedId === option.value ? "selected" : ""}>
+                    ${escapeHtml(option.label)}
+                </option>
+            `).join("")
+            : `<option value="">No visible records</option>`;
+}
+
+function renderDrawerTaskContext() {
+    const taskDraft = state.drawer.taskDraft;
+    const linkedType = refs.drawerTaskLinkedType.value || drawerTaskLinkedType(taskDraft);
+    const linkedId = refs.drawerTaskLinkedRecord.value || (
+        linkedType === "lead"
+            ? taskDraft?.leadId
+            : linkedType === "customer"
+                ? taskDraft?.customerId
+                : linkedType === "project"
+                    ? taskDraft?.projectId
+                    : ""
+    );
+
+    refs.drawerTaskContext.innerHTML = linkedId
+        ? `<div><strong>Linked record:</strong> ${escapeHtml(drawerLinkedEntityLabel(linkedType, linkedId))}</div><div>The task will stay visible from this record and inside the main task queue.</div>`
+        : `Create a general task or connect it to a lead, customer, or job.`;
+}
+
+function renderDrawerTask() {
+    const taskDraft = state.drawer.taskDraft;
+    refs.drawerLeadForm.hidden = true;
+    refs.drawerCustomerForm.hidden = true;
+    refs.drawerTaskForm.hidden = false;
+    refs.drawerKicker.textContent = "Quick add";
+    refs.drawerTitle.textContent = "New task";
+    refs.drawerSubtitle.textContent = "Assign the next action without leaving the lead, customer, job, or dashboard context.";
+    refs.drawerTaskTitle.value = taskDraft?.title || "";
+    refs.drawerTaskDue.value = formatDateInputValue(taskDraft?.dueAt);
+    refs.drawerTaskPriority.value = taskDraft?.priority || "high";
+    renderTaskAssigneeOptions(refs.drawerTaskAssignee, taskDraft?.assignedToUid || state.profile?.uid || "");
+    refs.drawerTaskLinkedType.value = drawerTaskLinkedType(taskDraft);
+    renderDrawerTaskRecordOptions();
+    renderDrawerTaskContext();
+}
+
+function renderActiveDrawer() {
+    const drawerType = state.drawer.type;
+
+    if (!drawerType) {
+        closeDrawer();
+        return;
+    }
+
+    setDrawerVisibility(true);
+
+    if (drawerType === "lead") {
+        renderDrawerLead();
+        return;
+    }
+
+    if (drawerType === "customer") {
+        renderDrawerCustomer();
+        return;
+    }
+
+    renderDrawerTask();
 }
 
 function switchView(viewId) {
@@ -1178,6 +1529,9 @@ function renderWorkspaceCommandBar() {
         if (selectedCustomer?.id && isAdmin()) {
             actionButtons.push(buildCommandAction("Create lead for customer", "secondary-button", { "data-command": "customer-create-lead" }));
         }
+        if (selectedCustomer?.id) {
+            actionButtons.push(buildCommandAction("Customer task", "ghost-button", { "data-command": "customer-create-task" }));
+        }
 
         const currentEstimateLead = selectedCustomer ? customerRollup(selectedCustomer).currentEstimateLead : null;
         const latestCustomerProject = selectedCustomer ? latestByUpdated(customerRollup(selectedCustomer).projects) : null;
@@ -1568,8 +1922,14 @@ function renderLeadMetrics() {
 }
 
 function renderCustomerOptions(selectedId = null) {
+    const lead = currentLead();
+    const matchedCustomers = Array.isArray(lead?.customerMatchIds)
+        ? lead.customerMatchIds
+            .map((customerId) => state.customers.find((customer) => customer.id === customerId))
+            .filter(Boolean)
+        : [];
+
     if (!isAdmin()) {
-        const lead = currentLead();
         refs.leadCustomerSelect.innerHTML = lead?.customerId
             ? `<option value="${escapeHtml(lead.customerId)}">${escapeHtml(lead.customerName || "Linked customer")}</option>`
             : `<option value="">No linked customer</option>`;
@@ -1578,13 +1938,29 @@ function renderCustomerOptions(selectedId = null) {
     }
 
     refs.leadCustomerSelect.disabled = false;
-    refs.leadCustomerSelect.innerHTML = [`<option value="">No linked customer</option>`].concat(
-        sortByUpdatedDesc(state.customers).map((customer) => `
+    const matchedIds = new Set(matchedCustomers.map((customer) => customer.id));
+    const remainingCustomers = sortByUpdatedDesc(state.customers).filter((customer) => !matchedIds.has(customer.id));
+    const matchedMarkup = matchedCustomers.length
+        ? `
+            <optgroup label="Review matches">
+                ${matchedCustomers.map((customer) => `
+                    <option value="${escapeHtml(customer.id)}" ${selectedId === customer.id ? "selected" : ""}>
+                        ${escapeHtml(customer.name || "Unnamed customer")}
+                    </option>
+                `).join("")}
+            </optgroup>
+        `
+        : "";
+
+    refs.leadCustomerSelect.innerHTML = [
+        `<option value="">No linked customer</option>`,
+        matchedMarkup,
+        remainingCustomers.map((customer) => `
             <option value="${escapeHtml(customer.id)}" ${selectedId === customer.id ? "selected" : ""}>
                 ${escapeHtml(customer.name || "Unnamed customer")}
             </option>
-        `)
-    ).join("");
+        `).join("")
+    ].join("");
 }
 
 function renderLeadAssigneeOptions(selectedUid = "") {
@@ -1610,11 +1986,10 @@ function renderLeadStageOptions(lead) {
         "new_lead",
         "follow_up",
         "estimate_sent",
-        "closed_won",
         "closed_lost"
     ];
-    const visibleStatuses = !isAdmin() && lead?.status !== "closed_won"
-        ? statusOptions.filter((status) => status !== "closed_won")
+    const visibleStatuses = lead?.status === "closed_won"
+        ? [...statusOptions, "closed_won"]
         : statusOptions;
 
     refs.leadStageSelect.innerHTML = visibleStatuses.map((status) => `
@@ -1624,6 +1999,56 @@ function renderLeadStageOptions(lead) {
     `).join("");
 
     refs.leadStageSelect.disabled = !isAdmin() && lead?.status === "closed_won";
+}
+
+function renderLeadCustomerMatch(lead) {
+    if (!lead) {
+        refs.leadCustomerMatch.hidden = true;
+        refs.leadCustomerMatch.className = "detail-summary lead-customer-match";
+        refs.leadCustomerMatch.innerHTML = "";
+        return;
+    }
+
+    const matchedCustomers = Array.isArray(lead.customerMatchIds)
+        ? lead.customerMatchIds
+            .map((customerId) => state.customers.find((customer) => customer.id === customerId))
+            .filter(Boolean)
+        : [];
+
+    if (lead.customerReviewRequired) {
+        refs.leadCustomerMatch.hidden = false;
+        refs.leadCustomerMatch.className = "detail-summary lead-customer-match review";
+        refs.leadCustomerMatch.innerHTML = `
+            <strong>Customer review needed</strong>
+            <div>${escapeHtml(matchedCustomers.length ? `${matchedCustomers.length} exact matches were found by phone or email.` : "Multiple possible customer matches were found.")}</div>
+            <div>${escapeHtml(isAdmin() ? "Use the Linked customer field in Overview to choose the correct customer card." : "An admin needs to choose the correct customer card for this lead.")}</div>
+        `;
+        return;
+    }
+
+    if (lead.customerMatchResult === "created" && lead.customerName) {
+        refs.leadCustomerMatch.hidden = false;
+        refs.leadCustomerMatch.className = "detail-summary lead-customer-match created";
+        refs.leadCustomerMatch.innerHTML = `
+            <strong>New customer created</strong>
+            <div>${escapeHtml(`${lead.customerName} was created automatically from this lead so future jobs, payments, and repeat opportunities stay together.`)}</div>
+        `;
+        return;
+    }
+
+    if (lead.customerMatchResult === "linked" && lead.customerName) {
+        refs.leadCustomerMatch.hidden = false;
+        refs.leadCustomerMatch.className = "detail-summary lead-customer-match linked";
+        refs.leadCustomerMatch.innerHTML = `
+            <strong>Customer linked</strong>
+            <div>${escapeHtml(`${lead.customerName} is already connected to this lead, so repeat-client history will stay on one card.`)}</div>
+        `;
+        return;
+    }
+
+    refs.leadCustomerMatch.hidden = true;
+    refs.leadCustomerMatch.className = "detail-summary lead-customer-match";
+    refs.leadCustomerMatch.innerHTML = "";
 }
 
 function renderLeadList() {
@@ -1645,6 +2070,7 @@ function renderLeadList() {
             <div class="record-meta">
                 <div>${escapeHtml(lead.projectType || "General scope")}</div>
                 <div>${escapeHtml(lead.customerName || "No linked customer")}</div>
+                <div>${escapeHtml(formatCurrency(lead.estimateSubtotal || 0))} estimate</div>
                 <div>${escapeHtml(formatDateTime(lead.updatedAt || lead.createdAt))}</div>
             </div>
         </button>
@@ -1658,19 +2084,29 @@ function renderLeadBoard() {
     refs.leadBoard.innerHTML = statuses.map((status) => {
         const laneLeads = leads.filter((lead) => (lead.status || "new_lead") === status);
         return `
-            <section class="pipeline-lane">
+            <section class="pipeline-lane ${state.dragLeadOverStatus === status ? "is-drop-target" : ""}" data-lane-status="${escapeHtml(status)}">
                 <div class="lane-head">
                     <h3>${escapeHtml(STATUS_META[status])}</h3>
                     <span>${laneLeads.length}</span>
                 </div>
                 ${laneLeads.length ? laneLeads.map((lead) => `
-                    <button type="button" class="record-button ${lead.id === state.selectedLeadId && !state.leadDraft ? "is-selected" : ""}" data-lead-id="${escapeHtml(lead.id)}">
+                    <button
+                        type="button"
+                        class="record-button pipeline-card ${lead.id === state.selectedLeadId && !state.leadDraft ? "is-selected" : ""} ${state.dragLeadId === lead.id ? "is-dragging" : ""}"
+                        data-lead-id="${escapeHtml(lead.id)}"
+                        data-draggable-lead="${escapeHtml(lead.id)}"
+                        draggable="true"
+                    >
                         <div class="record-topline">
                             <span class="mini-pill">${escapeHtml(lead.projectType || "Lead")}</span>
                             <span class="mini-pill">${escapeHtml(lead.assignedToName || "Unassigned")}</span>
                         </div>
                         <span class="record-title">${escapeHtml(lead.clientName || "Unnamed lead")}</span>
                         <p class="record-copy">${escapeHtml(lead.projectAddress || "Address pending")}</p>
+                        <div class="record-meta">
+                            <div>${escapeHtml(lead.customerName || "No linked customer")}</div>
+                            <div>${escapeHtml(formatCurrency(lead.estimateSubtotal || 0))} estimate</div>
+                        </div>
                     </button>
                 `).join("") : `<div class="empty-note">No leads in this stage.</div>`}
             </section>
@@ -1678,19 +2114,30 @@ function renderLeadBoard() {
     }).join("");
 }
 
-function renderLeadListShell() {
-    const isBoard = state.leadLayout === "board";
-    refs.leadList.hidden = isBoard;
-    refs.leadBoard.hidden = !isBoard;
-    refs.leadLayoutButtons.forEach((button) => {
-        button.classList.toggle("is-active", button.dataset.leadLayout === state.leadLayout);
+function clearLeadBoardDragClasses() {
+    refs.leadBoard.querySelectorAll(".pipeline-lane").forEach((lane) => {
+        lane.classList.remove("is-drop-target");
     });
+    refs.leadBoard.querySelectorAll(".pipeline-card").forEach((card) => {
+        card.classList.remove("is-dragging");
+    });
+}
 
-    if (isBoard) {
-        renderLeadBoard();
-    } else {
-        renderLeadList();
+function markLeadBoardDragState(leadId, laneStatus = null) {
+    clearLeadBoardDragClasses();
+
+    if (leadId) {
+        refs.leadBoard.querySelector(`[data-draggable-lead="${CSS.escape(leadId)}"]`)?.classList.add("is-dragging");
     }
+
+    if (laneStatus) {
+        refs.leadBoard.querySelector(`[data-lane-status="${CSS.escape(laneStatus)}"]`)?.classList.add("is-drop-target");
+    }
+}
+
+function renderLeadListShell() {
+    renderLeadBoard();
+    renderLeadList();
 }
 
 function renderLeadOverviewSummary(lead) {
@@ -2147,6 +2594,7 @@ function renderLeadDetail() {
         refs.leadRecordTitle.textContent = "Select a lead";
         refs.leadRecordBadge.textContent = "No lead selected";
         refs.leadRecordBadge.className = "status-pill neutral";
+        renderLeadCustomerMatch(null);
         refs.leadRecordContext.innerHTML = "";
         refs.leadRecordEmpty.hidden = false;
         refs.leadRecordShell.hidden = true;
@@ -2169,12 +2617,14 @@ function renderLeadDetail() {
     refs.leadEstimateDisplay.value = formatCurrency(lead.estimateSubtotal || state.estimate?.subtotal || 0);
     renderLeadAssigneeOptions(lead.assignedToUid || "");
     renderCustomerOptions(lead.customerId || null);
+    renderLeadCustomerMatch(lead);
 
     refs.leadMeta.innerHTML = `
         <div><strong>Created:</strong> ${escapeHtml(lead.createdAt ? formatDateTime(lead.createdAt) : "Not saved yet")}</div>
         <div><strong>Updated:</strong> ${escapeHtml(lead.updatedAt ? formatDateTime(lead.updatedAt) : "Not saved yet")}</div>
         <div><strong>Lead source:</strong> ${escapeHtml(lead.sourcePage || lead.sourceForm || "Staff CRM")}</div>
         <div><strong>Customer:</strong> ${escapeHtml(lead.customerName || "No linked customer")}</div>
+        <div><strong>Match status:</strong> ${escapeHtml(lead.customerReviewRequired ? "Review required" : (lead.customerMatchResult || "Pending"))}</div>
     `;
 
     renderLeadRecordContext(lead);
@@ -2185,13 +2635,12 @@ function renderLeadDetail() {
     renderLeadJobSummary(lead);
     renderLeadTabState();
 
-    renderTaskAssigneeOptions(refs.leadTaskAssignee, lead.assignedToUid || state.profile?.uid || "");
-    refs.leadTaskForm.querySelector("button").disabled = !lead.id;
     refs.noteForm.querySelector("button").disabled = !lead.id;
     refs.estimateAiButton.disabled = !lead.id || !isAdmin();
     refs.estimateAddLineButton.disabled = !isAdmin();
     refs.leadCreateTaskButton.disabled = !lead.id;
-    refs.leadMarkWonButton.disabled = !lead.id || !isAdmin();
+    refs.leadTaskDrawerButton.disabled = !lead.id;
+    refs.leadMarkWonButton.disabled = !lead.id;
     refs.leadMarkLostButton.disabled = !lead.id;
 }
 
@@ -2680,6 +3129,11 @@ function renderAll() {
     renderJobDetail();
     renderTemplateForm();
     renderStaffList();
+    if (state.drawer.type) {
+        renderActiveDrawer();
+    } else {
+        setDrawerVisibility(false);
+    }
 }
 
 async function apiPost(path, body) {
@@ -2696,7 +3150,10 @@ async function apiPost(path, body) {
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-        throw new Error(payload.message || "Request failed.");
+        const error = new Error(payload.message || "Request failed.");
+        error.status = response.status;
+        error.payload = payload;
+        throw error;
     }
 
     return payload;
@@ -2864,6 +3321,8 @@ function resetSelectionFromSnapshots() {
 function subscribeBaseData() {
     clearUnsubs(state.unsubs.base);
     state.unsubs.base = [];
+    clearUnsubs(state.unsubs.scopedProjects);
+    state.unsubs.scopedProjects = [];
 
     const leadSource = isAdmin()
         ? collection(state.db, "leads")
@@ -2872,6 +3331,9 @@ function subscribeBaseData() {
     state.unsubs.base.push(onSnapshot(leadSource, (snapshot) => {
         state.leads = snapshot.docs.map(normaliseFirestoreDoc);
         refreshScopedCustomers();
+        if (!isAdmin()) {
+            syncScopedProjects();
+        }
         resetSelectionFromSnapshots();
         subscribeLeadDetail();
         renderAll();
@@ -2880,19 +3342,20 @@ function subscribeBaseData() {
         handleBaseSubscriptionError("Lead data", error);
     }));
 
-    const projectSource = isAdmin()
-        ? collection(state.db, "projects")
-        : query(collection(state.db, "projects"), where("allowedStaffUids", "array-contains", state.profile.uid));
-
-    state.unsubs.base.push(onSnapshot(projectSource, (snapshot) => {
-        state.projects = snapshot.docs.map(normaliseFirestoreDoc);
-        refreshScopedCustomers();
-        resetSelectionFromSnapshots();
-        subscribeProjectDetail();
-        renderAll();
-    }, (error) => {
-        handleBaseSubscriptionError("Job data", error);
-    }));
+    if (isAdmin()) {
+        state.unsubs.base.push(onSnapshot(collection(state.db, "projects"), (snapshot) => {
+            state.projects = snapshot.docs.map(normaliseFirestoreDoc);
+            refreshScopedCustomers();
+            resetSelectionFromSnapshots();
+            subscribeProjectDetail();
+            renderAll();
+        }, (error) => {
+            handleBaseSubscriptionError("Job data", error);
+        }));
+    } else {
+        state.projects = [];
+        syncScopedProjects();
+    }
 
     if (isAdmin()) {
         state.unsubs.base.push(onSnapshot(collection(state.db, "customers"), (snapshot) => {
@@ -2912,6 +3375,9 @@ function subscribeBaseData() {
 
     state.unsubs.base.push(onSnapshot(taskSource, (snapshot) => {
         state.tasks = snapshot.docs.map(normaliseFirestoreDoc);
+        if (!isAdmin()) {
+            syncScopedProjects();
+        }
         resetSelectionFromSnapshots();
         renderAll();
     }, (error) => {
@@ -3025,6 +3491,7 @@ async function bootstrapFirebase() {
 
         onAuthStateChanged(state.auth, async (user) => {
             clearUnsubs(state.unsubs.base);
+            clearUnsubs(state.unsubs.scopedProjects);
             clearUnsubs(state.unsubs.leadDetail);
             clearUnsubs(state.unsubs.projectDetail);
 
@@ -3044,6 +3511,7 @@ async function bootstrapFirebase() {
                 state.leadDraft = null;
                 state.customerDraft = null;
                 state.taskDraft = null;
+                closeDrawer();
                 setBanner("", "info");
                 showAuthShell();
                 return;
@@ -3125,6 +3593,172 @@ function collectLeadFormState(baseLead = currentLead()) {
 function selectedTaskAssignee(select) {
     const uid = select.value || "";
     return activeStaffOptions().find((member) => member.uid === uid) || null;
+}
+
+async function syncLeadCustomerLink(leadId, { quiet = false } = {}) {
+    const payload = await apiPost("/api/staff/lead-customer-link", { leadId });
+
+    if (!quiet) {
+        if (payload.matchResult === "created") {
+            showToast("Lead saved and new customer created.");
+        } else if (payload.matchResult === "linked") {
+            showToast("Lead saved and linked to the matching customer.");
+        } else if (payload.matchResult === "review_required") {
+            showToast("Multiple customer matches found. Review the linked customer on the lead record.", "error");
+        }
+    }
+
+    return payload;
+}
+
+async function saveLeadDrawer(event) {
+    event.preventDefault();
+
+    if (!isAdmin()) {
+        showToast("Only admins can create leads from the quick drawer.", "error");
+        return;
+    }
+
+    const draft = state.drawer.leadDraft || {};
+    const assignee = activeStaffOptions().find((member) => member.uid === refs.drawerLeadAssignee.value) || preferredLeadAssignee();
+    const leadRef = doc(collection(state.db, "leads"));
+
+    const payload = {
+        id: leadRef.id,
+        customerId: draft.customerId || null,
+        customerName: draft.customerName || "",
+        clientName: refs.drawerLeadClientName.value.trim(),
+        clientEmail: refs.drawerLeadClientEmail.value.trim(),
+        clientPhone: refs.drawerLeadClientPhone.value.trim(),
+        projectAddress: refs.drawerLeadProjectAddress.value.trim(),
+        projectType: refs.drawerLeadProjectType.value.trim(),
+        notes: refs.drawerLeadNotes.value.trim(),
+        sourceForm: "manual_entry",
+        sourcePage: "Staff CRM",
+        sourcePath: "/staff",
+        consent: false,
+        status: "new_lead",
+        statusLabel: STATUS_META.new_lead,
+        inquiryChannel: "staff",
+        assignedToUid: assignee?.uid || null,
+        assignedToName: assignee?.displayName || assignee?.email || "",
+        assignedToEmail: assignee?.email || "",
+        hasEstimate: false,
+        estimateSubtotal: 0,
+        estimateTitle: "",
+        customerMatchResult: draft.customerId ? "linked" : "",
+        customerReviewRequired: false,
+        customerMatchIds: draft.customerId ? [draft.customerId] : [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+    };
+
+    if (!payload.clientName || !payload.clientPhone) {
+        showToast("Client name and phone are required.", "error");
+        return;
+    }
+
+    await setDoc(leadRef, payload, { merge: true });
+    await addDoc(collection(state.db, "leads", leadRef.id, "activities"), {
+        activityType: "system",
+        title: "Lead created in staff CRM",
+        body: "Manual lead created from the quick-add drawer.",
+        actorName: state.profile.displayName,
+        actorUid: state.profile.uid,
+        actorRole: state.profile.role,
+        createdAt: serverTimestamp()
+    });
+
+    await syncLeadCustomerLink(leadRef.id, { quiet: true });
+    closeDrawer();
+    switchView("leads-view");
+    selectLead(leadRef.id);
+    showToast("Lead created.");
+}
+
+async function saveCustomerDrawer(event) {
+    event.preventDefault();
+
+    if (!isAdmin()) {
+        showToast("Only admins can create customers.", "error");
+        return;
+    }
+
+    const customerRef = doc(collection(state.db, "customers"));
+    const primaryEmail = refs.drawerCustomerEmail.value.trim();
+    const primaryPhone = refs.drawerCustomerPhone.value.trim();
+    const payload = {
+        id: customerRef.id,
+        name: refs.drawerCustomerName.value.trim(),
+        primaryEmail,
+        primaryPhone,
+        primaryAddress: refs.drawerCustomerAddress.value.trim(),
+        notes: refs.drawerCustomerNotes.value.trim(),
+        searchEmail: normaliseEmail(primaryEmail),
+        searchPhone: normalisePhone(primaryPhone),
+        allowedStaffUids: uniqueValues([state.profile?.uid]),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+    };
+
+    if (!payload.name) {
+        showToast("Customer name is required.", "error");
+        return;
+    }
+
+    await setDoc(customerRef, payload, { merge: true });
+    closeDrawer();
+    switchView("customers-view");
+    selectCustomer(customerRef.id);
+    showToast("Customer created.");
+}
+
+async function saveTaskDrawer(event) {
+    event.preventDefault();
+
+    const assignee = selectedTaskAssignee(refs.drawerTaskAssignee) || activeStaffOptions()[0] || null;
+    const linkedType = refs.drawerTaskLinkedType.value;
+    const linkedId = refs.drawerTaskLinkedRecord.value || "";
+    const linkedLead = linkedType === "lead" ? state.leads.find((item) => item.id === linkedId) : null;
+    const linkedProject = linkedType === "project" ? state.projects.find((item) => item.id === linkedId) : null;
+    const created = await createQuickTask({
+        title: refs.drawerTaskTitle.value,
+        dueValue: refs.drawerTaskDue.value,
+        priority: refs.drawerTaskPriority.value,
+        assigneeSelect: refs.drawerTaskAssignee,
+        leadId: linkedType === "lead" ? linkedId : null,
+        customerId: linkedType === "customer"
+            ? linkedId
+            : linkedLead?.customerId
+                || linkedProject?.customerId
+                || state.drawer.taskDraft?.customerId
+                || null,
+        projectId: linkedType === "project" ? linkedId : null
+    });
+
+    if (!created) {
+        return;
+    }
+
+    closeDrawer();
+
+    if (linkedType === "lead" && linkedId) {
+        const lead = state.leads.find((item) => item.id === linkedId);
+        if (lead) {
+            selectLead(lead.id);
+            switchView("leads-view");
+            state.activeLeadTab = "tasks";
+            renderLeadTabState();
+        }
+    } else if (linkedType === "customer" && linkedId) {
+        selectCustomer(linkedId);
+        switchView("customers-view");
+    } else if (linkedType === "project" && linkedId) {
+        selectProject(linkedId);
+        switchView("jobs-view");
+    } else if (assignee?.uid) {
+        switchView("tasks-view");
+    }
 }
 
 async function saveTask(event) {
@@ -3224,6 +3858,9 @@ async function saveLead(event) {
     const existing = currentLeadDoc();
     const payload = {
         ...collectLeadFormState(existing || currentLead()),
+        customerMatchResult: refs.leadCustomerSelect.value ? "linked" : "",
+        customerReviewRequired: false,
+        customerMatchIds: refs.leadCustomerSelect.value ? [refs.leadCustomerSelect.value] : [],
         updatedAt: serverTimestamp()
     };
 
@@ -3264,6 +3901,7 @@ async function saveLead(event) {
             createdAt: serverTimestamp()
         });
 
+        await syncLeadCustomerLink(leadRef.id, { quiet: true });
         state.leadDraft = null;
         state.selectedLeadId = leadRef.id;
         subscribeLeadDetail();
@@ -3313,74 +3951,72 @@ async function saveLead(event) {
         });
     }
 
+    await syncLeadCustomerLink(existing.id, { quiet: true });
     showToast("Lead updated.");
 }
 
-async function markLeadLost() {
-    const lead = currentLeadDoc();
-    if (!lead) {
-        showToast("Save the lead first.", "error");
+async function persistSelectedLeadForm(lead, overrides = {}) {
+    if (!lead?.id || lead.id !== state.selectedLeadId || state.leadDraft) {
         return;
     }
 
+    const formState = collectLeadFormState(lead);
     await updateDoc(doc(state.db, "leads", lead.id), {
-        status: "closed_lost",
-        statusLabel: STATUS_META.closed_lost,
+        ...formState,
+        ...overrides,
+        status: overrides.status || formState.status,
+        statusLabel: STATUS_META[overrides.status || formState.status],
+        customerMatchResult: (overrides.customerId || formState.customerId) ? "linked" : (lead.customerMatchResult || ""),
+        customerReviewRequired: Boolean(overrides.customerReviewRequired || false),
+        customerMatchIds: overrides.customerId || formState.customerId
+            ? [overrides.customerId || formState.customerId]
+            : (lead.customerMatchIds || []),
         updatedAt: serverTimestamp()
     });
+}
+
+async function moveLeadToStatus(lead, nextStatus, { source = "button" } = {}) {
+    if (!lead?.id) {
+        showToast("Select a lead first.", "error");
+        return;
+    }
+
+    if (lead.status === nextStatus && nextStatus !== "closed_won") {
+        return;
+    }
+
+    if (nextStatus === "closed_won") {
+        await convertLeadToProject(lead);
+        return;
+    }
+
+    if (lead.id === state.selectedLeadId && !state.leadDraft) {
+        await persistSelectedLeadForm(lead, { status: nextStatus });
+    } else {
+        await updateDoc(doc(state.db, "leads", lead.id), {
+            status: nextStatus,
+            statusLabel: STATUS_META[nextStatus],
+            updatedAt: serverTimestamp()
+        });
+    }
 
     await addDoc(collection(state.db, "leads", lead.id, "activities"), {
         activityType: "system",
-        title: "Lead marked lost",
-        body: "Lead was closed lost.",
+        title: nextStatus === "closed_lost" ? "Lead marked lost" : "Lead stage updated",
+        body: nextStatus === "closed_lost"
+            ? `Lead was closed lost from the ${source === "drag" ? "pipeline board" : "record actions"}.`
+            : `Moved to ${STATUS_META[nextStatus]} from the ${source === "drag" ? "pipeline board" : "record actions"}.`,
         actorName: state.profile.displayName,
         actorUid: state.profile.uid,
         actorRole: state.profile.role,
         createdAt: serverTimestamp()
     });
 
-    showToast("Lead marked lost.");
+    showToast(nextStatus === "closed_lost" ? "Lead marked lost." : `Lead moved to ${STATUS_META[nextStatus]}.`);
 }
 
-async function ensureLeadCustomer(lead) {
-    if (lead.customerId) {
-        await setDoc(doc(state.db, "customers", lead.customerId), {
-            id: lead.customerId,
-            name: lead.customerName || lead.clientName || "Unnamed customer",
-            primaryEmail: lead.clientEmail || "",
-            primaryPhone: lead.clientPhone || "",
-            primaryAddress: lead.projectAddress || "",
-            updatedAt: serverTimestamp()
-        }, { merge: true });
-        return {
-            id: lead.customerId,
-            name: lead.customerName || lead.clientName || "Unnamed customer"
-        };
-    }
-
-    const customerRef = doc(collection(state.db, "customers"));
-    const allowedStaffUids = uniqueValues([lead.assignedToUid]);
-    await setDoc(customerRef, {
-        id: customerRef.id,
-        name: lead.clientName || "Unnamed customer",
-        primaryEmail: lead.clientEmail || "",
-        primaryPhone: lead.clientPhone || "",
-        primaryAddress: lead.projectAddress || "",
-        notes: "",
-        allowedStaffUids,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-    }, { merge: true });
-
-    return {
-        id: customerRef.id,
-        name: lead.clientName || "Unnamed customer"
-    };
-}
-
-async function convertLeadToProject() {
-    const lead = currentLeadDoc();
-    if (!lead || !isAdmin()) {
+async function convertLeadToProject(lead = currentLeadDoc()) {
+    if (!lead?.id) {
         showToast("Save the lead first.", "error");
         return;
     }
@@ -3394,106 +4030,33 @@ async function convertLeadToProject() {
         return;
     }
 
-    const leadFormState = collectLeadFormState(lead);
-    if (!leadFormState.clientName || !leadFormState.clientPhone) {
-        showToast("Client name and phone are required before marking a lead won.", "error");
+    if (lead.id === state.selectedLeadId && !state.leadDraft) {
+        const leadFormState = collectLeadFormState(lead);
+        if (!leadFormState.clientName || !leadFormState.clientPhone) {
+            showToast("Client name and phone are required before marking a lead won.", "error");
+            return;
+        }
+
+        await updateDoc(doc(state.db, "leads", lead.id), {
+            ...leadFormState,
+            customerMatchResult: leadFormState.customerId ? "linked" : (lead.customerMatchResult || ""),
+            customerReviewRequired: false,
+            customerMatchIds: leadFormState.customerId ? [leadFormState.customerId] : (lead.customerMatchIds || []),
+            updatedAt: serverTimestamp()
+        });
+    }
+
+    const response = await apiPost("/api/staff/convert-lead", { leadId: lead.id });
+
+    if (response.matchResult === "review_required") {
+        showToast("Multiple customer matches were found. Review the linked customer first.", "error");
         return;
     }
 
-    const linkedCustomer = await ensureLeadCustomer({
-        ...lead,
-        ...leadFormState,
-        customerId: leadFormState.customerId || null,
-        customerName: leadFormState.customerName || ""
-    });
-
-    const assignee = activeStaffOptions().find((member) => member.uid === (leadFormState.assignedToUid || "")) || preferredLeadAssignee();
-    const assignedWorkers = assignee ? [{
-        uid: assignee.uid,
-        name: assignee.displayName || assignee.email,
-        email: assignee.email || "",
-        percent: 100
-    }] : [];
-    const allowedStaffUids = uniqueValues([
-        leadFormState.assignedToUid,
-        ...assignedWorkers.map((worker) => worker.uid)
-    ]);
-    const jobValue = toNumber(collectEstimateForm().subtotal || state.estimate?.subtotal || lead.estimateSubtotal || 0);
-    const batch = writeBatch(state.db);
-    const projectRef = doc(state.db, "projects", lead.id);
-    const leadRef = doc(state.db, "leads", lead.id);
-
-    batch.set(projectRef, {
-        id: lead.id,
-        leadId: lead.id,
-        customerId: linkedCustomer.id,
-        customerName: linkedCustomer.name,
-        clientName: leadFormState.clientName,
-        clientEmail: leadFormState.clientEmail || "",
-        clientPhone: leadFormState.clientPhone || "",
-        projectAddress: leadFormState.projectAddress || "",
-        projectType: leadFormState.projectType || "",
-        status: "in_progress",
-        jobValue,
-        assignedLeadOwnerUid: leadFormState.assignedToUid || assignee?.uid || null,
-        assignedWorkers,
-        assignedWorkerIds: assignedWorkers.map((worker) => worker.uid).filter(Boolean),
-        allowedStaffUids,
-        financials: {
-            totalExpenses: 0,
-            totalPayments: 0,
-            profit: 0,
-            distributableProfit: 0,
-            companyShare: 0,
-            workerPool: 0,
-            workerBreakdown: []
-        },
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-    }, { merge: true });
-
-    batch.update(leadRef, {
-        clientName: leadFormState.clientName,
-        clientEmail: leadFormState.clientEmail || "",
-        clientPhone: leadFormState.clientPhone || "",
-        projectAddress: leadFormState.projectAddress || "",
-        projectType: leadFormState.projectType || "",
-        notes: leadFormState.notes,
-        assignedToUid: leadFormState.assignedToUid || null,
-        assignedToName: leadFormState.assignedToName || "",
-        assignedToEmail: leadFormState.assignedToEmail || "",
-        status: "closed_won",
-        statusLabel: STATUS_META.closed_won,
-        customerId: linkedCustomer.id,
-        customerName: linkedCustomer.name,
-        wonProjectId: lead.id,
-        updatedAt: serverTimestamp()
-    });
-
-    batch.set(doc(state.db, "customers", linkedCustomer.id), {
-        name: linkedCustomer.name,
-        primaryEmail: leadFormState.clientEmail || "",
-        primaryPhone: leadFormState.clientPhone || "",
-        primaryAddress: leadFormState.projectAddress || "",
-        updatedAt: serverTimestamp()
-    }, { merge: true });
-
-    await batch.commit();
-
-    await addDoc(collection(state.db, "leads", lead.id, "activities"), {
-        activityType: "system",
-        title: "Lead converted to job",
-        body: "Won job created and linked to the customer record.",
-        actorName: state.profile.displayName,
-        actorUid: state.profile.uid,
-        actorRole: state.profile.role,
-        createdAt: serverTimestamp()
-    });
-
-    state.selectedProjectId = lead.id;
+    state.selectedProjectId = response.projectId;
     switchView("jobs-view");
     subscribeProjectDetail();
-    showToast("Job created from won lead.");
+    showToast(response.existing ? "This lead already has a job record." : "Job created from won lead.");
 }
 
 async function addNote(event) {
@@ -3802,6 +4365,8 @@ async function saveCustomer(event) {
         primaryPhone: refs.customerPhoneInput.value.trim(),
         primaryAddress: refs.customerAddressInput.value.trim(),
         notes: refs.customerNotesInput.value.trim(),
+        searchEmail: normaliseEmail(refs.customerEmailInput.value.trim()),
+        searchPhone: normalisePhone(refs.customerPhoneInput.value.trim()),
         updatedAt: serverTimestamp()
     };
 
@@ -3815,7 +4380,7 @@ async function saveCustomer(event) {
         await setDoc(customerRef, {
             id: customerRef.id,
             ...payload,
-            allowedStaffUids: [],
+            allowedStaffUids: uniqueValues([state.profile?.uid]),
             createdAt: serverTimestamp()
         }, { merge: true });
 
@@ -3993,10 +4558,10 @@ function openLeadTasksFromRecord() {
         return;
     }
 
-    state.activeLeadTab = "tasks";
-    switchView("leads-view");
-    renderLeadTabState();
-    queueFocus(refs.leadTaskTitle);
+    openTaskDrawer({
+        leadId: lead.id,
+        customerId: lead.customerId || null
+    });
 }
 
 function openLeadEstimatePanel() {
@@ -4019,25 +4584,28 @@ function focusJobTaskForm() {
         return;
     }
 
-    switchView("jobs-view");
-    queueFocus(refs.jobTaskTitle);
+    openTaskDrawer({
+        projectId: project.id,
+        customerId: project.customerId || null,
+        leadId: project.leadId || null
+    });
 }
 function handleCommandAction(target) {
     const command = target.dataset.command;
     if (!command) return;
 
     if (command === "start-lead-draft") {
-        startLeadDraft();
+        openLeadDrawer();
         return;
     }
 
     if (command === "start-task-draft") {
-        startTaskDraft();
+        openTaskDrawer();
         return;
     }
 
     if (command === "start-customer-draft") {
-        startCustomerDraft();
+        openCustomerDrawer();
         return;
     }
 
@@ -4062,7 +4630,17 @@ function handleCommandAction(target) {
             showToast("Save the customer first.", "error");
             return;
         }
-        startLeadDraft(customer.id);
+        openLeadDrawer({ customerId: customer.id });
+        return;
+    }
+
+    if (command === "customer-create-task") {
+        const customer = currentCustomerDoc();
+        if (!customer?.id) {
+            showToast("Select a customer first.", "error");
+            return;
+        }
+        openTaskDrawer({ customerId: customer.id });
         return;
     }
 
@@ -4168,7 +4746,7 @@ function bindUi() {
     });
 
     refs.taskNewButton.addEventListener("click", () => {
-        startTaskDraft();
+        openTaskDrawer();
     });
 
     refs.taskList.addEventListener("click", (event) => {
@@ -4214,7 +4792,7 @@ function bindUi() {
     });
 
     refs.leadNewButton.addEventListener("click", () => {
-        startLeadDraft();
+        openLeadDrawer();
     });
 
     refs.leadList.addEventListener("click", (event) => {
@@ -4229,18 +4807,73 @@ function bindUi() {
         selectLead(button.dataset.leadId);
     });
 
+    refs.leadBoard.addEventListener("dragstart", (event) => {
+        const card = event.target.closest("[data-draggable-lead]");
+        if (!card) return;
+        state.dragLeadId = card.dataset.draggableLead;
+        state.dragLeadOverStatus = card.closest("[data-lane-status]")?.dataset.laneStatus || null;
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", card.dataset.draggableLead);
+        markLeadBoardDragState(state.dragLeadId, state.dragLeadOverStatus);
+    });
+
+    refs.leadBoard.addEventListener("dragover", (event) => {
+        const lane = event.target.closest("[data-lane-status]");
+        if (!lane) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        if (state.dragLeadOverStatus !== lane.dataset.laneStatus) {
+            state.dragLeadOverStatus = lane.dataset.laneStatus;
+            markLeadBoardDragState(state.dragLeadId, state.dragLeadOverStatus);
+        }
+    });
+
+    refs.leadBoard.addEventListener("dragleave", (event) => {
+        const lane = event.target.closest("[data-lane-status]");
+        if (!lane) return;
+        if (lane.contains(event.relatedTarget)) return;
+        if (state.dragLeadOverStatus === lane.dataset.laneStatus) {
+            state.dragLeadOverStatus = null;
+            markLeadBoardDragState(state.dragLeadId, null);
+        }
+    });
+
+    refs.leadBoard.addEventListener("drop", (event) => {
+        const lane = event.target.closest("[data-lane-status]");
+        if (!lane) return;
+        event.preventDefault();
+        const leadId = event.dataTransfer.getData("text/plain") || state.dragLeadId;
+        const lead = state.leads.find((item) => item.id === leadId);
+        state.dragLeadId = null;
+        state.dragLeadOverStatus = null;
+        clearLeadBoardDragClasses();
+        if (!lead) return;
+        moveLeadToStatus(lead, lane.dataset.laneStatus, { source: "drag" }).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.leadBoard.addEventListener("dragend", () => {
+        state.dragLeadId = null;
+        state.dragLeadOverStatus = null;
+        clearLeadBoardDragClasses();
+    });
+
     refs.leadCoreForm.addEventListener("submit", (event) => {
         saveLead(event).catch((error) => showToast(error.message, "error"));
     });
 
     refs.leadCreateTaskButton.addEventListener("click", openLeadTasksFromRecord);
+    refs.leadTaskDrawerButton.addEventListener("click", openLeadTasksFromRecord);
 
     refs.leadMarkLostButton.addEventListener("click", () => {
-        markLeadLost().catch((error) => showToast(error.message, "error"));
+        const lead = currentLeadDoc();
+        if (!lead) return;
+        moveLeadToStatus(lead, "closed_lost", { source: "button" }).catch((error) => showToast(error.message, "error"));
     });
 
     refs.leadMarkWonButton.addEventListener("click", () => {
-        convertLeadToProject().catch((error) => showToast(error.message, "error"));
+        const lead = currentLeadDoc();
+        if (!lead) return;
+        moveLeadToStatus(lead, "closed_won", { source: "button" }).catch((error) => showToast(error.message, "error"));
     });
 
     refs.leadTabButtons.forEach((button) => {
@@ -4253,30 +4886,6 @@ function bindUi() {
                 pane.classList.toggle("is-active", pane.id === `lead-tab-${state.activeLeadTab}`);
             });
         });
-    });
-
-    refs.leadTaskForm.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const lead = currentLeadDoc();
-        if (!lead) {
-            showToast("Save the lead first.", "error");
-            return;
-        }
-
-        const created = await createQuickTask({
-            title: refs.leadTaskTitle.value,
-            dueValue: refs.leadTaskDue.value,
-            priority: refs.leadTaskPriority.value,
-            assigneeSelect: refs.leadTaskAssignee,
-            leadId: lead.id,
-            customerId: lead.customerId || null
-        });
-
-        if (created) {
-            refs.leadTaskForm.reset();
-            refs.leadTaskPriority.value = "high";
-            renderTaskAssigneeOptions(refs.leadTaskAssignee, lead.assignedToUid || state.profile?.uid || "");
-        }
     });
 
     refs.noteForm.addEventListener("submit", (event) => {
@@ -4312,7 +4921,7 @@ function bindUi() {
         renderCustomerList();
     });
 
-    refs.customerNewButton.addEventListener("click", startCustomerDraft);
+    refs.customerNewButton.addEventListener("click", openCustomerDrawer);
     refs.customerList.addEventListener("click", (event) => {
         const button = event.target.closest("[data-customer-id]");
         if (!button) return;
@@ -4329,7 +4938,7 @@ function bindUi() {
             showToast("Save the customer first.", "error");
             return;
         }
-        startLeadDraft(customer.id);
+        openLeadDrawer({ customerId: customer.id });
     });
 
     refs.customerTaskForm.addEventListener("submit", async (event) => {
@@ -4437,6 +5046,37 @@ function bindUi() {
 
     refs.templateForm.addEventListener("submit", (event) => {
         saveTemplate(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.drawerCloseButton.addEventListener("click", closeDrawer);
+    refs.drawerBackdrop.addEventListener("click", closeDrawer);
+    refs.drawerCancelButtons.forEach((button) => {
+        button.addEventListener("click", closeDrawer);
+    });
+
+    refs.drawerLeadForm.addEventListener("submit", (event) => {
+        saveLeadDrawer(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.drawerCustomerForm.addEventListener("submit", (event) => {
+        saveCustomerDrawer(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.drawerTaskForm.addEventListener("submit", (event) => {
+        saveTaskDrawer(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.drawerTaskLinkedType.addEventListener("change", () => {
+        renderDrawerTaskRecordOptions();
+        renderDrawerTaskContext();
+    });
+
+    refs.drawerTaskLinkedRecord.addEventListener("change", renderDrawerTaskContext);
+
+    window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && state.drawer.type) {
+            closeDrawer();
+        }
     });
 }
 
