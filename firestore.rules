@@ -13,6 +13,25 @@ service cloud.firestore {
       return signedIn() && userDoc().exists() ? userDoc().data : null;
     }
 
+    function requestEmail() {
+      return signedIn() && request.auth.token.email is string
+        ? request.auth.token.email
+        : "";
+    }
+
+    function allowedStaffDocExists() {
+      return requestEmail() != "" &&
+        exists(/databases/$(database)/documents/allowedStaff/$(requestEmail()));
+    }
+
+    function allowedStaffData() {
+      return get(/databases/$(database)/documents/allowedStaff/$(requestEmail())).data;
+    }
+
+    function isApprovedStaffEmail() {
+      return allowedStaffDocExists() && allowedStaffData().active == true;
+    }
+
     function isActiveStaff() {
       return userData() != null && userData().active == true;
     }
@@ -21,24 +40,86 @@ service cloud.firestore {
       return isActiveStaff() && userData().role == "admin";
     }
 
-    function isAssignedLead(leadData) {
-      return isActiveStaff() && leadData.assignedToUid == request.auth.uid;
+    function listHas(listValue, uid) {
+      return listValue is list && listValue.hasAny([uid]);
     }
 
-    function isAssignedProject(projectData) {
-      return isActiveStaff() && (
-        ((projectData.assignedWorkerIds is list) && projectData.assignedWorkerIds.hasAny([request.auth.uid])) ||
-        projectData.assignedLeadOwnerUid == request.auth.uid
+    function canReadLead(leadData) {
+      return isAdmin() || (
+        isActiveStaff() &&
+        leadData.assignedToUid == request.auth.uid
+      );
+    }
+
+    function employeeCanUpdateLeadWithoutWinning() {
+      return !(
+        resource.data.status != request.resource.data.status &&
+        request.resource.data.status == "closed_won"
+      );
+    }
+
+    function canReadProject(projectData) {
+      return isAdmin() || (
+        isActiveStaff() && (
+          listHas(projectData.allowedStaffUids, request.auth.uid) ||
+          listHas(projectData.assignedWorkerIds, request.auth.uid) ||
+          projectData.assignedLeadOwnerUid == request.auth.uid
+        )
+      );
+    }
+
+    function canReadCustomer(customerData) {
+      return isAdmin() || (
+        isActiveStaff() &&
+        listHas(customerData.allowedStaffUids, request.auth.uid)
+      );
+    }
+
+    function canReadTask(taskData) {
+      return isAdmin() || (
+        isActiveStaff() &&
+        taskData.assignedToUid == request.auth.uid
       );
     }
 
     match /allowedStaff/{staffKey} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin() || (signedIn() && requestEmail() == staffKey);
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        signedIn() &&
+        requestEmail() == staffKey &&
+        resource.data.email == requestEmail() &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.active == resource.data.active &&
+        request.resource.data.defaultLeadAssignee == resource.data.defaultLeadAssignee
+      );
     }
 
     match /users/{userId} {
-      allow read: if isAdmin() || (isActiveStaff() && request.auth.uid == userId);
-      allow write: if isAdmin();
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == userId && (isActiveStaff() || isApprovedStaffEmail()));
+      allow create: if isAdmin() || (
+        signedIn() &&
+        request.auth.uid == userId &&
+        isApprovedStaffEmail() &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.email == requestEmail() &&
+        request.resource.data.role == allowedStaffData().role &&
+        request.resource.data.active == true &&
+        request.resource.data.defaultLeadAssignee == allowedStaffData().defaultLeadAssignee
+      );
+      allow update: if isAdmin() || (
+        signedIn() &&
+        request.auth.uid == userId &&
+        isApprovedStaffEmail() &&
+        resource.data.email == requestEmail() &&
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.role == allowedStaffData().role &&
+        request.resource.data.active == true &&
+        request.resource.data.defaultLeadAssignee == allowedStaffData().defaultLeadAssignee
+      );
+      allow delete: if isAdmin();
     }
 
     match /emailTemplates/{templateId} {
@@ -47,63 +128,67 @@ service cloud.firestore {
     }
 
     match /leads/{leadId} {
-      allow read: if isAdmin() || isAssignedLead(resource.data);
-      allow create: if false;
+      allow read: if canReadLead(resource.data);
+      allow create: if isAdmin();
       allow update: if isAdmin() || (
-        isAssignedLead(resource.data) &&
-        request.resource.data.assignedToUid == resource.data.assignedToUid
+        canReadLead(resource.data) &&
+        employeeCanUpdateLeadWithoutWinning() &&
+        request.resource.data.assignedToUid == resource.data.assignedToUid &&
+        request.resource.data.assignedToName == resource.data.assignedToName &&
+        request.resource.data.assignedToEmail == resource.data.assignedToEmail &&
+        request.resource.data.customerId == resource.data.customerId &&
+        request.resource.data.customerName == resource.data.customerName
       );
       allow delete: if isAdmin();
 
       match /activities/{activityId} {
-        allow read: if isAdmin() || isAssignedLead(get(/databases/$(database)/documents/leads/$(leadId)).data);
-        allow create, update: if isAdmin() || isAssignedLead(get(/databases/$(database)/documents/leads/$(leadId)).data);
+        allow read: if canReadLead(get(/databases/$(database)/documents/leads/$(leadId)).data);
+        allow create, update: if isAdmin() || canReadLead(get(/databases/$(database)/documents/leads/$(leadId)).data);
         allow delete: if isAdmin();
       }
     }
 
-    match /reminders/{reminderId} {
-      allow read: if isAdmin() || (
-        isActiveStaff() &&
-        resource.data.assignedToUid == request.auth.uid
-      );
+    match /estimates/{estimateId} {
+      function leadDoc() {
+        return get(/databases/$(database)/documents/leads/$(estimateId));
+      }
+
+      allow read: if leadDoc().exists() && canReadLead(leadDoc().data);
+      allow write: if isAdmin();
+    }
+
+    match /customers/{customerId} {
+      allow read: if canReadCustomer(resource.data);
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if canReadTask(resource.data);
       allow create: if isAdmin() || (
         isActiveStaff() &&
         request.resource.data.assignedToUid == request.auth.uid
       );
       allow update: if isAdmin() || (
-        isActiveStaff() &&
-        resource.data.assignedToUid == request.auth.uid &&
-        request.resource.data.assignedToUid == resource.data.assignedToUid
+        canReadTask(resource.data) &&
+        request.resource.data.assignedToUid == resource.data.assignedToUid &&
+        request.resource.data.assignedToName == resource.data.assignedToName &&
+        request.resource.data.assignedToEmail == resource.data.assignedToEmail
       );
       allow delete: if isAdmin();
     }
 
-    match /estimates/{estimateId} {
-      function estimateLead() {
-        return get(/databases/$(database)/documents/leads/$(resource.data.leadId));
-      }
-
-      allow read: if isAdmin() || (
-        isActiveStaff() &&
-        estimateLead().exists() &&
-        estimateLead().data.assignedToUid == request.auth.uid
-      );
-      allow write: if isAdmin();
-    }
-
     match /projects/{projectId} {
-      allow read: if isAdmin() || isAssignedProject(resource.data);
+      allow read: if canReadProject(resource.data);
       allow create, update, delete: if isAdmin();
 
       match /expenses/{expenseId} {
-        allow read: if isAdmin() || isAssignedProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
-        allow create, update: if isAdmin() || isAssignedProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow read: if canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow create, update: if isAdmin() || canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
         allow delete: if isAdmin();
       }
 
       match /payments/{paymentId} {
-        allow read: if isAdmin() || isAssignedProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow read: if canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
         allow create, update, delete: if isAdmin();
       }
     }

@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Golden Brick Staff CRM</title>
     <meta name="robots" content="noindex, nofollow">
-    <meta name="theme-color" content="#15110c">
+    <meta name="theme-color" content="#17110d">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="/staff/staff.css">
 </head>
@@ -18,29 +18,30 @@
             <div class="auth-panel">
                 <div class="auth-copy">
                     <span class="eyebrow">Golden Brick Internal</span>
-                    <h1>Staff CRM for leads, estimates, projects, and commission tracking.</h1>
+                    <h1>One place for leads, repeat clients, estimates, jobs, and team follow-through.</h1>
                     <p>
-                        This workspace is designed for Golden Brick's internal team. Staff can manage incoming leads,
-                        stay on follow-up, move jobs through the pipeline, and track project profit with investor-grade clarity.
+                        Golden Brick's internal CRM is built for fast investor-facing work: keep the customer record clean,
+                        move leads through the estimate process, and track job economics without hunting through tabs.
                     </p>
-                </div>
-                <div class="auth-summary">
-                    <div class="summary-item">
-                        <strong>Lead intake</strong>
-                        <span>Website requests open directly inside the pipeline.</span>
-                    </div>
-                    <div class="summary-item">
-                        <strong>Field-ready workflow</strong>
-                        <span>Employees can update jobs, notes, reminders, and assigned project details from mobile.</span>
-                    </div>
-                    <div class="summary-item">
-                        <strong>Profit visibility</strong>
-                        <span>Track payments, expenses, company share, and worker commission on each won project.</span>
+                    <div class="auth-actions">
+                        <button type="button" class="primary-button" id="sign-in-button">Sign in with Google</button>
+                        <p class="helper-copy" id="auth-feedback">Only approved staff accounts can enter the portal.</p>
                     </div>
                 </div>
-                <div class="auth-actions">
-                    <button type="button" class="primary-button" id="sign-in-button">Sign in with Google</button>
-                    <p class="helper-copy" id="auth-feedback">Only approved staff accounts can enter the portal.</p>
+
+                <div class="auth-rail">
+                    <article class="auth-feature">
+                        <strong>Daily work first</strong>
+                        <span>Overdue tasks, fresh leads, estimate review, and active jobs all surface on the first screen.</span>
+                    </article>
+                    <article class="auth-feature">
+                        <strong>Customer memory</strong>
+                        <span>Repeat clients keep one shared record with past leads, won jobs, payments, and open opportunities.</span>
+                    </article>
+                    <article class="auth-feature">
+                        <strong>Job economics</strong>
+                        <span>Track expenses, payments, company share, and worker split from the same operational job record.</span>
+                    </article>
                 </div>
             </div>
         </section>
@@ -51,25 +52,27 @@
                     <span class="brand-mark" aria-hidden="true"></span>
                     <div>
                         <div class="sidebar-title">Golden Brick CRM</div>
-                        <p>Internal operations for Philadelphia renovation and investor jobs.</p>
+                        <p>Investor-ready internal operations for leads, clients, and jobs.</p>
                     </div>
                 </div>
 
                 <nav class="sidebar-nav" aria-label="Staff navigation">
-                    <button type="button" class="nav-button is-active" data-view="dashboard-view">Pipeline</button>
-                    <button type="button" class="nav-button" data-view="projects-view">Won Projects</button>
-                    <button type="button" class="nav-button admin-only" data-view="templates-view">Estimate Template</button>
-                    <button type="button" class="nav-button admin-only" data-view="staff-view">Staff</button>
+                    <button type="button" class="nav-button is-active" data-view="today-view">Today</button>
+                    <button type="button" class="nav-button" data-view="tasks-view">Tasks</button>
+                    <button type="button" class="nav-button" data-view="leads-view">Leads</button>
+                    <button type="button" class="nav-button" data-view="customers-view">Customers</button>
+                    <button type="button" class="nav-button" data-view="jobs-view">Jobs</button>
+                    <button type="button" class="nav-button" data-view="staff-view">Staff</button>
                 </nav>
 
-                <section class="sidebar-panel">
+                <section class="sidebar-card">
                     <div class="panel-kicker">Live summary</div>
-                    <div id="sidebar-summary" class="sidebar-summary"></div>
+                    <div class="sidebar-summary" id="sidebar-summary"></div>
                 </section>
 
-                <section class="sidebar-panel user-panel">
+                <section class="sidebar-card user-panel">
                     <div class="panel-kicker">Signed in</div>
-                    <div id="current-user-card" class="current-user-card"></div>
+                    <div class="current-user-card" id="current-user-card"></div>
                     <button type="button" class="ghost-button" id="sign-out-button">Sign out</button>
                 </section>
             </aside>
@@ -78,56 +81,259 @@
                 <header class="workspace-header">
                     <div>
                         <span class="eyebrow">Staff portal</span>
-                        <h1 id="workspace-title">Pipeline dashboard</h1>
-                        <p id="workspace-subtitle">New leads, follow-up discipline, estimate tracking, and win-rate visibility in one place.</p>
+                        <h1 id="workspace-title">Today</h1>
+                        <p id="workspace-subtitle">See what needs attention first, then move from lead to customer to job without losing context.</p>
                     </div>
-                    <div class="header-pills">
+                    <div class="workspace-tools">
+                        <div class="segmented-control" id="today-scope-toggle" hidden>
+                            <button type="button" class="segmented-button is-active" data-today-scope="mine">My View</button>
+                            <button type="button" class="segmented-button" data-today-scope="team">Team View</button>
+                        </div>
                         <span class="status-pill" id="sync-status">Syncing data</span>
                     </div>
                 </header>
 
-                <div id="app-banner" class="app-banner" hidden></div>
+                <div class="workspace-command-bar" id="workspace-command-bar"></div>
 
-                <section class="view is-active" id="dashboard-view">
-                    <div class="metrics-strip" id="dashboard-metrics"></div>
+                <div class="app-banner" id="app-banner" hidden></div>
 
-                    <div class="workspace-grid">
-                        <section class="panel panel-wide">
+                <section class="view is-active" id="today-view">
+                    <div class="metrics-strip" id="today-metrics"></div>
+
+                    <div class="today-grid">
+                        <section class="panel today-panel">
                             <div class="panel-head">
                                 <div>
-                                    <span class="panel-kicker">Lead board</span>
-                                    <h2>Pipeline by stage</h2>
-                                </div>
-                                <div class="toolbar">
-                                    <input type="search" id="lead-search-input" placeholder="Search name, address, project type">
-                                    <select id="lead-visibility-filter">
-                                        <option value="all">All visible leads</option>
-                                        <option value="open">Open leads only</option>
-                                        <option value="needs_follow_up">Needs follow-up</option>
-                                        <option value="won_lost">Won and lost</option>
-                                    </select>
+                                    <span class="panel-kicker">Tasks</span>
+                                    <h2>Overdue</h2>
                                 </div>
                             </div>
-
-                            <div class="pipeline-board" id="pipeline-board"></div>
+                            <div class="panel-body">
+                                <div class="stack-list" id="today-overdue-list"></div>
+                            </div>
                         </section>
 
-                        <section class="panel detail-panel">
+                        <section class="panel today-panel">
                             <div class="panel-head">
                                 <div>
-                                    <span class="panel-kicker">Lead detail</span>
-                                    <h2 id="selected-lead-title">Select a lead</h2>
+                                    <span class="panel-kicker">Tasks</span>
+                                    <h2>Due today</h2>
                                 </div>
-                                <span class="status-pill neutral" id="selected-lead-badge">No lead selected</span>
+                            </div>
+                            <div class="panel-body">
+                                <div class="stack-list" id="today-due-today-list"></div>
+                            </div>
+                        </section>
+
+                        <section class="panel today-panel">
+                            <div class="panel-head">
+                                <div>
+                                    <span class="panel-kicker">Leads</span>
+                                    <h2>New unworked leads</h2>
+                                </div>
+                            </div>
+                            <div class="panel-body">
+                                <div class="stack-list" id="today-new-leads-list"></div>
+                            </div>
+                        </section>
+
+                        <section class="panel today-panel">
+                            <div class="panel-head">
+                                <div>
+                                    <span class="panel-kicker">Estimates</span>
+                                    <h2>Needs review</h2>
+                                </div>
+                            </div>
+                            <div class="panel-body">
+                                <div class="stack-list" id="today-estimates-list"></div>
+                            </div>
+                        </section>
+
+                        <section class="panel today-panel today-panel-wide">
+                            <div class="panel-head">
+                                <div>
+                                    <span class="panel-kicker">Jobs</span>
+                                    <h2>Active jobs needing attention</h2>
+                                </div>
+                            </div>
+                            <div class="panel-body">
+                                <div class="stack-list" id="today-jobs-list"></div>
+                            </div>
+                        </section>
+                    </div>
+                </section>
+
+                <section class="view" id="tasks-view" hidden>
+                    <div class="metrics-strip" id="task-metrics"></div>
+
+                    <div class="workspace-grid">
+                        <section class="panel list-panel">
+                            <div class="panel-head">
+                                <div>
+                                    <span class="panel-kicker">Task queue</span>
+                                    <h2>Tasks</h2>
+                                </div>
+                                <div class="toolbar">
+                                    <input type="search" id="task-search-input" placeholder="Search task title, description, or linked record">
+                                    <select id="task-bucket-filter">
+                                        <option value="open">Open tasks</option>
+                                        <option value="overdue">Overdue</option>
+                                        <option value="today">Due today</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="all">All visible tasks</option>
+                                    </select>
+                                    <button type="button" class="secondary-button" id="task-new-button">New task</button>
+                                </div>
+                            </div>
+                            <div class="panel-body">
+                                <div class="record-list" id="task-list"></div>
+                            </div>
+                        </section>
+
+                        <section class="panel record-panel">
+                            <div class="panel-head">
+                                <div>
+                                    <span class="panel-kicker">Task detail</span>
+                                    <h2 id="task-detail-title">Select a task</h2>
+                                </div>
+                                <span class="status-pill neutral" id="task-detail-badge">No task selected</span>
                             </div>
 
-                            <div class="empty-state" id="lead-empty-state">
-                                Pick a lead from the board to update its status, notes, reminders, estimate, and assignment.
+                            <div class="empty-state" id="task-record-empty">
+                                Use tasks to track next actions for leads, customers, and active jobs.
                             </div>
 
-                            <div id="lead-detail-shell" hidden>
-                                <form id="lead-core-form" class="stack-form">
+                            <div class="record-shell" id="task-detail-shell" hidden>
+                                <form class="stack-form" id="task-form">
                                     <div class="form-grid two">
+                                        <label>
+                                            <span>Task title</span>
+                                            <input type="text" id="task-title-input" required>
+                                        </label>
+                                        <label>
+                                            <span>Assigned staff</span>
+                                            <select id="task-assignee-select"></select>
+                                        </label>
+                                    </div>
+
+                                    <div class="form-grid three">
+                                        <label>
+                                            <span>Status</span>
+                                            <select id="task-status-select">
+                                                <option value="open">Open</option>
+                                                <option value="in_progress">In Progress</option>
+                                                <option value="waiting">Waiting</option>
+                                                <option value="completed">Completed</option>
+                                            </select>
+                                        </label>
+                                        <label>
+                                            <span>Priority</span>
+                                            <select id="task-priority-select">
+                                                <option value="high">High</option>
+                                                <option value="medium">Medium</option>
+                                                <option value="low">Low</option>
+                                            </select>
+                                        </label>
+                                        <label>
+                                            <span>Due date</span>
+                                            <input type="datetime-local" id="task-due-input">
+                                        </label>
+                                    </div>
+
+                                    <div class="form-grid two">
+                                        <label>
+                                            <span>Linked record type</span>
+                                            <select id="task-linked-type-select">
+                                                <option value="">No linked record</option>
+                                                <option value="lead">Lead</option>
+                                                <option value="customer">Customer</option>
+                                                <option value="project">Job</option>
+                                            </select>
+                                        </label>
+                                        <label>
+                                            <span>Linked record</span>
+                                            <select id="task-linked-record-select"></select>
+                                        </label>
+                                    </div>
+
+                                    <label>
+                                        <span>Description</span>
+                                        <textarea id="task-description-input" rows="6" placeholder="What needs to happen, what matters, and any handoff notes."></textarea>
+                                    </label>
+
+                                    <div class="detail-summary" id="task-related-summary"></div>
+
+                                    <div class="inline-actions">
+                                        <button type="submit" class="primary-button">Save task</button>
+                                        <button type="button" class="ghost-button" id="task-complete-button">Mark complete</button>
+                                        <button type="button" class="ghost-button" id="task-reset-button">Clear form</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </section>
+                    </div>
+                </section>
+
+                <section class="view" id="leads-view" hidden>
+                    <div class="metrics-strip" id="lead-metrics"></div>
+
+                    <div class="workspace-grid">
+                        <section class="panel list-panel">
+                            <div class="panel-head">
+                                <div>
+                                    <span class="panel-kicker">Pipeline</span>
+                                    <h2>Leads</h2>
+                                </div>
+                                <div class="toolbar">
+                                    <input type="search" id="lead-search-input" placeholder="Search client, address, phone, email, or notes">
+                                    <select id="lead-stage-filter">
+                                        <option value="all">All stages</option>
+                                        <option value="new_lead">New Lead</option>
+                                        <option value="follow_up">Follow Up</option>
+                                        <option value="estimate_sent">Estimate Sent</option>
+                                        <option value="closed_won">Closed Won</option>
+                                        <option value="closed_lost">Closed Lost</option>
+                                        <option value="open">Open only</option>
+                                    </select>
+                                    <div class="segmented-control" id="lead-layout-toggle">
+                                        <button type="button" class="segmented-button is-active" data-lead-layout="list">List</button>
+                                        <button type="button" class="segmented-button" data-lead-layout="board">Board</button>
+                                    </div>
+                                    <button type="button" class="secondary-button admin-only" id="lead-new-button">New lead</button>
+                                </div>
+                            </div>
+                            <div class="panel-body">
+                                <div class="record-list" id="lead-list"></div>
+                                <div class="pipeline-board" id="lead-board" hidden></div>
+                            </div>
+                        </section>
+
+                        <section class="panel record-panel">
+                            <div class="panel-head">
+                                <div>
+                                    <span class="panel-kicker">Lead record</span>
+                                    <h2 id="lead-record-title">Select a lead</h2>
+                                </div>
+                                <span class="status-pill neutral" id="lead-record-badge">No lead selected</span>
+                            </div>
+
+                            <div class="empty-state" id="lead-record-empty">
+                                Leads now open as full records so customer details, estimate work, notes, tasks, and the won job stay together.
+                            </div>
+
+                            <div class="record-shell" id="lead-record-shell" hidden>
+                                <div class="record-actions">
+                                    <button type="submit" form="lead-core-form" class="primary-button">Save lead</button>
+                                    <button type="button" class="secondary-button" id="lead-create-task-button">Create task</button>
+                                    <button type="button" class="secondary-button admin-only" id="estimate-ai-button">Create Draft</button>
+                                    <button type="button" class="secondary-button admin-only" id="lead-mark-won-button">Mark won</button>
+                                    <button type="button" class="ghost-button" id="lead-mark-lost-button">Mark lost</button>
+                                </div>
+
+                                <div class="record-context-strip" id="lead-record-context"></div>
+
+                                <form class="stack-form" id="lead-core-form">
+                                    <div class="form-grid three">
                                         <label>
                                             <span>Client name</span>
                                             <input type="text" id="lead-client-name" required>
@@ -136,27 +342,27 @@
                                             <span>Client email</span>
                                             <input type="email" id="lead-client-email">
                                         </label>
-                                    </div>
-
-                                    <div class="form-grid two">
                                         <label>
                                             <span>Client phone</span>
                                             <input type="text" id="lead-client-phone" required>
                                         </label>
-                                        <label>
-                                            <span>Project address</span>
-                                            <input type="text" id="lead-project-address">
-                                        </label>
                                     </div>
 
                                     <div class="form-grid two">
                                         <label>
+                                            <span>Project address</span>
+                                            <input type="text" id="lead-project-address">
+                                        </label>
+                                        <label>
                                             <span>Project type</span>
                                             <input type="text" id="lead-project-type" placeholder="Bathroom, kitchen, full rehab, investor turn">
                                         </label>
+                                    </div>
+
+                                    <div class="form-grid three">
                                         <label>
-                                            <span>Status</span>
-                                            <select id="lead-status-select">
+                                            <span>Stage</span>
+                                            <select id="lead-stage-select">
                                                 <option value="new_lead">New Lead</option>
                                                 <option value="follow_up">Follow Up</option>
                                                 <option value="estimate_sent">Estimate Sent</option>
@@ -164,235 +370,408 @@
                                                 <option value="closed_lost">Closed Lost</option>
                                             </select>
                                         </label>
-                                    </div>
-
-                                    <div class="form-grid two">
                                         <label>
                                             <span>Assigned staff</span>
                                             <select id="lead-assignee-select"></select>
                                         </label>
                                         <label>
+                                            <span>Linked customer</span>
+                                            <select id="lead-customer-select"></select>
+                                        </label>
+                                    </div>
+
+                                    <div class="form-grid two">
+                                        <label>
                                             <span>Lead source</span>
                                             <input type="text" id="lead-source-display" disabled>
+                                        </label>
+                                        <label>
+                                            <span>Current estimate total</span>
+                                            <input type="text" id="lead-estimate-display" disabled>
                                         </label>
                                     </div>
 
                                     <label>
                                         <span>Scope notes</span>
-                                        <textarea id="lead-notes-input" rows="4" placeholder="Scope, timing, occupancy, investor goals, deal stage, and fit notes."></textarea>
+                                        <textarea id="lead-notes-input" rows="5" placeholder="Scope, investment goals, timing, occupancy, access, pricing posture, and fit notes."></textarea>
                                     </label>
-
-                                    <div class="inline-actions">
-                                        <button type="submit" class="primary-button">Save lead</button>
-                                        <button type="button" class="secondary-button admin-only" id="lead-mark-won-button">Convert to project</button>
-                                        <button type="button" class="ghost-button" id="lead-mark-lost-button">Mark lost</button>
-                                    </div>
                                 </form>
 
-                                <div class="tab-strip" aria-label="Lead detail tabs">
-                                    <button type="button" class="tab-button is-active" data-lead-tab="info">Info</button>
-                                    <button type="button" class="tab-button" data-lead-tab="communication">Communication</button>
-                                    <button type="button" class="tab-button" data-lead-tab="notes">Notes</button>
-                                    <button type="button" class="tab-button" data-lead-tab="followup">Follow-up</button>
+                                <div class="detail-summary" id="lead-meta"></div>
+
+                                <div class="tab-strip" aria-label="Lead record tabs">
+                                    <button type="button" class="tab-button is-active" data-lead-tab="overview">Overview</button>
                                     <button type="button" class="tab-button" data-lead-tab="estimate">Estimate</button>
+                                    <button type="button" class="tab-button" data-lead-tab="tasks">Tasks</button>
+                                    <button type="button" class="tab-button" data-lead-tab="activity">Notes &amp; Activity</button>
+                                    <button type="button" class="tab-button" data-lead-tab="job">Job</button>
                                 </div>
 
-                                <div class="tab-pane is-active" id="lead-tab-info">
-                                    <div class="meta-list" id="lead-info-meta"></div>
+                                <div class="tab-pane is-active" id="lead-tab-overview">
+                                    <div class="summary-grid" id="lead-overview-summary"></div>
                                 </div>
 
-                                <div class="tab-pane" id="lead-tab-communication">
-                                    <div class="subpanel-grid">
-                                        <form id="communication-form" class="stack-form subpanel">
+                                <div class="tab-pane" id="lead-tab-estimate">
+                                    <div class="two-column-detail">
+                                        <form class="stack-form subpanel" id="estimate-form">
                                             <div class="subpanel-head">
-                                                <h3>Log outreach</h3>
-                                                <p>Track calls, texts, emails, and site visit notes on the lead timeline.</p>
+                                                <h3>Current estimate</h3>
+                                                <p>Keep one working estimate per lead. Create the draft, edit it by hand, then print or copy it for manual sending.</p>
                                             </div>
+
+                                            <div class="inline-actions">
+                                                <button type="button" class="ghost-button admin-only" id="estimate-add-line-button">Add line item</button>
+                                                <button type="button" class="ghost-button" id="estimate-copy-button">Copy estimate</button>
+                                                <button type="button" class="secondary-button" id="estimate-print-button">Open print view</button>
+                                            </div>
+
                                             <label>
-                                                <span>Communication type</span>
-                                                <select id="communication-type">
-                                                    <option value="call">Call</option>
-                                                    <option value="text">Text</option>
-                                                    <option value="email">Email</option>
-                                                    <option value="site_visit">Site Visit</option>
-                                                </select>
+                                                <span>Estimate title</span>
+                                                <input type="text" id="estimate-subject" placeholder="Golden Brick estimate">
                                             </label>
+
                                             <label>
-                                                <span>What happened</span>
-                                                <textarea id="communication-body" rows="4" placeholder="Left voicemail, scheduled site visit, client asked for updated scope, investor wants faster close, and similar context."></textarea>
+                                                <span>Estimate overview</span>
+                                                <textarea id="estimate-body" rows="7" placeholder="Scope, pricing posture, and next step."></textarea>
                                             </label>
-                                            <button type="submit" class="primary-button">Add communication log</button>
+
+                                            <label>
+                                                <span>Assumptions and exclusions</span>
+                                                <textarea id="estimate-assumptions" rows="5" placeholder="One line per assumption or exclusion."></textarea>
+                                            </label>
+
+                                            <div class="line-items-panel">
+                                                <div class="line-items-head">
+                                                    <span>Line items</span>
+                                                    <strong id="estimate-subtotal">$0.00</strong>
+                                                </div>
+                                                <div class="line-items-list" id="estimate-lines"></div>
+                                            </div>
+
+                                            <div class="inline-actions">
+                                                <button type="submit" class="primary-button admin-only">Save estimate</button>
+                                            </div>
                                         </form>
 
-                                        <div class="subpanel">
+                                        <section class="subpanel">
                                             <div class="subpanel-head">
-                                                <h3>Communication history</h3>
-                                                <p>Most recent outreach and response context.</p>
+                                                <h3>Print preview</h3>
+                                                <p>This is the proposal layout staff can review before printing or saving as PDF.</p>
                                             </div>
-                                            <div class="timeline-list" id="communication-list"></div>
-                                        </div>
+                                            <div class="estimate-preview" id="estimate-preview"></div>
+                                        </section>
                                     </div>
                                 </div>
 
-                                <div class="tab-pane" id="lead-tab-notes">
-                                    <div class="subpanel-grid">
-                                        <form id="note-form" class="stack-form subpanel">
+                                <div class="tab-pane" id="lead-tab-tasks">
+                                    <div class="two-column-detail">
+                                        <section class="subpanel">
+                                            <div class="subpanel-head">
+                                                <h3>Lead tasks</h3>
+                                                <p>Tasks tied directly to this opportunity stay visible from the lead record and the main task list.</p>
+                                            </div>
+                                            <div class="stack-list" id="lead-task-list"></div>
+                                        </section>
+
+                                        <form class="stack-form subpanel" id="lead-task-form">
+                                            <div class="subpanel-head">
+                                                <h3>Create lead task</h3>
+                                                <p>Assign the next move without leaving the lead record.</p>
+                                            </div>
+                                            <label>
+                                                <span>Task title</span>
+                                                <input type="text" id="lead-task-title" placeholder="Call about site visit, revise scope, confirm deposit">
+                                            </label>
+                                            <div class="form-grid three">
+                                                <label>
+                                                    <span>Due date</span>
+                                                    <input type="datetime-local" id="lead-task-due">
+                                                </label>
+                                                <label>
+                                                    <span>Priority</span>
+                                                    <select id="lead-task-priority">
+                                                        <option value="high">High</option>
+                                                        <option value="medium">Medium</option>
+                                                        <option value="low">Low</option>
+                                                    </select>
+                                                </label>
+                                                <label>
+                                                    <span>Assignee</span>
+                                                    <select id="lead-task-assignee"></select>
+                                                </label>
+                                            </div>
+                                            <button type="submit" class="primary-button">Create task</button>
+                                        </form>
+                                    </div>
+                                </div>
+
+                                <div class="tab-pane" id="lead-tab-activity">
+                                    <div class="two-column-detail">
+                                        <form class="stack-form subpanel" id="note-form">
                                             <div class="subpanel-head">
                                                 <h3>Internal note</h3>
-                                                <p>Capture fit, pricing caution, scope risk, investor goals, or team-only context.</p>
+                                                <p>Capture investor goals, scope risk, pricing caution, access constraints, or handoff context.</p>
                                             </div>
                                             <label>
                                                 <span>Note</span>
-                                                <textarea id="note-body" rows="5" placeholder="Internal note for the team"></textarea>
+                                                <textarea id="note-body" rows="7" placeholder="Internal note for Golden Brick staff only."></textarea>
                                             </label>
                                             <button type="submit" class="primary-button">Save note</button>
                                         </form>
 
-                                        <div class="subpanel">
+                                        <section class="subpanel">
                                             <div class="subpanel-head">
-                                                <h3>Note history</h3>
-                                                <p>Internal-only notes for routing and project judgement.</p>
+                                                <h3>Activity feed</h3>
+                                                <p>System events, estimate work, and staff notes for this lead.</p>
                                             </div>
                                             <div class="timeline-list" id="note-list"></div>
-                                        </div>
+                                        </section>
                                     </div>
                                 </div>
 
-                                <div class="tab-pane" id="lead-tab-followup">
-                                    <div class="subpanel-grid">
-                                        <form id="followup-form" class="stack-form subpanel">
-                                            <div class="subpanel-head">
-                                                <h3>Schedule follow-up</h3>
-                                                <p>Create an SMS reminder for the assigned staff member.</p>
-                                            </div>
-                                            <label>
-                                                <span>Reminder date and time</span>
-                                                <input type="datetime-local" id="followup-at">
-                                            </label>
-                                            <label>
-                                                <span>Reminder message</span>
-                                                <textarea id="followup-message" rows="4" placeholder="What should the assigned staff person remember to do?"></textarea>
-                                            </label>
-                                            <button type="submit" class="primary-button">Set reminder</button>
-                                        </form>
-
-                                        <div class="subpanel">
-                                            <div class="subpanel-head">
-                                                <h3>Reminder queue</h3>
-                                                <p>Scheduled, sent, and failed reminder records.</p>
-                                            </div>
-                                            <div class="timeline-list" id="reminder-list"></div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="tab-pane" id="lead-tab-estimate">
-                                    <form id="estimate-form" class="stack-form">
-                                        <div class="subpanel-head">
-                                            <h3>Estimate draft</h3>
-                                            <p>AI can draft the scope and rough pricing, but staff reviews everything before it goes out.</p>
-                                        </div>
-
-                                        <div class="inline-actions">
-                                            <button type="button" class="secondary-button admin-only" id="estimate-ai-button">Draft with AI</button>
-                                            <button type="button" class="ghost-button admin-only" id="estimate-add-line-button">Add line item</button>
-                                        </div>
-
-                                        <label>
-                                            <span>Email subject</span>
-                                            <input type="text" id="estimate-subject" placeholder="Golden Brick estimate">
-                                        </label>
-
-                                        <label>
-                                            <span>Email body</span>
-                                            <textarea id="estimate-body" rows="7" placeholder="Estimate email copy"></textarea>
-                                        </label>
-
-                                        <div class="line-items-panel">
-                                            <div class="line-items-head">
-                                                <span>Line items</span>
-                                                <strong id="estimate-subtotal">$0.00</strong>
-                                            </div>
-                                            <div id="estimate-lines" class="line-items-list"></div>
-                                        </div>
-
-                                        <div class="inline-actions">
-                                            <button type="submit" class="primary-button admin-only">Save estimate draft</button>
-                                            <button type="button" class="secondary-button admin-only" id="estimate-send-button">Send estimate email</button>
-                                        </div>
-                                    </form>
+                                <div class="tab-pane" id="lead-tab-job">
+                                    <div class="detail-summary" id="lead-job-summary"></div>
                                 </div>
                             </div>
                         </section>
                     </div>
                 </section>
 
-                <section class="view" id="projects-view" hidden>
-                    <div class="metrics-strip" id="project-metrics"></div>
+                <section class="view" id="customers-view" hidden>
+                    <div class="metrics-strip" id="customer-metrics"></div>
 
                     <div class="workspace-grid">
-                        <section class="panel panel-wide">
+                        <section class="panel list-panel">
                             <div class="panel-head">
                                 <div>
-                                    <span class="panel-kicker">Project register</span>
-                                    <h2>Won projects</h2>
+                                    <span class="panel-kicker">CRM</span>
+                                    <h2>Customers</h2>
+                                </div>
+                                <div class="toolbar">
+                                    <input type="search" id="customer-search-input" placeholder="Search by name, phone, email, or address">
+                                    <button type="button" class="secondary-button admin-only" id="customer-new-button">New customer</button>
                                 </div>
                             </div>
-                            <div class="project-list" id="project-list"></div>
+                            <div class="panel-body">
+                                <div class="record-list" id="customer-list"></div>
+                            </div>
                         </section>
 
-                        <section class="panel detail-panel">
+                        <section class="panel record-panel">
                             <div class="panel-head">
                                 <div>
-                                    <span class="panel-kicker">Project detail</span>
-                                    <h2 id="selected-project-title">Select a project</h2>
+                                    <span class="panel-kicker">Customer card</span>
+                                    <h2 id="customer-record-title">Select a customer</h2>
                                 </div>
-                                <span class="status-pill neutral" id="selected-project-status">No project selected</span>
+                                <span class="status-pill neutral" id="customer-record-badge">No customer selected</span>
                             </div>
 
-                            <div class="empty-state" id="project-empty-state">
-                                Convert a won lead into a project, then track payments, expenses, worker percentages, and margin here.
+                            <div class="empty-state" id="customer-record-empty">
+                                Customer cards bring repeat work into one place: contact info, related leads, jobs, payments, and current opportunities.
                             </div>
 
-                            <div id="project-detail-shell" hidden>
-                                <form id="project-core-form" class="stack-form">
+                            <div class="record-shell" id="customer-record-shell" hidden>
+                                <form class="stack-form" id="customer-form">
                                     <div class="form-grid two">
                                         <label>
-                                            <span>Project status</span>
-                                            <select id="project-status-select">
+                                            <span>Customer name</span>
+                                            <input type="text" id="customer-name-input" required>
+                                        </label>
+                                        <label>
+                                            <span>Email</span>
+                                            <input type="email" id="customer-email-input">
+                                        </label>
+                                    </div>
+
+                                    <div class="form-grid two">
+                                        <label>
+                                            <span>Phone</span>
+                                            <input type="text" id="customer-phone-input">
+                                        </label>
+                                        <label>
+                                            <span>Main address</span>
+                                            <input type="text" id="customer-address-input">
+                                        </label>
+                                    </div>
+
+                                    <label>
+                                        <span>Customer notes</span>
+                                        <textarea id="customer-notes-input" rows="4" placeholder="Investor profile, ownership notes, preferred scope, contact preferences, or repeat client context."></textarea>
+                                    </label>
+
+                                    <div class="inline-actions">
+                                        <button type="submit" class="primary-button admin-only">Save customer</button>
+                                        <button type="button" class="secondary-button admin-only" id="customer-create-lead-button">Create lead for customer</button>
+                                    </div>
+                                </form>
+
+                                <div class="record-context-strip" id="customer-record-context"></div>
+
+                                <div class="summary-grid" id="customer-summary"></div>
+
+                                <div class="two-column-detail">
+                                    <section class="subpanel">
+                                        <div class="subpanel-head">
+                                            <h3>Open opportunities</h3>
+                                            <p>All active leads linked to this customer.</p>
+                                        </div>
+                                        <div class="stack-list" id="customer-opportunities-list"></div>
+                                    </section>
+
+                                    <section class="subpanel">
+                                        <div class="subpanel-head">
+                                            <h3>Won jobs</h3>
+                                            <p>Projects linked to this customer, including payment and profit context.</p>
+                                        </div>
+                                        <div class="stack-list" id="customer-jobs-list"></div>
+                                    </section>
+                                </div>
+
+                                <div class="two-column-detail">
+                                    <section class="subpanel">
+                                        <div class="subpanel-head">
+                                            <h3>Current estimate</h3>
+                                            <p>The active estimate on the most current open lead, if one exists.</p>
+                                        </div>
+                                        <div class="detail-summary" id="customer-current-estimate"></div>
+                                    </section>
+
+                                    <section class="subpanel">
+                                        <div class="subpanel-head">
+                                            <h3>Customer tasks</h3>
+                                            <p>Tasks linked to this customer record.</p>
+                                        </div>
+                                        <div class="stack-list" id="customer-task-list"></div>
+                                    </section>
+                                </div>
+
+                                <form class="stack-form subpanel" id="customer-task-form">
+                                    <div class="subpanel-head">
+                                        <h3>Create customer task</h3>
+                                        <p>Use this for repeat-client follow-through, deal intake, and account-level to-dos.</p>
+                                    </div>
+                                    <label>
+                                        <span>Task title</span>
+                                        <input type="text" id="customer-task-title" placeholder="Review next property, schedule scope walk, update pricing">
+                                    </label>
+                                    <div class="form-grid three">
+                                        <label>
+                                            <span>Due date</span>
+                                            <input type="datetime-local" id="customer-task-due">
+                                        </label>
+                                        <label>
+                                            <span>Priority</span>
+                                            <select id="customer-task-priority">
+                                                <option value="high">High</option>
+                                                <option value="medium">Medium</option>
+                                                <option value="low">Low</option>
+                                            </select>
+                                        </label>
+                                        <label>
+                                            <span>Assignee</span>
+                                            <select id="customer-task-assignee"></select>
+                                        </label>
+                                    </div>
+                                    <button type="submit" class="primary-button">Create task</button>
+                                </form>
+                            </div>
+                        </section>
+                    </div>
+                </section>
+
+                <section class="view" id="jobs-view" hidden>
+                    <div class="metrics-strip" id="job-metrics"></div>
+
+                    <div class="workspace-grid">
+                        <section class="panel list-panel">
+                            <div class="panel-head">
+                                <div>
+                                    <span class="panel-kicker">Operations</span>
+                                    <h2>Jobs</h2>
+                                </div>
+                                <div class="toolbar">
+                                    <input type="search" id="job-search-input" placeholder="Search client, address, project type">
+                                    <select id="job-status-filter">
+                                        <option value="active">Active jobs</option>
+                                        <option value="completed">Completed jobs</option>
+                                        <option value="all">All visible jobs</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="panel-body">
+                                <div class="record-list" id="job-list"></div>
+                            </div>
+                        </section>
+
+                        <section class="panel record-panel">
+                            <div class="panel-head">
+                                <div>
+                                    <span class="panel-kicker">Job record</span>
+                                    <h2 id="job-record-title">Select a job</h2>
+                                </div>
+                                <span class="status-pill neutral" id="job-record-badge">No job selected</span>
+                            </div>
+
+                            <div class="empty-state" id="job-record-empty">
+                                When a lead is won, the job becomes the operational record for staffing, expenses, payments, margin, and worker payout.
+                            </div>
+
+                            <div class="record-shell" id="job-record-shell" hidden>
+                                <form class="stack-form" id="job-core-form">
+                                    <div class="form-grid three">
+                                        <label>
+                                            <span>Job status</span>
+                                            <select id="job-status-select">
                                                 <option value="in_progress">In Progress</option>
                                                 <option value="completed">Completed</option>
                                             </select>
                                         </label>
                                         <label>
-                                            <span>Lead address</span>
-                                            <input type="text" id="project-address-display" disabled>
+                                            <span>Contract value</span>
+                                            <input type="number" id="job-value-input" min="0" step="0.01">
+                                        </label>
+                                        <label>
+                                            <span>Lead owner</span>
+                                            <select id="job-owner-select"></select>
                                         </label>
                                     </div>
 
-                                    <div class="stack-form">
-                                        <div class="subpanel-head compact">
-                                            <h3>Assigned workers and commission share</h3>
-                                            <p>Set who worked the project and how the worker profit pool should be divided.</p>
+                                    <div class="form-grid two">
+                                        <label>
+                                            <span>Linked customer</span>
+                                            <input type="text" id="job-customer-display" disabled>
+                                        </label>
+                                        <label>
+                                            <span>Project address</span>
+                                            <input type="text" id="job-address-display" disabled>
+                                        </label>
+                                    </div>
+
+                                    <div class="subpanel">
+                                        <div class="subpanel-head">
+                                            <h3>Assigned workers and payout split</h3>
+                                            <p>Company share stays at 50% of positive profit. The remaining 50% follows the worker percentages here.</p>
                                         </div>
-                                        <div id="worker-assignment-list" class="worker-assignment-list"></div>
+                                        <div class="worker-assignment-list" id="worker-assignment-list"></div>
                                     </div>
 
                                     <div class="inline-actions">
-                                        <button type="submit" class="primary-button admin-only">Save project setup</button>
+                                        <button type="submit" class="primary-button admin-only">Save job setup</button>
+                                        <button type="button" class="ghost-button" id="job-open-lead-button">Open linked lead</button>
                                     </div>
                                 </form>
 
-                                <section class="finance-summary" id="finance-summary"></section>
+                                <div class="record-context-strip" id="job-record-context"></div>
 
-                                <div class="subpanel-grid">
-                                    <div class="subpanel">
+                                <div class="finance-summary" id="finance-summary"></div>
+
+                                <div class="two-column-detail">
+                                    <section class="subpanel">
                                         <div class="subpanel-head">
                                             <h3>Expenses</h3>
-                                            <p>Track labor, materials, permits, dumpsters, subs, and other job costs.</p>
+                                            <p>Track materials, labor, permits, dumpsters, subs, and other costs.</p>
                                         </div>
-
-                                        <form id="expense-form" class="stack-form">
+                                        <form class="stack-form" id="expense-form">
                                             <div class="form-grid two">
                                                 <label>
                                                     <span>Expense amount</span>
@@ -409,17 +788,15 @@
                                             </label>
                                             <button type="submit" class="primary-button">Add expense</button>
                                         </form>
+                                        <div class="stack-list" id="expense-list"></div>
+                                    </section>
 
-                                        <div class="simple-list" id="expense-list"></div>
-                                    </div>
-
-                                    <div class="subpanel">
+                                    <section class="subpanel">
                                         <div class="subpanel-head">
                                             <h3>Payments</h3>
                                             <p>Manual payment tracking for deposits, progress draws, and final client payments.</p>
                                         </div>
-
-                                        <form id="payment-form" class="stack-form admin-only">
+                                        <form class="stack-form admin-only" id="payment-form">
                                             <div class="form-grid two">
                                                 <label>
                                                     <span>Payment amount</span>
@@ -432,136 +809,165 @@
                                             </div>
                                             <label>
                                                 <span>Payment note</span>
-                                                <textarea id="payment-note" rows="3" placeholder="Deposit received, draw 2, final balance"></textarea>
+                                                <textarea id="payment-note" rows="3" placeholder="Deposit, draw, final balance"></textarea>
                                             </label>
                                             <button type="submit" class="primary-button">Record payment</button>
                                         </form>
-
-                                        <div class="simple-list" id="payment-list"></div>
-                                    </div>
+                                        <div class="stack-list" id="payment-list"></div>
+                                    </section>
                                 </div>
 
-                                <section class="subpanel">
+                                <div class="two-column-detail">
+                                    <section class="subpanel">
+                                        <div class="subpanel-head">
+                                            <h3>Commission breakdown</h3>
+                                            <p>Live split of the worker pool based on the saved percentages above.</p>
+                                        </div>
+                                        <div class="stack-list" id="commission-breakdown"></div>
+                                    </section>
+
+                                    <section class="subpanel">
+                                        <div class="subpanel-head">
+                                            <h3>Job tasks</h3>
+                                            <p>Tasks tied to this job stay visible from the operational record and the main task list.</p>
+                                        </div>
+                                        <div class="stack-list" id="job-task-list"></div>
+                                    </section>
+                                </div>
+
+                                <form class="stack-form subpanel" id="job-task-form">
                                     <div class="subpanel-head">
-                                        <h3>Commission breakdown</h3>
-                                        <p>Company keeps 50% of distributable profit. The other 50% follows the worker percentages above.</p>
+                                        <h3>Create job task</h3>
+                                        <p>Use this for purchasing, field coordination, payment collection, punch list work, or closeout.</p>
                                     </div>
-                                    <div id="commission-breakdown" class="simple-list"></div>
-                                </section>
-                            </div>
-                        </section>
-                    </div>
-                </section>
-
-                <section class="view" id="templates-view" hidden>
-                    <div class="workspace-grid single">
-                        <section class="panel">
-                            <div class="panel-head">
-                                <div>
-                                    <span class="panel-kicker">Estimate delivery</span>
-                                    <h2>Default estimate email template</h2>
-                                </div>
-                            </div>
-
-                            <form id="template-form" class="stack-form">
-                                <div class="form-grid two">
                                     <label>
-                                        <span>Template name</span>
-                                        <input type="text" id="template-name">
+                                        <span>Task title</span>
+                                        <input type="text" id="job-task-title" placeholder="Confirm material order, schedule inspection, collect final check">
                                     </label>
-                                    <label>
-                                        <span>Subject template</span>
-                                        <input type="text" id="template-subject">
-                                    </label>
-                                </div>
-
-                                <label>
-                                    <span>Greeting</span>
-                                    <input type="text" id="template-greeting">
-                                </label>
-
-                                <label>
-                                    <span>Intro</span>
-                                    <textarea id="template-intro" rows="4"></textarea>
-                                </label>
-
-                                <label>
-                                    <span>Outro</span>
-                                    <textarea id="template-outro" rows="4"></textarea>
-                                </label>
-
-                                <label>
-                                    <span>Terms / assumption line</span>
-                                    <textarea id="template-terms" rows="3"></textarea>
-                                </label>
-
-                                <button type="submit" class="primary-button admin-only">Save template</button>
-                            </form>
+                                    <div class="form-grid three">
+                                        <label>
+                                            <span>Due date</span>
+                                            <input type="datetime-local" id="job-task-due">
+                                        </label>
+                                        <label>
+                                            <span>Priority</span>
+                                            <select id="job-task-priority">
+                                                <option value="high">High</option>
+                                                <option value="medium">Medium</option>
+                                                <option value="low">Low</option>
+                                            </select>
+                                        </label>
+                                        <label>
+                                            <span>Assignee</span>
+                                            <select id="job-task-assignee"></select>
+                                        </label>
+                                    </div>
+                                    <button type="submit" class="primary-button">Create task</button>
+                                </form>
+                            </div>
                         </section>
                     </div>
                 </section>
 
                 <section class="view" id="staff-view" hidden>
                     <div class="workspace-grid">
-                        <section class="panel panel-wide">
+                        <section class="panel list-panel">
                             <div class="panel-head">
                                 <div>
-                                    <span class="panel-kicker">Approved staff</span>
-                                    <h2>Roster and access control</h2>
+                                    <span class="panel-kicker">Access</span>
+                                    <h2>Staff roster</h2>
                                 </div>
                             </div>
-                            <div class="project-list" id="staff-list"></div>
+                            <div class="panel-body">
+                                <div class="record-list" id="staff-list"></div>
+                            </div>
                         </section>
 
-                        <section class="panel detail-panel">
+                        <section class="panel record-panel">
                             <div class="panel-head">
                                 <div>
-                                    <span class="panel-kicker">Staff record</span>
-                                    <h2>Create or edit staff access</h2>
+                                    <span class="panel-kicker">Settings</span>
+                                    <h2>Staff access and estimate template</h2>
                                 </div>
                             </div>
 
-                            <form id="staff-form" class="stack-form">
-                                <label>
-                                    <span>Google email</span>
-                                    <input type="email" id="staff-email" required>
-                                </label>
+                            <div class="record-shell">
+                                <div class="admin-only" id="staff-admin-shell">
+                                    <form class="stack-form subpanel" id="staff-form">
+                                        <div class="subpanel-head">
+                                            <h3>Staff access</h3>
+                                            <p>Approve staff by Google email, define the role, and set the default lead owner.</p>
+                                        </div>
+                                        <label>
+                                            <span>Google email</span>
+                                            <input type="email" id="staff-email" required>
+                                        </label>
+                                        <div class="form-grid two">
+                                            <label>
+                                                <span>Display name</span>
+                                                <input type="text" id="staff-display-name">
+                                            </label>
+                                            <label>
+                                                <span>Role</span>
+                                                <select id="staff-role">
+                                                    <option value="employee">Employee</option>
+                                                    <option value="admin">Admin</option>
+                                                </select>
+                                            </label>
+                                        </div>
+                                        <label class="checkbox-row">
+                                            <input type="checkbox" id="staff-default-assignee">
+                                            <span>Default lead assignee</span>
+                                        </label>
+                                        <label class="checkbox-row">
+                                            <input type="checkbox" id="staff-active" checked>
+                                            <span>Active staff account</span>
+                                        </label>
+                                        <div class="inline-actions">
+                                            <button type="submit" class="primary-button">Save staff access</button>
+                                            <button type="button" class="ghost-button" id="staff-form-reset">Clear form</button>
+                                        </div>
+                                    </form>
 
-                                <div class="form-grid two">
-                                    <label>
-                                        <span>Display name</span>
-                                        <input type="text" id="staff-display-name">
-                                    </label>
-                                    <label>
-                                        <span>Role</span>
-                                        <select id="staff-role">
-                                            <option value="employee">Employee</option>
-                                            <option value="admin">Admin</option>
-                                        </select>
-                                    </label>
+                                    <form class="stack-form subpanel" id="template-form">
+                                        <div class="subpanel-head">
+                                            <h3>Estimate template</h3>
+                                            <p>This template controls the in-app estimate preview and print layout used by the CRM.</p>
+                                        </div>
+                                        <div class="form-grid two">
+                                            <label>
+                                                <span>Template name</span>
+                                                <input type="text" id="template-name">
+                                            </label>
+                                            <label>
+                                                <span>Title template</span>
+                                                <input type="text" id="template-subject">
+                                            </label>
+                                        </div>
+                                        <label>
+                                            <span>Greeting</span>
+                                            <input type="text" id="template-greeting">
+                                        </label>
+                                        <label>
+                                            <span>Intro</span>
+                                            <textarea id="template-intro" rows="4"></textarea>
+                                        </label>
+                                        <label>
+                                            <span>Outro</span>
+                                            <textarea id="template-outro" rows="4"></textarea>
+                                        </label>
+                                        <label>
+                                            <span>Terms / assumption line</span>
+                                            <textarea id="template-terms" rows="3"></textarea>
+                                        </label>
+                                        <button type="submit" class="primary-button">Save template</button>
+                                    </form>
                                 </div>
 
-                                <div class="form-grid two">
-                                    <label>
-                                        <span>SMS number</span>
-                                        <input type="text" id="staff-sms-number" placeholder="+12677155557">
-                                    </label>
-                                    <label class="checkbox-row">
-                                        <input type="checkbox" id="staff-default-assignee">
-                                        <span>Default lead assignee</span>
-                                    </label>
+                                <div class="empty-state" id="staff-employee-message" hidden>
+                                    Staff settings are managed by admins. You can still use the rest of the CRM based on your assigned work.
                                 </div>
-
-                                <label class="checkbox-row">
-                                    <input type="checkbox" id="staff-active" checked>
-                                    <span>Active staff account</span>
-                                </label>
-
-                                <div class="inline-actions">
-                                    <button type="submit" class="primary-button admin-only">Save staff access</button>
-                                    <button type="button" class="ghost-button admin-only" id="staff-form-reset">Clear form</button>
-                                </div>
-                            </form>
+                            </div>
                         </section>
                     </div>
                 </section>

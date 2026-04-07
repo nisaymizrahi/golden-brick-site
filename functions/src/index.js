@@ -3,9 +3,8 @@
 const admin = require("firebase-admin");
 const logger = require("firebase-functions/logger");
 const { onRequest } = require("firebase-functions/v2/https");
-const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
-const { defineSecret, defineString } = require("firebase-functions/params");
+const { defineString } = require("firebase-functions/params");
 
 admin.initializeApp();
 
@@ -14,14 +13,6 @@ const FieldValue = admin.firestore.FieldValue;
 const Timestamp = admin.firestore.Timestamp;
 
 const CRM_ADMIN_EMAILS = defineString("CRM_ADMIN_EMAILS", { default: "" });
-const CRM_EMAIL_FROM = defineString("CRM_EMAIL_FROM", { default: "Golden Brick Construction <info@goldenbrickc.com>" });
-const OPENAI_MODEL = defineString("OPENAI_MODEL", { default: "gpt-4.1-mini" });
-const SITE_BASE_URL = defineString("SITE_BASE_URL", { default: "https://www.goldenbrickc.com" });
-const TWILIO_ACCOUNT_SID = defineString("TWILIO_ACCOUNT_SID", { default: "" });
-const TWILIO_FROM_NUMBER = defineString("TWILIO_FROM_NUMBER", { default: "" });
-const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
-const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
-const TWILIO_AUTH_TOKEN = defineSecret("TWILIO_AUTH_TOKEN");
 
 const STAFF_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -51,9 +42,7 @@ function respondJson(response, status, payload) {
 function sanitizeEmailKey(email) {
   return String(email || "")
     .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .toLowerCase();
 }
 
 function parseCommaList(rawValue) {
@@ -72,19 +61,41 @@ function safeString(value) {
   return String(value || "").trim();
 }
 
-function toDate(value) {
-  if (!value) return null;
+function statusLabel(status) {
+  return LEAD_STATUSES[status] || LEAD_STATUSES.new_lead;
+}
+
+function uniqueValues(values) {
+  return Array.from(
+    new Set(
+      (values || [])
+        .map((value) => safeString(value))
+        .filter(Boolean)
+    )
+  );
+}
+
+function normaliseMillis(value) {
+  if (!value) return 0;
 
   if (value instanceof Timestamp) {
-    return value.toDate();
+    return value.toMillis();
+  }
+
+  if (typeof value.toMillis === "function") {
+    return value.toMillis();
   }
 
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
 }
 
-function statusLabel(status) {
-  return LEAD_STATUSES[status] || LEAD_STATUSES.new_lead;
+function latestByUpdated(items) {
+  if (!items.length) return null;
+
+  return [...items].sort((left, right) => {
+    return normaliseMillis(right.updatedAt || right.createdAt) - normaliseMillis(left.updatedAt || left.createdAt);
+  })[0];
 }
 
 function defaultEstimateTemplate() {
@@ -113,6 +124,13 @@ function normaliseAssignedWorkers(assignedWorkers = []) {
     .filter((worker) => worker.uid || worker.email || worker.name);
 }
 
+function buildProjectAccessUids(projectData = {}) {
+  return uniqueValues([
+    safeString(projectData.assignedLeadOwnerUid),
+    ...((projectData.assignedWorkerIds || []).map((uid) => safeString(uid)))
+  ]);
+}
+
 function computeFinanceSummary(projectData, expenseDocs, paymentDocs) {
   const totalExpenses = expenseDocs.reduce((sum, doc) => sum + toNumber(doc.amount), 0);
   const totalPayments = paymentDocs.reduce((sum, doc) => sum + toNumber(doc.amount), 0);
@@ -133,6 +151,7 @@ function computeFinanceSummary(projectData, expenseDocs, paymentDocs) {
     }
 
     const amount = Number(((workerPool * effectivePercent) / 100).toFixed(2));
+
     return {
       uid: worker.uid || "worker-" + String(index + 1),
       name: worker.name || worker.email || "Assigned worker",
@@ -151,126 +170,6 @@ function computeFinanceSummary(projectData, expenseDocs, paymentDocs) {
     workerPool: Number(workerPool.toFixed(2)),
     workerBreakdown,
     updatedAt: FieldValue.serverTimestamp()
-  };
-}
-
-function renderEstimateHtml(template, lead, estimate) {
-  const lineItems = Array.isArray(estimate.lineItems) ? estimate.lineItems : [];
-  const rows = lineItems
-    .map((item) => {
-      const label = safeString(item.label);
-      const description = safeString(item.description);
-      const amount = toNumber(item.amount).toFixed(2);
-
-      return `
-        <tr>
-          <td style="padding: 12px 10px; border-bottom: 1px solid #ece2d2; vertical-align: top;">
-            <strong>${label || "Line item"}</strong><br>
-            <span style="color: #6e6455; font-size: 13px;">${description || "Scope to be confirmed during planning."}</span>
-          </td>
-          <td style="padding: 12px 10px; border-bottom: 1px solid #ece2d2; text-align: right; white-space: nowrap;">
-            $${amount}
-          </td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  const subtotal = toNumber(estimate.subtotal).toFixed(2);
-  const intro = safeString(estimate.emailBody || template.intro)
-    .split("\n")
-    .filter(Boolean)
-    .map((paragraph) => `<p style="margin: 0 0 14px; color: #2d261d; line-height: 1.7;">${paragraph}</p>`)
-    .join("");
-
-  return `
-    <div style="font-family: Arial, sans-serif; background: #f7f2ea; padding: 32px 18px;">
-      <div style="max-width: 760px; margin: 0 auto; background: #ffffff; border-top: 4px solid #c4a164; box-shadow: 0 20px 40px rgba(30, 24, 16, 0.08);">
-        <div style="padding: 36px 32px 24px;">
-          <div style="font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #8c7450; margin-bottom: 10px;">Golden Brick Construction</div>
-          <h1 style="margin: 0 0 12px; color: #17120d; font-size: 28px; line-height: 1.15;">Estimate for ${safeString(lead.projectType) || "your project"}</h1>
-          <p style="margin: 0 0 18px; color: #6e6455; line-height: 1.7;">${template.greeting.replace("{{clientName}}", safeString(lead.clientName) || "there")}</p>
-          ${intro}
-          <div style="margin: 20px 0 0; padding: 18px; background: #f8f4ed; border-left: 3px solid #c4a164;">
-            <div style="font-weight: 700; color: #17120d; margin-bottom: 6px;">Project Address</div>
-            <div style="color: #504536;">${safeString(lead.projectAddress) || "To be confirmed"}</div>
-          </div>
-        </div>
-
-        <div style="padding: 0 32px 28px;">
-          <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-              <tr>
-                <th style="text-align: left; padding: 10px; border-bottom: 2px solid #d7c3a0; color: #6e6455; text-transform: uppercase; letter-spacing: 0.1em; font-size: 12px;">Scope</th>
-                <th style="text-align: right; padding: 10px; border-bottom: 2px solid #d7c3a0; color: #6e6455; text-transform: uppercase; letter-spacing: 0.1em; font-size: 12px;">Amount</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-            <tfoot>
-              <tr>
-                <td style="padding: 14px 10px 0; font-weight: 700; color: #17120d;">Estimated Total</td>
-                <td style="padding: 14px 10px 0; text-align: right; font-weight: 700; color: #17120d;">$${subtotal}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-
-        <div style="padding: 0 32px 36px;">
-          <p style="margin: 0 0 14px; color: #2d261d; line-height: 1.7;">${safeString(template.outro)}</p>
-          <p style="margin: 0; color: #6e6455; line-height: 1.7; font-size: 14px;">${safeString(template.terms)}</p>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function fallbackEstimateDraft(lead, template) {
-  const projectType = safeString(lead.projectType).toLowerCase();
-  let lineItems;
-
-  if (projectType.includes("bath")) {
-    lineItems = [
-      { label: "Demolition and site prep", description: "Protect the property, demo existing bathroom finishes, and prepare the room for rebuild.", amount: 2200 },
-      { label: "Rough plumbing and electrical coordination", description: "Reset utility locations as needed and coordinate inspections for rough work.", amount: 3600 },
-      { label: "Tile, waterproofing, and finish installation", description: "Install waterproofing, tile, trim, vanity, fixtures, and closeout details.", amount: 8900 }
-    ];
-  } else if (projectType.includes("kitchen")) {
-    lineItems = [
-      { label: "Demolition and protection", description: "Protect occupied areas and prepare the kitchen for layout and rough work.", amount: 3800 },
-      { label: "Trade rough-ins and build-back", description: "Coordinate electrical, plumbing, drywall, and prep for cabinetry and finishes.", amount: 8600 },
-      { label: "Cabinet, finish, and closeout scope", description: "Install cabinets, finishes, fixtures, trim, and final punch items.", amount: 12400 }
-    ];
-  } else if (projectType.includes("full")) {
-    lineItems = [
-      { label: "Scope planning and protection", description: "Initial demolition planning, site protection, and sequencing setup for a larger renovation.", amount: 6200 },
-      { label: "Core trade coordination", description: "Structural, mechanical, electrical, and plumbing coordination during the main construction phase.", amount: 18800 },
-      { label: "Interior finish package and closeout", description: "Drywall, trim, paint, finish carpentry, and final delivery across the renovated spaces.", amount: 21400 }
-    ];
-  } else {
-    lineItems = [
-      { label: "Initial site prep and demolition", description: "Protect the property and open the work area for construction.", amount: 2500 },
-      { label: "Construction and coordination", description: "Coordinate trade work, materials, and sequencing for the scope discussed.", amount: 7600 },
-      { label: "Finish installation and closeout", description: "Install finish materials, punch items, and project closeout details.", amount: 6800 }
-    ];
-  }
-
-  const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
-
-  return {
-    subject:
-      template.subjectTemplate
-        .replace("{{projectType}}", safeString(lead.projectType) || "your project")
-        .replace("{{projectAddress}}", safeString(lead.projectAddress) || "your property"),
-    emailBody: [
-      template.greeting.replace("{{clientName}}", safeString(lead.clientName) || "there"),
-      "",
-      template.intro,
-      "",
-      "This is a planning estimate based on the information currently available. We can tighten the pricing further after a site review, finish confirmation, and final scope check."
-    ].join("\n"),
-    lineItems,
-    subtotal,
-    assumptions: [template.terms]
   };
 }
 
@@ -293,159 +192,101 @@ async function fetchTemplate() {
   return templateSnap.data();
 }
 
-async function sendSms(to, message, twilioTokenValue) {
-  const accountSid = safeString(TWILIO_ACCOUNT_SID.value());
-  const fromNumber = safeString(TWILIO_FROM_NUMBER.value());
+function fallbackEstimateDraft(lead, template) {
+  const projectType = safeString(lead.projectType).toLowerCase();
+  let lineItems;
 
-  if (!accountSid || !fromNumber || !twilioTokenValue || !safeString(to)) {
-    logger.info("Skipping Twilio delivery because configuration is incomplete.", {
-      to,
-      hasAccountSid: Boolean(accountSid),
-      hasFromNumber: Boolean(fromNumber),
-      hasToken: Boolean(twilioTokenValue)
-    });
-    return {
-      delivered: false,
-      simulated: true
-    };
-  }
-
-  const body = new URLSearchParams({
-    To: to,
-    From: fromNumber,
-    Body: message
-  });
-
-  const authHeader = Buffer.from(accountSid + ":" + twilioTokenValue).toString("base64");
-  const response = await fetch(
-    "https://api.twilio.com/2010-04-01/Accounts/" + accountSid + "/Messages.json",
-    {
-      method: "POST",
-      headers: {
-        Authorization: "Basic " + authHeader,
-        "Content-Type": "application/x-www-form-urlencoded"
+  if (projectType.includes("bath")) {
+    lineItems = [
+      {
+        label: "Demolition and site prep",
+        description: "Protect the property, demo existing bathroom finishes, and prepare the room for rebuild.",
+        amount: 2200
       },
-      body
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error("Twilio SMS failed: " + errorText);
+      {
+        label: "Rough plumbing and electrical coordination",
+        description: "Reset utility locations as needed and coordinate inspections for rough work.",
+        amount: 3600
+      },
+      {
+        label: "Tile, waterproofing, and finish installation",
+        description: "Install waterproofing, tile, trim, vanity, fixtures, and closeout details.",
+        amount: 8900
+      }
+    ];
+  } else if (projectType.includes("kitchen")) {
+    lineItems = [
+      {
+        label: "Demolition and protection",
+        description: "Protect occupied areas and prepare the kitchen for layout and rough work.",
+        amount: 3800
+      },
+      {
+        label: "Trade rough-ins and build-back",
+        description: "Coordinate electrical, plumbing, drywall, and prep for cabinetry and finishes.",
+        amount: 8600
+      },
+      {
+        label: "Cabinet, finish, and closeout scope",
+        description: "Install cabinets, finishes, fixtures, trim, and final punch items.",
+        amount: 12400
+      }
+    ];
+  } else if (projectType.includes("full")) {
+    lineItems = [
+      {
+        label: "Scope planning and protection",
+        description: "Initial demolition planning, site protection, and sequencing setup for a larger renovation.",
+        amount: 6200
+      },
+      {
+        label: "Core trade coordination",
+        description: "Structural, mechanical, electrical, and plumbing coordination during the main construction phase.",
+        amount: 18800
+      },
+      {
+        label: "Interior finish package and closeout",
+        description: "Drywall, trim, paint, finish carpentry, and final delivery across the renovated spaces.",
+        amount: 21400
+      }
+    ];
+  } else {
+    lineItems = [
+      {
+        label: "Initial site prep and demolition",
+        description: "Protect the property and open the work area for construction.",
+        amount: 2500
+      },
+      {
+        label: "Construction and coordination",
+        description: "Coordinate trade work, materials, and sequencing for the scope discussed.",
+        amount: 7600
+      },
+      {
+        label: "Finish installation and closeout",
+        description: "Install finish materials, punch items, and project closeout details.",
+        amount: 6800
+      }
+    ];
   }
 
-  const payload = await response.json();
-  return {
-    delivered: true,
-    simulated: false,
-    sid: payload.sid || null
-  };
-}
-
-async function sendEstimateEmailDelivery({ to, subject, html, resendApiKeyValue }) {
-  const emailFrom = safeString(CRM_EMAIL_FROM.value());
-
-  if (!resendApiKeyValue || !emailFrom) {
-    logger.info("Skipping Resend delivery because configuration is incomplete.", {
-      to,
-      hasApiKey: Boolean(resendApiKeyValue),
-      hasFrom: Boolean(emailFrom)
-    });
-    return {
-      delivered: false,
-      simulated: true
-    };
-  }
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer " + resendApiKeyValue,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      from: emailFrom,
-      to: [to],
-      subject,
-      html
-    })
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error("Resend send failed: " + errorText);
-  }
-
-  const payload = await response.json();
-  return {
-    delivered: true,
-    simulated: false,
-    id: payload.id || null
-  };
-}
-
-async function createOpenAiDraft(lead, template, apiKeyValue) {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer " + apiKeyValue,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: OPENAI_MODEL.value(),
-      temperature: 0.35,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "You write renovation estimate drafts for a Philadelphia contractor serving homeowners and real estate investors. Return JSON with keys subject, emailBody, assumptions, and lineItems. lineItems must be an array of objects with label, description, and amount as a number. Stay practical, conservative, and useful."
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            company: "Golden Brick Construction",
-            client: {
-              name: safeString(lead.clientName),
-              email: safeString(lead.clientEmail),
-              phone: safeString(lead.clientPhone)
-            },
-            project: {
-              projectType: safeString(lead.projectType),
-              address: safeString(lead.projectAddress),
-              sourcePage: safeString(lead.sourcePage),
-              notes: safeString(lead.notes)
-            },
-            template
-          })
-        }
-      ]
-    })
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error("OpenAI estimate generation failed: " + errorText);
-  }
-
-  const payload = await response.json();
-  const content = payload.choices && payload.choices[0] && payload.choices[0].message
-    ? payload.choices[0].message.content
-    : "{}";
-  const parsed = JSON.parse(content || "{}");
-  const lineItems = Array.isArray(parsed.lineItems) ? parsed.lineItems : [];
-  const subtotal = lineItems.reduce((sum, item) => sum + toNumber(item.amount), 0);
+  const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
 
   return {
-    subject: safeString(parsed.subject),
-    emailBody: safeString(parsed.emailBody),
-    assumptions: Array.isArray(parsed.assumptions) ? parsed.assumptions.map(safeString).filter(Boolean) : [],
-    lineItems: lineItems.map((item) => ({
-      label: safeString(item.label),
-      description: safeString(item.description),
-      amount: toNumber(item.amount)
-    })),
-    subtotal: Number(subtotal.toFixed(2))
+    subject:
+      template.subjectTemplate
+        .replace("{{projectType}}", safeString(lead.projectType) || "your project")
+        .replace("{{projectAddress}}", safeString(lead.projectAddress) || "your property"),
+    emailBody: [
+      template.greeting.replace("{{clientName}}", safeString(lead.clientName) || "there"),
+      "",
+      template.intro,
+      "",
+      "This is a planning estimate based on the information currently available. We can tighten the pricing further after a site review, finish confirmation, and final scope check."
+    ].join("\n"),
+    lineItems,
+    subtotal,
+    assumptions: [template.terms]
   };
 }
 
@@ -536,8 +377,8 @@ async function syncProjectFinancials(projectId) {
 
   const summary = computeFinanceSummary(
     projectSnap.data(),
-    expensesSnap.docs.map((doc) => doc.data()),
-    paymentsSnap.docs.map((doc) => doc.data())
+    expensesSnap.docs.map((snapshot) => snapshot.data()),
+    paymentsSnap.docs.map((snapshot) => snapshot.data())
   );
 
   await projectRef.set(
@@ -549,11 +390,68 @@ async function syncProjectFinancials(projectId) {
   );
 }
 
+async function syncCustomerSummary(customerId) {
+  if (!customerId) return;
+
+  const customerRef = db.collection("customers").doc(customerId);
+  const customerSnap = await customerRef.get();
+
+  if (!customerSnap.exists) {
+    return;
+  }
+
+  const [leadSnap, projectSnap] = await Promise.all([
+    db.collection("leads").where("customerId", "==", customerId).get(),
+    db.collection("projects").where("customerId", "==", customerId).get()
+  ]);
+
+  const leads = leadSnap.docs.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }));
+  const projects = projectSnap.docs.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }));
+  const existing = customerSnap.data() || {};
+  const latestLead = latestByUpdated(leads);
+  const latestProject = latestByUpdated(projects);
+  const openLeads = leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status));
+  const wonLeadIds = leads.filter((lead) => lead.status === "closed_won").map((lead) => lead.id);
+  const lostLeadIds = leads.filter((lead) => lead.status === "closed_lost").map((lead) => lead.id);
+  const leadIds = leads.map((lead) => lead.id);
+  const jobIds = projects.map((project) => project.id);
+  const allowedStaffUids = uniqueValues([
+    ...leads.map((lead) => lead.assignedToUid),
+    ...projects.flatMap((project) => [
+      project.assignedLeadOwnerUid,
+      ...(project.assignedWorkerIds || []),
+      ...((project.allowedStaffUids || []))
+    ])
+  ]);
+  const estimateLead = latestByUpdated(openLeads.filter((lead) => Boolean(lead.hasEstimate)));
+  const totalWonSales = projects.reduce((sum, project) => sum + toNumber(project.jobValue || 0), 0);
+  const totalPaymentsReceived = projects.reduce((sum, project) => sum + toNumber(project.financials && project.financials.totalPayments), 0);
+
+  await customerRef.set({
+    name: safeString(existing.name || latestLead?.clientName || latestProject?.clientName || "Unnamed customer"),
+    primaryEmail: safeString(existing.primaryEmail || latestLead?.clientEmail || latestProject?.clientEmail),
+    primaryPhone: safeString(existing.primaryPhone || latestLead?.clientPhone || latestProject?.clientPhone),
+    primaryAddress: safeString(existing.primaryAddress || latestLead?.projectAddress || latestProject?.projectAddress),
+    leadIds,
+    jobIds,
+    openLeadIds: openLeads.map((lead) => lead.id),
+    wonLeadIds,
+    lostLeadIds,
+    openOpportunityCount: openLeads.length,
+    wonJobCount: projects.length,
+    lostLeadCount: lostLeadIds.length,
+    currentEstimateLeadId: estimateLead ? estimateLead.id : null,
+    totalWonSales: Number(totalWonSales.toFixed(2)),
+    totalPaymentsReceived: Number(totalPaymentsReceived.toFixed(2)),
+    allowedStaffUids,
+    updatedAt: FieldValue.serverTimestamp()
+  }, { merge: true });
+}
+
 exports.publicLeadIntake = onRequest(
   {
     region: "us-central1",
-    cors: true,
-    secrets: [TWILIO_AUTH_TOKEN]
+    cors: true
   },
   async (request, response) => {
     applyCors(response);
@@ -596,6 +494,8 @@ exports.publicLeadIntake = onRequest(
 
       await leadRef.set({
         id: leadRef.id,
+        customerId: null,
+        customerName: "",
         clientName,
         clientEmail,
         clientPhone,
@@ -612,7 +512,9 @@ exports.publicLeadIntake = onRequest(
         assignedToUid: assignee && assignee.uid ? assignee.uid : null,
         assignedToName: assignee ? safeString(assignee.displayName || assignee.name) : "",
         assignedToEmail: assignee ? safeString(assignee.email).toLowerCase() : "",
-        reminderState: "none",
+        hasEstimate: false,
+        estimateSubtotal: 0,
+        estimateTitle: "",
         createdAt,
         updatedAt: createdAt
       });
@@ -625,19 +527,6 @@ exports.publicLeadIntake = onRequest(
         actorUid: "website",
         actorRole: "system"
       });
-
-      if (assignee && assignee.smsNumber) {
-        const smsBody = [
-          "Golden Brick new lead",
-          clientName,
-          projectType || "General inquiry",
-          clientPhone,
-          projectAddress || "Address pending",
-          "Open: " + SITE_BASE_URL.value().replace(/\/$/, "") + "/staff"
-        ].join(" | ");
-
-        await sendSms(assignee.smsNumber, smsBody, TWILIO_AUTH_TOKEN.value());
-      }
 
       respondJson(response, 200, {
         ok: true,
@@ -721,7 +610,6 @@ exports.syncStaffSession = onRequest(
         displayName: safeString(decoded.name || decoded.email),
         role: safeString(allowedData.role || "employee"),
         active: true,
-        smsNumber: safeString(allowedData.smsNumber),
         defaultLeadAssignee: Boolean(allowedData.defaultLeadAssignee),
         lastLoginAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp()
@@ -760,7 +648,6 @@ exports.syncStaffSession = onRequest(
           displayName: profile.displayName,
           role: profile.role,
           active: profile.active,
-          smsNumber: profile.smsNumber,
           defaultLeadAssignee: profile.defaultLeadAssignee
         }
       });
@@ -778,8 +665,7 @@ exports.syncStaffSession = onRequest(
 exports.generateEstimateDraft = onRequest(
   {
     region: "us-central1",
-    cors: true,
-    secrets: [OPENAI_API_KEY]
+    cors: true
   },
   async (request, response) => {
     applyCors(response);
@@ -830,17 +716,8 @@ exports.generateEstimateDraft = onRequest(
       }
 
       const lead = leadSnap.data();
-      let draft = fallbackEstimateDraft(lead, template);
-      let generatedBy = "fallback";
-
-      if (OPENAI_API_KEY.value()) {
-        try {
-          draft = await createOpenAiDraft(lead, template, OPENAI_API_KEY.value());
-          generatedBy = "openai";
-        } catch (error) {
-          logger.warn("OpenAI draft generation failed, using fallback.", error);
-        }
-      }
+      const draft = fallbackEstimateDraft(lead, template);
+      const generatedBy = "template";
 
       const existingEstimateSnap = await db.collection("estimates").doc(leadId).get();
       const existingEstimate = existingEstimateSnap.exists ? existingEstimateSnap.data() : null;
@@ -860,15 +737,24 @@ exports.generateEstimateDraft = onRequest(
         lastEditedByName: staff.profile.displayName
       };
 
-      await db.collection("estimates").doc(leadId).set(estimatePayload, { merge: true });
-      await addLeadActivity(leadId, {
-        activityType: "estimate",
-        title: "Estimate draft refreshed",
-        body: "Estimate draft generated by " + generatedBy + ".",
-        actorName: staff.profile.displayName,
-        actorUid: staff.profile.uid,
-        actorRole: staff.profile.role
-      });
+      await Promise.all([
+        db.collection("estimates").doc(leadId).set(estimatePayload, { merge: true }),
+        db.collection("leads").doc(leadId).set({
+          hasEstimate: true,
+          estimateSubtotal: draft.subtotal,
+          estimateTitle: draft.subject,
+          estimateUpdatedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true }),
+        addLeadActivity(leadId, {
+          activityType: "estimate",
+          title: "Estimate draft refreshed",
+          body: "Estimate draft generated from the internal template.",
+          actorName: staff.profile.displayName,
+          actorUid: staff.profile.uid,
+          actorRole: staff.profile.role
+        })
+      ]);
 
       respondJson(response, 200, {
         ok: true,
@@ -883,205 +769,6 @@ exports.generateEstimateDraft = onRequest(
         ok: false,
         message: "Could not generate the estimate draft."
       });
-    }
-  }
-);
-
-exports.sendEstimateEmail = onRequest(
-  {
-    region: "us-central1",
-    cors: true,
-    secrets: [RESEND_API_KEY]
-  },
-  async (request, response) => {
-    applyCors(response);
-
-    if (request.method === "OPTIONS") {
-      response.status(204).send("");
-      return;
-    }
-
-    if (request.method !== "POST") {
-      response.status(405).send("Method not allowed.");
-      return;
-    }
-
-    try {
-      const staff = await verifyStaffRequest(request);
-
-      if (staff.profile.role !== "admin") {
-        respondJson(response, 403, {
-          ok: false,
-          message: "Only admins can send estimates."
-        });
-        return;
-      }
-
-      const payload = request.body || {};
-      const leadId = safeString(payload.leadId);
-
-      if (!leadId) {
-        respondJson(response, 400, {
-          ok: false,
-          message: "leadId is required."
-        });
-        return;
-      }
-
-      const [leadSnap, estimateSnap, template] = await Promise.all([
-        db.collection("leads").doc(leadId).get(),
-        db.collection("estimates").doc(leadId).get(),
-        fetchTemplate()
-      ]);
-
-      if (!leadSnap.exists) {
-        respondJson(response, 404, {
-          ok: false,
-          message: "Lead not found."
-        });
-        return;
-      }
-
-      const lead = leadSnap.data();
-      const baseEstimate = estimateSnap.exists ? estimateSnap.data() : {};
-
-      if (!safeString(lead.clientEmail)) {
-        respondJson(response, 400, {
-          ok: false,
-          message: "This lead does not have an email address yet."
-        });
-        return;
-      }
-
-      const lineItems = Array.isArray(payload.lineItems) ? payload.lineItems : baseEstimate.lineItems || [];
-      const subtotal = lineItems.reduce((sum, item) => sum + toNumber(item.amount), 0);
-      const estimate = {
-        leadId,
-        status: "sent",
-        subject: safeString(payload.subject || baseEstimate.subject),
-        emailBody: safeString(payload.emailBody || baseEstimate.emailBody),
-        assumptions: Array.isArray(payload.assumptions) ? payload.assumptions : baseEstimate.assumptions || [],
-        lineItems: lineItems.map((item) => ({
-          label: safeString(item.label),
-          description: safeString(item.description),
-          amount: toNumber(item.amount)
-        })),
-        subtotal: Number(subtotal.toFixed(2)),
-        sentAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-        lastEditedByUid: staff.profile.uid,
-        lastEditedByName: staff.profile.displayName
-      };
-
-      const html = renderEstimateHtml(template, lead, estimate);
-      const delivery = await sendEstimateEmailDelivery({
-        to: safeString(lead.clientEmail),
-        subject: estimate.subject,
-        html,
-        resendApiKeyValue: RESEND_API_KEY.value()
-      });
-
-      const batch = db.batch();
-      batch.set(db.collection("estimates").doc(leadId), {
-        ...estimate,
-        delivery
-      }, { merge: true });
-      batch.set(db.collection("leads").doc(leadId), {
-        status: "estimate_sent",
-        statusLabel: statusLabel("estimate_sent"),
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
-      await batch.commit();
-
-      await addLeadActivity(leadId, {
-        activityType: "estimate",
-        title: "Estimate sent",
-        body: delivery.simulated
-          ? "Estimate marked as sent in simulation mode. Configure Resend to deliver live email."
-          : "Estimate sent to " + safeString(lead.clientEmail) + ".",
-        actorName: staff.profile.displayName,
-        actorUid: staff.profile.uid,
-        actorRole: staff.profile.role
-      });
-
-      respondJson(response, 200, {
-        ok: true,
-        delivery
-      });
-    } catch (error) {
-      logger.error("Estimate email send failed.", error);
-      respondJson(response, 500, {
-        ok: false,
-        message: "Could not send the estimate email."
-      });
-    }
-  }
-);
-
-exports.sendDueReminders = onSchedule(
-  {
-    region: "us-central1",
-    schedule: "every 15 minutes",
-    secrets: [TWILIO_AUTH_TOKEN]
-  },
-  async () => {
-    const now = Timestamp.now();
-    const dueRemindersSnap = await db
-      .collection("reminders")
-      .where("status", "==", "scheduled")
-      .where("remindAt", "<=", now)
-      .limit(25)
-      .get();
-
-    if (dueRemindersSnap.empty) {
-      logger.info("No due reminders found.");
-      return;
-    }
-
-    for (const reminderDoc of dueRemindersSnap.docs) {
-      const reminder = reminderDoc.data();
-
-      try {
-        const assignedUserSnap = reminder.assignedToUid
-          ? await db.collection("users").doc(reminder.assignedToUid).get()
-          : null;
-        const assignedUser = assignedUserSnap && assignedUserSnap.exists ? assignedUserSnap.data() : null;
-        const smsBody = [
-          "Golden Brick follow-up reminder",
-          safeString(reminder.clientName || reminder.projectAddress || reminder.leadId),
-          safeString(reminder.message || "Review the lead and follow up.")
-        ].join(" | ");
-
-        const delivery = assignedUser && assignedUser.smsNumber
-          ? await sendSms(assignedUser.smsNumber, smsBody, TWILIO_AUTH_TOKEN.value())
-          : { delivered: false, simulated: true };
-
-        await reminderDoc.ref.set({
-          status: "sent",
-          sentAt: FieldValue.serverTimestamp(),
-          delivery
-        }, { merge: true });
-
-        if (reminder.leadId) {
-          await addLeadActivity(reminder.leadId, {
-            activityType: "follow_up",
-            title: "Follow-up reminder fired",
-            body: delivery.simulated
-              ? "Reminder reached simulation mode. Add Twilio to send live SMS."
-              : "Reminder sent to assigned staff.",
-            actorName: "Reminder Scheduler",
-            actorUid: "scheduler",
-            actorRole: "system"
-          });
-        }
-      } catch (error) {
-        logger.error("Reminder delivery failed.", error);
-        await reminderDoc.ref.set({
-          status: "failed",
-          errorMessage: safeString(error.message),
-          updatedAt: FieldValue.serverTimestamp()
-        }, { merge: true });
-      }
     }
   }
 );
@@ -1106,13 +793,17 @@ exports.syncProjectFinancialsOnPayments = onDocumentWritten(
   }
 );
 
-exports.syncProjectFinancialsOnProjectUpdate = onDocumentWritten(
+exports.syncProjectDerivedDataOnWrite = onDocumentWritten(
   {
     region: "us-central1",
     document: "projects/{projectId}"
   },
   async (event) => {
     if (!event.data.after.exists) {
+      const beforeData = event.data.before.exists ? event.data.before.data() : null;
+      if (beforeData && beforeData.customerId) {
+        await syncCustomerSummary(beforeData.customerId);
+      }
       return;
     }
 
@@ -1120,11 +811,35 @@ exports.syncProjectFinancialsOnProjectUpdate = onDocumentWritten(
     const afterData = event.data.after.data();
     const beforeWorkers = JSON.stringify(beforeData.assignedWorkers || []);
     const afterWorkers = JSON.stringify(afterData.assignedWorkers || []);
+    const desiredAccess = buildProjectAccessUids(afterData);
+    const currentAccess = uniqueValues(afterData.allowedStaffUids || []);
 
-    if (event.data.before.exists && beforeWorkers === afterWorkers) {
-      return;
+    if (JSON.stringify(desiredAccess) !== JSON.stringify(currentAccess)) {
+      await event.data.after.ref.set({
+        allowedStaffUids: desiredAccess,
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
     }
 
-    await syncProjectFinancials(event.params.projectId);
+    if (!event.data.before.exists || beforeWorkers !== afterWorkers) {
+      await syncProjectFinancials(event.params.projectId);
+    }
+
+    const customerIds = uniqueValues([beforeData.customerId, afterData.customerId]);
+    await Promise.all(customerIds.map((customerId) => syncCustomerSummary(customerId)));
+  }
+);
+
+exports.syncCustomerDataOnLeadWrite = onDocumentWritten(
+  {
+    region: "us-central1",
+    document: "leads/{leadId}"
+  },
+  async (event) => {
+    const beforeData = event.data.before.exists ? event.data.before.data() : {};
+    const afterData = event.data.after.exists ? event.data.after.data() : {};
+    const customerIds = uniqueValues([beforeData.customerId, afterData.customerId]);
+
+    await Promise.all(customerIds.map((customerId) => syncCustomerSummary(customerId)));
   }
 );

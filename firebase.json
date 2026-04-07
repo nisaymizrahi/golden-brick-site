@@ -37,24 +37,6 @@
       "images/projects/README.md",
       "**/.*",
       "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "/api/public/lead-intake",
-        "function": "publicLeadIntake"
-      },
-      {
-        "source": "/api/auth/sync-session",
-        "function": "syncStaffSession"
-      },
-      {
-        "source": "/api/staff/estimate-draft",
-        "function": "generateEstimateDraft"
-      },
-      {
-        "source": "/api/staff/send-estimate",
-        "function": "sendEstimateEmail"
-      }
     ]
   }
 }

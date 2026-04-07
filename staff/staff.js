@@ -8,12 +8,10 @@ import {
     signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-    Timestamp,
     addDoc,
     collection,
     doc,
     getDoc,
-    getDocs,
     getFirestore,
     onSnapshot,
     query,
@@ -25,21 +23,29 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const VIEW_META = {
-    "dashboard-view": {
-        title: "Pipeline dashboard",
-        subtitle: "New leads, follow-up cadence, estimate movement, and win/loss visibility."
+    "today-view": {
+        title: "Today",
+        subtitle: "Start with what is overdue, what is due today, which leads are fresh, and which jobs need attention."
     },
-    "projects-view": {
-        title: "Won projects",
-        subtitle: "In-progress work, completed jobs, expenses, payments, and commission snapshots."
+    "tasks-view": {
+        title: "Tasks",
+        subtitle: "Track next actions across leads, customers, and active jobs in one queue."
     },
-    "templates-view": {
-        title: "Estimate template",
-        subtitle: "The default email framing for proposals sent to clients."
+    "leads-view": {
+        title: "Leads",
+        subtitle: "Search the pipeline, open full lead records, draft estimates, and move opportunities toward won or lost."
+    },
+    "customers-view": {
+        title: "Customers",
+        subtitle: "Keep repeat-client history in one card with linked leads, jobs, payments, and active opportunities."
+    },
+    "jobs-view": {
+        title: "Jobs",
+        subtitle: "Operate won work from one record: staffing, expenses, payments, company share, and worker split."
     },
     "staff-view": {
-        title: "Staff access",
-        subtitle: "Approved staff accounts, roles, SMS numbers, and default routing."
+        title: "Staff",
+        subtitle: "Manage access, default lead routing, and the estimate template that powers proposal previews."
     }
 };
 
@@ -49,6 +55,19 @@ const STATUS_META = {
     estimate_sent: "Estimate Sent",
     closed_won: "Closed Won",
     closed_lost: "Closed Lost"
+};
+
+const TASK_STATUS_META = {
+    open: "Open",
+    in_progress: "In Progress",
+    waiting: "Waiting",
+    completed: "Completed"
+};
+
+const PRIORITY_META = {
+    high: "High",
+    medium: "Medium",
+    low: "Low"
 };
 
 const EMPTY_TEMPLATE = {
@@ -68,63 +87,143 @@ const refs = {
     staffShell: document.getElementById("staff-shell"),
     signOutButton: document.getElementById("sign-out-button"),
     syncStatus: document.getElementById("sync-status"),
-    currentUserCard: document.getElementById("current-user-card"),
-    sidebarSummary: document.getElementById("sidebar-summary"),
-    navButtons: Array.from(document.querySelectorAll(".nav-button")),
+    appBanner: document.getElementById("app-banner"),
     workspaceTitle: document.getElementById("workspace-title"),
     workspaceSubtitle: document.getElementById("workspace-subtitle"),
-    appBanner: document.getElementById("app-banner"),
-    dashboardMetrics: document.getElementById("dashboard-metrics"),
-    projectMetrics: document.getElementById("project-metrics"),
+    workspaceCommandBar: document.getElementById("workspace-command-bar"),
+    todayScopeToggle: document.getElementById("today-scope-toggle"),
+    sidebarSummary: document.getElementById("sidebar-summary"),
+    currentUserCard: document.getElementById("current-user-card"),
+    navButtons: Array.from(document.querySelectorAll(".nav-button")),
+    views: Array.from(document.querySelectorAll(".view")),
+    adminOnly: Array.from(document.querySelectorAll(".admin-only")),
+    toastStack: document.getElementById("toast-stack"),
+
+    todayMetrics: document.getElementById("today-metrics"),
+    todayOverdueList: document.getElementById("today-overdue-list"),
+    todayDueTodayList: document.getElementById("today-due-today-list"),
+    todayNewLeadsList: document.getElementById("today-new-leads-list"),
+    todayEstimatesList: document.getElementById("today-estimates-list"),
+    todayJobsList: document.getElementById("today-jobs-list"),
+
+    taskMetrics: document.getElementById("task-metrics"),
+    taskSearchInput: document.getElementById("task-search-input"),
+    taskBucketFilter: document.getElementById("task-bucket-filter"),
+    taskNewButton: document.getElementById("task-new-button"),
+    taskList: document.getElementById("task-list"),
+    taskDetailTitle: document.getElementById("task-detail-title"),
+    taskDetailBadge: document.getElementById("task-detail-badge"),
+    taskRecordEmpty: document.getElementById("task-record-empty"),
+    taskDetailShell: document.getElementById("task-detail-shell"),
+    taskForm: document.getElementById("task-form"),
+    taskTitleInput: document.getElementById("task-title-input"),
+    taskAssigneeSelect: document.getElementById("task-assignee-select"),
+    taskStatusSelect: document.getElementById("task-status-select"),
+    taskPrioritySelect: document.getElementById("task-priority-select"),
+    taskDueInput: document.getElementById("task-due-input"),
+    taskLinkedTypeSelect: document.getElementById("task-linked-type-select"),
+    taskLinkedRecordSelect: document.getElementById("task-linked-record-select"),
+    taskDescriptionInput: document.getElementById("task-description-input"),
+    taskRelatedSummary: document.getElementById("task-related-summary"),
+    taskCompleteButton: document.getElementById("task-complete-button"),
+    taskResetButton: document.getElementById("task-reset-button"),
+
+    leadMetrics: document.getElementById("lead-metrics"),
     leadSearchInput: document.getElementById("lead-search-input"),
-    leadVisibilityFilter: document.getElementById("lead-visibility-filter"),
-    pipelineBoard: document.getElementById("pipeline-board"),
-    selectedLeadTitle: document.getElementById("selected-lead-title"),
-    selectedLeadBadge: document.getElementById("selected-lead-badge"),
-    leadEmptyState: document.getElementById("lead-empty-state"),
-    leadDetailShell: document.getElementById("lead-detail-shell"),
+    leadStageFilter: document.getElementById("lead-stage-filter"),
+    leadLayoutButtons: Array.from(document.querySelectorAll("[data-lead-layout]")),
+    leadNewButton: document.getElementById("lead-new-button"),
+    leadList: document.getElementById("lead-list"),
+    leadBoard: document.getElementById("lead-board"),
+    leadRecordTitle: document.getElementById("lead-record-title"),
+    leadRecordBadge: document.getElementById("lead-record-badge"),
+    leadRecordEmpty: document.getElementById("lead-record-empty"),
+    leadRecordShell: document.getElementById("lead-record-shell"),
     leadCoreForm: document.getElementById("lead-core-form"),
+    leadCreateTaskButton: document.getElementById("lead-create-task-button"),
     leadClientName: document.getElementById("lead-client-name"),
     leadClientEmail: document.getElementById("lead-client-email"),
     leadClientPhone: document.getElementById("lead-client-phone"),
     leadProjectAddress: document.getElementById("lead-project-address"),
     leadProjectType: document.getElementById("lead-project-type"),
-    leadStatusSelect: document.getElementById("lead-status-select"),
+    leadStageSelect: document.getElementById("lead-stage-select"),
     leadAssigneeSelect: document.getElementById("lead-assignee-select"),
+    leadCustomerSelect: document.getElementById("lead-customer-select"),
     leadSourceDisplay: document.getElementById("lead-source-display"),
+    leadEstimateDisplay: document.getElementById("lead-estimate-display"),
     leadNotesInput: document.getElementById("lead-notes-input"),
-    leadInfoMeta: document.getElementById("lead-info-meta"),
-    leadMarkWonButton: document.getElementById("lead-mark-won-button"),
-    leadMarkLostButton: document.getElementById("lead-mark-lost-button"),
+    leadMeta: document.getElementById("lead-meta"),
+    leadRecordContext: document.getElementById("lead-record-context"),
+    leadOverviewSummary: document.getElementById("lead-overview-summary"),
     leadTabButtons: Array.from(document.querySelectorAll("[data-lead-tab]")),
-    communicationForm: document.getElementById("communication-form"),
-    communicationType: document.getElementById("communication-type"),
-    communicationBody: document.getElementById("communication-body"),
-    communicationList: document.getElementById("communication-list"),
-    noteForm: document.getElementById("note-form"),
-    noteBody: document.getElementById("note-body"),
-    noteList: document.getElementById("note-list"),
-    followupForm: document.getElementById("followup-form"),
-    followupAt: document.getElementById("followup-at"),
-    followupMessage: document.getElementById("followup-message"),
-    reminderList: document.getElementById("reminder-list"),
     estimateForm: document.getElementById("estimate-form"),
     estimateAiButton: document.getElementById("estimate-ai-button"),
     estimateAddLineButton: document.getElementById("estimate-add-line-button"),
+    estimateCopyButton: document.getElementById("estimate-copy-button"),
+    estimatePrintButton: document.getElementById("estimate-print-button"),
     estimateSubject: document.getElementById("estimate-subject"),
     estimateBody: document.getElementById("estimate-body"),
+    estimateAssumptions: document.getElementById("estimate-assumptions"),
     estimateLines: document.getElementById("estimate-lines"),
     estimateSubtotal: document.getElementById("estimate-subtotal"),
-    estimateSendButton: document.getElementById("estimate-send-button"),
-    projectList: document.getElementById("project-list"),
-    selectedProjectTitle: document.getElementById("selected-project-title"),
-    selectedProjectStatus: document.getElementById("selected-project-status"),
-    projectEmptyState: document.getElementById("project-empty-state"),
-    projectDetailShell: document.getElementById("project-detail-shell"),
-    projectCoreForm: document.getElementById("project-core-form"),
-    projectStatusSelect: document.getElementById("project-status-select"),
-    projectAddressDisplay: document.getElementById("project-address-display"),
+    estimatePreview: document.getElementById("estimate-preview"),
+    leadTaskList: document.getElementById("lead-task-list"),
+    leadTaskForm: document.getElementById("lead-task-form"),
+    leadTaskTitle: document.getElementById("lead-task-title"),
+    leadTaskDue: document.getElementById("lead-task-due"),
+    leadTaskPriority: document.getElementById("lead-task-priority"),
+    leadTaskAssignee: document.getElementById("lead-task-assignee"),
+    noteForm: document.getElementById("note-form"),
+    noteBody: document.getElementById("note-body"),
+    noteList: document.getElementById("note-list"),
+    leadJobSummary: document.getElementById("lead-job-summary"),
+    leadMarkWonButton: document.getElementById("lead-mark-won-button"),
+    leadMarkLostButton: document.getElementById("lead-mark-lost-button"),
+
+    customerMetrics: document.getElementById("customer-metrics"),
+    customerSearchInput: document.getElementById("customer-search-input"),
+    customerNewButton: document.getElementById("customer-new-button"),
+    customerList: document.getElementById("customer-list"),
+    customerRecordTitle: document.getElementById("customer-record-title"),
+    customerRecordBadge: document.getElementById("customer-record-badge"),
+    customerRecordEmpty: document.getElementById("customer-record-empty"),
+    customerRecordShell: document.getElementById("customer-record-shell"),
+    customerForm: document.getElementById("customer-form"),
+    customerNameInput: document.getElementById("customer-name-input"),
+    customerEmailInput: document.getElementById("customer-email-input"),
+    customerPhoneInput: document.getElementById("customer-phone-input"),
+    customerAddressInput: document.getElementById("customer-address-input"),
+    customerNotesInput: document.getElementById("customer-notes-input"),
+    customerCreateLeadButton: document.getElementById("customer-create-lead-button"),
+    customerRecordContext: document.getElementById("customer-record-context"),
+    customerSummary: document.getElementById("customer-summary"),
+    customerOpportunitiesList: document.getElementById("customer-opportunities-list"),
+    customerJobsList: document.getElementById("customer-jobs-list"),
+    customerCurrentEstimate: document.getElementById("customer-current-estimate"),
+    customerTaskList: document.getElementById("customer-task-list"),
+    customerTaskForm: document.getElementById("customer-task-form"),
+    customerTaskTitle: document.getElementById("customer-task-title"),
+    customerTaskDue: document.getElementById("customer-task-due"),
+    customerTaskPriority: document.getElementById("customer-task-priority"),
+    customerTaskAssignee: document.getElementById("customer-task-assignee"),
+
+    jobMetrics: document.getElementById("job-metrics"),
+    jobSearchInput: document.getElementById("job-search-input"),
+    jobStatusFilter: document.getElementById("job-status-filter"),
+    jobList: document.getElementById("job-list"),
+    jobRecordTitle: document.getElementById("job-record-title"),
+    jobRecordBadge: document.getElementById("job-record-badge"),
+    jobRecordEmpty: document.getElementById("job-record-empty"),
+    jobRecordShell: document.getElementById("job-record-shell"),
+    jobCoreForm: document.getElementById("job-core-form"),
+    jobStatusSelect: document.getElementById("job-status-select"),
+    jobValueInput: document.getElementById("job-value-input"),
+    jobOwnerSelect: document.getElementById("job-owner-select"),
+    jobCustomerDisplay: document.getElementById("job-customer-display"),
+    jobAddressDisplay: document.getElementById("job-address-display"),
+    jobRecordContext: document.getElementById("job-record-context"),
     workerAssignmentList: document.getElementById("worker-assignment-list"),
+    jobOpenLeadButton: document.getElementById("job-open-lead-button"),
     financeSummary: document.getElementById("finance-summary"),
     expenseForm: document.getElementById("expense-form"),
     expenseAmount: document.getElementById("expense-amount"),
@@ -137,25 +236,30 @@ const refs = {
     paymentNote: document.getElementById("payment-note"),
     paymentList: document.getElementById("payment-list"),
     commissionBreakdown: document.getElementById("commission-breakdown"),
+    jobTaskList: document.getElementById("job-task-list"),
+    jobTaskForm: document.getElementById("job-task-form"),
+    jobTaskTitle: document.getElementById("job-task-title"),
+    jobTaskDue: document.getElementById("job-task-due"),
+    jobTaskPriority: document.getElementById("job-task-priority"),
+    jobTaskAssignee: document.getElementById("job-task-assignee"),
+
+    staffList: document.getElementById("staff-list"),
+    staffAdminShell: document.getElementById("staff-admin-shell"),
+    staffEmployeeMessage: document.getElementById("staff-employee-message"),
+    staffForm: document.getElementById("staff-form"),
+    staffEmail: document.getElementById("staff-email"),
+    staffDisplayName: document.getElementById("staff-display-name"),
+    staffRole: document.getElementById("staff-role"),
+    staffDefaultAssignee: document.getElementById("staff-default-assignee"),
+    staffActive: document.getElementById("staff-active"),
+    staffFormReset: document.getElementById("staff-form-reset"),
     templateForm: document.getElementById("template-form"),
     templateName: document.getElementById("template-name"),
     templateSubject: document.getElementById("template-subject"),
     templateGreeting: document.getElementById("template-greeting"),
     templateIntro: document.getElementById("template-intro"),
     templateOutro: document.getElementById("template-outro"),
-    templateTerms: document.getElementById("template-terms"),
-    staffList: document.getElementById("staff-list"),
-    staffForm: document.getElementById("staff-form"),
-    staffEmail: document.getElementById("staff-email"),
-    staffDisplayName: document.getElementById("staff-display-name"),
-    staffRole: document.getElementById("staff-role"),
-    staffSmsNumber: document.getElementById("staff-sms-number"),
-    staffDefaultAssignee: document.getElementById("staff-default-assignee"),
-    staffActive: document.getElementById("staff-active"),
-    staffFormReset: document.getElementById("staff-form-reset"),
-    toastStack: document.getElementById("toast-stack"),
-    views: Array.from(document.querySelectorAll(".view")),
-    adminOnly: Array.from(document.querySelectorAll(".admin-only"))
+    templateTerms: document.getElementById("template-terms")
 };
 
 const state = {
@@ -167,20 +271,33 @@ const state = {
     profile: null,
     leads: [],
     projects: [],
+    customers: [],
+    tasks: [],
     staffRoster: [],
     template: { ...EMPTY_TEMPLATE },
     selectedLeadId: null,
     selectedProjectId: null,
+    selectedCustomerId: null,
+    selectedTaskId: null,
     selectedStaffKey: null,
+    leadDraft: null,
+    customerDraft: null,
+    taskDraft: null,
     leadActivities: [],
-    leadReminders: [],
     projectExpenses: [],
     projectPayments: [],
     estimate: null,
-    activeLeadTab: "info",
-    activeView: "dashboard-view",
+    activeLeadTab: "overview",
+    activeView: "today-view",
+    todayScope: "mine",
+    leadLayout: "list",
     leadSearch: "",
-    leadFilter: "all",
+    leadStage: "all",
+    customerSearch: "",
+    jobSearch: "",
+    jobStatus: "active",
+    taskSearch: "",
+    taskBucket: "open",
     unsubs: {
         base: [],
         leadDetail: [],
@@ -189,7 +306,7 @@ const state = {
 };
 
 function isAdmin() {
-    return state.profile && state.profile.role === "admin";
+    return state.profile?.role === "admin";
 }
 
 function escapeHtml(value) {
@@ -201,21 +318,39 @@ function escapeHtml(value) {
         .replaceAll("'", "&#39;");
 }
 
+function safeString(value) {
+    return String(value || "").trim();
+}
+
 function sanitiseEmailKey(email) {
-    return String(email || "")
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
+    return safeString(email).toLowerCase();
+}
+
+function toNumber(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toMillis(value) {
+    if (!value) return 0;
+    if (typeof value?.toMillis === "function") return value.toMillis();
+    if (typeof value?.toDate === "function") return value.toDate().getTime();
+    if (value instanceof Date) return value.getTime();
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+}
+
+function normaliseFirestoreDoc(snapshot) {
+    return {
+        id: snapshot.id,
+        ...snapshot.data()
+    };
 }
 
 function formatDateTime(value) {
     if (!value) return "Not set";
-    const date = typeof value.toDate === "function" ? value.toDate() : new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return "Not set";
-    }
+    const date = typeof value?.toDate === "function" ? value.toDate() : new Date(value);
+    if (Number.isNaN(date.getTime())) return "Not set";
 
     return new Intl.DateTimeFormat("en-US", {
         month: "short",
@@ -226,45 +361,59 @@ function formatDateTime(value) {
     }).format(date);
 }
 
-function formatDateForInput(value) {
-    if (!value) return "";
-    const date = typeof value.toDate === "function" ? value.toDate() : new Date(value);
+function formatDateOnly(value) {
+    if (!value) return "No due date";
+    const date = typeof value?.toDate === "function" ? value.toDate() : new Date(value);
+    if (Number.isNaN(date.getTime())) return "No due date";
 
-    if (Number.isNaN(date.getTime())) {
-        return "";
-    }
-
-    const offset = date.getTimezoneOffset();
-    const local = new Date(date.getTime() - offset * 60000);
-    return local.toISOString().slice(0, 16);
+    return new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+    }).format(date);
 }
 
 function formatCurrency(value) {
     return new Intl.NumberFormat("en-US", {
         style: "currency",
         currency: "USD"
-    }).format(Number(value || 0));
+    }).format(toNumber(value));
 }
 
-function normaliseFirestoreDoc(snapshot) {
-    return {
-        id: snapshot.id,
-        ...snapshot.data()
-    };
+function formatDateInputValue(value) {
+    if (!value) return "";
+    const date = typeof value?.toDate === "function" ? value.toDate() : new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-function currentLead() {
-    return state.leads.find((lead) => lead.id === state.selectedLeadId) || null;
+function parseDateInput(value) {
+    if (!value) return null;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function currentProject() {
-    return state.projects.find((project) => project.id === state.selectedProjectId) || null;
+function isSameDay(leftValue, rightValue) {
+    const left = typeof leftValue?.toDate === "function" ? leftValue.toDate() : new Date(leftValue);
+    const right = typeof rightValue?.toDate === "function" ? rightValue.toDate() : new Date(rightValue);
+
+    if (Number.isNaN(left.getTime()) || Number.isNaN(right.getTime())) {
+        return false;
+    }
+
+    return left.getFullYear() === right.getFullYear()
+        && left.getMonth() === right.getMonth()
+        && left.getDate() === right.getDate();
 }
 
-function activeStaffOptions() {
-    return state.staffRoster
-        .filter((member) => member.active !== false)
-        .sort((left, right) => (left.displayName || left.email || "").localeCompare(right.displayName || right.email || ""));
+function uniqueValues(values = []) {
+    return Array.from(new Set(values.map((value) => safeString(value)).filter(Boolean)));
 }
 
 function clearUnsubs(list) {
@@ -289,12 +438,12 @@ function setBanner(message = "", variant = "info") {
 
     refs.appBanner.hidden = false;
     refs.appBanner.textContent = message;
-    refs.appBanner.className = "app-banner " + variant;
+    refs.appBanner.className = `app-banner ${variant}`;
 }
 
 function showToast(message, variant = "success") {
     const toast = document.createElement("div");
-    toast.className = "toast " + variant;
+    toast.className = `toast ${variant}`;
     toast.textContent = message;
     refs.toastStack.appendChild(toast);
 
@@ -315,15 +464,169 @@ function showStaffShell() {
 }
 
 function applyRoleVisibility() {
-    const admin = isAdmin();
-
     refs.adminOnly.forEach((node) => {
-        node.hidden = !admin;
+        node.hidden = !isAdmin();
     });
+}
 
-    if (!admin && (state.activeView === "templates-view" || state.activeView === "staff-view")) {
-        switchView("dashboard-view");
+function currentLeadDoc() {
+    return state.leads.find((lead) => lead.id === state.selectedLeadId) || null;
+}
+
+function currentLead() {
+    return state.leadDraft || currentLeadDoc();
+}
+
+function currentProject() {
+    return state.projects.find((project) => project.id === state.selectedProjectId) || null;
+}
+
+function currentCustomerDoc() {
+    return state.customers.find((customer) => customer.id === state.selectedCustomerId) || null;
+}
+
+function currentCustomer() {
+    return state.customerDraft || currentCustomerDoc();
+}
+
+function currentTaskDoc() {
+    return state.tasks.find((task) => task.id === state.selectedTaskId) || null;
+}
+
+function currentTask() {
+    return state.taskDraft || currentTaskDoc();
+}
+
+function sortByUpdatedDesc(items) {
+    return [...items].sort((left, right) => {
+        return toMillis(right.updatedAt || right.createdAt) - toMillis(left.updatedAt || left.createdAt);
+    });
+}
+
+function latestByUpdated(items) {
+    return sortByUpdatedDesc(items)[0] || null;
+}
+
+function activeStaffOptions() {
+    if (isAdmin()) {
+        return state.staffRoster
+            .filter((member) => member.active !== false)
+            .sort((left, right) => (left.displayName || left.email || "").localeCompare(right.displayName || right.email || ""));
     }
+
+    if (!state.profile) {
+        return [];
+    }
+
+    return [{
+        uid: state.profile.uid,
+        email: state.profile.email,
+        displayName: state.profile.displayName,
+        role: state.profile.role,
+        active: true,
+        defaultLeadAssignee: Boolean(state.profile.defaultLeadAssignee)
+    }];
+}
+
+function preferredLeadAssignee() {
+    const options = activeStaffOptions();
+    return options.find((member) => member.defaultLeadAssignee) || options[0] || null;
+}
+
+function relatedTasksForEntity(entityKey, entityId) {
+    return sortByUpdatedDesc(state.tasks.filter((task) => safeString(task[entityKey]) === safeString(entityId)));
+}
+
+function projectForLead(lead) {
+    if (!lead) return null;
+    return state.projects.find((project) => project.leadId === lead.id || project.id === lead.wonProjectId || project.id === lead.id) || null;
+}
+
+function customerRollup(customer) {
+    if (!customer) {
+        return {
+            leads: [],
+            projects: [],
+            openLeads: [],
+            lostLeads: [],
+            totalWonSales: 0,
+            totalPaymentsReceived: 0,
+            currentEstimateLead: null
+        };
+    }
+
+    const leads = sortByUpdatedDesc(state.leads.filter((lead) => lead.customerId === customer.id));
+    const projects = sortByUpdatedDesc(state.projects.filter((project) => project.customerId === customer.id));
+    const openLeads = leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status));
+    const lostLeads = leads.filter((lead) => lead.status === "closed_lost");
+    const currentEstimateLead = latestByUpdated(openLeads.filter((lead) => Boolean(lead.hasEstimate)));
+    const totalWonSales = projects.reduce((sum, project) => sum + toNumber(project.jobValue), 0);
+    const totalPaymentsReceived = projects.reduce((sum, project) => sum + toNumber(project.financials?.totalPayments), 0);
+
+    return {
+        leads,
+        projects,
+        openLeads,
+        lostLeads,
+        totalWonSales,
+        totalPaymentsReceived,
+        currentEstimateLead
+    };
+}
+
+function defaultLeadDraft(customer = null) {
+    const assignee = preferredLeadAssignee();
+    return {
+        customerId: customer?.id || null,
+        customerName: customer?.name || "",
+        clientName: customer?.name || "",
+        clientEmail: customer?.primaryEmail || "",
+        clientPhone: customer?.primaryPhone || "",
+        projectAddress: customer?.primaryAddress || "",
+        projectType: "",
+        notes: "",
+        sourceForm: "manual_entry",
+        sourcePage: "Staff CRM",
+        sourcePath: "/staff",
+        status: "new_lead",
+        statusLabel: STATUS_META.new_lead,
+        assignedToUid: assignee?.uid || null,
+        assignedToName: assignee?.displayName || assignee?.email || "",
+        assignedToEmail: assignee?.email || "",
+        hasEstimate: false,
+        estimateSubtotal: 0,
+        estimateTitle: "",
+        createdAt: null,
+        updatedAt: null
+    };
+}
+
+function defaultCustomerDraft() {
+    return {
+        name: "",
+        primaryEmail: "",
+        primaryPhone: "",
+        primaryAddress: "",
+        notes: "",
+        totalWonSales: 0,
+        totalPaymentsReceived: 0
+    };
+}
+
+function defaultTaskDraft(linked = {}) {
+    return {
+        title: "",
+        description: "",
+        status: "open",
+        priority: "high",
+        assignedToUid: state.profile?.uid || "",
+        assignedToName: state.profile?.displayName || "",
+        assignedToEmail: state.profile?.email || "",
+        dueAt: null,
+        leadId: linked.leadId || null,
+        customerId: linked.customerId || null,
+        projectId: linked.projectId || null
+    };
 }
 
 function switchView(viewId) {
@@ -344,44 +647,173 @@ function switchView(viewId) {
         refs.workspaceTitle.textContent = meta.title;
         refs.workspaceSubtitle.textContent = meta.subtitle;
     }
+
+    renderWorkspaceTools();
+    renderWorkspaceCommandBar();
 }
 
-function filteredLeads() {
-    const queryText = state.leadSearch.trim().toLowerCase();
+function renderWorkspaceTools() {
+    const shouldShowTodayToggle = isAdmin() && state.activeView === "today-view";
+    refs.todayScopeToggle.hidden = !shouldShowTodayToggle;
 
-    return state.leads.filter((lead) => {
-        const textBlob = [
-            lead.clientName,
-            lead.projectAddress,
-            lead.projectType,
-            lead.clientPhone,
-            lead.clientEmail,
-            lead.notes
-        ].join(" ").toLowerCase();
-
-        const matchesSearch = !queryText || textBlob.includes(queryText);
-
-        if (!matchesSearch) {
-            return false;
-        }
-
-        if (state.leadFilter === "open") {
-            return lead.status !== "closed_won" && lead.status !== "closed_lost";
-        }
-
-        if (state.leadFilter === "needs_follow_up") {
-            return lead.status === "new_lead" || lead.status === "follow_up";
-        }
-
-        if (state.leadFilter === "won_lost") {
-            return lead.status === "closed_won" || lead.status === "closed_lost";
-        }
-
-        return true;
+    Array.from(refs.todayScopeToggle.querySelectorAll("[data-today-scope]")).forEach((button) => {
+        button.classList.toggle("is-active", button.dataset.todayScope === state.todayScope);
     });
 }
 
-function pipelineCounts(leads = state.leads) {
+function taskIsCompleted(task) {
+    return task?.status === "completed";
+}
+
+function taskIsOverdue(task) {
+    if (!task || taskIsCompleted(task) || !task.dueAt) return false;
+    const due = toMillis(task.dueAt);
+    return due > 0 && due < Date.now() && !isSameDay(task.dueAt, new Date());
+}
+
+function taskIsDueToday(task) {
+    if (!task || taskIsCompleted(task) || !task.dueAt) return false;
+    return isSameDay(task.dueAt, new Date());
+}
+
+function taskSortValue(task) {
+    const dueMillis = toMillis(task.dueAt);
+    return dueMillis || toMillis(task.updatedAt || task.createdAt);
+}
+
+function filteredTasks() {
+    const search = state.taskSearch.trim().toLowerCase();
+    let tasks = [...state.tasks];
+
+    if (search) {
+        tasks = tasks.filter((task) => {
+            const blob = [
+                task.title,
+                task.description,
+                task.assignedToName,
+                task.assignedToEmail,
+                linkedTaskLabel(task)
+            ].join(" ").toLowerCase();
+            return blob.includes(search);
+        });
+    }
+
+    if (state.taskBucket === "open") {
+        tasks = tasks.filter((task) => !taskIsCompleted(task));
+    } else if (state.taskBucket === "overdue") {
+        tasks = tasks.filter((task) => taskIsOverdue(task));
+    } else if (state.taskBucket === "today") {
+        tasks = tasks.filter((task) => taskIsDueToday(task));
+    } else if (state.taskBucket === "completed") {
+        tasks = tasks.filter((task) => taskIsCompleted(task));
+    }
+
+    return tasks.sort((left, right) => taskSortValue(left) - taskSortValue(right));
+}
+
+function filteredLeads() {
+    const search = state.leadSearch.trim().toLowerCase();
+    let leads = [...state.leads];
+
+    if (search) {
+        leads = leads.filter((lead) => {
+            const blob = [
+                lead.clientName,
+                lead.projectAddress,
+                lead.projectType,
+                lead.clientPhone,
+                lead.clientEmail,
+                lead.customerName,
+                lead.notes
+            ].join(" ").toLowerCase();
+            return blob.includes(search);
+        });
+    }
+
+    if (state.leadStage === "open") {
+        leads = leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status));
+    } else if (state.leadStage !== "all") {
+        leads = leads.filter((lead) => lead.status === state.leadStage);
+    }
+
+    return sortByUpdatedDesc(leads);
+}
+
+function filteredCustomers() {
+    const search = state.customerSearch.trim().toLowerCase();
+    const customers = sortByUpdatedDesc(state.customers);
+    if (!search) return customers;
+
+    return customers.filter((customer) => {
+        const blob = [
+            customer.name,
+            customer.primaryEmail,
+            customer.primaryPhone,
+            customer.primaryAddress
+        ].join(" ").toLowerCase();
+        return blob.includes(search);
+    });
+}
+
+function filteredProjects() {
+    const search = state.jobSearch.trim().toLowerCase();
+    let projects = [...state.projects];
+
+    if (state.jobStatus === "active") {
+        projects = projects.filter((project) => project.status !== "completed");
+    } else if (state.jobStatus === "completed") {
+        projects = projects.filter((project) => project.status === "completed");
+    }
+
+    if (search) {
+        projects = projects.filter((project) => {
+            const blob = [
+                project.clientName,
+                project.customerName,
+                project.projectAddress,
+                project.projectType
+            ].join(" ").toLowerCase();
+            return blob.includes(search);
+        });
+    }
+
+    return sortByUpdatedDesc(projects);
+}
+
+function openLeadsForToday() {
+    const scopeLeads = isAdmin() && state.todayScope === "team"
+        ? state.leads
+        : state.leads.filter((lead) => lead.assignedToUid === state.profile?.uid);
+
+    return sortByUpdatedDesc(scopeLeads.filter((lead) => lead.status === "new_lead"));
+}
+
+function estimateReviewLeads() {
+    const scopeLeads = isAdmin() && state.todayScope === "team"
+        ? state.leads
+        : state.leads.filter((lead) => lead.assignedToUid === state.profile?.uid);
+
+    return sortByUpdatedDesc(scopeLeads.filter((lead) => {
+        return ["new_lead", "follow_up", "estimate_sent"].includes(lead.status) && Boolean(lead.hasEstimate);
+    }));
+}
+
+function taskScopeSet() {
+    if (!state.profile) return [];
+    if (isAdmin() && state.todayScope === "team") return state.tasks;
+    return state.tasks.filter((task) => task.assignedToUid === state.profile.uid);
+}
+
+function projectScopeSet() {
+    if (!state.profile) return [];
+    if (isAdmin() && state.todayScope === "team") return state.projects;
+    return state.projects.filter((project) => {
+        const allowed = Array.isArray(project.allowedStaffUids) ? project.allowedStaffUids : [];
+        return allowed.includes(state.profile.uid) || project.assignedLeadOwnerUid === state.profile.uid;
+    });
+}
+
+function leadCounts(leads = state.leads) {
     return leads.reduce((totals, lead) => {
         const status = lead.status || "new_lead";
         totals[status] = (totals[status] || 0) + 1;
@@ -393,6 +825,32 @@ function pipelineCounts(leads = state.leads) {
         closed_won: 0,
         closed_lost: 0
     });
+}
+
+function linkedTaskLabel(task) {
+    if (task.leadId) {
+        const lead = state.leads.find((item) => item.id === task.leadId);
+        return lead ? `Lead: ${lead.clientName || lead.projectAddress || lead.id}` : "Lead";
+    }
+
+    if (task.customerId) {
+        const customer = state.customers.find((item) => item.id === task.customerId);
+        return customer ? `Customer: ${customer.name || customer.id}` : "Customer";
+    }
+
+    if (task.projectId) {
+        const project = state.projects.find((item) => item.id === task.projectId);
+        return project ? `Job: ${project.clientName || project.projectAddress || project.id}` : "Job";
+    }
+
+    return "No linked record";
+}
+
+function taskLinkedType(task) {
+    if (task.leadId) return "lead";
+    if (task.customerId) return "customer";
+    if (task.projectId) return "project";
+    return "";
 }
 
 function renderCurrentUserCard() {
@@ -409,152 +867,765 @@ function renderCurrentUserCard() {
 }
 
 function renderSidebarSummary() {
-    const counts = pipelineCounts();
-    const openLeadCount = counts.new_lead + counts.follow_up + counts.estimate_sent;
-    const activeProjectCount = state.projects.filter((project) => project.status === "in_progress").length;
+    const counts = leadCounts();
+    const openTaskCount = state.tasks.filter((task) => !taskIsCompleted(task)).length;
+    const customerCount = state.customers.length;
+    const activeProjectCount = state.projects.filter((project) => project.status !== "completed").length;
 
     refs.sidebarSummary.innerHTML = `
-        <div class="sidebar-stat"><span>Open leads</span><strong>${openLeadCount}</strong></div>
-        <div class="sidebar-stat"><span>Won projects</span><strong>${counts.closed_won}</strong></div>
-        <div class="sidebar-stat"><span>In progress</span><strong>${activeProjectCount}</strong></div>
-        <div class="sidebar-stat"><span>Closed lost</span><strong>${counts.closed_lost}</strong></div>
+        <div class="sidebar-stat"><span>Open leads</span><strong>${counts.new_lead + counts.follow_up + counts.estimate_sent}</strong></div>
+        <div class="sidebar-stat"><span>Active jobs</span><strong>${activeProjectCount}</strong></div>
+        <div class="sidebar-stat"><span>Customers</span><strong>${customerCount}</strong></div>
+        <div class="sidebar-stat"><span>Open tasks</span><strong>${openTaskCount}</strong></div>
     `;
 }
 
-function renderDashboardMetrics() {
-    const counts = pipelineCounts();
-    const metrics = [
-        { label: "New leads", value: counts.new_lead },
-        { label: "Follow-up queue", value: counts.follow_up },
-        { label: "Estimates sent", value: counts.estimate_sent },
-        { label: "Won rate", value: state.leads.length ? Math.round((counts.closed_won / state.leads.length) * 100) + "%" : "0%" }
-    ];
-
-    refs.dashboardMetrics.innerHTML = metrics.map((metric) => `
-        <article class="metric-card">
-            <span>${escapeHtml(metric.label)}</span>
-            <strong>${escapeHtml(metric.value)}</strong>
-        </article>
-    `).join("");
+function buildCommandAction(label, variant, dataAttrs = {}) {
+    const attributes = Object.entries(dataAttrs).map(([key, value]) => `${key}="${escapeHtml(value)}"`).join(" ");
+    return `<button type="button" class="${variant}" ${attributes}>${escapeHtml(label)}</button>`;
 }
 
-function renderProjectMetrics() {
-    const inProgress = state.projects.filter((project) => project.status === "in_progress").length;
-    const completed = state.projects.filter((project) => project.status === "completed").length;
-    const totalPayments = state.projects.reduce((sum, project) => sum + Number(project.financials?.totalPayments || 0), 0);
-    const totalProfit = state.projects.reduce((sum, project) => sum + Number(project.financials?.profit || 0), 0);
-
-    refs.projectMetrics.innerHTML = [
-        { label: "In progress", value: inProgress },
-        { label: "Completed", value: completed },
-        { label: "Client paid", value: formatCurrency(totalPayments) },
-        { label: "Profit tracked", value: formatCurrency(totalProfit) }
-    ].map((metric) => `
-        <article class="metric-card">
-            <span>${escapeHtml(metric.label)}</span>
-            <strong>${escapeHtml(metric.value)}</strong>
+function buildCommandChip(label, value) {
+    return `
+        <article class="command-chip">
+            <span>${escapeHtml(label)}</span>
+            <strong>${escapeHtml(value)}</strong>
         </article>
-    `).join("");
+    `;
 }
 
-function renderPipeline() {
-    const leads = filteredLeads();
-    const statuses = ["new_lead", "follow_up", "estimate_sent", "closed_won", "closed_lost"];
+function buildContextCard({ label, title, meta = "", dataAttrs = {}, muted = false }) {
+    const hasAction = !muted && Object.keys(dataAttrs).length > 0;
+    const tagName = hasAction ? "button" : "article";
+    const actionAttributes = hasAction
+        ? ` type="button" ${Object.entries(dataAttrs).map(([key, value]) => `${key}="${escapeHtml(value)}"`).join(" ")}`
+        : "";
 
-    refs.pipelineBoard.innerHTML = statuses.map((status) => {
-        const laneLeads = leads
-            .filter((lead) => (lead.status || "new_lead") === status)
-            .sort((left, right) => {
-                const leftTime = left.updatedAt && typeof left.updatedAt.toMillis === "function" ? left.updatedAt.toMillis() : 0;
-                const rightTime = right.updatedAt && typeof right.updatedAt.toMillis === "function" ? right.updatedAt.toMillis() : 0;
-                return rightTime - leftTime;
-            });
+    return `
+        <${tagName} class="context-card${muted ? " is-muted" : ""}"${actionAttributes}>
+            <span>${escapeHtml(label)}</span>
+            <strong>${escapeHtml(title)}</strong>
+            <em>${escapeHtml(meta)}</em>
+        </${tagName}>
+    `;
+}
 
-        const cards = laneLeads.length
-            ? laneLeads.map((lead) => `
-                <button type="button" class="lead-card ${lead.id === state.selectedLeadId ? "is-selected" : ""}" data-lead-id="${escapeHtml(lead.id)}">
-                    <div class="card-topline">
-                        <span class="mini-pill">${escapeHtml(lead.projectType || "General")}</span>
-                        <span class="mini-pill">${escapeHtml(lead.assignedToName || "Unassigned")}</span>
-                    </div>
-                    <h3 class="card-title">${escapeHtml(lead.clientName || "Unnamed lead")}</h3>
-                    <p class="card-copy">${escapeHtml(lead.projectAddress || "Address pending")}</p>
-                    <div class="card-meta">
-                        <div>${escapeHtml(lead.clientPhone || "No phone")}</div>
-                        <div>${escapeHtml(lead.clientEmail || "No email")}</div>
-                        <div>Updated ${escapeHtml(formatDateTime(lead.updatedAt || lead.createdAt))}</div>
-                    </div>
-                </button>
-            `).join("")
-            : `<div class="empty-note">No leads in this stage.</div>`;
+function activeTasksForEntity(entityKey, entityId) {
+    if (!entityId) return [];
+    return relatedTasksForEntity(entityKey, entityId).filter((task) => !taskIsCompleted(task));
+}
 
-        return `
-            <section class="pipeline-lane">
-                <div class="lane-head">
-                    <h3>${escapeHtml(STATUS_META[status])}</h3>
-                    <span class="lane-count">${laneLeads.length}</span>
-                </div>
-                ${cards}
-            </section>
-        `;
-    }).join("");
+function queueFocus(element) {
+    if (!element) return;
 
-    Array.from(refs.pipelineBoard.querySelectorAll("[data-lead-id]")).forEach((button) => {
-        button.addEventListener("click", () => {
-            selectLead(button.dataset.leadId);
-        });
+    window.requestAnimationFrame(() => {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (typeof element.focus === "function") {
+            element.focus({ preventScroll: true });
+        }
     });
 }
 
-function renderLeadAssigneeOptions(lead) {
-    if (!lead) {
-        refs.leadAssigneeSelect.innerHTML = `<option value="">Unassigned</option>`;
+function renderWorkspaceCommandBar() {
+    if (!refs.workspaceCommandBar || !state.profile) {
         return;
     }
 
+    const openLeadCount = state.leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status)).length;
+    const unassignedLeadCount = state.leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status) && !lead.assignedToUid).length;
+    const commandTaskSource = state.activeView === "today-view" ? taskScopeSet() : state.tasks;
+    const overdueCount = commandTaskSource.filter((task) => taskIsOverdue(task)).length;
+    const dueTodayCount = commandTaskSource.filter((task) => taskIsDueToday(task)).length;
+    const estimateReadyCount = state.leads.filter((lead) => {
+        return ["new_lead", "follow_up", "estimate_sent"].includes(lead.status) && Boolean(lead.hasEstimate);
+    }).length;
+    const activeJobCount = state.projects.filter((project) => project.status !== "completed").length;
+    const completedJobCount = state.projects.filter((project) => project.status === "completed").length;
+    const repeatClientCount = state.customers.filter((customer) => {
+        const rollup = customerRollup(customer);
+        return (rollup.leads.length + rollup.projects.length) > 1;
+    }).length;
+    const totalPaymentsReceived = state.projects.reduce((sum, project) => sum + toNumber(project.financials?.totalPayments), 0);
+    const taskOpenCount = state.tasks.filter((task) => !taskIsCompleted(task)).length;
+    const taskCompletedCount = state.tasks.filter((task) => taskIsCompleted(task)).length;
+    const selectedLead = currentLeadDoc();
+    const selectedCustomer = currentCustomerDoc();
+    const selectedProject = currentProject();
+    const selectedTask = currentTaskDoc();
+
+    const actionButtons = [];
+    const summaryChips = [];
+
+    if (isAdmin()) {
+        actionButtons.push(buildCommandAction("New lead", "primary-button", { "data-command": "start-lead-draft" }));
+        actionButtons.push(buildCommandAction("New customer", "ghost-button", { "data-command": "start-customer-draft" }));
+    }
+
+    actionButtons.push(buildCommandAction("New task", isAdmin() ? "secondary-button" : "primary-button", { "data-command": "start-task-draft" }));
+
+    if (state.activeView === "today-view") {
+        actionButtons.push(buildCommandAction("Open leads", "ghost-button", { "data-command": "open-view", "data-target-view": "leads-view" }));
+        actionButtons.push(buildCommandAction("Open jobs", "ghost-button", { "data-command": "open-view", "data-target-view": "jobs-view" }));
+        summaryChips.push(buildCommandChip("Overdue tasks", overdueCount));
+        summaryChips.push(buildCommandChip("Fresh leads", openLeadsForToday().length));
+        summaryChips.push(buildCommandChip("Estimate review", estimateReviewLeads().length));
+        summaryChips.push(buildCommandChip("Active jobs", activeJobCount));
+    }
+
+    if (state.activeView === "tasks-view") {
+        if (selectedTask?.leadId) {
+            actionButtons.push(buildCommandAction("Open lead", "ghost-button", {
+                "data-open-lead": selectedTask.leadId,
+                "data-open-view": "leads-view"
+            }));
+        } else if (selectedTask?.customerId) {
+            actionButtons.push(buildCommandAction("Open customer", "ghost-button", {
+                "data-open-customer": selectedTask.customerId,
+                "data-open-view": "customers-view"
+            }));
+        } else if (selectedTask?.projectId) {
+            actionButtons.push(buildCommandAction("Open job", "ghost-button", {
+                "data-open-project": selectedTask.projectId,
+                "data-open-view": "jobs-view"
+            }));
+        }
+
+        summaryChips.push(buildCommandChip("Open queue", taskOpenCount));
+        summaryChips.push(buildCommandChip("Overdue", overdueCount));
+        summaryChips.push(buildCommandChip("Due today", dueTodayCount));
+        summaryChips.push(buildCommandChip("Completed", taskCompletedCount));
+    }
+
+    if (state.activeView === "leads-view") {
+        if (selectedLead?.id) {
+            actionButtons.push(buildCommandAction("Open estimate", "ghost-button", { "data-command": "lead-open-estimate" }));
+            actionButtons.push(buildCommandAction("Lead task", "ghost-button", { "data-command": "lead-create-task" }));
+
+            if (selectedLead.customerId) {
+                actionButtons.push(buildCommandAction("Open customer", "ghost-button", {
+                    "data-open-customer": selectedLead.customerId,
+                    "data-open-view": "customers-view"
+                }));
+            }
+
+            const linkedProject = projectForLead(selectedLead);
+            if (linkedProject) {
+                actionButtons.push(buildCommandAction("Open job", "ghost-button", {
+                    "data-open-project": linkedProject.id,
+                    "data-open-view": "jobs-view"
+                }));
+            }
+        }
+
+        summaryChips.push(buildCommandChip("Open leads", openLeadCount));
+        summaryChips.push(buildCommandChip("Unassigned", unassignedLeadCount));
+        summaryChips.push(buildCommandChip("Estimate ready", estimateReadyCount));
+        summaryChips.push(buildCommandChip("Won", state.leads.filter((lead) => lead.status === "closed_won").length));
+    }
+
+    if (state.activeView === "customers-view") {
+        if (selectedCustomer?.id && isAdmin()) {
+            actionButtons.push(buildCommandAction("Create lead for customer", "secondary-button", { "data-command": "customer-create-lead" }));
+        }
+
+        const currentEstimateLead = selectedCustomer ? customerRollup(selectedCustomer).currentEstimateLead : null;
+        const latestCustomerProject = selectedCustomer ? latestByUpdated(customerRollup(selectedCustomer).projects) : null;
+
+        if (currentEstimateLead) {
+            actionButtons.push(buildCommandAction("Open current lead", "ghost-button", {
+                "data-open-lead": currentEstimateLead.id,
+                "data-open-view": "leads-view"
+            }));
+        }
+
+        if (latestCustomerProject) {
+            actionButtons.push(buildCommandAction("Open latest job", "ghost-button", {
+                "data-open-project": latestCustomerProject.id,
+                "data-open-view": "jobs-view"
+            }));
+        }
+
+        summaryChips.push(buildCommandChip("Customers", state.customers.length));
+        summaryChips.push(buildCommandChip("Repeat clients", repeatClientCount));
+        summaryChips.push(buildCommandChip("Open opportunities", state.leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status)).length));
+        summaryChips.push(buildCommandChip("Payments received", formatCurrency(totalPaymentsReceived)));
+    }
+
+    if (state.activeView === "jobs-view") {
+        if (selectedProject?.leadId) {
+            actionButtons.push(buildCommandAction("Open lead", "ghost-button", {
+                "data-open-lead": selectedProject.leadId,
+                "data-open-view": "leads-view"
+            }));
+        }
+
+        if (selectedProject?.customerId) {
+            actionButtons.push(buildCommandAction("Open customer", "ghost-button", {
+                "data-open-customer": selectedProject.customerId,
+                "data-open-view": "customers-view"
+            }));
+        }
+
+        if (selectedProject?.id) {
+            actionButtons.push(buildCommandAction("Job task", "ghost-button", { "data-command": "job-create-task" }));
+        }
+
+        const jobsAwaitingPayment = state.projects.filter((project) => {
+            return project.status !== "completed" && toNumber(project.financials?.totalPayments) < toNumber(project.jobValue);
+        }).length;
+
+        summaryChips.push(buildCommandChip("Active jobs", activeJobCount));
+        summaryChips.push(buildCommandChip("Completed", completedJobCount));
+        summaryChips.push(buildCommandChip("Awaiting payment", jobsAwaitingPayment));
+        summaryChips.push(buildCommandChip("Client paid", formatCurrency(totalPaymentsReceived)));
+    }
+
+    if (state.activeView === "staff-view") {
+        const activeStaff = isAdmin()
+            ? state.staffRoster.filter((member) => member.active !== false).length
+            : 1;
+        const adminCount = isAdmin()
+            ? state.staffRoster.filter((member) => member.active !== false && member.role === "admin").length
+            : (state.profile?.role === "admin" ? 1 : 0);
+        const defaultOwnerCount = isAdmin()
+            ? state.staffRoster.filter((member) => member.defaultLeadAssignee && member.active !== false).length
+            : Number(Boolean(state.profile?.defaultLeadAssignee));
+
+        summaryChips.push(buildCommandChip("Active staff", activeStaff));
+        summaryChips.push(buildCommandChip("Admins", adminCount));
+        summaryChips.push(buildCommandChip("Default owners", defaultOwnerCount));
+        summaryChips.push(buildCommandChip("Visible work", `${openLeadCount} leads / ${activeJobCount} jobs`));
+    }
+
+    refs.workspaceCommandBar.innerHTML = `
+        <div class="command-cluster">
+            <div class="command-actions">${actionButtons.join("")}</div>
+            <div class="command-summary">${summaryChips.join("")}</div>
+        </div>
+    `;
+}
+
+function renderMetricStrip(container, metrics) {
+    container.innerHTML = metrics.map((metric) => `
+        <article class="metric-card">
+            <span>${escapeHtml(metric.label)}</span>
+            <strong>${escapeHtml(metric.value)}</strong>
+        </article>
+    `).join("");
+}
+
+function stackCardButton({ title, copy = "", meta = "", dataAttrs = {}, pill = "", secondaryPill = "" }) {
+    const attributes = Object.entries(dataAttrs).map(([key, value]) => `${key}="${escapeHtml(value)}"`).join(" ");
+
+    return `
+        <button type="button" class="record-button" ${attributes}>
+            <div class="record-topline">
+                ${pill ? `<span class="mini-pill">${escapeHtml(pill)}</span>` : `<span class="mini-pill">Item</span>`}
+                ${secondaryPill ? `<span class="mini-pill">${escapeHtml(secondaryPill)}</span>` : ""}
+            </div>
+            <span class="record-title">${escapeHtml(title)}</span>
+            ${copy ? `<p class="record-copy">${escapeHtml(copy)}</p>` : ""}
+            ${meta ? `<div class="record-meta">${meta}</div>` : ""}
+        </button>
+    `;
+}
+
+function renderEmptyList(container, message) {
+    container.innerHTML = `<div class="empty-note">${escapeHtml(message)}</div>`;
+}
+
+function renderTodayView() {
+    const scopedTasks = taskScopeSet();
+    const overdueTasks = scopedTasks.filter((task) => taskIsOverdue(task)).sort((left, right) => taskSortValue(left) - taskSortValue(right));
+    const dueTodayTasks = scopedTasks.filter((task) => taskIsDueToday(task)).sort((left, right) => taskSortValue(left) - taskSortValue(right));
+    const newLeads = openLeadsForToday();
+    const estimateLeads = estimateReviewLeads();
+    const activeJobs = sortByUpdatedDesc(projectScopeSet().filter((project) => project.status !== "completed"));
+
+    renderMetricStrip(refs.todayMetrics, [
+        { label: "Overdue tasks", value: overdueTasks.length },
+        { label: "Due today", value: dueTodayTasks.length },
+        { label: "New leads", value: newLeads.length },
+        { label: "Active jobs", value: activeJobs.length }
+    ]);
+
+    if (!overdueTasks.length) {
+        renderEmptyList(refs.todayOverdueList, "No overdue tasks.");
+    } else {
+        refs.todayOverdueList.innerHTML = overdueTasks.slice(0, 8).map((task) => stackCardButton({
+            title: task.title || "Untitled task",
+            copy: linkedTaskLabel(task),
+            pill: PRIORITY_META[task.priority] || "Task",
+            secondaryPill: formatDateOnly(task.dueAt),
+            dataAttrs: {
+                "data-open-task": task.id,
+                "data-open-view": "tasks-view"
+            },
+            meta: `<div>${escapeHtml(task.assignedToName || task.assignedToEmail || "Unassigned")}</div>`
+        })).join("");
+    }
+
+    if (!dueTodayTasks.length) {
+        renderEmptyList(refs.todayDueTodayList, "No tasks due today.");
+    } else {
+        refs.todayDueTodayList.innerHTML = dueTodayTasks.slice(0, 8).map((task) => stackCardButton({
+            title: task.title || "Untitled task",
+            copy: linkedTaskLabel(task),
+            pill: TASK_STATUS_META[task.status] || "Task",
+            secondaryPill: formatDateTime(task.dueAt),
+            dataAttrs: {
+                "data-open-task": task.id,
+                "data-open-view": "tasks-view"
+            },
+            meta: `<div>${escapeHtml(task.assignedToName || task.assignedToEmail || "Unassigned")}</div>`
+        })).join("");
+    }
+
+    if (!newLeads.length) {
+        renderEmptyList(refs.todayNewLeadsList, "No new leads waiting.");
+    } else {
+        refs.todayNewLeadsList.innerHTML = newLeads.slice(0, 8).map((lead) => stackCardButton({
+            title: lead.clientName || "Unnamed lead",
+            copy: lead.projectAddress || "Address pending",
+            pill: STATUS_META[lead.status] || "Lead",
+            secondaryPill: lead.assignedToName || "Unassigned",
+            dataAttrs: {
+                "data-open-lead": lead.id,
+                "data-open-view": "leads-view"
+            },
+            meta: `<div>${escapeHtml(lead.projectType || "General scope")}</div><div>${escapeHtml(formatDateTime(lead.createdAt))}</div>`
+        })).join("");
+    }
+
+    if (!estimateLeads.length) {
+        renderEmptyList(refs.todayEstimatesList, "No estimates waiting for review.");
+    } else {
+        refs.todayEstimatesList.innerHTML = estimateLeads.slice(0, 8).map((lead) => stackCardButton({
+            title: lead.estimateTitle || lead.clientName || "Estimate draft",
+            copy: lead.projectAddress || "Address pending",
+            pill: "Estimate",
+            secondaryPill: formatCurrency(lead.estimateSubtotal || 0),
+            dataAttrs: {
+                "data-open-lead": lead.id,
+                "data-open-view": "leads-view"
+            },
+            meta: `<div>${escapeHtml(lead.assignedToName || "Unassigned")}</div>`
+        })).join("");
+    }
+
+    if (!activeJobs.length) {
+        renderEmptyList(refs.todayJobsList, "No active jobs need attention right now.");
+    } else {
+        refs.todayJobsList.innerHTML = activeJobs.slice(0, 8).map((project) => stackCardButton({
+            title: project.clientName || "Unnamed job",
+            copy: project.projectAddress || "Address pending",
+            pill: project.status === "completed" ? "Completed" : "In Progress",
+            secondaryPill: formatCurrency(project.financials?.profit || 0),
+            dataAttrs: {
+                "data-open-project": project.id,
+                "data-open-view": "jobs-view"
+            },
+            meta: `<div>${escapeHtml(project.projectType || "Project")}</div><div>Paid ${escapeHtml(formatCurrency(project.financials?.totalPayments || 0))}</div>`
+        })).join("");
+    }
+}
+
+function buildTaskMeta(task) {
+    return `
+        <div>${escapeHtml(linkedTaskLabel(task))}</div>
+        <div>${escapeHtml(task.assignedToName || task.assignedToEmail || "Unassigned")}</div>
+        <div>${escapeHtml(task.dueAt ? formatDateTime(task.dueAt) : "No due date")}</div>
+    `;
+}
+
+function renderTaskMetrics() {
+    renderMetricStrip(refs.taskMetrics, [
+        { label: "Open", value: state.tasks.filter((task) => !taskIsCompleted(task)).length },
+        { label: "Overdue", value: state.tasks.filter((task) => taskIsOverdue(task)).length },
+        { label: "Due today", value: state.tasks.filter((task) => taskIsDueToday(task)).length },
+        { label: "Completed", value: state.tasks.filter((task) => taskIsCompleted(task)).length }
+    ]);
+}
+
+function renderTaskList() {
+    const tasks = filteredTasks();
+
+    if (!tasks.length) {
+        renderEmptyList(refs.taskList, "No tasks match the current filters.");
+        return;
+    }
+
+    refs.taskList.innerHTML = tasks.map((task) => `
+        <button type="button" class="record-button ${task.id === state.selectedTaskId ? "is-selected" : ""}" data-task-id="${escapeHtml(task.id)}">
+            <div class="record-topline">
+                <span class="priority-pill ${escapeHtml(task.priority || "medium")}">${escapeHtml(PRIORITY_META[task.priority] || "Task")}</span>
+                <span class="mini-pill">${escapeHtml(TASK_STATUS_META[task.status] || "Open")}</span>
+            </div>
+            <span class="record-title">${escapeHtml(task.title || "Untitled task")}</span>
+            <p class="record-copy">${escapeHtml(task.description || linkedTaskLabel(task))}</p>
+            <div class="record-meta">${buildTaskMeta(task)}</div>
+        </button>
+    `).join("");
+}
+
+function renderTaskAssigneeOptions(select, selectedUid = "") {
+    const options = activeStaffOptions();
+
     if (!isAdmin()) {
-        const optionLabel = lead.assignedToName || state.profile?.displayName || "Assigned staff";
-        const optionValue = lead.assignedToUid || state.profile?.uid || "";
-        refs.leadAssigneeSelect.innerHTML = `<option value="${escapeHtml(optionValue)}">${escapeHtml(optionLabel)}</option>`;
+        const me = options[0];
+        select.innerHTML = `<option value="${escapeHtml(me?.uid || "")}">${escapeHtml(me?.displayName || me?.email || "Me")}</option>`;
+        select.disabled = true;
+        return;
+    }
+
+    select.disabled = false;
+    select.innerHTML = options.length
+        ? options.map((member) => `
+            <option value="${escapeHtml(member.uid || "")}" ${selectedUid === member.uid ? "selected" : ""} ${member.uid ? "" : "disabled"}>
+                ${escapeHtml((member.displayName || member.email) + (member.uid ? "" : " (sign in once to activate)"))}
+            </option>
+        `).join("")
+        : `<option value="">No staff available</option>`;
+}
+
+function renderTaskLinkedRecordOptions() {
+    const task = currentTask();
+    const linkedType = refs.taskLinkedTypeSelect.value || taskLinkedType(task);
+    const selectedId = linkedType === "lead"
+        ? task?.leadId
+        : linkedType === "customer"
+            ? task?.customerId
+            : linkedType === "project"
+                ? task?.projectId
+                : "";
+
+    let options = [];
+
+    if (linkedType === "lead") {
+        options = sortByUpdatedDesc(state.leads).map((lead) => ({
+            value: lead.id,
+            label: `${lead.clientName || "Unnamed lead"} · ${lead.projectAddress || "Address pending"}`
+        }));
+    } else if (linkedType === "customer") {
+        options = sortByUpdatedDesc(state.customers).map((customer) => ({
+            value: customer.id,
+            label: `${customer.name || "Unnamed customer"} · ${customer.primaryAddress || customer.primaryEmail || customer.primaryPhone || "No contact info"}`
+        }));
+    } else if (linkedType === "project") {
+        options = sortByUpdatedDesc(state.projects).map((project) => ({
+            value: project.id,
+            label: `${project.clientName || "Unnamed job"} · ${project.projectAddress || "Address pending"}`
+        }));
+    }
+
+    refs.taskLinkedRecordSelect.disabled = !linkedType;
+    refs.taskLinkedRecordSelect.innerHTML = !linkedType
+        ? `<option value="">Select a record type first</option>`
+        : options.length
+            ? options.map((option) => `
+                <option value="${escapeHtml(option.value)}" ${selectedId === option.value ? "selected" : ""}>
+                    ${escapeHtml(option.label)}
+                </option>
+            `).join("")
+            : `<option value="">No visible records</option>`;
+}
+
+function currentTaskLinkedSelection() {
+    const task = currentTask();
+    const linkedType = refs.taskLinkedTypeSelect.value || taskLinkedType(task);
+    const linkedId = refs.taskLinkedRecordSelect.value || (
+        linkedType === "lead"
+            ? task?.leadId
+            : linkedType === "customer"
+                ? task?.customerId
+                : linkedType === "project"
+                    ? task?.projectId
+                    : ""
+    );
+
+    return { linkedType, linkedId };
+}
+
+function renderTaskRelatedSummary() {
+    const task = currentTask();
+    if (!task) {
+        refs.taskRelatedSummary.innerHTML = "";
+        return;
+    }
+
+    const { linkedType, linkedId } = currentTaskLinkedSelection();
+    const parts = [];
+
+    if (linkedType === "lead" && linkedId) {
+        const lead = state.leads.find((item) => item.id === linkedId);
+        parts.push(`<div><strong>Lead:</strong> ${escapeHtml(lead?.clientName || lead?.projectAddress || linkedId)}</div>`);
+    }
+
+    if (linkedType === "customer" && linkedId) {
+        const customer = state.customers.find((item) => item.id === linkedId);
+        parts.push(`<div><strong>Customer:</strong> ${escapeHtml(customer?.name || linkedId)}</div>`);
+    }
+
+    if (linkedType === "project" && linkedId) {
+        const project = state.projects.find((item) => item.id === linkedId);
+        parts.push(`<div><strong>Job:</strong> ${escapeHtml(project?.clientName || project?.projectAddress || linkedId)}</div>`);
+    }
+
+    refs.taskRelatedSummary.innerHTML = parts.length ? parts.join("") : "No linked record.";
+}
+
+function renderTaskDetail() {
+    const task = currentTask();
+
+    if (!task) {
+        refs.taskDetailTitle.textContent = "Select a task";
+        refs.taskDetailBadge.textContent = "No task selected";
+        refs.taskDetailBadge.className = "status-pill neutral";
+        refs.taskRecordEmpty.hidden = false;
+        refs.taskDetailShell.hidden = true;
+        return;
+    }
+
+    refs.taskRecordEmpty.hidden = true;
+    refs.taskDetailShell.hidden = false;
+    refs.taskDetailTitle.textContent = task.title || "New task";
+    refs.taskDetailBadge.textContent = task.id ? (TASK_STATUS_META[task.status] || "Open") : "Draft";
+    refs.taskDetailBadge.className = task.id ? "status-pill" : "status-pill neutral";
+    refs.taskTitleInput.value = task.title || "";
+    refs.taskStatusSelect.value = task.status || "open";
+    refs.taskPrioritySelect.value = task.priority || "high";
+    refs.taskDueInput.value = formatDateInputValue(task.dueAt);
+    refs.taskDescriptionInput.value = task.description || "";
+    refs.taskLinkedTypeSelect.value = taskLinkedType(task);
+    renderTaskAssigneeOptions(refs.taskAssigneeSelect, task.assignedToUid || state.profile?.uid || "");
+    renderTaskLinkedRecordOptions();
+    refs.taskLinkedRecordSelect.value = task.leadId || task.customerId || task.projectId || refs.taskLinkedRecordSelect.value;
+    renderTaskRelatedSummary();
+    refs.taskCompleteButton.hidden = !task.id;
+}
+
+function renderLeadMetrics() {
+    const counts = leadCounts();
+    const winRate = state.leads.length ? `${Math.round((counts.closed_won / state.leads.length) * 100)}%` : "0%";
+
+    renderMetricStrip(refs.leadMetrics, [
+        { label: "New leads", value: counts.new_lead },
+        { label: "Follow up", value: counts.follow_up },
+        { label: "Estimate sent", value: counts.estimate_sent },
+        { label: "Win rate", value: winRate }
+    ]);
+}
+
+function renderCustomerOptions(selectedId = null) {
+    if (!isAdmin()) {
+        const lead = currentLead();
+        refs.leadCustomerSelect.innerHTML = lead?.customerId
+            ? `<option value="${escapeHtml(lead.customerId)}">${escapeHtml(lead.customerName || "Linked customer")}</option>`
+            : `<option value="">No linked customer</option>`;
+        refs.leadCustomerSelect.disabled = true;
+        return;
+    }
+
+    refs.leadCustomerSelect.disabled = false;
+    refs.leadCustomerSelect.innerHTML = [`<option value="">No linked customer</option>`].concat(
+        sortByUpdatedDesc(state.customers).map((customer) => `
+            <option value="${escapeHtml(customer.id)}" ${selectedId === customer.id ? "selected" : ""}>
+                ${escapeHtml(customer.name || "Unnamed customer")}
+            </option>
+        `)
+    ).join("");
+}
+
+function renderLeadAssigneeOptions(selectedUid = "") {
+    if (!isAdmin()) {
+        const lead = currentLead();
+        refs.leadAssigneeSelect.innerHTML = `<option value="${escapeHtml(lead?.assignedToUid || state.profile?.uid || "")}">${escapeHtml(lead?.assignedToName || state.profile?.displayName || "Assigned staff")}</option>`;
         refs.leadAssigneeSelect.disabled = true;
         return;
     }
 
-    const options = [`<option value="">Unassigned</option>`].concat(
+    refs.leadAssigneeSelect.disabled = false;
+    refs.leadAssigneeSelect.innerHTML = [`<option value="">Unassigned</option>`].concat(
         activeStaffOptions().map((member) => `
-            <option
-                value="${escapeHtml(member.uid || "")}"
-                ${lead.assignedToUid === member.uid ? "selected" : ""}
-                ${member.uid ? "" : "disabled"}
-            >
+            <option value="${escapeHtml(member.uid || "")}" ${selectedUid === member.uid ? "selected" : ""} ${member.uid ? "" : "disabled"}>
                 ${escapeHtml((member.displayName || member.email) + (member.uid ? "" : " (sign in once to activate)"))}
             </option>
         `)
-    );
-
-    refs.leadAssigneeSelect.innerHTML = options.join("");
-    refs.leadAssigneeSelect.disabled = false;
+    ).join("");
 }
 
-function renderLeadMeta(lead) {
-    refs.leadInfoMeta.innerHTML = [
-        ["Lead created", formatDateTime(lead.createdAt)],
-        ["Last updated", formatDateTime(lead.updatedAt || lead.createdAt)],
-        ["Lead source", lead.sourcePage || lead.sourceForm || "Website"],
-        ["Assigned staff", lead.assignedToName || "Unassigned"],
-        ["Consent", lead.consent ? "Yes" : "Not recorded"],
-        ["Current follow-up", lead.followUpAt ? formatDateTime(lead.followUpAt) : "Not scheduled"]
-    ].map(([key, value]) => `
-        <div class="meta-row">
-            <div class="meta-key">${escapeHtml(key)}</div>
-            <div class="meta-value">${escapeHtml(value)}</div>
-        </div>
+function renderLeadStageOptions(lead) {
+    const statusOptions = [
+        "new_lead",
+        "follow_up",
+        "estimate_sent",
+        "closed_won",
+        "closed_lost"
+    ];
+    const visibleStatuses = !isAdmin() && lead?.status !== "closed_won"
+        ? statusOptions.filter((status) => status !== "closed_won")
+        : statusOptions;
+
+    refs.leadStageSelect.innerHTML = visibleStatuses.map((status) => `
+        <option value="${escapeHtml(status)}" ${lead?.status === status ? "selected" : ""}>
+            ${escapeHtml(STATUS_META[status])}
+        </option>
     `).join("");
+
+    refs.leadStageSelect.disabled = !isAdmin() && lead?.status === "closed_won";
+}
+
+function renderLeadList() {
+    const leads = filteredLeads();
+
+    if (!leads.length) {
+        renderEmptyList(refs.leadList, "No leads match the current filters.");
+        return;
+    }
+
+    refs.leadList.innerHTML = leads.map((lead) => `
+        <button type="button" class="record-button ${lead.id === state.selectedLeadId && !state.leadDraft ? "is-selected" : ""}" data-lead-id="${escapeHtml(lead.id)}">
+            <div class="record-topline">
+                <span class="mini-pill">${escapeHtml(STATUS_META[lead.status] || "Lead")}</span>
+                <span class="mini-pill">${escapeHtml(lead.assignedToName || "Unassigned")}</span>
+            </div>
+            <span class="record-title">${escapeHtml(lead.clientName || "Unnamed lead")}</span>
+            <p class="record-copy">${escapeHtml(lead.projectAddress || "Address pending")}</p>
+            <div class="record-meta">
+                <div>${escapeHtml(lead.projectType || "General scope")}</div>
+                <div>${escapeHtml(lead.customerName || "No linked customer")}</div>
+                <div>${escapeHtml(formatDateTime(lead.updatedAt || lead.createdAt))}</div>
+            </div>
+        </button>
+    `).join("");
+}
+
+function renderLeadBoard() {
+    const leads = filteredLeads();
+    const statuses = ["new_lead", "follow_up", "estimate_sent", "closed_won", "closed_lost"];
+
+    refs.leadBoard.innerHTML = statuses.map((status) => {
+        const laneLeads = leads.filter((lead) => (lead.status || "new_lead") === status);
+        return `
+            <section class="pipeline-lane">
+                <div class="lane-head">
+                    <h3>${escapeHtml(STATUS_META[status])}</h3>
+                    <span>${laneLeads.length}</span>
+                </div>
+                ${laneLeads.length ? laneLeads.map((lead) => `
+                    <button type="button" class="record-button ${lead.id === state.selectedLeadId && !state.leadDraft ? "is-selected" : ""}" data-lead-id="${escapeHtml(lead.id)}">
+                        <div class="record-topline">
+                            <span class="mini-pill">${escapeHtml(lead.projectType || "Lead")}</span>
+                            <span class="mini-pill">${escapeHtml(lead.assignedToName || "Unassigned")}</span>
+                        </div>
+                        <span class="record-title">${escapeHtml(lead.clientName || "Unnamed lead")}</span>
+                        <p class="record-copy">${escapeHtml(lead.projectAddress || "Address pending")}</p>
+                    </button>
+                `).join("") : `<div class="empty-note">No leads in this stage.</div>`}
+            </section>
+        `;
+    }).join("");
+}
+
+function renderLeadListShell() {
+    const isBoard = state.leadLayout === "board";
+    refs.leadList.hidden = isBoard;
+    refs.leadBoard.hidden = !isBoard;
+    refs.leadLayoutButtons.forEach((button) => {
+        button.classList.toggle("is-active", button.dataset.leadLayout === state.leadLayout);
+    });
+
+    if (isBoard) {
+        renderLeadBoard();
+    } else {
+        renderLeadList();
+    }
+}
+
+function renderLeadOverviewSummary(lead) {
+    const linkedProject = projectForLead(lead);
+    const openLeadTasks = lead.id ? activeTasksForEntity("leadId", lead.id) : [];
+
+    refs.leadOverviewSummary.innerHTML = [
+        { label: "Assigned staff", value: lead.assignedToName || "Unassigned" },
+        { label: "Linked customer", value: lead.customerName || "No linked customer" },
+        { label: "Open tasks", value: openLeadTasks.length || "0" },
+        { label: "Estimate total", value: formatCurrency(lead.estimateSubtotal || state.estimate?.subtotal || 0) },
+        { label: "Job record", value: linkedProject ? (linkedProject.status === "completed" ? "Completed" : "In Progress") : "Not created" },
+        { label: "Last updated", value: formatDateTime(lead.updatedAt || lead.createdAt) }
+    ].map((item) => `
+        <article class="summary-card">
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.value)}</strong>
+        </article>
+    `).join("");
+}
+
+function renderLeadRecordContext(lead) {
+    if (!lead) {
+        refs.leadRecordContext.innerHTML = "";
+        return;
+    }
+
+    const linkedCustomer = lead.customerId ? state.customers.find((customer) => customer.id === lead.customerId) : null;
+    const linkedProject = projectForLead(lead);
+    const openLeadTasks = lead.id ? activeTasksForEntity("leadId", lead.id) : [];
+    const estimateTitle = safeString(state.estimate?.subject || lead.estimateTitle) || "Estimate not drafted";
+    const estimateMeta = lead.hasEstimate
+        ? `${formatCurrency(lead.estimateSubtotal || state.estimate?.subtotal || 0)} ready to review`
+        : "Draft an estimate when the scope is clear.";
+
+    refs.leadRecordContext.innerHTML = [
+        buildContextCard({
+            label: "Linked customer",
+            title: linkedCustomer?.name || "No linked customer",
+            meta: linkedCustomer
+                ? `${customerRollup(linkedCustomer).openLeads.length} open opportunities · ${customerRollup(linkedCustomer).projects.length} jobs`
+                : "Link this lead to keep repeat work under one customer card.",
+            dataAttrs: linkedCustomer
+                ? {
+                    "data-open-customer": linkedCustomer.id,
+                    "data-open-view": "customers-view"
+                }
+                : {},
+            muted: !linkedCustomer
+        }),
+        buildContextCard({
+            label: "Estimate",
+            title: lead.hasEstimate ? estimateTitle : "No estimate yet",
+            meta: estimateMeta,
+            dataAttrs: lead.id ? { "data-command": "lead-open-estimate" } : {},
+            muted: !lead.id
+        }),
+        buildContextCard({
+            label: "Open tasks",
+            title: lead.id ? String(openLeadTasks.length) : "Save first",
+            meta: lead.id
+                ? (openLeadTasks[0]?.title ? `Next: ${openLeadTasks[0].title}` : "Create the next action for this lead.")
+                : "Save the lead before creating tasks.",
+            dataAttrs: lead.id ? { "data-command": "lead-create-task" } : {},
+            muted: !lead.id
+        }),
+        buildContextCard({
+            label: "Job record",
+            title: linkedProject ? (linkedProject.status === "completed" ? "Completed job" : "In progress job") : "Not converted yet",
+            meta: linkedProject
+                ? `${formatCurrency(linkedProject.jobValue || 0)} contract value`
+                : "Use Mark won to create the operational job record.",
+            dataAttrs: linkedProject
+                ? {
+                    "data-open-project": linkedProject.id,
+                    "data-open-view": "jobs-view"
+                }
+                : {},
+            muted: !linkedProject
+        })
+    ].join("");
 }
 
 function renderActivityList(container, items, emptyMessage) {
     if (!items.length) {
-        container.innerHTML = `<div class="empty-note">${escapeHtml(emptyMessage)}</div>`;
+        renderEmptyList(container, emptyMessage);
         return;
     }
 
@@ -569,263 +1640,805 @@ function renderActivityList(container, items, emptyMessage) {
     `).join("");
 }
 
-function renderReminderList() {
-    const reminders = [...state.leadReminders].sort((left, right) => {
-        const leftTime = left.remindAt && typeof left.remindAt.toMillis === "function" ? left.remindAt.toMillis() : 0;
-        const rightTime = right.remindAt && typeof right.remindAt.toMillis === "function" ? right.remindAt.toMillis() : 0;
-        return rightTime - leftTime;
-    });
-
-    if (!reminders.length) {
-        refs.reminderList.innerHTML = `<div class="empty-note">No reminders set yet.</div>`;
-        return;
-    }
-
-    refs.reminderList.innerHTML = reminders.map((reminder) => `
-        <article class="timeline-item">
-            <strong>${escapeHtml(formatDateTime(reminder.remindAt))}</strong>
-            <p>${escapeHtml(reminder.message || "Follow up with the client.")}</p>
-            <div class="timeline-meta">
-                ${escapeHtml(reminder.status || "scheduled")} · Assigned to ${escapeHtml(reminder.assignedToName || "staff")}
-            </div>
-        </article>
-    `).join("");
-}
-
-function renderEstimateLines(lineItems) {
-    const rows = lineItems.length ? lineItems : [{ label: "", description: "", amount: "" }];
-
-    refs.estimateLines.innerHTML = rows.map((item, index) => `
-        <div class="line-item-row" data-line-index="${index}">
-            <input type="text" data-line-field="label" value="${escapeHtml(item.label || "")}" placeholder="Line item">
-            <input type="text" data-line-field="description" value="${escapeHtml(item.description || "")}" placeholder="What is included">
-            <input type="number" data-line-field="amount" value="${escapeHtml(item.amount ?? "")}" min="0" step="0.01" placeholder="0.00">
-            <button type="button" class="ghost-button" data-remove-line="${index}">Remove</button>
-        </div>
-    `).join("");
-
-    Array.from(refs.estimateLines.querySelectorAll("[data-remove-line]")).forEach((button) => {
-        button.addEventListener("click", () => {
-            const currentLines = collectEstimateForm().lineItems;
-            currentLines.splice(Number(button.dataset.removeLine), 1);
-            renderEstimateLines(currentLines);
-            updateEstimateSubtotal();
-        });
-    });
-
-    Array.from(refs.estimateLines.querySelectorAll("input")).forEach((input) => {
-        input.addEventListener("input", updateEstimateSubtotal);
-    });
-
-    updateEstimateSubtotal();
-}
-
 function collectEstimateForm() {
     const lineItems = Array.from(refs.estimateLines.querySelectorAll(".line-item-row")).map((row) => {
         const label = row.querySelector('[data-line-field="label"]').value.trim();
         const description = row.querySelector('[data-line-field="description"]').value.trim();
-        const amount = Number(row.querySelector('[data-line-field="amount"]').value || 0);
+        const amount = toNumber(row.querySelector('[data-line-field="amount"]').value);
         return { label, description, amount };
     }).filter((item) => item.label || item.description || item.amount);
 
-    const subtotal = lineItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const subtotal = lineItems.reduce((sum, item) => sum + toNumber(item.amount), 0);
 
     return {
         subject: refs.estimateSubject.value.trim(),
         emailBody: refs.estimateBody.value.trim(),
+        assumptions: refs.estimateAssumptions.value
+            .split("\n")
+            .map((item) => item.trim())
+            .filter(Boolean),
         lineItems,
         subtotal: Number(subtotal.toFixed(2))
     };
 }
 
-function updateEstimateSubtotal() {
-    refs.estimateSubtotal.textContent = formatCurrency(collectEstimateForm().subtotal);
+function defaultEstimateTitle(lead) {
+    const template = state.template || EMPTY_TEMPLATE;
+    return (template.subjectTemplate || EMPTY_TEMPLATE.subjectTemplate)
+        .replace("{{projectType}}", safeString(lead?.projectType) || "your project")
+        .replace("{{projectAddress}}", safeString(lead?.projectAddress) || "your property");
+}
+
+function buildTemplateEstimateDraft(lead) {
+    const projectType = safeString(lead?.projectType).toLowerCase();
+    const template = state.template || EMPTY_TEMPLATE;
+    let lineItems;
+
+    if (projectType.includes("bath")) {
+        lineItems = [
+            {
+                label: "Demolition and site prep",
+                description: "Protect the property, demo existing bathroom finishes, and prepare the room for rebuild.",
+                amount: 2200
+            },
+            {
+                label: "Rough plumbing and electrical coordination",
+                description: "Reset utility locations as needed and coordinate inspections for rough work.",
+                amount: 3600
+            },
+            {
+                label: "Tile, waterproofing, and finish installation",
+                description: "Install waterproofing, tile, trim, vanity, fixtures, and closeout details.",
+                amount: 8900
+            }
+        ];
+    } else if (projectType.includes("kitchen")) {
+        lineItems = [
+            {
+                label: "Demolition and protection",
+                description: "Protect occupied areas and prepare the kitchen for layout and rough work.",
+                amount: 3800
+            },
+            {
+                label: "Trade rough-ins and build-back",
+                description: "Coordinate electrical, plumbing, drywall, and prep for cabinetry and finishes.",
+                amount: 8600
+            },
+            {
+                label: "Cabinet, finish, and closeout scope",
+                description: "Install cabinets, finishes, fixtures, trim, and final punch items.",
+                amount: 12400
+            }
+        ];
+    } else if (projectType.includes("full")) {
+        lineItems = [
+            {
+                label: "Scope planning and protection",
+                description: "Initial demolition planning, site protection, and sequencing setup for a larger renovation.",
+                amount: 6200
+            },
+            {
+                label: "Core trade coordination",
+                description: "Structural, mechanical, electrical, and plumbing coordination during the main construction phase.",
+                amount: 18800
+            },
+            {
+                label: "Interior finish package and closeout",
+                description: "Drywall, trim, paint, finish carpentry, and final delivery across the renovated spaces.",
+                amount: 21400
+            }
+        ];
+    } else {
+        lineItems = [
+            {
+                label: "Initial site prep and demolition",
+                description: "Protect the property and open the work area for construction.",
+                amount: 2500
+            },
+            {
+                label: "Construction and coordination",
+                description: "Coordinate trade work, materials, and sequencing for the scope discussed.",
+                amount: 7600
+            },
+            {
+                label: "Finish installation and closeout",
+                description: "Install finish materials, punch items, and project closeout details.",
+                amount: 6800
+            }
+        ];
+    }
+
+    const subtotal = lineItems.reduce((sum, item) => sum + toNumber(item.amount), 0);
+
+    return {
+        subject: defaultEstimateTitle(lead),
+        emailBody: [
+            (template.greeting || EMPTY_TEMPLATE.greeting).replace("{{clientName}}", safeString(lead?.clientName) || "there"),
+            "",
+            template.intro || EMPTY_TEMPLATE.intro,
+            "",
+            "This is a planning estimate based on the information currently available. We can tighten the pricing further after a site review, finish confirmation, and final scope check."
+        ].join("\n"),
+        assumptions: [safeString(template.terms || EMPTY_TEMPLATE.terms)].filter(Boolean),
+        lineItems,
+        subtotal: Number(subtotal.toFixed(2))
+    };
+}
+
+function buildEstimatePreviewHtml(lead, estimateDraft) {
+    const template = state.template || EMPTY_TEMPLATE;
+    const leadName = safeString(lead?.clientName) || "Client";
+    const title = safeString(estimateDraft.subject) || defaultEstimateTitle(lead);
+    const overviewBlocks = (safeString(estimateDraft.emailBody) || safeString(template.intro))
+        .split("\n")
+        .map((paragraph) => paragraph.trim())
+        .filter(Boolean);
+    const assumptions = Array.isArray(estimateDraft.assumptions) && estimateDraft.assumptions.length
+        ? estimateDraft.assumptions
+        : (safeString(template.terms) ? [safeString(template.terms)] : []);
+    const lineItems = Array.isArray(estimateDraft.lineItems) ? estimateDraft.lineItems : [];
+    const rows = lineItems.length
+        ? lineItems.map((item) => `
+            <tr>
+                <td>
+                    <strong>${escapeHtml(item.label || "Line item")}</strong>
+                    <span>${escapeHtml(item.description || "Scope to be confirmed.")}</span>
+                </td>
+                <td>${escapeHtml(formatCurrency(item.amount || 0))}</td>
+            </tr>
+        `).join("")
+        : `
+            <tr>
+                <td>
+                    <strong>Scope pending</strong>
+                    <span>Add line items or create a draft estimate to start the scope.</span>
+                </td>
+                <td>${escapeHtml(formatCurrency(0))}</td>
+            </tr>
+        `;
+
+    return `
+        <article class="estimate-sheet">
+            <header class="estimate-sheet-header">
+                <div>
+                    <div class="estimate-eyebrow">Golden Brick Construction</div>
+                    <h3>${escapeHtml(title)}</h3>
+                    <p class="estimate-greeting">${escapeHtml((template.greeting || EMPTY_TEMPLATE.greeting).replace("{{clientName}}", leadName))}</p>
+                </div>
+                <div class="estimate-meta">
+                    <div><span>Client</span><strong>${escapeHtml(leadName)}</strong></div>
+                    <div><span>Address</span><strong>${escapeHtml(lead?.projectAddress || "To be confirmed")}</strong></div>
+                    <div><span>Project type</span><strong>${escapeHtml(lead?.projectType || "General scope")}</strong></div>
+                </div>
+            </header>
+
+            <section class="estimate-copy-block">
+                ${overviewBlocks.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
+            </section>
+
+            <section>
+                <table class="estimate-table">
+                    <thead>
+                        <tr>
+                            <th>Scope</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                    <tfoot>
+                        <tr>
+                            <td>Estimated Total</td>
+                            <td>${escapeHtml(formatCurrency(estimateDraft.subtotal || 0))}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </section>
+
+            <section class="estimate-foot">
+                <div>
+                    <h4>Assumptions / Exclusions</h4>
+                    <ul>${assumptions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+                </div>
+                <div>
+                    <h4>Next Step</h4>
+                    <p>${escapeHtml(template.outro || EMPTY_TEMPLATE.outro)}</p>
+                </div>
+            </section>
+        </article>
+    `;
+}
+
+function buildEstimatePlainText(lead, estimateDraft) {
+    const template = state.template || EMPTY_TEMPLATE;
+    const assumptions = Array.isArray(estimateDraft.assumptions) && estimateDraft.assumptions.length
+        ? estimateDraft.assumptions
+        : (safeString(template.terms) ? [safeString(template.terms)] : []);
+
+    return [
+        safeString(estimateDraft.subject) || defaultEstimateTitle(lead),
+        "",
+        (template.greeting || EMPTY_TEMPLATE.greeting).replace("{{clientName}}", safeString(lead?.clientName) || "Client"),
+        "",
+        safeString(estimateDraft.emailBody) || safeString(template.intro),
+        "",
+        "Project Address: " + (safeString(lead?.projectAddress) || "To be confirmed"),
+        "Project Type: " + (safeString(lead?.projectType) || "General scope"),
+        "",
+        "Line Items",
+        (estimateDraft.lineItems || []).map((item) => {
+            return [
+                `- ${item.label || "Line item"}: ${formatCurrency(item.amount || 0)}`,
+                item.description ? `  ${item.description}` : ""
+            ].filter(Boolean).join("\n");
+        }).join("\n") || "- Scope pending",
+        "",
+        "Estimated Total: " + formatCurrency(estimateDraft.subtotal || 0),
+        "",
+        "Assumptions / Exclusions",
+        assumptions.length ? assumptions.map((item) => `- ${item}`).join("\n") : "- None listed",
+        "",
+        safeString(template.outro || EMPTY_TEMPLATE.outro)
+    ].join("\n");
+}
+
+function renderEstimateLines(lineItems) {
+    const rows = lineItems.length ? lineItems : [{ label: "", description: "", amount: "" }];
+    const editable = isAdmin();
+
+    refs.estimateLines.innerHTML = rows.map((item, index) => `
+        <div class="line-item-row" data-line-index="${index}">
+            <input type="text" data-line-field="label" value="${escapeHtml(item.label || "")}" placeholder="Line item" ${editable ? "" : "disabled"}>
+            <input type="text" data-line-field="description" value="${escapeHtml(item.description || "")}" placeholder="What is included" ${editable ? "" : "disabled"}>
+            <input type="number" data-line-field="amount" value="${escapeHtml(item.amount ?? "")}" min="0" step="0.01" placeholder="0.00" ${editable ? "" : "disabled"}>
+            <button type="button" class="ghost-button" data-remove-line="${index}" ${editable ? "" : "hidden disabled"}>Remove</button>
+        </div>
+    `).join("");
+
+    Array.from(refs.estimateLines.querySelectorAll("[data-remove-line]")).forEach((button) => {
+        button.addEventListener("click", () => {
+            const lines = collectEstimateForm().lineItems;
+            lines.splice(Number(button.dataset.removeLine), 1);
+            renderEstimateLines(lines);
+            updateEstimatePreview();
+        });
+    });
+
+    Array.from(refs.estimateLines.querySelectorAll("input")).forEach((input) => {
+        input.addEventListener("input", updateEstimatePreview);
+    });
+}
+
+function updateEstimatePreview() {
+    const lead = currentLead();
+    if (!lead) {
+        refs.estimatePreview.innerHTML = `<div class="empty-note">Save or select a lead to preview the estimate.</div>`;
+        refs.estimateSubtotal.textContent = formatCurrency(0);
+        return;
+    }
+
+    const estimate = collectEstimateForm();
+    refs.estimateSubtotal.textContent = formatCurrency(estimate.subtotal);
+    refs.estimatePreview.innerHTML = buildEstimatePreviewHtml(lead, estimate);
 }
 
 function renderEstimatePanel() {
+    const lead = currentLead();
     const estimate = state.estimate || {
         subject: "",
         emailBody: "",
+        assumptions: [],
         lineItems: []
     };
 
-    refs.estimateSubject.value = estimate.subject || "";
+    refs.estimateSubject.value = estimate.subject || defaultEstimateTitle(lead);
     refs.estimateBody.value = estimate.emailBody || "";
+    refs.estimateAssumptions.value = Array.isArray(estimate.assumptions) ? estimate.assumptions.join("\n") : "";
+    refs.estimateSubject.readOnly = !isAdmin();
+    refs.estimateBody.readOnly = !isAdmin();
+    refs.estimateAssumptions.readOnly = !isAdmin();
     renderEstimateLines(Array.isArray(estimate.lineItems) ? estimate.lineItems : []);
+    updateEstimatePreview();
+}
+
+function renderEntityTaskList(container, tasks, emptyMessage) {
+    if (!tasks.length) {
+        renderEmptyList(container, emptyMessage);
+        return;
+    }
+
+    container.innerHTML = tasks.map((task) => `
+        <button type="button" class="record-button" data-task-id="${escapeHtml(task.id)}" data-open-view="tasks-view">
+            <div class="record-topline">
+                <span class="priority-pill ${escapeHtml(task.priority || "medium")}">${escapeHtml(PRIORITY_META[task.priority] || "Task")}</span>
+                <span class="mini-pill">${escapeHtml(TASK_STATUS_META[task.status] || "Open")}</span>
+            </div>
+            <span class="record-title">${escapeHtml(task.title || "Untitled task")}</span>
+            <p class="record-copy">${escapeHtml(task.description || linkedTaskLabel(task))}</p>
+            <div class="record-meta">
+                <div>${escapeHtml(task.assignedToName || task.assignedToEmail || "Unassigned")}</div>
+                <div>${escapeHtml(task.dueAt ? formatDateTime(task.dueAt) : "No due date")}</div>
+            </div>
+        </button>
+    `).join("");
+}
+
+function renderLeadTabState() {
+    refs.leadTabButtons.forEach((button) => {
+        button.classList.toggle("is-active", button.dataset.leadTab === state.activeLeadTab);
+    });
+
+    Array.from(document.querySelectorAll("#lead-record-shell .tab-pane")).forEach((pane) => {
+        pane.classList.toggle("is-active", pane.id === `lead-tab-${state.activeLeadTab}`);
+    });
+}
+
+function renderLeadJobSummary(lead) {
+    const project = projectForLead(lead);
+
+    if (!project) {
+        refs.leadJobSummary.innerHTML = `<div class="empty-note">This lead has not been converted into a job yet.</div>`;
+        return;
+    }
+
+    refs.leadJobSummary.innerHTML = `
+        <div><strong>Job status:</strong> ${escapeHtml(project.status === "completed" ? "Completed" : "In Progress")}</div>
+        <div><strong>Contract value:</strong> ${escapeHtml(formatCurrency(project.jobValue || 0))}</div>
+        <div><strong>Client paid:</strong> ${escapeHtml(formatCurrency(project.financials?.totalPayments || 0))}</div>
+        <div><strong>Profit tracked:</strong> ${escapeHtml(formatCurrency(project.financials?.profit || 0))}</div>
+        <div><button type="button" class="secondary-button" data-open-project="${escapeHtml(project.id)}" data-open-view="jobs-view">Open job record</button></div>
+    `;
 }
 
 function renderLeadDetail() {
     const lead = currentLead();
 
     if (!lead) {
-        refs.selectedLeadTitle.textContent = "Select a lead";
-        refs.selectedLeadBadge.textContent = "No lead selected";
-        refs.selectedLeadBadge.className = "status-pill neutral";
-        refs.leadEmptyState.hidden = false;
-        refs.leadDetailShell.hidden = true;
+        refs.leadRecordTitle.textContent = "Select a lead";
+        refs.leadRecordBadge.textContent = "No lead selected";
+        refs.leadRecordBadge.className = "status-pill neutral";
+        refs.leadRecordContext.innerHTML = "";
+        refs.leadRecordEmpty.hidden = false;
+        refs.leadRecordShell.hidden = true;
         return;
     }
 
-    refs.leadEmptyState.hidden = true;
-    refs.leadDetailShell.hidden = false;
-    refs.selectedLeadTitle.textContent = lead.clientName || "Unnamed lead";
-    refs.selectedLeadBadge.textContent = STATUS_META[lead.status || "new_lead"];
-    refs.selectedLeadBadge.className = "status-pill";
-
+    refs.leadRecordEmpty.hidden = true;
+    refs.leadRecordShell.hidden = false;
+    refs.leadRecordTitle.textContent = lead.clientName || "New lead";
+    refs.leadRecordBadge.textContent = lead.id ? (STATUS_META[lead.status] || "Lead") : "Draft";
+    refs.leadRecordBadge.className = lead.id ? "status-pill" : "status-pill neutral";
     refs.leadClientName.value = lead.clientName || "";
     refs.leadClientEmail.value = lead.clientEmail || "";
     refs.leadClientPhone.value = lead.clientPhone || "";
     refs.leadProjectAddress.value = lead.projectAddress || "";
     refs.leadProjectType.value = lead.projectType || "";
-    refs.leadStatusSelect.value = lead.status || "new_lead";
-    refs.leadSourceDisplay.value = lead.sourcePage || lead.sourceForm || "Website";
+    renderLeadStageOptions(lead);
     refs.leadNotesInput.value = lead.notes || "";
-    renderLeadAssigneeOptions(lead);
-    renderLeadMeta(lead);
+    refs.leadSourceDisplay.value = lead.sourcePage || lead.sourceForm || "Staff CRM";
+    refs.leadEstimateDisplay.value = formatCurrency(lead.estimateSubtotal || state.estimate?.subtotal || 0);
+    renderLeadAssigneeOptions(lead.assignedToUid || "");
+    renderCustomerOptions(lead.customerId || null);
 
-    const communicationEntries = state.leadActivities.filter((activity) => ["call", "text", "email", "site_visit"].includes(activity.activityType));
-    const noteEntries = state.leadActivities.filter((activity) => activity.activityType === "note");
-    renderActivityList(refs.communicationList, communicationEntries, "No communication logged yet.");
-    renderActivityList(refs.noteList, noteEntries, "No internal notes yet.");
+    refs.leadMeta.innerHTML = `
+        <div><strong>Created:</strong> ${escapeHtml(lead.createdAt ? formatDateTime(lead.createdAt) : "Not saved yet")}</div>
+        <div><strong>Updated:</strong> ${escapeHtml(lead.updatedAt ? formatDateTime(lead.updatedAt) : "Not saved yet")}</div>
+        <div><strong>Lead source:</strong> ${escapeHtml(lead.sourcePage || lead.sourceForm || "Staff CRM")}</div>
+        <div><strong>Customer:</strong> ${escapeHtml(lead.customerName || "No linked customer")}</div>
+    `;
 
-    refs.followupAt.value = formatDateForInput(lead.followUpAt);
-    renderReminderList();
+    renderLeadRecordContext(lead);
+    renderLeadOverviewSummary(lead);
+    renderActivityList(refs.noteList, state.leadActivities, "No activity recorded yet.");
     renderEstimatePanel();
+    renderEntityTaskList(refs.leadTaskList, lead.id ? relatedTasksForEntity("leadId", lead.id) : [], "Save the lead first to attach tasks.");
+    renderLeadJobSummary(lead);
+    renderLeadTabState();
+
+    renderTaskAssigneeOptions(refs.leadTaskAssignee, lead.assignedToUid || state.profile?.uid || "");
+    refs.leadTaskForm.querySelector("button").disabled = !lead.id;
+    refs.noteForm.querySelector("button").disabled = !lead.id;
+    refs.estimateAiButton.disabled = !lead.id || !isAdmin();
+    refs.estimateAddLineButton.disabled = !isAdmin();
+    refs.leadCreateTaskButton.disabled = !lead.id;
+    refs.leadMarkWonButton.disabled = !lead.id || !isAdmin();
+    refs.leadMarkLostButton.disabled = !lead.id;
 }
 
-function renderProjectList() {
-    const sorted = [...state.projects].sort((left, right) => {
-        const leftTime = left.updatedAt && typeof left.updatedAt.toMillis === "function" ? left.updatedAt.toMillis() : 0;
-        const rightTime = right.updatedAt && typeof right.updatedAt.toMillis === "function" ? right.updatedAt.toMillis() : 0;
-        return rightTime - leftTime;
-    });
+function renderCustomerMetrics() {
+    const totalSales = state.customers.reduce((sum, customer) => {
+        return sum + toNumber(customer.totalWonSales || customerRollup(customer).totalWonSales);
+    }, 0);
+    const totalPayments = state.customers.reduce((sum, customer) => {
+        return sum + toNumber(customer.totalPaymentsReceived || customerRollup(customer).totalPaymentsReceived);
+    }, 0);
 
-    if (!sorted.length) {
-        refs.projectList.innerHTML = `<div class="empty-note">No won projects yet.</div>`;
+    renderMetricStrip(refs.customerMetrics, [
+        { label: "Customers", value: state.customers.length },
+        { label: "Open opportunities", value: state.leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status)).length },
+        { label: "Won sales", value: formatCurrency(totalSales) },
+        { label: "Payments received", value: formatCurrency(totalPayments) }
+    ]);
+}
+
+function renderCustomerList() {
+    const customers = filteredCustomers();
+
+    if (!customers.length) {
+        renderEmptyList(refs.customerList, "No customers match the current search.");
         return;
     }
 
-    refs.projectList.innerHTML = sorted.map((project) => `
-        <button type="button" class="project-card ${project.id === state.selectedProjectId ? "is-selected" : ""}" data-project-id="${escapeHtml(project.id)}">
-            <div class="card-topline">
+    refs.customerList.innerHTML = customers.map((customer) => {
+        const rollup = customerRollup(customer);
+        return `
+            <button type="button" class="record-button ${customer.id === state.selectedCustomerId && !state.customerDraft ? "is-selected" : ""}" data-customer-id="${escapeHtml(customer.id)}">
+                <div class="record-topline">
+                    <span class="mini-pill">${escapeHtml(`${rollup.openLeads.length} open`)}</span>
+                    <span class="mini-pill">${escapeHtml(`${rollup.projects.length} jobs`)}</span>
+                </div>
+                <span class="record-title">${escapeHtml(customer.name || "Unnamed customer")}</span>
+                <p class="record-copy">${escapeHtml(customer.primaryAddress || customer.primaryEmail || customer.primaryPhone || "No contact info")}</p>
+                <div class="record-meta">
+                    <div>${escapeHtml(customer.primaryPhone || "No phone")}</div>
+                    <div>${escapeHtml(formatCurrency(rollup.totalWonSales))} won sales</div>
+                    <div>${escapeHtml(formatCurrency(rollup.totalPaymentsReceived))} payments received</div>
+                </div>
+            </button>
+        `;
+    }).join("");
+}
+
+function renderCustomerRecordContext(customer, rollup) {
+    if (!customer) {
+        refs.customerRecordContext.innerHTML = "";
+        return;
+    }
+
+    const latestLead = latestByUpdated(rollup.openLeads);
+    const latestProject = latestByUpdated(rollup.projects);
+    const openCustomerTasks = customer.id ? activeTasksForEntity("customerId", customer.id) : [];
+    const contactValue = customer.primaryPhone || customer.primaryEmail || customer.primaryAddress || "Add contact details";
+    const contactMeta = [customer.primaryEmail, customer.primaryAddress].filter(Boolean).join(" · ") || "Main investor contact details live here.";
+
+    refs.customerRecordContext.innerHTML = [
+        buildContextCard({
+            label: "Primary contact",
+            title: contactValue,
+            meta: contactMeta,
+            muted: true
+        }),
+        buildContextCard({
+            label: "Current opportunity",
+            title: latestLead ? (latestLead.clientName || latestLead.projectAddress || "Open lead") : "No open opportunity",
+            meta: latestLead
+                ? `${STATUS_META[latestLead.status] || "Lead"} · ${formatCurrency(latestLead.estimateSubtotal || 0)}`
+                : "Create a new lead when this client has another project.",
+            dataAttrs: latestLead
+                ? {
+                    "data-open-lead": latestLead.id,
+                    "data-open-view": "leads-view"
+                }
+                : {},
+            muted: !latestLead
+        }),
+        buildContextCard({
+            label: "Latest job",
+            title: latestProject ? (latestProject.projectAddress || latestProject.clientName || "Job record") : "No job yet",
+            meta: latestProject
+                ? `${latestProject.status === "completed" ? "Completed" : "In progress"} · Paid ${formatCurrency(latestProject.financials?.totalPayments || 0)}`
+                : "Won work for this customer will appear here.",
+            dataAttrs: latestProject
+                ? {
+                    "data-open-project": latestProject.id,
+                    "data-open-view": "jobs-view"
+                }
+                : {},
+            muted: !latestProject
+        }),
+        buildContextCard({
+            label: "Open tasks",
+            title: customer.id ? String(openCustomerTasks.length) : "Save first",
+            meta: customer.id
+                ? (openCustomerTasks[0]?.title ? `Next: ${openCustomerTasks[0].title}` : "No active account-level tasks.")
+                : "Save the customer before creating tasks.",
+            muted: true
+        })
+    ].join("");
+}
+
+function renderCustomerDetail() {
+    const customer = currentCustomer();
+
+    if (!customer) {
+        refs.customerRecordTitle.textContent = "Select a customer";
+        refs.customerRecordBadge.textContent = "No customer selected";
+        refs.customerRecordBadge.className = "status-pill neutral";
+        refs.customerRecordContext.innerHTML = "";
+        refs.customerRecordEmpty.hidden = false;
+        refs.customerRecordShell.hidden = true;
+        return;
+    }
+
+    const rollup = customerRollup(customer);
+
+    refs.customerRecordEmpty.hidden = true;
+    refs.customerRecordShell.hidden = false;
+    refs.customerRecordTitle.textContent = customer.name || "New customer";
+    refs.customerRecordBadge.textContent = customer.id ? `${rollup.projects.length} jobs linked` : "Draft";
+    refs.customerRecordBadge.className = customer.id ? "status-pill" : "status-pill neutral";
+    refs.customerNameInput.value = customer.name || "";
+    refs.customerEmailInput.value = customer.primaryEmail || "";
+    refs.customerPhoneInput.value = customer.primaryPhone || "";
+    refs.customerAddressInput.value = customer.primaryAddress || "";
+    refs.customerNotesInput.value = customer.notes || "";
+
+    renderCustomerRecordContext(customer, rollup);
+    refs.customerSummary.innerHTML = [
+        { label: "Open opportunities", value: rollup.openLeads.length },
+        { label: "Won jobs", value: rollup.projects.length },
+        { label: "Lost leads", value: rollup.lostLeads.length },
+        { label: "Won sales", value: formatCurrency(rollup.totalWonSales) },
+        { label: "Payments received", value: formatCurrency(rollup.totalPaymentsReceived) },
+        { label: "Current estimate", value: rollup.currentEstimateLead ? formatCurrency(rollup.currentEstimateLead.estimateSubtotal || 0) : "None" }
+    ].map((item) => `
+        <article class="summary-card">
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.value)}</strong>
+        </article>
+    `).join("");
+
+    if (!rollup.openLeads.length) {
+        renderEmptyList(refs.customerOpportunitiesList, "No open opportunities linked to this customer.");
+    } else {
+        refs.customerOpportunitiesList.innerHTML = rollup.openLeads.map((lead) => stackCardButton({
+            title: lead.clientName || "Unnamed lead",
+            copy: lead.projectAddress || "Address pending",
+            pill: STATUS_META[lead.status] || "Lead",
+            secondaryPill: formatCurrency(lead.estimateSubtotal || 0),
+            dataAttrs: {
+                "data-open-lead": lead.id,
+                "data-open-view": "leads-view"
+            },
+            meta: `<div>${escapeHtml(lead.projectType || "General scope")}</div>`
+        })).join("");
+    }
+
+    if (!rollup.projects.length) {
+        renderEmptyList(refs.customerJobsList, "No jobs linked to this customer yet.");
+    } else {
+        refs.customerJobsList.innerHTML = rollup.projects.map((project) => stackCardButton({
+            title: project.clientName || "Unnamed job",
+            copy: project.projectAddress || "Address pending",
+            pill: project.status === "completed" ? "Completed" : "In Progress",
+            secondaryPill: formatCurrency(project.jobValue || 0),
+            dataAttrs: {
+                "data-open-project": project.id,
+                "data-open-view": "jobs-view"
+            },
+            meta: `<div>Paid ${escapeHtml(formatCurrency(project.financials?.totalPayments || 0))}</div>`
+        })).join("");
+    }
+
+    refs.customerCurrentEstimate.innerHTML = rollup.currentEstimateLead
+        ? `
+            <div><strong>${escapeHtml(rollup.currentEstimateLead.estimateTitle || "Current estimate")}</strong></div>
+            <div>${escapeHtml(rollup.currentEstimateLead.projectAddress || "Address pending")}</div>
+            <div>${escapeHtml(formatCurrency(rollup.currentEstimateLead.estimateSubtotal || 0))}</div>
+            <div><button type="button" class="secondary-button" data-open-lead="${escapeHtml(rollup.currentEstimateLead.id)}" data-open-view="leads-view">Open lead</button></div>
+        `
+        : "No active estimate linked to this customer.";
+
+    renderEntityTaskList(refs.customerTaskList, customer.id ? relatedTasksForEntity("customerId", customer.id) : [], "Save the customer first to attach tasks.");
+    renderTaskAssigneeOptions(refs.customerTaskAssignee, state.profile?.uid || "");
+    refs.customerTaskForm.querySelector("button").disabled = !customer.id;
+}
+
+function renderJobMetrics() {
+    const inProgress = state.projects.filter((project) => project.status !== "completed").length;
+    const completed = state.projects.filter((project) => project.status === "completed").length;
+    const totalPayments = state.projects.reduce((sum, project) => sum + toNumber(project.financials?.totalPayments), 0);
+    const totalProfit = state.projects.reduce((sum, project) => sum + toNumber(project.financials?.profit), 0);
+
+    renderMetricStrip(refs.jobMetrics, [
+        { label: "In progress", value: inProgress },
+        { label: "Completed", value: completed },
+        { label: "Client paid", value: formatCurrency(totalPayments) },
+        { label: "Profit tracked", value: formatCurrency(totalProfit) }
+    ]);
+}
+
+function renderJobList() {
+    const projects = filteredProjects();
+
+    if (!projects.length) {
+        renderEmptyList(refs.jobList, "No jobs match the current filters.");
+        return;
+    }
+
+    refs.jobList.innerHTML = projects.map((project) => `
+        <button type="button" class="record-button ${project.id === state.selectedProjectId ? "is-selected" : ""}" data-project-id="${escapeHtml(project.id)}">
+            <div class="record-topline">
                 <span class="mini-pill">${escapeHtml(project.status === "completed" ? "Completed" : "In Progress")}</span>
                 <span class="mini-pill">${escapeHtml(project.projectType || "Project")}</span>
             </div>
-            <h3 class="card-title">${escapeHtml(project.clientName || "Unnamed project")}</h3>
-            <p class="card-copy">${escapeHtml(project.projectAddress || "Address pending")}</p>
-            <div class="card-meta">
-                <div>Payments ${escapeHtml(formatCurrency(project.financials?.totalPayments || 0))}</div>
-                <div>Expenses ${escapeHtml(formatCurrency(project.financials?.totalExpenses || 0))}</div>
+            <span class="record-title">${escapeHtml(project.clientName || "Unnamed job")}</span>
+            <p class="record-copy">${escapeHtml(project.projectAddress || "Address pending")}</p>
+            <div class="record-meta">
+                <div>${escapeHtml(project.customerName || "No linked customer")}</div>
+                <div>Paid ${escapeHtml(formatCurrency(project.financials?.totalPayments || 0))}</div>
                 <div>Profit ${escapeHtml(formatCurrency(project.financials?.profit || 0))}</div>
             </div>
         </button>
     `).join("");
-
-    Array.from(refs.projectList.querySelectorAll("[data-project-id]")).forEach((button) => {
-        button.addEventListener("click", () => {
-            selectProject(button.dataset.projectId);
-        });
-    });
 }
 
 function renderWorkerAssignments(project) {
-    const roster = isAdmin()
-        ? activeStaffOptions()
-        : normaliseWorkers(project.assignedWorkers || []);
+    const roster = isAdmin() ? activeStaffOptions() : (project.assignedWorkers || []).map((worker) => ({
+        uid: worker.uid,
+        email: worker.email,
+        displayName: worker.name || worker.email
+    }));
 
     if (!roster.length) {
-        refs.workerAssignmentList.innerHTML = `<div class="empty-note">No staff records available yet.</div>`;
+        renderEmptyList(refs.workerAssignmentList, "No staff records available yet.");
         return;
     }
 
     refs.workerAssignmentList.innerHTML = roster.map((member) => {
-        const uid = member.uid || "";
-        const assigned = (project.assignedWorkers || []).find((worker) => worker.uid === uid || worker.email === member.email);
-        const checked = Boolean(assigned);
-        const percent = assigned ? Number(assigned.percent || 0) : 0;
-        const editable = isAdmin() && Boolean(uid);
-
+        const key = member.uid || member.email || "";
+        const assigned = (project.assignedWorkers || []).find((worker) => worker.uid === member.uid || worker.email === member.email);
+        const editable = isAdmin() && Boolean(member.uid);
         return `
             <div class="worker-row">
                 <label>
-                    <input type="checkbox" data-worker-check="${escapeHtml(uid || member.email || "")}" ${checked ? "checked" : ""} ${editable ? "" : "disabled"}>
-                    <span>${escapeHtml((member.displayName || member.name || member.email) + (isAdmin() && !uid ? " (sign in once to activate)" : ""))}</span>
+                    <input type="checkbox" data-worker-check="${escapeHtml(key)}" ${assigned ? "checked" : ""} ${editable ? "" : "disabled"}>
+                    <span>${escapeHtml((member.displayName || member.email || "Assigned worker") + (isAdmin() && !member.uid ? " (sign in once to activate)" : ""))}</span>
                 </label>
-                <input type="number" data-worker-percent="${escapeHtml(uid || member.email || "")}" min="0" step="0.01" value="${checked ? escapeHtml(percent) : ""}" placeholder="% split" ${editable ? "" : "disabled"}>
+                <input type="number" data-worker-percent="${escapeHtml(key)}" min="0" step="0.01" value="${escapeHtml(assigned?.percent ?? "")}" placeholder="% split" ${editable ? "" : "disabled"}>
             </div>
         `;
     }).join("");
 }
 
-function normaliseWorkers(workers) {
-    return (workers || []).map((worker) => ({
-        uid: worker.uid || "",
-        displayName: worker.name || worker.displayName || worker.email || "Assigned worker",
-        email: worker.email || "",
-        percent: Number(worker.percent || 0)
-    }));
-}
-
 function renderFinanceSummary(project) {
     const financials = project.financials || {};
-    const cards = [
-        ["Client paid", formatCurrency(financials.totalPayments || 0)],
-        ["Expenses", formatCurrency(financials.totalExpenses || 0)],
-        ["Profit", formatCurrency(financials.profit || 0)],
-        ["Company share", formatCurrency(financials.companyShare || 0)],
-        ["Worker pool", formatCurrency(financials.workerPool || 0)]
-    ];
 
-    refs.financeSummary.innerHTML = cards.map(([label, value]) => `
+    refs.financeSummary.innerHTML = [
+        { label: "Client paid", value: formatCurrency(financials.totalPayments || 0) },
+        { label: "Expenses", value: formatCurrency(financials.totalExpenses || 0) },
+        { label: "Profit", value: formatCurrency(financials.profit || 0) },
+        { label: "Company share", value: formatCurrency(financials.companyShare || 0) },
+        { label: "Worker pool", value: formatCurrency(financials.workerPool || 0) }
+    ].map((item) => `
         <article class="finance-card">
-            <span>${escapeHtml(label)}</span>
-            <strong>${escapeHtml(value)}</strong>
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.value)}</strong>
         </article>
     `).join("");
 
-    const workerBreakdown = Array.isArray(financials.workerBreakdown) ? financials.workerBreakdown : [];
-    refs.commissionBreakdown.innerHTML = workerBreakdown.length
-        ? workerBreakdown.map((worker) => `
+    const breakdown = Array.isArray(financials.workerBreakdown) ? financials.workerBreakdown : [];
+    refs.commissionBreakdown.innerHTML = breakdown.length
+        ? breakdown.map((worker) => `
             <article class="simple-item">
                 <strong>${escapeHtml(worker.name)}</strong>
-                <p>${escapeHtml(worker.percent)}% of worker pool</p>
+                <p>${escapeHtml(`${worker.percent}% of worker pool`)}</p>
                 <div class="simple-meta">${escapeHtml(formatCurrency(worker.amount || 0))}</div>
             </article>
         `).join("")
-        : `<div class="empty-note">No worker commission split saved yet.</div>`;
+        : `<div class="empty-note">No worker split saved yet.</div>`;
 }
 
-function renderSimpleEntries(container, items, formatter) {
+function renderSimpleEntries(container, items, formatter, emptyMessage) {
     if (!items.length) {
-        container.innerHTML = `<div class="empty-note">Nothing added yet.</div>`;
+        renderEmptyList(container, emptyMessage);
         return;
     }
 
     container.innerHTML = items.map((item) => formatter(item)).join("");
 }
 
-function renderProjectDetail() {
-    const project = currentProject();
-
-    if (!project) {
-        refs.selectedProjectTitle.textContent = "Select a project";
-        refs.selectedProjectStatus.textContent = "No project selected";
-        refs.selectedProjectStatus.className = "status-pill neutral";
-        refs.projectEmptyState.hidden = false;
-        refs.projectDetailShell.hidden = true;
+function renderJobOwnerOptions(project) {
+    if (!isAdmin()) {
+        refs.jobOwnerSelect.innerHTML = `<option value="${escapeHtml(project.assignedLeadOwnerUid || state.profile?.uid || "")}">${escapeHtml(project.assignedWorkers?.[0]?.name || state.profile?.displayName || "Lead owner")}</option>`;
+        refs.jobOwnerSelect.disabled = true;
         return;
     }
 
-    refs.projectEmptyState.hidden = true;
-    refs.projectDetailShell.hidden = false;
-    refs.selectedProjectTitle.textContent = project.clientName || "Unnamed project";
-    refs.selectedProjectStatus.textContent = project.status === "completed" ? "Completed" : "In Progress";
-    refs.selectedProjectStatus.className = "status-pill";
-    refs.projectStatusSelect.value = project.status || "in_progress";
-    refs.projectAddressDisplay.value = project.projectAddress || "";
+    refs.jobOwnerSelect.disabled = false;
+    refs.jobOwnerSelect.innerHTML = [`<option value="">Unassigned</option>`].concat(
+        activeStaffOptions().map((member) => `
+            <option value="${escapeHtml(member.uid || "")}" ${project.assignedLeadOwnerUid === member.uid ? "selected" : ""} ${member.uid ? "" : "disabled"}>
+                ${escapeHtml((member.displayName || member.email) + (member.uid ? "" : " (sign in once to activate)"))}
+            </option>
+        `)
+    ).join("");
+}
 
+function renderJobRecordContext(project) {
+    if (!project) {
+        refs.jobRecordContext.innerHTML = "";
+        return;
+    }
+
+    const linkedLead = project.leadId ? state.leads.find((lead) => lead.id === project.leadId) : null;
+    const linkedCustomer = project.customerId ? state.customers.find((customer) => customer.id === project.customerId) : null;
+    const openProjectTasks = project.id ? activeTasksForEntity("projectId", project.id) : [];
+    const assignedWorkers = Array.isArray(project.assignedWorkers) ? project.assignedWorkers.filter((worker) => safeString(worker.uid || worker.email)) : [];
+
+    refs.jobRecordContext.innerHTML = [
+        buildContextCard({
+            label: "Customer",
+            title: linkedCustomer?.name || project.customerName || "No linked customer",
+            meta: linkedCustomer
+                ? `${customerRollup(linkedCustomer).openLeads.length} open opportunities`
+                : "Linked customer card keeps repeat work in one place.",
+            dataAttrs: linkedCustomer
+                ? {
+                    "data-open-customer": linkedCustomer.id,
+                    "data-open-view": "customers-view"
+                }
+                : {},
+            muted: !linkedCustomer
+        }),
+        buildContextCard({
+            label: "Linked lead",
+            title: linkedLead?.clientName || linkedLead?.projectAddress || "Original lead",
+            meta: linkedLead
+                ? `${STATUS_META[linkedLead.status] || "Lead"} · ${formatCurrency(linkedLead.estimateSubtotal || 0)} estimate`
+                : "This job was created from a won lead.",
+            dataAttrs: linkedLead
+                ? {
+                    "data-open-lead": linkedLead.id,
+                    "data-open-view": "leads-view"
+                }
+                : {},
+            muted: !linkedLead
+        }),
+        buildContextCard({
+            label: "Open tasks",
+            title: String(openProjectTasks.length),
+            meta: openProjectTasks[0]?.title ? `Next: ${openProjectTasks[0].title}` : "No active tasks linked to this job.",
+            dataAttrs: project.id ? { "data-command": "job-create-task" } : {},
+            muted: !project.id
+        }),
+        buildContextCard({
+            label: "Assigned workers",
+            title: assignedWorkers.length ? `${assignedWorkers.length} on job` : "No workers assigned",
+            meta: assignedWorkers.length
+                ? assignedWorkers.map((worker) => worker.name || worker.email || "Worker").join(", ")
+                : "Assign workers to lock in the payout split.",
+            muted: true
+        })
+    ].join("");
+}
+
+function renderJobDetail() {
+    const project = currentProject();
+
+    if (!project) {
+        refs.jobRecordTitle.textContent = "Select a job";
+        refs.jobRecordBadge.textContent = "No job selected";
+        refs.jobRecordBadge.className = "status-pill neutral";
+        refs.jobRecordContext.innerHTML = "";
+        refs.jobRecordEmpty.hidden = false;
+        refs.jobRecordShell.hidden = true;
+        return;
+    }
+
+    refs.jobRecordEmpty.hidden = true;
+    refs.jobRecordShell.hidden = false;
+    refs.jobRecordTitle.textContent = project.clientName || "Unnamed job";
+    refs.jobRecordBadge.textContent = project.status === "completed" ? "Completed" : "In Progress";
+    refs.jobRecordBadge.className = "status-pill";
+    refs.jobStatusSelect.value = project.status || "in_progress";
+    refs.jobValueInput.value = toNumber(project.jobValue || 0);
+    refs.jobCustomerDisplay.value = project.customerName || "No linked customer";
+    refs.jobAddressDisplay.value = project.projectAddress || "";
+    renderJobOwnerOptions(project);
     renderWorkerAssignments(project);
+    renderJobRecordContext(project);
     renderFinanceSummary(project);
+    renderTaskAssigneeOptions(refs.jobTaskAssignee, project.assignedLeadOwnerUid || state.profile?.uid || "");
 
     renderSimpleEntries(refs.expenseList, state.projectExpenses, (expense) => `
         <article class="simple-item">
@@ -833,7 +2446,7 @@ function renderProjectDetail() {
             <p>${escapeHtml(expense.note || "")}</p>
             <div class="simple-meta">${escapeHtml(formatDateTime(expense.createdAt))}</div>
         </article>
-    `);
+    `, "No expenses added yet.");
 
     renderSimpleEntries(refs.paymentList, state.projectPayments, (payment) => `
         <article class="simple-item">
@@ -841,7 +2454,10 @@ function renderProjectDetail() {
             <p>${escapeHtml(payment.note || "")}</p>
             <div class="simple-meta">${escapeHtml(formatDateTime(payment.createdAt))}</div>
         </article>
-    `);
+    `, "No payments recorded yet.");
+
+    renderEntityTaskList(refs.jobTaskList, relatedTasksForEntity("projectId", project.id), "No tasks linked to this job.");
+    refs.jobOpenLeadButton.hidden = !project.leadId;
 }
 
 function renderTemplateForm() {
@@ -855,58 +2471,62 @@ function renderTemplateForm() {
 
 function renderStaffList() {
     if (!isAdmin()) {
-        refs.staffList.innerHTML = `<div class="empty-note">Only admins can manage staff access.</div>`;
+        refs.staffList.innerHTML = `
+            <article class="simple-item">
+                <strong>${escapeHtml(state.profile?.displayName || state.profile?.email || "Signed in")}</strong>
+                <p>${escapeHtml(state.profile?.email || "")}</p>
+                <div class="simple-meta">${escapeHtml(state.profile?.role === "admin" ? "Admin" : "Employee")}</div>
+            </article>
+        `;
+        refs.staffAdminShell.hidden = true;
+        refs.staffEmployeeMessage.hidden = false;
         return;
     }
+
+    refs.staffAdminShell.hidden = false;
+    refs.staffEmployeeMessage.hidden = true;
 
     if (!state.staffRoster.length) {
-        refs.staffList.innerHTML = `<div class="empty-note">No staff records created yet.</div>`;
+        renderEmptyList(refs.staffList, "No staff records created yet.");
         return;
     }
 
-    refs.staffList.innerHTML = [...state.staffRoster]
+    refs.staffList.innerHTML = sortByUpdatedDesc(state.staffRoster)
         .sort((left, right) => (left.displayName || left.email || "").localeCompare(right.displayName || right.email || ""))
         .map((member) => `
-            <button type="button" class="staff-card ${member.id === state.selectedStaffKey ? "is-selected" : ""}" data-staff-key="${escapeHtml(member.id)}">
-                <div class="card-topline">
+            <button type="button" class="record-button ${member.id === state.selectedStaffKey ? "is-selected" : ""}" data-staff-key="${escapeHtml(member.id)}">
+                <div class="record-topline">
                     <span class="mini-pill">${escapeHtml(member.role || "employee")}</span>
                     <span class="mini-pill">${escapeHtml(member.active === false ? "Inactive" : "Active")}</span>
                 </div>
-                <h3 class="card-title">${escapeHtml(member.displayName || member.email)}</h3>
-                <p class="card-copy">${escapeHtml(member.email)}</p>
-                <div class="card-meta">
-                    <div>SMS ${escapeHtml(member.smsNumber || "Not set")}</div>
+                <span class="record-title">${escapeHtml(member.displayName || member.email)}</span>
+                <p class="record-copy">${escapeHtml(member.email || "")}</p>
+                <div class="record-meta">
                     <div>${escapeHtml(member.defaultLeadAssignee ? "Default lead assignee" : "Not default assignee")}</div>
                     <div>${escapeHtml(member.uid ? "Signed in at least once" : "Waiting for first sign-in")}</div>
                 </div>
             </button>
         `).join("");
-
-    Array.from(refs.staffList.querySelectorAll("[data-staff-key]")).forEach((button) => {
-        button.addEventListener("click", () => {
-            const member = state.staffRoster.find((item) => item.id === button.dataset.staffKey);
-            if (!member) return;
-            state.selectedStaffKey = member.id;
-            refs.staffEmail.value = member.email || "";
-            refs.staffDisplayName.value = member.displayName || "";
-            refs.staffRole.value = member.role || "employee";
-            refs.staffSmsNumber.value = member.smsNumber || "";
-            refs.staffDefaultAssignee.checked = Boolean(member.defaultLeadAssignee);
-            refs.staffActive.checked = member.active !== false;
-            renderStaffList();
-        });
-    });
 }
 
 function renderAll() {
+    renderWorkspaceTools();
     renderCurrentUserCard();
     renderSidebarSummary();
-    renderDashboardMetrics();
-    renderProjectMetrics();
-    renderPipeline();
+    renderWorkspaceCommandBar();
+    renderTodayView();
+    renderTaskMetrics();
+    renderTaskList();
+    renderTaskDetail();
+    renderLeadMetrics();
+    renderLeadListShell();
     renderLeadDetail();
-    renderProjectList();
-    renderProjectDetail();
+    renderCustomerMetrics();
+    renderCustomerList();
+    renderCustomerDetail();
+    renderJobMetrics();
+    renderJobList();
+    renderJobDetail();
     renderTemplateForm();
     renderStaffList();
 }
@@ -932,7 +2552,9 @@ async function apiPost(path, body) {
 }
 
 function selectLead(leadId) {
+    state.leadDraft = null;
     state.selectedLeadId = leadId;
+    state.activeLeadTab = "overview";
     subscribeLeadDetail();
     renderAll();
 }
@@ -943,15 +2565,151 @@ function selectProject(projectId) {
     renderAll();
 }
 
+function selectCustomer(customerId) {
+    state.customerDraft = null;
+    state.selectedCustomerId = customerId;
+    renderAll();
+}
+
+function selectTask(taskId) {
+    state.taskDraft = null;
+    state.selectedTaskId = taskId;
+    renderAll();
+}
+
+function startLeadDraft(customerId = null) {
+    const customer = customerId ? state.customers.find((item) => item.id === customerId) : null;
+    state.selectedLeadId = null;
+    state.leadDraft = defaultLeadDraft(customer || null);
+    state.leadActivities = [];
+    state.estimate = null;
+    state.activeLeadTab = "overview";
+    switchView("leads-view");
+    renderAll();
+}
+
+function startCustomerDraft() {
+    state.selectedCustomerId = null;
+    state.customerDraft = defaultCustomerDraft();
+    switchView("customers-view");
+    renderAll();
+}
+
+function startTaskDraft(linked = {}) {
+    state.selectedTaskId = null;
+    state.taskDraft = defaultTaskDraft(linked);
+    switchView("tasks-view");
+    renderAll();
+}
+
 async function syncSession(user) {
-    const token = await user.getIdToken();
-    const response = await fetch("/api/auth/sync-session", {
-        method: "POST",
-        headers: {
-            Authorization: "Bearer " + token
+    const email = safeString(user.email).toLowerCase();
+    const allowedRef = doc(state.db, "allowedStaff", sanitiseEmailKey(email));
+
+    async function syncSessionViaApi() {
+        const token = await user.getIdToken();
+        const response = await fetch("/api/auth/sync-session", {
+            method: "POST",
+            headers: {
+                Authorization: "Bearer " + token
+            }
+        });
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            const error = new Error(payload.message || `Could not verify this staff account (${response.status}).`);
+            error.status = response.status;
+            throw error;
         }
-    });
-    return response.json();
+
+        return payload;
+    }
+
+    async function syncSessionFromFirestore() {
+        if (!email) {
+            return {
+                authorised: false,
+                message: "This Google account does not have an email address."
+            };
+        }
+
+        const allowedSnap = await getDoc(allowedRef);
+        if (!allowedSnap.exists()) {
+            return {
+                authorised: false,
+                message: "This Google account is not approved for the staff portal."
+            };
+        }
+
+        const allowedData = allowedSnap.data() || {};
+        if (allowedData.active !== true) {
+            return {
+                authorised: false,
+                message: "This Google account is not approved for the staff portal."
+            };
+        }
+
+        const profile = {
+            uid: user.uid,
+            email,
+            displayName: safeString(user.displayName || user.email),
+            role: safeString(allowedData.role || "employee"),
+            active: true,
+            defaultLeadAssignee: Boolean(allowedData.defaultLeadAssignee)
+        };
+
+        await Promise.all([
+            setDoc(doc(state.db, "users", user.uid), {
+                ...profile,
+                createdAt: serverTimestamp(),
+                lastLoginAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            }, { merge: true }),
+            setDoc(allowedRef, {
+                uid: user.uid,
+                email,
+                displayName: profile.displayName,
+                lastLoginAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            }, { merge: true })
+        ]);
+
+        return {
+            ok: true,
+            authorised: true,
+            profile,
+            mode: "firestore"
+        };
+    }
+
+    try {
+        return await syncSessionViaApi();
+    } catch (error) {
+        const shouldFallback = error.status === 404 || error.status >= 500 || /Failed to fetch/i.test(error.message || "");
+        if (!shouldFallback) {
+            throw error;
+        }
+
+        return syncSessionFromFirestore();
+    }
+}
+
+function resetSelectionFromSnapshots() {
+    if (state.selectedLeadId && !state.leads.some((lead) => lead.id === state.selectedLeadId)) {
+        state.selectedLeadId = null;
+    }
+
+    if (state.selectedProjectId && !state.projects.some((project) => project.id === state.selectedProjectId)) {
+        state.selectedProjectId = null;
+    }
+
+    if (state.selectedCustomerId && !state.customers.some((customer) => customer.id === state.selectedCustomerId)) {
+        state.selectedCustomerId = null;
+    }
+
+    if (state.selectedTaskId && !state.tasks.some((task) => task.id === state.selectedTaskId)) {
+        state.selectedTaskId = null;
+    }
 }
 
 function subscribeBaseData() {
@@ -964,13 +2722,7 @@ function subscribeBaseData() {
 
     state.unsubs.base.push(onSnapshot(leadSource, (snapshot) => {
         state.leads = snapshot.docs.map(normaliseFirestoreDoc);
-
-        if (!state.selectedLeadId && state.leads.length) {
-            state.selectedLeadId = state.leads[0].id;
-        } else if (state.selectedLeadId && !state.leads.some((lead) => lead.id === state.selectedLeadId)) {
-            state.selectedLeadId = state.leads[0] ? state.leads[0].id : null;
-        }
-
+        resetSelectionFromSnapshots();
         subscribeLeadDetail();
         renderAll();
         setSyncStatus("Lead data live");
@@ -978,18 +2730,32 @@ function subscribeBaseData() {
 
     const projectSource = isAdmin()
         ? collection(state.db, "projects")
-        : query(collection(state.db, "projects"), where("assignedWorkerIds", "array-contains", state.profile.uid));
+        : query(collection(state.db, "projects"), where("allowedStaffUids", "array-contains", state.profile.uid));
 
     state.unsubs.base.push(onSnapshot(projectSource, (snapshot) => {
         state.projects = snapshot.docs.map(normaliseFirestoreDoc);
-
-        if (!state.selectedProjectId && state.projects.length) {
-            state.selectedProjectId = state.projects[0].id;
-        } else if (state.selectedProjectId && !state.projects.some((project) => project.id === state.selectedProjectId)) {
-            state.selectedProjectId = state.projects[0] ? state.projects[0].id : null;
-        }
-
+        resetSelectionFromSnapshots();
         subscribeProjectDetail();
+        renderAll();
+    }));
+
+    const customerSource = isAdmin()
+        ? collection(state.db, "customers")
+        : query(collection(state.db, "customers"), where("allowedStaffUids", "array-contains", state.profile.uid));
+
+    state.unsubs.base.push(onSnapshot(customerSource, (snapshot) => {
+        state.customers = snapshot.docs.map(normaliseFirestoreDoc);
+        resetSelectionFromSnapshots();
+        renderAll();
+    }));
+
+    const taskSource = isAdmin()
+        ? collection(state.db, "tasks")
+        : query(collection(state.db, "tasks"), where("assignedToUid", "==", state.profile.uid));
+
+    state.unsubs.base.push(onSnapshot(taskSource, (snapshot) => {
+        state.tasks = snapshot.docs.map(normaliseFirestoreDoc);
+        resetSelectionFromSnapshots();
         renderAll();
     }));
 
@@ -1012,7 +2778,6 @@ function subscribeLeadDetail() {
     clearUnsubs(state.unsubs.leadDetail);
     state.unsubs.leadDetail = [];
     state.leadActivities = [];
-    state.leadReminders = [];
     state.estimate = null;
 
     if (!state.selectedLeadId) {
@@ -1023,16 +2788,7 @@ function subscribeLeadDetail() {
     state.unsubs.leadDetail.push(onSnapshot(collection(state.db, "leads", state.selectedLeadId, "activities"), (snapshot) => {
         state.leadActivities = snapshot.docs
             .map(normaliseFirestoreDoc)
-            .sort((left, right) => {
-                const leftTime = left.createdAt && typeof left.createdAt.toMillis === "function" ? left.createdAt.toMillis() : 0;
-                const rightTime = right.createdAt && typeof right.createdAt.toMillis === "function" ? right.createdAt.toMillis() : 0;
-                return rightTime - leftTime;
-            });
-        renderLeadDetail();
-    }));
-
-    state.unsubs.leadDetail.push(onSnapshot(query(collection(state.db, "reminders"), where("leadId", "==", state.selectedLeadId)), (snapshot) => {
-        state.leadReminders = snapshot.docs.map(normaliseFirestoreDoc);
+            .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
         renderLeadDetail();
     }));
 
@@ -1049,30 +2805,22 @@ function subscribeProjectDetail() {
     state.projectPayments = [];
 
     if (!state.selectedProjectId) {
-        renderProjectDetail();
+        renderJobDetail();
         return;
     }
 
     state.unsubs.projectDetail.push(onSnapshot(collection(state.db, "projects", state.selectedProjectId, "expenses"), (snapshot) => {
         state.projectExpenses = snapshot.docs
             .map(normaliseFirestoreDoc)
-            .sort((left, right) => {
-                const leftTime = left.createdAt && typeof left.createdAt.toMillis === "function" ? left.createdAt.toMillis() : 0;
-                const rightTime = right.createdAt && typeof right.createdAt.toMillis === "function" ? right.createdAt.toMillis() : 0;
-                return rightTime - leftTime;
-            });
-        renderProjectDetail();
+            .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
+        renderJobDetail();
     }));
 
     state.unsubs.projectDetail.push(onSnapshot(collection(state.db, "projects", state.selectedProjectId, "payments"), (snapshot) => {
         state.projectPayments = snapshot.docs
             .map(normaliseFirestoreDoc)
-            .sort((left, right) => {
-                const leftTime = left.createdAt && typeof left.createdAt.toMillis === "function" ? left.createdAt.toMillis() : 0;
-                const rightTime = right.createdAt && typeof right.createdAt.toMillis === "function" ? right.createdAt.toMillis() : 0;
-                return rightTime - leftTime;
-            });
-        renderProjectDetail();
+            .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
+        renderJobDetail();
     }));
 }
 
@@ -1087,9 +2835,7 @@ async function bootstrapFirebase() {
         state.auth = getAuth(state.app);
         state.db = getFirestore(state.app);
         state.provider = new GoogleAuthProvider();
-        state.provider.setCustomParameters({
-            prompt: "select_account"
-        });
+        state.provider.setCustomParameters({ prompt: "select_account" });
 
         refs.signInButton.disabled = false;
         refs.authFeedback.textContent = "Only approved staff accounts can enter the portal.";
@@ -1102,12 +2848,23 @@ async function bootstrapFirebase() {
             if (!user) {
                 state.currentUser = null;
                 state.profile = null;
+                state.leads = [];
+                state.projects = [];
+                state.customers = [];
+                state.tasks = [];
+                state.staffRoster = [];
+                state.selectedLeadId = null;
+                state.selectedProjectId = null;
+                state.selectedCustomerId = null;
+                state.selectedTaskId = null;
+                state.leadDraft = null;
+                state.customerDraft = null;
+                state.taskDraft = null;
                 showAuthShell();
                 return;
             }
 
             state.currentUser = user;
-            refs.authFeedback.textContent = "Verifying your staff access...";
 
             try {
                 const session = await syncSession(user);
@@ -1119,10 +2876,15 @@ async function bootstrapFirebase() {
                 }
 
                 state.profile = session.profile;
+                state.todayScope = "mine";
                 applyRoleVisibility();
                 showStaffShell();
-                switchView("dashboard-view");
-                setBanner("", "info");
+                switchView("today-view");
+                setBanner(
+                    session.mode === "firestore"
+                        ? "Staff login is running from the approved Firestore staff list while backend functions finish deploying."
+                        : ""
+                );
                 setSyncStatus("Syncing data");
                 subscribeBaseData();
                 renderAll();
@@ -1138,40 +2900,200 @@ async function bootstrapFirebase() {
     }
 }
 
-async function saveLead(event) {
-    event.preventDefault();
-    const lead = currentLead();
+function selectedLeadAssignee() {
+    const uid = refs.leadAssigneeSelect.value || "";
+    return activeStaffOptions().find((member) => member.uid === uid) || null;
+}
 
-    if (!lead) return;
+function collectLeadFormState(baseLead = currentLead()) {
+    const assignee = isAdmin() ? selectedLeadAssignee() : null;
+    const customerId = isAdmin() ? (refs.leadCustomerSelect.value || null) : baseLead?.customerId || null;
+    const customer = customerId ? state.customers.find((item) => item.id === customerId) : null;
+    const status = refs.leadStageSelect.value || baseLead?.status || "new_lead";
 
-    const assigneeUid = refs.leadAssigneeSelect.value || "";
-    const assignee = activeStaffOptions().find((member) => member.uid === assigneeUid);
-    const nextStatus = refs.leadStatusSelect.value;
-    const updates = {
+    return {
         clientName: refs.leadClientName.value.trim(),
         clientEmail: refs.leadClientEmail.value.trim(),
         clientPhone: refs.leadClientPhone.value.trim(),
         projectAddress: refs.leadProjectAddress.value.trim(),
         projectType: refs.leadProjectType.value.trim(),
         notes: refs.leadNotesInput.value.trim(),
-        status: nextStatus,
-        statusLabel: STATUS_META[nextStatus],
+        status,
+        statusLabel: STATUS_META[status],
+        customerId,
+        customerName: customer?.name || baseLead?.customerName || "",
+        assignedToUid: isAdmin()
+            ? assignee?.uid || null
+            : baseLead?.assignedToUid || state.profile?.uid || null,
+        assignedToName: isAdmin()
+            ? assignee?.displayName || assignee?.email || ""
+            : baseLead?.assignedToName || state.profile?.displayName || "",
+        assignedToEmail: isAdmin()
+            ? assignee?.email || ""
+            : baseLead?.assignedToEmail || state.profile?.email || ""
+    };
+}
+
+function selectedTaskAssignee(select) {
+    const uid = select.value || "";
+    return activeStaffOptions().find((member) => member.uid === uid) || null;
+}
+
+async function saveTask(event) {
+    event.preventDefault();
+
+    const existing = currentTaskDoc();
+    const linkedType = refs.taskLinkedTypeSelect.value;
+    const linkedId = refs.taskLinkedRecordSelect.value || "";
+    const assignee = selectedTaskAssignee(refs.taskAssigneeSelect) || activeStaffOptions()[0] || null;
+    const payload = {
+        title: refs.taskTitleInput.value.trim(),
+        description: refs.taskDescriptionInput.value.trim(),
+        status: refs.taskStatusSelect.value,
+        priority: refs.taskPrioritySelect.value,
+        dueAt: parseDateInput(refs.taskDueInput.value),
+        assignedToUid: assignee?.uid || state.profile?.uid || "",
+        assignedToName: assignee?.displayName || assignee?.email || state.profile?.displayName || "",
+        assignedToEmail: assignee?.email || state.profile?.email || "",
+        leadId: linkedType === "lead" ? linkedId : null,
+        customerId: linkedType === "customer" ? linkedId : null,
+        projectId: linkedType === "project" ? linkedId : null,
         updatedAt: serverTimestamp()
     };
 
-    if (isAdmin()) {
-        updates.assignedToUid = assigneeUid || null;
-        updates.assignedToName = assignee ? assignee.displayName || assignee.email : "";
-        updates.assignedToEmail = assignee ? assignee.email || "" : "";
+    if (!payload.title) {
+        showToast("Task title is required.", "error");
+        return;
     }
 
-    await updateDoc(doc(state.db, "leads", lead.id), updates);
+    if (state.taskDraft || !existing) {
+        const taskRef = doc(collection(state.db, "tasks"));
+        await setDoc(taskRef, {
+            id: taskRef.id,
+            ...payload,
+            createdAt: serverTimestamp(),
+            createdByUid: state.profile.uid,
+            createdByName: state.profile.displayName
+        }, { merge: true });
 
-    if (lead.status !== nextStatus) {
-        await addDoc(collection(state.db, "leads", lead.id, "activities"), {
+        state.taskDraft = null;
+        state.selectedTaskId = taskRef.id;
+        showToast("Task created.");
+    } else {
+        await updateDoc(doc(state.db, "tasks", existing.id), payload);
+        showToast("Task updated.");
+    }
+}
+
+async function markTaskComplete() {
+    const task = currentTaskDoc();
+    if (!task) return;
+
+    await updateDoc(doc(state.db, "tasks", task.id), {
+        status: "completed",
+        updatedAt: serverTimestamp()
+    });
+
+    showToast("Task marked complete.");
+}
+
+async function createQuickTask({ title, dueValue, priority, assigneeSelect, leadId = null, customerId = null, projectId = null }) {
+    const assignee = selectedTaskAssignee(assigneeSelect) || activeStaffOptions()[0] || null;
+    const cleanTitle = safeString(title);
+
+    if (!cleanTitle) {
+        showToast("Task title is required.", "error");
+        return false;
+    }
+
+    const taskRef = doc(collection(state.db, "tasks"));
+    await setDoc(taskRef, {
+        id: taskRef.id,
+        title: cleanTitle,
+        description: "",
+        status: "open",
+        priority,
+        dueAt: parseDateInput(dueValue),
+        assignedToUid: assignee?.uid || state.profile?.uid || "",
+        assignedToName: assignee?.displayName || assignee?.email || state.profile?.displayName || "",
+        assignedToEmail: assignee?.email || state.profile?.email || "",
+        leadId,
+        customerId,
+        projectId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdByUid: state.profile.uid,
+        createdByName: state.profile.displayName
+    }, { merge: true });
+
+    showToast("Task created.");
+    return true;
+}
+
+async function saveLead(event) {
+    event.preventDefault();
+
+    const existing = currentLeadDoc();
+    const payload = {
+        ...collectLeadFormState(existing || currentLead()),
+        updatedAt: serverTimestamp()
+    };
+
+    if (!payload.clientName || !payload.clientPhone) {
+        showToast("Client name and phone are required.", "error");
+        return;
+    }
+
+    if (!isAdmin() && existing && existing.status !== "closed_won" && payload.status === "closed_won") {
+        showToast("Only admins can mark a lead won and create the linked job.", "error");
+        refs.leadStageSelect.value = existing.status || "new_lead";
+        return;
+    }
+
+    if (state.leadDraft || !existing) {
+        const leadRef = doc(collection(state.db, "leads"));
+        await setDoc(leadRef, {
+            id: leadRef.id,
+            ...payload,
+            sourceForm: "manual_entry",
+            sourcePage: "Staff CRM",
+            sourcePath: "/staff",
+            consent: false,
+            inquiryChannel: "staff",
+            hasEstimate: false,
+            estimateSubtotal: 0,
+            estimateTitle: "",
+            createdAt: serverTimestamp()
+        }, { merge: true });
+
+        await addDoc(collection(state.db, "leads", leadRef.id, "activities"), {
+            activityType: "system",
+            title: "Lead created in staff CRM",
+            body: "Manual lead created inside the staff portal.",
+            actorName: state.profile.displayName,
+            actorUid: state.profile.uid,
+            actorRole: state.profile.role,
+            createdAt: serverTimestamp()
+        });
+
+        state.leadDraft = null;
+        state.selectedLeadId = leadRef.id;
+        subscribeLeadDetail();
+        showToast("Lead created.");
+        return;
+    }
+
+    const statusChanged = existing.status !== payload.status;
+    const reassigned = isAdmin() && existing.assignedToUid !== (payload.assignedToUid || null);
+    const customerChanged = existing.customerId !== payload.customerId;
+
+    await updateDoc(doc(state.db, "leads", existing.id), payload);
+
+    if (statusChanged) {
+        await addDoc(collection(state.db, "leads", existing.id, "activities"), {
             activityType: "system",
             title: "Lead status updated",
-            body: "Moved to " + STATUS_META[nextStatus] + ".",
+            body: `Moved to ${STATUS_META[payload.status]}.`,
             actorName: state.profile.displayName,
             actorUid: state.profile.uid,
             actorRole: state.profile.role,
@@ -1179,11 +3101,23 @@ async function saveLead(event) {
         });
     }
 
-    if (isAdmin() && lead.assignedToUid !== (assigneeUid || null)) {
-        await addDoc(collection(state.db, "leads", lead.id, "activities"), {
+    if (reassigned) {
+        await addDoc(collection(state.db, "leads", existing.id, "activities"), {
             activityType: "system",
             title: "Lead reassigned",
-            body: "Assigned to " + (updates.assignedToName || "Unassigned") + ".",
+            body: `Assigned to ${payload.assignedToName || "Unassigned"}.`,
+            actorName: state.profile.displayName,
+            actorUid: state.profile.uid,
+            actorRole: state.profile.role,
+            createdAt: serverTimestamp()
+        });
+    }
+
+    if (customerChanged) {
+        await addDoc(collection(state.db, "leads", existing.id, "activities"), {
+            activityType: "system",
+            title: "Customer link updated",
+            body: payload.customerName ? `Linked to customer ${payload.customerName}.` : "Removed linked customer.",
             actorName: state.profile.displayName,
             actorUid: state.profile.uid,
             actorRole: state.profile.role,
@@ -1195,8 +3129,11 @@ async function saveLead(event) {
 }
 
 async function markLeadLost() {
-    const lead = currentLead();
-    if (!lead) return;
+    const lead = currentLeadDoc();
+    if (!lead) {
+        showToast("Save the lead first.", "error");
+        return;
+    }
 
     await updateDoc(doc(state.db, "leads", lead.id), {
         status: "closed_lost",
@@ -1217,19 +3154,83 @@ async function markLeadLost() {
     showToast("Lead marked lost.");
 }
 
+async function ensureLeadCustomer(lead) {
+    if (lead.customerId) {
+        await setDoc(doc(state.db, "customers", lead.customerId), {
+            id: lead.customerId,
+            name: lead.customerName || lead.clientName || "Unnamed customer",
+            primaryEmail: lead.clientEmail || "",
+            primaryPhone: lead.clientPhone || "",
+            primaryAddress: lead.projectAddress || "",
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+        return {
+            id: lead.customerId,
+            name: lead.customerName || lead.clientName || "Unnamed customer"
+        };
+    }
+
+    const customerRef = doc(collection(state.db, "customers"));
+    const allowedStaffUids = uniqueValues([lead.assignedToUid]);
+    await setDoc(customerRef, {
+        id: customerRef.id,
+        name: lead.clientName || "Unnamed customer",
+        primaryEmail: lead.clientEmail || "",
+        primaryPhone: lead.clientPhone || "",
+        primaryAddress: lead.projectAddress || "",
+        notes: "",
+        allowedStaffUids,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    return {
+        id: customerRef.id,
+        name: lead.clientName || "Unnamed customer"
+    };
+}
+
 async function convertLeadToProject() {
-    const lead = currentLead();
+    const lead = currentLeadDoc();
+    if (!lead || !isAdmin()) {
+        showToast("Save the lead first.", "error");
+        return;
+    }
 
-    if (!lead || !isAdmin()) return;
+    const existingProject = projectForLead(lead);
+    if (existingProject) {
+        state.selectedProjectId = existingProject.id;
+        switchView("jobs-view");
+        subscribeProjectDetail();
+        showToast("This lead already has a job record.");
+        return;
+    }
 
-    const assignee = activeStaffOptions().find((member) => member.uid === (lead.assignedToUid || refs.leadAssigneeSelect.value));
+    const leadFormState = collectLeadFormState(lead);
+    if (!leadFormState.clientName || !leadFormState.clientPhone) {
+        showToast("Client name and phone are required before marking a lead won.", "error");
+        return;
+    }
+
+    const linkedCustomer = await ensureLeadCustomer({
+        ...lead,
+        ...leadFormState,
+        customerId: leadFormState.customerId || null,
+        customerName: leadFormState.customerName || ""
+    });
+
+    const assignee = activeStaffOptions().find((member) => member.uid === (leadFormState.assignedToUid || "")) || preferredLeadAssignee();
     const assignedWorkers = assignee ? [{
         uid: assignee.uid,
         name: assignee.displayName || assignee.email,
         email: assignee.email || "",
         percent: 100
     }] : [];
-
+    const allowedStaffUids = uniqueValues([
+        leadFormState.assignedToUid,
+        ...assignedWorkers.map((worker) => worker.uid)
+    ]);
+    const jobValue = toNumber(collectEstimateForm().subtotal || state.estimate?.subtotal || lead.estimateSubtotal || 0);
     const batch = writeBatch(state.db);
     const projectRef = doc(state.db, "projects", lead.id);
     const leadRef = doc(state.db, "leads", lead.id);
@@ -1237,15 +3238,19 @@ async function convertLeadToProject() {
     batch.set(projectRef, {
         id: lead.id,
         leadId: lead.id,
-        clientName: lead.clientName || refs.leadClientName.value.trim(),
-        clientEmail: lead.clientEmail || refs.leadClientEmail.value.trim(),
-        clientPhone: lead.clientPhone || refs.leadClientPhone.value.trim(),
-        projectAddress: lead.projectAddress || refs.leadProjectAddress.value.trim(),
-        projectType: lead.projectType || refs.leadProjectType.value.trim(),
+        customerId: linkedCustomer.id,
+        customerName: linkedCustomer.name,
+        clientName: leadFormState.clientName,
+        clientEmail: leadFormState.clientEmail || "",
+        clientPhone: leadFormState.clientPhone || "",
+        projectAddress: leadFormState.projectAddress || "",
+        projectType: leadFormState.projectType || "",
         status: "in_progress",
+        jobValue,
+        assignedLeadOwnerUid: leadFormState.assignedToUid || assignee?.uid || null,
         assignedWorkers,
         assignedWorkerIds: assignedWorkers.map((worker) => worker.uid).filter(Boolean),
-        assignedLeadOwnerUid: lead.assignedToUid || assignee?.uid || null,
+        allowedStaffUids,
         financials: {
             totalExpenses: 0,
             totalPayments: 0,
@@ -1260,18 +3265,37 @@ async function convertLeadToProject() {
     }, { merge: true });
 
     batch.update(leadRef, {
+        clientName: leadFormState.clientName,
+        clientEmail: leadFormState.clientEmail || "",
+        clientPhone: leadFormState.clientPhone || "",
+        projectAddress: leadFormState.projectAddress || "",
+        projectType: leadFormState.projectType || "",
+        notes: leadFormState.notes,
+        assignedToUid: leadFormState.assignedToUid || null,
+        assignedToName: leadFormState.assignedToName || "",
+        assignedToEmail: leadFormState.assignedToEmail || "",
         status: "closed_won",
         statusLabel: STATUS_META.closed_won,
+        customerId: linkedCustomer.id,
+        customerName: linkedCustomer.name,
         wonProjectId: lead.id,
         updatedAt: serverTimestamp()
     });
+
+    batch.set(doc(state.db, "customers", linkedCustomer.id), {
+        name: linkedCustomer.name,
+        primaryEmail: leadFormState.clientEmail || "",
+        primaryPhone: leadFormState.clientPhone || "",
+        primaryAddress: leadFormState.projectAddress || "",
+        updatedAt: serverTimestamp()
+    }, { merge: true });
 
     await batch.commit();
 
     await addDoc(collection(state.db, "leads", lead.id, "activities"), {
         activityType: "system",
-        title: "Lead converted to project",
-        body: "Won project created and moved into the project register.",
+        title: "Lead converted to job",
+        body: "Won job created and linked to the customer record.",
         actorName: state.profile.displayName,
         actorUid: state.profile.uid,
         actorRole: state.profile.role,
@@ -1279,38 +3303,25 @@ async function convertLeadToProject() {
     });
 
     state.selectedProjectId = lead.id;
-    switchView("projects-view");
+    switchView("jobs-view");
     subscribeProjectDetail();
-    showToast("Project created from won lead.");
-}
-
-async function addCommunication(event) {
-    event.preventDefault();
-    const lead = currentLead();
-    const body = refs.communicationBody.value.trim();
-
-    if (!lead || !body) return;
-
-    await addDoc(collection(state.db, "leads", lead.id, "activities"), {
-        activityType: refs.communicationType.value,
-        title: refs.communicationType.options[refs.communicationType.selectedIndex].text + " logged",
-        body,
-        actorName: state.profile.displayName,
-        actorUid: state.profile.uid,
-        actorRole: state.profile.role,
-        createdAt: serverTimestamp()
-    });
-
-    refs.communicationBody.value = "";
-    showToast("Communication logged.");
+    showToast("Job created from won lead.");
 }
 
 async function addNote(event) {
     event.preventDefault();
-    const lead = currentLead();
+    const lead = currentLeadDoc();
     const body = refs.noteBody.value.trim();
 
-    if (!lead || !body) return;
+    if (!lead) {
+        showToast("Save the lead first.", "error");
+        return;
+    }
+
+    if (!body) {
+        showToast("Note text is required.", "error");
+        return;
+    }
 
     await addDoc(collection(state.db, "leads", lead.id, "activities"), {
         activityType: "note",
@@ -1326,88 +3337,23 @@ async function addNote(event) {
     showToast("Internal note saved.");
 }
 
-async function scheduleFollowup(event) {
+async function saveEstimateDraft(event) {
     event.preventDefault();
-    const lead = currentLead();
-    if (!lead) return;
+    const lead = currentLeadDoc();
 
-    const followUpDate = refs.followupAt.value ? Timestamp.fromDate(new Date(refs.followupAt.value)) : null;
-    const message = refs.followupMessage.value.trim() || "Follow up with this lead.";
-
-    if (!followUpDate) {
-        showToast("Choose a reminder date and time first.", "error");
+    if (!lead || !isAdmin()) {
+        showToast("Save the lead first.", "error");
         return;
     }
 
-    const reminderQuery = query(
-        collection(state.db, "reminders"),
-        where("leadId", "==", lead.id),
-        where("status", "==", "scheduled")
-    );
-    const existingReminders = await getDocs(reminderQuery);
-    const batch = writeBatch(state.db);
-
-    existingReminders.forEach((snapshot) => {
-        batch.update(snapshot.ref, {
-            status: "cancelled",
-            updatedAt: serverTimestamp()
-        });
-    });
-
-    batch.update(doc(state.db, "leads", lead.id), {
-        followUpAt: followUpDate,
-        reminderState: "scheduled",
-        status: lead.status === "new_lead" ? "follow_up" : lead.status,
-        statusLabel: lead.status === "new_lead" ? STATUS_META.follow_up : STATUS_META[lead.status || "new_lead"],
-        updatedAt: serverTimestamp()
-    });
-
-    const reminderRef = doc(collection(state.db, "reminders"));
-    batch.set(reminderRef, {
-        id: reminderRef.id,
-        leadId: lead.id,
-        clientName: lead.clientName || "",
-        projectAddress: lead.projectAddress || "",
-        assignedToUid: lead.assignedToUid || state.profile.uid,
-        assignedToName: lead.assignedToName || state.profile.displayName,
-        message,
-        remindAt: followUpDate,
-        status: "scheduled",
-        createdByUid: state.profile.uid,
-        createdByName: state.profile.displayName,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-    });
-
-    await batch.commit();
-
-    await addDoc(collection(state.db, "leads", lead.id, "activities"), {
-        activityType: "follow_up",
-        title: "Follow-up scheduled",
-        body: message,
-        actorName: state.profile.displayName,
-        actorUid: state.profile.uid,
-        actorRole: state.profile.role,
-        createdAt: serverTimestamp()
-    });
-
-    refs.followupMessage.value = "";
-    showToast("Follow-up reminder scheduled.");
-}
-
-async function saveEstimateDraft(event) {
-    event.preventDefault();
-    const lead = currentLead();
-    if (!lead || !isAdmin()) return;
-
     const estimate = collectEstimateForm();
-
     await setDoc(doc(state.db, "estimates", lead.id), {
         id: lead.id,
         leadId: lead.id,
         status: "draft",
         subject: estimate.subject,
         emailBody: estimate.emailBody,
+        assumptions: estimate.assumptions,
         lineItems: estimate.lineItems,
         subtotal: estimate.subtotal,
         updatedAt: serverTimestamp(),
@@ -1416,62 +3362,281 @@ async function saveEstimateDraft(event) {
         lastEditedByName: state.profile.displayName
     }, { merge: true });
 
-    showToast("Estimate draft saved.");
+    await updateDoc(doc(state.db, "leads", lead.id), {
+        hasEstimate: true,
+        estimateSubtotal: estimate.subtotal,
+        estimateTitle: estimate.subject,
+        estimateUpdatedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+    });
+
+    await addDoc(collection(state.db, "leads", lead.id, "activities"), {
+        activityType: "estimate",
+        title: "Estimate updated",
+        body: "Current estimate content was updated in the staff portal.",
+        actorName: state.profile.displayName,
+        actorUid: state.profile.uid,
+        actorRole: state.profile.role,
+        createdAt: serverTimestamp()
+    });
+
+    showToast("Estimate saved.");
 }
 
-async function draftEstimateWithAi() {
-    const lead = currentLead();
-    if (!lead || !isAdmin()) return;
+async function createEstimateDraft() {
+    const lead = currentLeadDoc();
+    if (!lead || !isAdmin()) {
+        showToast("Save the lead first.", "error");
+        return;
+    }
 
     refs.estimateAiButton.disabled = true;
-    refs.estimateAiButton.textContent = "Drafting...";
+    refs.estimateAiButton.textContent = "Creating...";
 
     try {
-        const payload = await apiPost("/api/staff/estimate-draft", { leadId: lead.id });
-        state.estimate = payload.estimate;
-        renderEstimatePanel();
-        showToast(payload.estimate.generatedBy === "openai" ? "AI estimate draft ready." : "Fallback estimate draft created.");
+        const draft = buildTemplateEstimateDraft(lead);
+        const estimatePayload = {
+            id: lead.id,
+            leadId: lead.id,
+            status: "draft",
+            generatedBy: "template",
+            subject: draft.subject,
+            emailBody: draft.emailBody,
+            assumptions: draft.assumptions,
+            lineItems: draft.lineItems,
+            subtotal: draft.subtotal,
+            updatedAt: serverTimestamp(),
+            createdAt: state.estimate?.createdAt || serverTimestamp(),
+            lastEditedByUid: state.profile.uid,
+            lastEditedByName: state.profile.displayName
+        };
+
+        await Promise.all([
+            setDoc(doc(state.db, "estimates", lead.id), estimatePayload, { merge: true }),
+            updateDoc(doc(state.db, "leads", lead.id), {
+                hasEstimate: true,
+                estimateSubtotal: draft.subtotal,
+                estimateTitle: draft.subject,
+                estimateUpdatedAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            }),
+            addDoc(collection(state.db, "leads", lead.id, "activities"), {
+                activityType: "estimate",
+                title: "Estimate draft refreshed",
+                body: "Estimate draft generated from the internal template.",
+                actorName: state.profile.displayName,
+                actorUid: state.profile.uid,
+                actorRole: state.profile.role,
+                createdAt: serverTimestamp()
+            })
+        ]);
+
+        state.estimate = {
+            ...estimatePayload,
+            updatedAt: new Date().toISOString()
+        };
+        renderLeadDetail();
+        showToast("Estimate draft created.");
     } catch (error) {
         showToast(error.message, "error");
     } finally {
         refs.estimateAiButton.disabled = false;
-        refs.estimateAiButton.textContent = "Draft with AI";
+        refs.estimateAiButton.textContent = "Create Draft";
     }
 }
 
-async function sendEstimate() {
+async function copyEstimateToClipboard() {
     const lead = currentLead();
-    if (!lead || !isAdmin()) return;
-
-    const estimate = collectEstimateForm();
-
-    if (!estimate.subject || !estimate.emailBody || !estimate.lineItems.length) {
-        showToast("Complete the estimate subject, body, and at least one line item before sending.", "error");
+    if (!lead) {
+        showToast("Select a lead first.", "error");
         return;
     }
 
-    refs.estimateSendButton.disabled = true;
-    refs.estimateSendButton.textContent = "Sending...";
-
     try {
-        const payload = await apiPost("/api/staff/send-estimate", {
-            leadId: lead.id,
-            subject: estimate.subject,
-            emailBody: estimate.emailBody,
-            lineItems: estimate.lineItems
-        });
-
-        if (payload.delivery?.simulated) {
-            showToast("Estimate marked sent in simulation mode. Add Resend config for live email.", "success");
-            setBanner("Estimate delivery is running in simulation mode. Configure Resend to send live client emails.", "info");
-        } else {
-            showToast("Estimate email sent.");
-        }
+        await navigator.clipboard.writeText(buildEstimatePlainText(lead, collectEstimateForm()));
+        showToast("Estimate copied.");
     } catch (error) {
-        showToast(error.message, "error");
-    } finally {
-        refs.estimateSendButton.disabled = false;
-        refs.estimateSendButton.textContent = "Send estimate email";
+        showToast("Could not copy the estimate.", "error");
+    }
+}
+
+function openEstimatePrintView() {
+    const lead = currentLead();
+    if (!lead) {
+        showToast("Select a lead first.", "error");
+        return;
+    }
+
+    const previewHtml = buildEstimatePreviewHtml(lead, collectEstimateForm());
+    const printWindow = window.open("", "_blank", "noopener,noreferrer");
+
+    if (!printWindow) {
+        showToast("Pop-up blocked. Allow pop-ups to open the print view.", "error");
+        return;
+    }
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(defaultEstimateTitle(lead))}</title>
+    <style>
+        :root {
+            --paper: #ffffff;
+            --ink: #17120d;
+            --muted: #6d6356;
+            --line: #e7dac4;
+            --brand: #c5a059;
+            --brand-deep: #8e6a2e;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 32px;
+            background: #f4eee4;
+            color: var(--ink);
+            font-family: "Manrope", Arial, sans-serif;
+        }
+        .estimate-sheet {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 32px;
+            background: var(--paper);
+            border-top: 4px solid var(--brand);
+            box-shadow: 0 20px 40px rgba(24, 19, 15, 0.08);
+        }
+        .estimate-sheet-header {
+            display: grid;
+            grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.7fr);
+            gap: 24px;
+            align-items: start;
+            margin-bottom: 24px;
+        }
+        .estimate-eyebrow {
+            margin-bottom: 10px;
+            color: var(--brand-deep);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+        .estimate-sheet h3 {
+            margin: 0 0 10px;
+            font-size: 30px;
+            line-height: 1.1;
+        }
+        .estimate-greeting,
+        .estimate-copy-block p,
+        .estimate-foot p,
+        .estimate-foot li {
+            color: var(--muted);
+            line-height: 1.7;
+        }
+        .estimate-meta {
+            display: grid;
+            gap: 12px;
+            padding: 18px;
+            background: #faf6ef;
+            border: 1px solid var(--line);
+        }
+        .estimate-meta span,
+        .estimate-table th,
+        .estimate-foot h4 {
+            color: var(--brand-deep);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+        .estimate-meta strong {
+            display: block;
+            margin-top: 6px;
+            font-size: 15px;
+            color: var(--ink);
+        }
+        .estimate-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .estimate-table th,
+        .estimate-table td {
+            padding: 14px 0;
+            border-bottom: 1px solid var(--line);
+            vertical-align: top;
+            text-align: left;
+        }
+        .estimate-table th:last-child,
+        .estimate-table td:last-child {
+            text-align: right;
+            white-space: nowrap;
+        }
+        .estimate-table td span {
+            display: block;
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+        .estimate-foot {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 24px;
+            margin-top: 28px;
+        }
+        @media print {
+            body {
+                padding: 0;
+                background: #ffffff;
+            }
+            .estimate-sheet {
+                box-shadow: none;
+                max-width: none;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>${previewHtml}</body>
+</html>`);
+    printWindow.document.close();
+    printWindow.focus();
+}
+
+async function saveCustomer(event) {
+    event.preventDefault();
+
+    if (!isAdmin()) return;
+
+    const existing = currentCustomerDoc();
+    const payload = {
+        name: refs.customerNameInput.value.trim(),
+        primaryEmail: refs.customerEmailInput.value.trim(),
+        primaryPhone: refs.customerPhoneInput.value.trim(),
+        primaryAddress: refs.customerAddressInput.value.trim(),
+        notes: refs.customerNotesInput.value.trim(),
+        updatedAt: serverTimestamp()
+    };
+
+    if (!payload.name) {
+        showToast("Customer name is required.", "error");
+        return;
+    }
+
+    if (state.customerDraft || !existing) {
+        const customerRef = doc(collection(state.db, "customers"));
+        await setDoc(customerRef, {
+            id: customerRef.id,
+            ...payload,
+            allowedStaffUids: [],
+            createdAt: serverTimestamp()
+        }, { merge: true });
+
+        state.customerDraft = null;
+        state.selectedCustomerId = customerRef.id;
+        showToast("Customer created.");
+    } else {
+        await updateDoc(doc(state.db, "customers", existing.id), payload);
+        showToast("Customer updated.");
     }
 }
 
@@ -1480,28 +3645,37 @@ async function saveProject(event) {
     const project = currentProject();
     if (!project || !isAdmin()) return;
 
+    const ownerUid = refs.jobOwnerSelect.value || null;
     const assignedWorkers = Array.from(refs.workerAssignmentList.querySelectorAll("[data-worker-check]")).flatMap((checkbox) => {
-        const checked = checkbox.checked;
+        if (!checkbox.checked) return [];
         const key = checkbox.dataset.workerCheck;
-        if (!checked) return [];
         const percentInput = refs.workerAssignmentList.querySelector(`[data-worker-percent="${CSS.escape(key)}"]`);
-        const member = state.staffRoster.find((staff) => (staff.uid || staff.email) === key) || project.assignedWorkers?.find((staff) => (staff.uid || staff.email) === key);
+        const member = activeStaffOptions().find((staff) => (staff.uid || staff.email) === key)
+            || (project.assignedWorkers || []).find((worker) => (worker.uid || worker.email) === key);
         return [{
             uid: member?.uid || "",
             name: member?.displayName || member?.name || member?.email || "Assigned worker",
             email: member?.email || "",
-            percent: Number(percentInput?.value || 0)
+            percent: toNumber(percentInput?.value)
         }];
     });
 
+    const allowedStaffUids = uniqueValues([
+        ownerUid,
+        ...assignedWorkers.map((worker) => worker.uid)
+    ]);
+
     await updateDoc(doc(state.db, "projects", project.id), {
-        status: refs.projectStatusSelect.value,
+        status: refs.jobStatusSelect.value,
+        jobValue: toNumber(refs.jobValueInput.value),
+        assignedLeadOwnerUid: ownerUid,
         assignedWorkers,
         assignedWorkerIds: assignedWorkers.map((worker) => worker.uid).filter(Boolean),
+        allowedStaffUids,
         updatedAt: serverTimestamp()
     });
 
-    showToast("Project setup saved.");
+    showToast("Job setup saved.");
 }
 
 async function addExpense(event) {
@@ -1509,10 +3683,7 @@ async function addExpense(event) {
     const project = currentProject();
     if (!project) return;
 
-    const amount = Number(refs.expenseAmount.value || 0);
-    const category = refs.expenseCategory.value.trim();
-    const note = refs.expenseNote.value.trim();
-
+    const amount = toNumber(refs.expenseAmount.value);
     if (!amount) {
         showToast("Enter an expense amount first.", "error");
         return;
@@ -1520,8 +3691,8 @@ async function addExpense(event) {
 
     await addDoc(collection(state.db, "projects", project.id, "expenses"), {
         amount,
-        category,
-        note,
+        category: refs.expenseCategory.value.trim(),
+        note: refs.expenseNote.value.trim(),
         createdByUid: state.profile.uid,
         createdByName: state.profile.displayName,
         createdAt: serverTimestamp()
@@ -1536,10 +3707,7 @@ async function addPayment(event) {
     const project = currentProject();
     if (!project || !isAdmin()) return;
 
-    const amount = Number(refs.paymentAmount.value || 0);
-    const method = refs.paymentMethod.value.trim();
-    const note = refs.paymentNote.value.trim();
-
+    const amount = toNumber(refs.paymentAmount.value);
     if (!amount) {
         showToast("Enter a payment amount first.", "error");
         return;
@@ -1547,8 +3715,8 @@ async function addPayment(event) {
 
     await addDoc(collection(state.db, "projects", project.id, "payments"), {
         amount,
-        method,
-        note,
+        method: refs.paymentMethod.value.trim(),
+        note: refs.paymentNote.value.trim(),
         createdByUid: state.profile.uid,
         createdByName: state.profile.displayName,
         createdAt: serverTimestamp()
@@ -1602,14 +3770,13 @@ async function saveStaff(event) {
         email,
         displayName: refs.staffDisplayName.value.trim(),
         role: refs.staffRole.value,
-        smsNumber: refs.staffSmsNumber.value.trim(),
         defaultLeadAssignee: refs.staffDefaultAssignee.checked,
         active: refs.staffActive.checked,
         createdAt: existing?.createdAt || serverTimestamp(),
         updatedAt: serverTimestamp()
     };
 
-    if (refs.staffDefaultAssignee.checked) {
+    if (record.defaultLeadAssignee) {
         const batch = writeBatch(state.db);
         batch.set(doc(state.db, "allowedStaff", key), record, { merge: true });
 
@@ -1629,6 +3796,115 @@ async function saveStaff(event) {
 
     showToast(existing ? "Staff access updated." : "Staff access created.");
     resetStaffForm();
+}
+
+function openLeadTasksFromRecord() {
+    const lead = currentLeadDoc();
+    if (!lead) {
+        showToast("Save the lead first.", "error");
+        return;
+    }
+
+    state.activeLeadTab = "tasks";
+    switchView("leads-view");
+    renderLeadTabState();
+    queueFocus(refs.leadTaskTitle);
+}
+
+function openLeadEstimatePanel() {
+    const lead = currentLead();
+    if (!lead?.id) {
+        showToast("Save the lead first.", "error");
+        return;
+    }
+
+    state.activeLeadTab = "estimate";
+    switchView("leads-view");
+    renderLeadTabState();
+    queueFocus(refs.estimateSubject);
+}
+
+function focusJobTaskForm() {
+    const project = currentProject();
+    if (!project?.id) {
+        showToast("Select a job first.", "error");
+        return;
+    }
+
+    switchView("jobs-view");
+    queueFocus(refs.jobTaskTitle);
+}
+function handleCommandAction(target) {
+    const command = target.dataset.command;
+    if (!command) return;
+
+    if (command === "start-lead-draft") {
+        startLeadDraft();
+        return;
+    }
+
+    if (command === "start-task-draft") {
+        startTaskDraft();
+        return;
+    }
+
+    if (command === "start-customer-draft") {
+        startCustomerDraft();
+        return;
+    }
+
+    if (command === "open-view") {
+        switchView(target.dataset.targetView);
+        return;
+    }
+
+    if (command === "lead-create-task") {
+        openLeadTasksFromRecord();
+        return;
+    }
+
+    if (command === "lead-open-estimate") {
+        openLeadEstimatePanel();
+        return;
+    }
+
+    if (command === "customer-create-lead") {
+        const customer = currentCustomerDoc();
+        if (!customer) {
+            showToast("Save the customer first.", "error");
+            return;
+        }
+        startLeadDraft(customer.id);
+        return;
+    }
+
+    if (command === "job-create-task") {
+        focusJobTaskForm();
+    }
+}
+
+function handleRecordOpen(target) {
+    if (target.dataset.command) {
+        handleCommandAction(target);
+        return;
+    }
+
+    const viewId = target.dataset.openView;
+    if (target.dataset.openTask) {
+        selectTask(target.dataset.openTask);
+    }
+    if (target.dataset.openLead) {
+        selectLead(target.dataset.openLead);
+    }
+    if (target.dataset.openProject) {
+        selectProject(target.dataset.openProject);
+    }
+    if (target.dataset.openCustomer) {
+        selectCustomer(target.dataset.openCustomer);
+    }
+    if (viewId) {
+        switchView(viewId);
+    }
 }
 
 function bindUi() {
@@ -1654,47 +3930,129 @@ function bindUi() {
         button.addEventListener("click", () => switchView(button.dataset.view));
     });
 
-    refs.leadSearchInput.addEventListener("input", (event) => {
-        state.leadSearch = event.target.value || "";
-        renderPipeline();
+    Array.from(refs.todayScopeToggle.querySelectorAll("[data-today-scope]")).forEach((button) => {
+        button.addEventListener("click", () => {
+            state.todayScope = button.dataset.todayScope;
+            renderAll();
+        });
     });
 
-    refs.leadVisibilityFilter.addEventListener("change", (event) => {
-        state.leadFilter = event.target.value;
-        renderPipeline();
+    [
+        refs.workspaceCommandBar,
+        refs.todayOverdueList,
+        refs.todayDueTodayList,
+        refs.todayNewLeadsList,
+        refs.todayEstimatesList,
+        refs.todayJobsList,
+        refs.leadRecordContext,
+        refs.customerRecordContext,
+        refs.jobRecordContext,
+        refs.customerOpportunitiesList,
+        refs.customerJobsList,
+        refs.customerCurrentEstimate,
+        refs.leadJobSummary,
+        refs.leadTaskList,
+        refs.customerTaskList,
+        refs.jobTaskList
+    ].forEach((container) => {
+        container.addEventListener("click", (event) => {
+            const button = event.target.closest("[data-command], [data-open-view], [data-task-id], [data-open-project], [data-open-lead], [data-open-customer]");
+            if (!button) return;
+
+            if (button.dataset.taskId) {
+                selectTask(button.dataset.taskId);
+                switchView("tasks-view");
+                return;
+            }
+
+            handleRecordOpen(button);
+        });
+    });
+
+    refs.taskSearchInput.addEventListener("input", (event) => {
+        state.taskSearch = event.target.value || "";
+        renderTaskList();
+    });
+
+    refs.taskBucketFilter.addEventListener("change", (event) => {
+        state.taskBucket = event.target.value;
+        renderTaskList();
+    });
+
+    refs.taskNewButton.addEventListener("click", () => {
+        startTaskDraft();
+    });
+
+    refs.taskList.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-task-id]");
+        if (!button) return;
+        selectTask(button.dataset.taskId);
+    });
+
+    refs.taskForm.addEventListener("submit", (event) => {
+        saveTask(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.taskLinkedTypeSelect.addEventListener("change", () => {
+        renderTaskLinkedRecordOptions();
+        renderTaskRelatedSummary();
+    });
+
+    refs.taskLinkedRecordSelect.addEventListener("change", renderTaskRelatedSummary);
+
+    refs.taskCompleteButton.addEventListener("click", () => {
+        markTaskComplete().catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.taskResetButton.addEventListener("click", () => {
+        startTaskDraft();
+    });
+
+    refs.leadSearchInput.addEventListener("input", (event) => {
+        state.leadSearch = event.target.value || "";
+        renderLeadListShell();
+    });
+
+    refs.leadStageFilter.addEventListener("change", (event) => {
+        state.leadStage = event.target.value;
+        renderLeadListShell();
+    });
+
+    refs.leadLayoutButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            state.leadLayout = button.dataset.leadLayout;
+            renderLeadListShell();
+        });
+    });
+
+    refs.leadNewButton.addEventListener("click", () => {
+        startLeadDraft();
+    });
+
+    refs.leadList.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-lead-id]");
+        if (!button) return;
+        selectLead(button.dataset.leadId);
+    });
+
+    refs.leadBoard.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-lead-id]");
+        if (!button) return;
+        selectLead(button.dataset.leadId);
     });
 
     refs.leadCoreForm.addEventListener("submit", (event) => {
         saveLead(event).catch((error) => showToast(error.message, "error"));
     });
+
+    refs.leadCreateTaskButton.addEventListener("click", openLeadTasksFromRecord);
+
     refs.leadMarkLostButton.addEventListener("click", () => {
         markLeadLost().catch((error) => showToast(error.message, "error"));
     });
+
     refs.leadMarkWonButton.addEventListener("click", () => {
         convertLeadToProject().catch((error) => showToast(error.message, "error"));
-    });
-    refs.communicationForm.addEventListener("submit", (event) => {
-        addCommunication(event).catch((error) => showToast(error.message, "error"));
-    });
-    refs.noteForm.addEventListener("submit", (event) => {
-        addNote(event).catch((error) => showToast(error.message, "error"));
-    });
-    refs.followupForm.addEventListener("submit", (event) => {
-        scheduleFollowup(event).catch((error) => showToast(error.message, "error"));
-    });
-    refs.estimateForm.addEventListener("submit", (event) => {
-        saveEstimateDraft(event).catch((error) => showToast(error.message, "error"));
-    });
-    refs.estimateAiButton.addEventListener("click", () => {
-        draftEstimateWithAi().catch((error) => showToast(error.message, "error"));
-    });
-    refs.estimateAddLineButton.addEventListener("click", () => {
-        const lines = collectEstimateForm().lineItems;
-        lines.push({ label: "", description: "", amount: "" });
-        renderEstimateLines(lines);
-    });
-    refs.estimateSendButton.addEventListener("click", () => {
-        sendEstimate().catch((error) => showToast(error.message, "error"));
     });
 
     refs.leadTabButtons.forEach((button) => {
@@ -1703,28 +4061,195 @@ function bindUi() {
             refs.leadTabButtons.forEach((tabButton) => {
                 tabButton.classList.toggle("is-active", tabButton.dataset.leadTab === state.activeLeadTab);
             });
-            Array.from(document.querySelectorAll(".tab-pane")).forEach((pane) => {
-                pane.classList.toggle("is-active", pane.id === "lead-tab-" + state.activeLeadTab);
+            Array.from(document.querySelectorAll("#lead-record-shell .tab-pane")).forEach((pane) => {
+                pane.classList.toggle("is-active", pane.id === `lead-tab-${state.activeLeadTab}`);
             });
         });
     });
 
-    refs.projectCoreForm.addEventListener("submit", (event) => {
+    refs.leadTaskForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const lead = currentLeadDoc();
+        if (!lead) {
+            showToast("Save the lead first.", "error");
+            return;
+        }
+
+        const created = await createQuickTask({
+            title: refs.leadTaskTitle.value,
+            dueValue: refs.leadTaskDue.value,
+            priority: refs.leadTaskPriority.value,
+            assigneeSelect: refs.leadTaskAssignee,
+            leadId: lead.id,
+            customerId: lead.customerId || null
+        });
+
+        if (created) {
+            refs.leadTaskForm.reset();
+            refs.leadTaskPriority.value = "high";
+            renderTaskAssigneeOptions(refs.leadTaskAssignee, lead.assignedToUid || state.profile?.uid || "");
+        }
+    });
+
+    refs.noteForm.addEventListener("submit", (event) => {
+        addNote(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.estimateForm.addEventListener("submit", (event) => {
+        saveEstimateDraft(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.estimateAiButton.addEventListener("click", () => {
+        createEstimateDraft().catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.estimateAddLineButton.addEventListener("click", () => {
+        const lines = collectEstimateForm().lineItems;
+        lines.push({ label: "", description: "", amount: "" });
+        renderEstimateLines(lines);
+        updateEstimatePreview();
+    });
+
+    refs.estimateCopyButton.addEventListener("click", () => {
+        copyEstimateToClipboard().catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.estimatePrintButton.addEventListener("click", openEstimatePrintView);
+    refs.estimateSubject.addEventListener("input", updateEstimatePreview);
+    refs.estimateBody.addEventListener("input", updateEstimatePreview);
+    refs.estimateAssumptions.addEventListener("input", updateEstimatePreview);
+
+    refs.customerSearchInput.addEventListener("input", (event) => {
+        state.customerSearch = event.target.value || "";
+        renderCustomerList();
+    });
+
+    refs.customerNewButton.addEventListener("click", startCustomerDraft);
+    refs.customerList.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-customer-id]");
+        if (!button) return;
+        selectCustomer(button.dataset.customerId);
+    });
+
+    refs.customerForm.addEventListener("submit", (event) => {
+        saveCustomer(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.customerCreateLeadButton.addEventListener("click", () => {
+        const customer = currentCustomerDoc();
+        if (!customer) {
+            showToast("Save the customer first.", "error");
+            return;
+        }
+        startLeadDraft(customer.id);
+    });
+
+    refs.customerTaskForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const customer = currentCustomerDoc();
+        if (!customer) {
+            showToast("Save the customer first.", "error");
+            return;
+        }
+
+        const created = await createQuickTask({
+            title: refs.customerTaskTitle.value,
+            dueValue: refs.customerTaskDue.value,
+            priority: refs.customerTaskPriority.value,
+            assigneeSelect: refs.customerTaskAssignee,
+            customerId: customer.id
+        });
+
+        if (created) {
+            refs.customerTaskForm.reset();
+            refs.customerTaskPriority.value = "high";
+            renderTaskAssigneeOptions(refs.customerTaskAssignee, state.profile?.uid || "");
+        }
+    });
+
+    refs.jobSearchInput.addEventListener("input", (event) => {
+        state.jobSearch = event.target.value || "";
+        renderJobList();
+    });
+
+    refs.jobStatusFilter.addEventListener("change", (event) => {
+        state.jobStatus = event.target.value;
+        renderJobList();
+    });
+
+    refs.jobList.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-project-id]");
+        if (!button) return;
+        selectProject(button.dataset.projectId);
+    });
+
+    refs.jobCoreForm.addEventListener("submit", (event) => {
         saveProject(event).catch((error) => showToast(error.message, "error"));
     });
+
+    refs.jobOpenLeadButton.addEventListener("click", () => {
+        const project = currentProject();
+        if (!project?.leadId) return;
+        selectLead(project.leadId);
+        switchView("leads-view");
+    });
+
     refs.expenseForm.addEventListener("submit", (event) => {
         addExpense(event).catch((error) => showToast(error.message, "error"));
     });
+
     refs.paymentForm.addEventListener("submit", (event) => {
         addPayment(event).catch((error) => showToast(error.message, "error"));
     });
-    refs.templateForm.addEventListener("submit", (event) => {
-        saveTemplate(event).catch((error) => showToast(error.message, "error"));
+
+    refs.jobTaskForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const project = currentProject();
+        if (!project) {
+            showToast("Select a job first.", "error");
+            return;
+        }
+
+        const created = await createQuickTask({
+            title: refs.jobTaskTitle.value,
+            dueValue: refs.jobTaskDue.value,
+            priority: refs.jobTaskPriority.value,
+            assigneeSelect: refs.jobTaskAssignee,
+            projectId: project.id,
+            customerId: project.customerId || null,
+            leadId: project.leadId || null
+        });
+
+        if (created) {
+            refs.jobTaskForm.reset();
+            refs.jobTaskPriority.value = "high";
+            renderTaskAssigneeOptions(refs.jobTaskAssignee, project.assignedLeadOwnerUid || state.profile?.uid || "");
+        }
     });
+
+    refs.staffList.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-staff-key]");
+        if (!button || !isAdmin()) return;
+        const member = state.staffRoster.find((item) => item.id === button.dataset.staffKey);
+        if (!member) return;
+        state.selectedStaffKey = member.id;
+        refs.staffEmail.value = member.email || "";
+        refs.staffDisplayName.value = member.displayName || "";
+        refs.staffRole.value = member.role || "employee";
+        refs.staffDefaultAssignee.checked = Boolean(member.defaultLeadAssignee);
+        refs.staffActive.checked = member.active !== false;
+        renderStaffList();
+    });
+
     refs.staffForm.addEventListener("submit", (event) => {
         saveStaff(event).catch((error) => showToast(error.message, "error"));
     });
+
     refs.staffFormReset.addEventListener("click", resetStaffForm);
+
+    refs.templateForm.addEventListener("submit", (event) => {
+        saveTemplate(event).catch((error) => showToast(error.message, "error"));
+    });
 }
 
 bindUi();
