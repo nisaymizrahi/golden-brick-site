@@ -298,6 +298,7 @@ const state = {
     jobStatus: "active",
     taskSearch: "",
     taskBucket: "open",
+    sessionResetting: false,
     unsubs: {
         base: [],
         leadDetail: [],
@@ -463,6 +464,108 @@ function showStaffShell() {
     refs.staffShell.hidden = false;
 }
 
+function normaliseStaffRole(value) {
+    return safeString(value).toLowerCase() === "admin" ? "admin" : "employee";
+}
+
+function normaliseStaffProfile(user, source = {}) {
+    return {
+        uid: safeString(source.uid || user?.uid),
+        email: safeString(source.email || user?.email).toLowerCase(),
+        displayName: safeString(source.displayName || user?.displayName || user?.email),
+        role: normaliseStaffRole(source.role),
+        active: source.active !== false,
+        defaultLeadAssignee: Boolean(source.defaultLeadAssignee)
+    };
+}
+
+function isPermissionDeniedError(error) {
+    return error?.code === "permission-denied"
+        || /permission[- ]denied/i.test(error?.message || "");
+}
+
+function shouldFallbackToFirestore(error) {
+    return error?.status === 404
+        || error?.status >= 500
+        || isPermissionDeniedError(error)
+        || /Failed to fetch/i.test(error?.message || "");
+}
+
+async function verifyClientStaffAccess(user, profile = {}) {
+    const userRef = doc(state.db, "users", user.uid);
+    const templateRef = doc(state.db, "emailTemplates", "estimate-default");
+    const [userSnap] = await Promise.all([
+        getDoc(userRef),
+        getDoc(templateRef)
+    ]);
+
+    if (!userSnap.exists()) {
+        const error = new Error("Your staff profile has not finished syncing yet. Please try again in a moment.");
+        error.status = 503;
+        throw error;
+    }
+
+    const userData = userSnap.data() || {};
+    if (userData.active !== true) {
+        const error = new Error("This Google account is not approved for the staff portal.");
+        error.status = 403;
+        throw error;
+    }
+
+    return normaliseStaffProfile(user, {
+        ...profile,
+        ...userData
+    });
+}
+
+async function resetAuthSession(message) {
+    if (state.sessionResetting) {
+        return;
+    }
+
+    state.sessionResetting = true;
+    clearUnsubs(state.unsubs.base);
+    clearUnsubs(state.unsubs.leadDetail);
+    clearUnsubs(state.unsubs.projectDetail);
+    setBanner("", "info");
+    setSyncStatus("Access blocked");
+    showAuthShell(message);
+
+    if (state.auth?.currentUser) {
+        try {
+            await signOut(state.auth);
+        } catch (error) {
+            console.error("Could not sign out after staff access failed.", error);
+        }
+    }
+}
+
+function handleBaseSubscriptionError(context, error) {
+    console.error(`${context} subscription failed.`, error);
+
+    if (isPermissionDeniedError(error)) {
+        void resetAuthSession("Your staff access is still finishing setup. Please sign in again after permissions sync.");
+        return;
+    }
+
+    setSyncStatus("Sync issue");
+    setBanner(`${context} could not load right now. Please refresh and try again.`, "error");
+}
+
+function handleDetailSubscriptionError(context, error, recover) {
+    console.error(`${context} subscription failed.`, error);
+
+    if (typeof recover === "function") {
+        recover();
+    }
+
+    if (isPermissionDeniedError(error)) {
+        setBanner(`You no longer have access to this ${context.toLowerCase()}.`, "error");
+    } else {
+        setBanner(`${context} could not load right now.`, "error");
+    }
+}
+
 function applyRoleVisibility() {
     refs.adminOnly.forEach((node) => {
         node.hidden = !isAdmin();
@@ -572,6 +675,54 @@ function customerRollup(customer) {
         totalPaymentsReceived,
         currentEstimateLead
     };
+}
+
+function buildEmployeeCustomerRecords() {
+    const customerMap = new Map();
+
+    function mergeCustomerRecord(source = {}) {
+        const customerId = safeString(source.customerId);
+        if (!customerId) {
+            return;
+        }
+
+        const existing = customerMap.get(customerId) || {
+            id: customerId,
+            name: "",
+            primaryEmail: "",
+            primaryPhone: "",
+            primaryAddress: "",
+            notes: "",
+            createdAt: null,
+            updatedAt: null
+        };
+        const nextUpdatedAt = toMillis(source.updatedAt || source.createdAt) >= toMillis(existing.updatedAt || existing.createdAt)
+            ? (source.updatedAt || source.createdAt || existing.updatedAt || existing.createdAt || null)
+            : (existing.updatedAt || existing.createdAt || source.updatedAt || source.createdAt || null);
+
+        customerMap.set(customerId, {
+            ...existing,
+            id: customerId,
+            name: existing.name || safeString(source.customerName || source.clientName || "Unnamed customer"),
+            primaryEmail: existing.primaryEmail || safeString(source.clientEmail),
+            primaryPhone: existing.primaryPhone || safeString(source.clientPhone),
+            primaryAddress: existing.primaryAddress || safeString(source.projectAddress),
+            updatedAt: nextUpdatedAt
+        });
+    }
+
+    state.leads.forEach(mergeCustomerRecord);
+    state.projects.forEach(mergeCustomerRecord);
+
+    return Array.from(customerMap.values());
+}
+
+function refreshScopedCustomers() {
+    if (isAdmin()) {
+        return;
+    }
+
+    state.customers = buildEmployeeCustomerRecords();
 }
 
 function defaultLeadDraft(customer = null) {
@@ -809,7 +960,7 @@ function projectScopeSet() {
     if (isAdmin() && state.todayScope === "team") return state.projects;
     return state.projects.filter((project) => {
         const allowed = Array.isArray(project.allowedStaffUids) ? project.allowedStaffUids : [];
-        return allowed.includes(state.profile.uid) || project.assignedLeadOwnerUid === state.profile.uid;
+        return allowed.includes(state.profile.uid);
     });
 }
 
@@ -2622,7 +2773,12 @@ async function syncSession(user) {
             throw error;
         }
 
-        return payload;
+        return {
+            ...payload,
+            mode: payload.mode || "api",
+            claimsSynced: payload.claimsSynced !== false,
+            profile: await verifyClientStaffAccess(user, payload.profile || {})
+        };
     }
 
     async function syncSessionFromFirestore() {
@@ -2649,14 +2805,7 @@ async function syncSession(user) {
             };
         }
 
-        const profile = {
-            uid: user.uid,
-            email,
-            displayName: safeString(user.displayName || user.email),
-            role: safeString(allowedData.role || "employee"),
-            active: true,
-            defaultLeadAssignee: Boolean(allowedData.defaultLeadAssignee)
-        };
+        const profile = normaliseStaffProfile(user, allowedData);
 
         await Promise.all([
             setDoc(doc(state.db, "users", user.uid), {
@@ -2677,16 +2826,16 @@ async function syncSession(user) {
         return {
             ok: true,
             authorised: true,
-            profile,
-            mode: "firestore"
+            profile: await verifyClientStaffAccess(user, profile),
+            mode: "firestore",
+            claimsSynced: false
         };
     }
 
     try {
         return await syncSessionViaApi();
     } catch (error) {
-        const shouldFallback = error.status === 404 || error.status >= 500 || /Failed to fetch/i.test(error.message || "");
-        if (!shouldFallback) {
+        if (!shouldFallbackToFirestore(error)) {
             throw error;
         }
 
@@ -2722,10 +2871,13 @@ function subscribeBaseData() {
 
     state.unsubs.base.push(onSnapshot(leadSource, (snapshot) => {
         state.leads = snapshot.docs.map(normaliseFirestoreDoc);
+        refreshScopedCustomers();
         resetSelectionFromSnapshots();
         subscribeLeadDetail();
         renderAll();
         setSyncStatus("Lead data live");
+    }, (error) => {
+        handleBaseSubscriptionError("Lead data", error);
     }));
 
     const projectSource = isAdmin()
@@ -2734,20 +2886,25 @@ function subscribeBaseData() {
 
     state.unsubs.base.push(onSnapshot(projectSource, (snapshot) => {
         state.projects = snapshot.docs.map(normaliseFirestoreDoc);
+        refreshScopedCustomers();
         resetSelectionFromSnapshots();
         subscribeProjectDetail();
         renderAll();
+    }, (error) => {
+        handleBaseSubscriptionError("Job data", error);
     }));
 
-    const customerSource = isAdmin()
-        ? collection(state.db, "customers")
-        : query(collection(state.db, "customers"), where("allowedStaffUids", "array-contains", state.profile.uid));
-
-    state.unsubs.base.push(onSnapshot(customerSource, (snapshot) => {
-        state.customers = snapshot.docs.map(normaliseFirestoreDoc);
-        resetSelectionFromSnapshots();
-        renderAll();
-    }));
+    if (isAdmin()) {
+        state.unsubs.base.push(onSnapshot(collection(state.db, "customers"), (snapshot) => {
+            state.customers = snapshot.docs.map(normaliseFirestoreDoc);
+            resetSelectionFromSnapshots();
+            renderAll();
+        }, (error) => {
+            handleBaseSubscriptionError("Customer data", error);
+        }));
+    } else {
+        refreshScopedCustomers();
+    }
 
     const taskSource = isAdmin()
         ? collection(state.db, "tasks")
@@ -2757,17 +2914,23 @@ function subscribeBaseData() {
         state.tasks = snapshot.docs.map(normaliseFirestoreDoc);
         resetSelectionFromSnapshots();
         renderAll();
+    }, (error) => {
+        handleBaseSubscriptionError("Task data", error);
     }));
 
     state.unsubs.base.push(onSnapshot(doc(state.db, "emailTemplates", "estimate-default"), (snapshot) => {
         state.template = snapshot.exists() ? normaliseFirestoreDoc(snapshot) : { ...EMPTY_TEMPLATE };
         renderTemplateForm();
+    }, (error) => {
+        handleBaseSubscriptionError("Estimate template", error);
     }));
 
     if (isAdmin()) {
         state.unsubs.base.push(onSnapshot(collection(state.db, "allowedStaff"), (snapshot) => {
             state.staffRoster = snapshot.docs.map(normaliseFirestoreDoc);
             renderAll();
+        }, (error) => {
+            handleBaseSubscriptionError("Staff roster", error);
         }));
     } else {
         state.staffRoster = [];
@@ -2790,11 +2953,21 @@ function subscribeLeadDetail() {
             .map(normaliseFirestoreDoc)
             .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
         renderLeadDetail();
+    }, (error) => {
+        handleDetailSubscriptionError("Lead activity", error, () => {
+            state.leadActivities = [];
+            renderLeadDetail();
+        });
     }));
 
     state.unsubs.leadDetail.push(onSnapshot(doc(state.db, "estimates", state.selectedLeadId), (snapshot) => {
         state.estimate = snapshot.exists() ? normaliseFirestoreDoc(snapshot) : null;
         renderLeadDetail();
+    }, (error) => {
+        handleDetailSubscriptionError("Estimate", error, () => {
+            state.estimate = null;
+            renderLeadDetail();
+        });
     }));
 }
 
@@ -2814,6 +2987,11 @@ function subscribeProjectDetail() {
             .map(normaliseFirestoreDoc)
             .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
         renderJobDetail();
+    }, (error) => {
+        handleDetailSubscriptionError("Job expenses", error, () => {
+            state.projectExpenses = [];
+            renderJobDetail();
+        });
     }));
 
     state.unsubs.projectDetail.push(onSnapshot(collection(state.db, "projects", state.selectedProjectId, "payments"), (snapshot) => {
@@ -2821,6 +2999,11 @@ function subscribeProjectDetail() {
             .map(normaliseFirestoreDoc)
             .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
         renderJobDetail();
+    }, (error) => {
+        handleDetailSubscriptionError("Job payments", error, () => {
+            state.projectPayments = [];
+            renderJobDetail();
+        });
     }));
 }
 
@@ -2846,6 +3029,7 @@ async function bootstrapFirebase() {
             clearUnsubs(state.unsubs.projectDetail);
 
             if (!user) {
+                state.sessionResetting = false;
                 state.currentUser = null;
                 state.profile = null;
                 state.leads = [];
@@ -2860,10 +3044,12 @@ async function bootstrapFirebase() {
                 state.leadDraft = null;
                 state.customerDraft = null;
                 state.taskDraft = null;
+                setBanner("", "info");
                 showAuthShell();
                 return;
             }
 
+            state.sessionResetting = false;
             state.currentUser = user;
 
             try {
@@ -2882,7 +3068,9 @@ async function bootstrapFirebase() {
                 switchView("today-view");
                 setBanner(
                     session.mode === "firestore"
-                        ? "Staff login is running from the approved Firestore staff list while backend functions finish deploying."
+                        ? "Staff login is running from the approved Firestore staff list while backend permissions finish syncing."
+                        : session.claimsSynced === false
+                            ? "Staff login is working, but backend claims sync is still degraded. Core CRM access will keep working."
                         : ""
                 );
                 setSyncStatus("Syncing data");

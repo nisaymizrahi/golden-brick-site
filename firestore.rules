@@ -9,8 +9,13 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
+    function userDocExists() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
     function userData() {
-      return signedIn() && userDoc().exists() ? userDoc().data : null;
+      return userDocExists() ? userDoc().data : null;
     }
 
     function requestEmail() {
@@ -60,18 +65,17 @@ service cloud.firestore {
 
     function canReadProject(projectData) {
       return isAdmin() || (
-        isActiveStaff() && (
-          listHas(projectData.allowedStaffUids, request.auth.uid) ||
-          listHas(projectData.assignedWorkerIds, request.auth.uid) ||
-          projectData.assignedLeadOwnerUid == request.auth.uid
-        )
+        isActiveStaff() &&
+        projectData.allowedStaffUids is list &&
+        projectData.allowedStaffUids.hasAny([request.auth.uid])
       );
     }
 
     function canReadCustomer(customerData) {
       return isAdmin() || (
         isActiveStaff() &&
-        listHas(customerData.allowedStaffUids, request.auth.uid)
+        customerData.allowedStaffUids is list &&
+        customerData.allowedStaffUids.hasAny([request.auth.uid])
       );
     }
 
@@ -128,7 +132,11 @@ service cloud.firestore {
     }
 
     match /leads/{leadId} {
-      allow read: if canReadLead(resource.data);
+      allow get: if canReadLead(resource.data);
+      allow list: if isAdmin() || (
+        isActiveStaff() &&
+        request.auth.uid == resource.data.assignedToUid
+      );
       allow create: if isAdmin();
       allow update: if isAdmin() || (
         canReadLead(resource.data) &&
@@ -153,17 +161,30 @@ service cloud.firestore {
         return get(/databases/$(database)/documents/leads/$(estimateId));
       }
 
-      allow read: if leadDoc().exists() && canReadLead(leadDoc().data);
+      function leadDocExists() {
+        return exists(/databases/$(database)/documents/leads/$(estimateId));
+      }
+
+      allow get, list: if leadDocExists() && canReadLead(leadDoc().data);
       allow write: if isAdmin();
     }
 
     match /customers/{customerId} {
-      allow read: if canReadCustomer(resource.data);
+      allow get: if canReadCustomer(resource.data);
+      allow list: if isAdmin() || (
+        isActiveStaff() &&
+        resource.data.allowedStaffUids is list &&
+        resource.data.allowedStaffUids.hasAny([request.auth.uid])
+      );
       allow create, update, delete: if isAdmin();
     }
 
     match /tasks/{taskId} {
-      allow read: if canReadTask(resource.data);
+      allow get: if canReadTask(resource.data);
+      allow list: if isAdmin() || (
+        isActiveStaff() &&
+        request.auth.uid == resource.data.assignedToUid
+      );
       allow create: if isAdmin() || (
         isActiveStaff() &&
         request.resource.data.assignedToUid == request.auth.uid
@@ -178,7 +199,12 @@ service cloud.firestore {
     }
 
     match /projects/{projectId} {
-      allow read: if canReadProject(resource.data);
+      allow get: if canReadProject(resource.data);
+      allow list: if isAdmin() || (
+        isActiveStaff() &&
+        resource.data.allowedStaffUids is list &&
+        resource.data.allowedStaffUids.hasAny([request.auth.uid])
+      );
       allow create, update, delete: if isAdmin();
 
       match /expenses/{expenseId} {
