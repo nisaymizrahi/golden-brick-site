@@ -200,6 +200,21 @@ const COMPANY_INFO = {
     email: "info@goldenbrickc.com"
 };
 
+const ESTIMATE_PDF_THEME = {
+    brand: [197, 160, 89],
+    brandDeep: [142, 106, 46],
+    ink: [23, 18, 13],
+    muted: [109, 99, 86],
+    panel: [250, 246, 239],
+    line: [231, 218, 196]
+};
+
+const MOBILE_BREAKPOINT = 860;
+const MOBILE_PRIMARY_VIEWS = ["today-view", "jobs-view", "vendors-view", "tasks-view"];
+const MOBILE_MORE_VIEWS = ["leads-view", "customers-view", "staff-view"];
+
+let jsPdfModulePromise = null;
+
 const refs = {
     authShell: document.getElementById("auth-shell"),
     authFeedback: document.getElementById("auth-feedback"),
@@ -233,6 +248,7 @@ const refs = {
     taskList: document.getElementById("task-list"),
     taskDetailTitle: document.getElementById("task-detail-title"),
     taskDetailBadge: document.getElementById("task-detail-badge"),
+    taskMobileBackButton: document.getElementById("task-mobile-back-button"),
     taskRecordEmpty: document.getElementById("task-record-empty"),
     taskDetailShell: document.getElementById("task-detail-shell"),
     taskForm: document.getElementById("task-form"),
@@ -308,6 +324,7 @@ const refs = {
     customerList: document.getElementById("customer-list"),
     customerRecordTitle: document.getElementById("customer-record-title"),
     customerRecordBadge: document.getElementById("customer-record-badge"),
+    customerMobileBackButton: document.getElementById("customer-mobile-back-button"),
     customerRecordEmpty: document.getElementById("customer-record-empty"),
     customerRecordShell: document.getElementById("customer-record-shell"),
     customerForm: document.getElementById("customer-form"),
@@ -335,6 +352,7 @@ const refs = {
     jobList: document.getElementById("job-list"),
     jobRecordTitle: document.getElementById("job-record-title"),
     jobRecordBadge: document.getElementById("job-record-badge"),
+    jobMobileBackButton: document.getElementById("job-mobile-back-button"),
     jobRecordEmpty: document.getElementById("job-record-empty"),
     jobRecordShell: document.getElementById("job-record-shell"),
     jobAddExpenseButton: document.getElementById("job-add-expense-button"),
@@ -411,6 +429,7 @@ const refs = {
     vendorList: document.getElementById("vendor-list"),
     vendorRecordTitle: document.getElementById("vendor-record-title"),
     vendorRecordBadge: document.getElementById("vendor-record-badge"),
+    vendorMobileBackButton: document.getElementById("vendor-mobile-back-button"),
     vendorRecordEmpty: document.getElementById("vendor-record-empty"),
     vendorRecordShell: document.getElementById("vendor-record-shell"),
     vendorAddBillButton: document.getElementById("vendor-add-bill-button"),
@@ -488,6 +507,11 @@ const refs = {
     templateOutro: document.getElementById("template-outro"),
     templateTerms: document.getElementById("template-terms"),
 
+    mobileExpenseFab: document.getElementById("mobile-expense-fab"),
+    mobileTabBar: document.getElementById("mobile-tab-bar"),
+    mobileTabButtons: Array.from(document.querySelectorAll("[data-mobile-view]")),
+    mobileMoreButton: document.getElementById("mobile-more-button"),
+
     drawerBackdrop: document.getElementById("drawer-backdrop"),
     entityDrawer: document.getElementById("entity-drawer"),
     drawerKicker: document.getElementById("drawer-kicker"),
@@ -495,6 +519,18 @@ const refs = {
     drawerSubtitle: document.getElementById("drawer-subtitle"),
     drawerCloseButton: document.getElementById("drawer-close-button"),
     drawerCancelButtons: Array.from(document.querySelectorAll(".drawer-cancel-button")),
+    drawerMenuPanel: document.getElementById("drawer-menu-panel"),
+    drawerMenuList: document.getElementById("drawer-menu-list"),
+    drawerExpenseForm: document.getElementById("drawer-expense-form"),
+    drawerExpenseProjectSearch: document.getElementById("drawer-expense-project-search"),
+    drawerExpenseProject: document.getElementById("drawer-expense-project"),
+    drawerExpenseContext: document.getElementById("drawer-expense-context"),
+    drawerExpenseAmount: document.getElementById("drawer-expense-amount"),
+    drawerExpenseDate: document.getElementById("drawer-expense-date"),
+    drawerExpenseCategory: document.getElementById("drawer-expense-category"),
+    drawerExpenseVendorSelect: document.getElementById("drawer-expense-vendor-select"),
+    drawerExpenseVendor: document.getElementById("drawer-expense-vendor"),
+    drawerExpenseNote: document.getElementById("drawer-expense-note"),
     drawerLeadForm: document.getElementById("drawer-lead-form"),
     drawerLeadClientName: document.getElementById("drawer-lead-client-name"),
     drawerLeadClientPhone: document.getElementById("drawer-lead-client-phone"),
@@ -592,6 +628,8 @@ const state = {
     drawer: {
         type: null,
         context: {},
+        restoreFocus: null,
+        expenseDraft: null,
         leadDraft: null,
         customerDraft: null,
         vendorDraft: null,
@@ -610,6 +648,112 @@ const initialLeadRoute = readLeadRouteState();
 state.pendingLeadRouteId = initialLeadRoute.leadId;
 state.pendingLeadRouteTab = initialLeadRoute.leadTab;
 state.leadWorkspaceOpen = Boolean(initialLeadRoute.leadId);
+
+function isMobileViewport() {
+    return window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches;
+}
+
+function syncViewportHeightVar() {
+    const nextHeight = Math.round(window.visualViewport?.height || window.innerHeight || 0);
+    if (nextHeight > 0) {
+        document.documentElement.style.setProperty("--crm-app-height", `${nextHeight}px`);
+    }
+}
+
+function rememberedFocusElement() {
+    return document.activeElement instanceof HTMLElement ? document.activeElement : null;
+}
+
+function defaultExpenseDrawerDraft(projectId = null) {
+    return {
+        projectId,
+        projectSearch: "",
+        amount: "",
+        relatedDate: todayDateInputValue(),
+        category: "",
+        vendorId: "",
+        vendor: "",
+        note: ""
+    };
+}
+
+function mobileViewHasDetail(viewId) {
+    if (viewId === "tasks-view") return Boolean(currentTask());
+    if (viewId === "customers-view") return Boolean(currentCustomer());
+    if (viewId === "jobs-view") return Boolean(currentProject());
+    if (viewId === "vendors-view") return Boolean(currentVendor());
+    return false;
+}
+
+function syncMobileChrome() {
+    const isMobile = isMobileViewport();
+    const hideCommandBar = isMobile && (mobileViewHasDetail(state.activeView) || (state.activeView === "leads-view" && state.leadWorkspaceOpen));
+    document.body.classList.toggle("mobile-viewport", isMobile);
+
+    refs.views.forEach((view) => {
+        view.classList.toggle("is-mobile-detail-active", isMobile && mobileViewHasDetail(view.id));
+    });
+
+    if (refs.taskMobileBackButton) {
+        refs.taskMobileBackButton.hidden = !(isMobile && currentTask());
+    }
+    if (refs.customerMobileBackButton) {
+        refs.customerMobileBackButton.hidden = !(isMobile && currentCustomer());
+    }
+    if (refs.jobMobileBackButton) {
+        refs.jobMobileBackButton.hidden = !(isMobile && currentProject());
+    }
+    if (refs.vendorMobileBackButton) {
+        refs.vendorMobileBackButton.hidden = !(isMobile && currentVendor());
+    }
+
+    if (refs.mobileTabBar) {
+        refs.mobileTabBar.hidden = !(isMobile && state.profile);
+    }
+    if (refs.mobileExpenseFab) {
+        refs.mobileExpenseFab.hidden = !(isMobile && state.profile && !state.drawer.type);
+    }
+
+    if (refs.workspaceCommandBar && state.profile) {
+        refs.workspaceCommandBar.hidden = hideCommandBar;
+    }
+
+    refs.mobileTabButtons.forEach((button) => {
+        button.classList.toggle("is-active", button.dataset.mobileView === state.activeView);
+    });
+
+    if (refs.mobileMoreButton) {
+        refs.mobileMoreButton.classList.toggle("is-active", state.drawer.type === "mobile-more" || MOBILE_MORE_VIEWS.includes(state.activeView));
+    }
+}
+
+function clearMobileDetailForView(viewId) {
+    if (viewId === "tasks-view") {
+        state.selectedTaskId = null;
+        state.taskDraft = null;
+    } else if (viewId === "customers-view") {
+        state.selectedCustomerId = null;
+        state.customerDraft = null;
+    } else if (viewId === "jobs-view") {
+        state.selectedProjectId = null;
+        clearUnsubs(state.unsubs.projectDetail);
+        state.projectExpenses = [];
+        state.projectPayments = [];
+        state.projectChangeOrders = [];
+        state.projectDocuments = [];
+        state.projectNotes = [];
+        state.projectActivities = [];
+        state.projectLeadActivities = [];
+    } else if (viewId === "vendors-view") {
+        state.selectedVendorId = null;
+        state.vendorDraft = null;
+    } else if (viewId === "leads-view") {
+        closeLeadWorkspace();
+        return;
+    }
+
+    renderAll();
+}
 
 function isAdmin() {
     return state.profile?.role === "admin";
@@ -779,11 +923,15 @@ function showAuthShell(message = "Only approved staff accounts can enter the por
     refs.authFeedback.textContent = message;
     refs.authShell.hidden = false;
     refs.staffShell.hidden = true;
+    refs.mobileTabBar.hidden = true;
+    refs.mobileExpenseFab.hidden = true;
+    syncMobileChrome();
 }
 
 function showStaffShell() {
     refs.authShell.hidden = true;
     refs.staffShell.hidden = false;
+    syncMobileChrome();
 }
 
 function normaliseStaffRole(value) {
@@ -861,7 +1009,9 @@ function setDrawerVisibility(isOpen) {
     refs.drawerBackdrop.hidden = !isOpen;
     refs.entityDrawer.hidden = !isOpen;
     refs.entityDrawer.setAttribute("aria-hidden", String(!isOpen));
+    refs.entityDrawer.setAttribute("aria-modal", String(isOpen));
     document.body.classList.toggle("drawer-open", isOpen);
+    syncMobileChrome();
 }
 
 function drawerLinkedEntityLabel(type, id) {
@@ -1403,41 +1553,53 @@ function defaultTaskDraft(linked = {}) {
     };
 }
 
-function closeDrawer() {
-    state.drawer = {
+function resetDrawerState(overrides = {}) {
+    return {
         type: null,
         context: {},
+        restoreFocus: null,
+        expenseDraft: null,
         leadDraft: null,
         customerDraft: null,
         vendorDraft: null,
-        taskDraft: null
+        taskDraft: null,
+        ...overrides
     };
+}
+
+function closeDrawer() {
+    const restoreFocus = state.drawer.restoreFocus;
+    state.drawer = resetDrawerState();
     setDrawerVisibility(false);
+
+    if (restoreFocus && typeof restoreFocus.focus === "function") {
+        window.requestAnimationFrame(() => {
+            restoreFocus.focus({ preventScroll: true });
+        });
+    }
 }
 
 function openLeadDrawer({ customerId = null } = {}) {
     const customer = customerId ? state.customers.find((item) => item.id === customerId) : null;
-    state.drawer = {
+    state.drawer = resetDrawerState({
         type: "lead",
         context: { customerId: customer?.id || null },
+        restoreFocus: rememberedFocusElement(),
         leadDraft: {
             ...defaultLeadDraft(customer || null),
             customerId: customer?.id || null,
             customerName: customer?.name || ""
-        },
-        customerDraft: null,
-        vendorDraft: null,
-        taskDraft: null
-    };
+        }
+    });
     renderActiveDrawer();
     queueFocus(refs.drawerLeadClientName);
 }
 
 function openCustomerDrawer(seed = {}) {
-    state.drawer = {
+    state.drawer = resetDrawerState({
         type: "customer",
         context: {},
-        leadDraft: null,
+        restoreFocus: rememberedFocusElement(),
         customerDraft: {
             ...defaultCustomerDraft(),
             name: seed.name || "",
@@ -1445,20 +1607,17 @@ function openCustomerDrawer(seed = {}) {
             primaryPhone: seed.primaryPhone || "",
             primaryAddress: seed.primaryAddress || "",
             notes: seed.notes || ""
-        },
-        vendorDraft: null,
-        taskDraft: null
-    };
+        }
+    });
     renderActiveDrawer();
     queueFocus(refs.drawerCustomerName);
 }
 
 function openVendorDrawer(seed = {}) {
-    state.drawer = {
+    state.drawer = resetDrawerState({
         type: "vendor",
         context: {},
-        leadDraft: null,
-        customerDraft: null,
+        restoreFocus: rememberedFocusElement(),
         vendorDraft: {
             ...defaultVendorDraft(),
             name: seed.name || "",
@@ -1474,9 +1633,8 @@ function openVendorDrawer(seed = {}) {
             preferredPaymentMethod: seed.preferredPaymentMethod || "",
             defaultTerms: seed.defaultTerms || "",
             notes: seed.notes || ""
-        },
-        taskDraft: null
-    };
+        }
+    });
     renderActiveDrawer();
     queueFocus(refs.drawerVendorName);
 }
@@ -1484,16 +1642,35 @@ function openVendorDrawer(seed = {}) {
 function openTaskDrawer(linked = {}) {
     const preferredType = linked.preferredType
         || (linked.projectId ? "project" : linked.leadId ? "lead" : linked.customerId ? "customer" : "");
-    state.drawer = {
+    state.drawer = resetDrawerState({
         type: "task",
         context: { ...linked, preferredType },
-        leadDraft: null,
-        customerDraft: null,
-        vendorDraft: null,
+        restoreFocus: rememberedFocusElement(),
         taskDraft: defaultTaskDraft(linked)
-    };
+    });
     renderActiveDrawer();
     queueFocus(refs.drawerTaskTitle);
+}
+
+function openExpenseDrawer({ projectId = state.selectedProjectId || null } = {}) {
+    state.drawer = resetDrawerState({
+        type: "expense",
+        context: {},
+        restoreFocus: rememberedFocusElement(),
+        expenseDraft: defaultExpenseDrawerDraft(projectId)
+    });
+    renderActiveDrawer();
+    queueFocus(projectId ? refs.drawerExpenseAmount : refs.drawerExpenseProjectSearch);
+}
+
+function openMobileMoreDrawer() {
+    state.drawer = resetDrawerState({
+        type: "mobile-more",
+        context: {},
+        restoreFocus: rememberedFocusElement()
+    });
+    renderActiveDrawer();
+    queueFocus(refs.drawerMenuList?.querySelector("[data-drawer-view]"));
 }
 
 function drawerTaskLinkedType(taskDraft) {
@@ -1507,12 +1684,104 @@ function drawerTaskLinkedType(taskDraft) {
     return "";
 }
 
-function renderDrawerLead() {
-    const leadDraft = state.drawer.leadDraft;
-    refs.drawerLeadForm.hidden = false;
+function hideDrawerPanels() {
+    refs.drawerMenuPanel.hidden = true;
+    refs.drawerExpenseForm.hidden = true;
+    refs.drawerLeadForm.hidden = true;
     refs.drawerCustomerForm.hidden = true;
     refs.drawerVendorForm.hidden = true;
     refs.drawerTaskForm.hidden = true;
+}
+
+function renderDrawerMenu() {
+    hideDrawerPanels();
+    refs.drawerMenuPanel.hidden = false;
+    refs.drawerKicker.textContent = "Navigation";
+    refs.drawerTitle.textContent = "More sections";
+    refs.drawerSubtitle.textContent = "Jump to the rest of the CRM without wrestling with the desktop sidebar.";
+}
+
+function renderDrawerExpenseProjectOptions() {
+    const expenseDraft = state.drawer.expenseDraft || defaultExpenseDrawerDraft();
+    const search = safeString(refs.drawerExpenseProjectSearch.value || expenseDraft.projectSearch).toLowerCase();
+    const selectedProjectId = refs.drawerExpenseProject.value || expenseDraft.projectId || "";
+    const options = sortByUpdatedDesc(state.projects).filter((project) => {
+        if (!search) return true;
+        const blob = [
+            project.clientName,
+            project.customerName,
+            project.projectAddress,
+            project.projectType
+        ].join(" ").toLowerCase();
+        return blob.includes(search);
+    });
+
+    refs.drawerExpenseProject.innerHTML = options.length
+        ? [`<option value="">Select a property</option>`].concat(options.map((project) => `
+            <option value="${escapeHtml(project.id)}" ${selectedProjectId === project.id ? "selected" : ""}>
+                ${escapeHtml(`${project.clientName || "Unnamed job"} · ${project.projectAddress || "Address pending"}`)}
+            </option>
+        `)).join("")
+        : `<option value="">No matching jobs</option>`;
+
+    refs.drawerExpenseProject.value = options.some((project) => project.id === selectedProjectId) ? selectedProjectId : "";
+}
+
+function selectedExpenseVendorFromSelect(select) {
+    if (!select) {
+        return null;
+    }
+
+    const vendorId = select.value || "";
+    return vendorId ? state.vendors.find((vendor) => vendor.id === vendorId) || null : null;
+}
+
+function renderVendorSelectOptions(select, selectedVendorId = "") {
+    if (!select) {
+        return;
+    }
+
+    select.innerHTML = [`<option value="">No vendor record</option>`].concat(
+        sortByUpdatedDesc(state.vendors).map((vendor) => `
+            <option value="${escapeHtml(vendor.id)}">${escapeHtml(`${vendor.name || "Unnamed vendor"} · ${(vendor.tradeIds || []).slice(0, 2).map((tradeId) => vendorTradeLabel(tradeId)).join(", ") || (vendor.tradeOtherText || "Trade not set")}`)}</option>
+        `)
+    ).join("");
+    select.value = selectedVendorId || "";
+}
+
+function renderDrawerExpenseContext() {
+    const projectId = refs.drawerExpenseProject.value || state.drawer.expenseDraft?.projectId || "";
+    const project = projectId ? state.projects.find((item) => item.id === projectId) : null;
+    refs.drawerExpenseContext.innerHTML = project
+        ? `
+            <div><strong>Client:</strong> ${escapeHtml(project.clientName || project.customerName || "Unnamed job")}</div>
+            <div>${escapeHtml(project.projectAddress || "Address pending")} · ${escapeHtml(project.projectType || "Project")}</div>
+        `
+        : "Pick the property first so the expense lands in the correct job record.";
+}
+
+function renderDrawerExpense() {
+    const expenseDraft = state.drawer.expenseDraft || defaultExpenseDrawerDraft();
+    hideDrawerPanels();
+    refs.drawerExpenseForm.hidden = false;
+    refs.drawerKicker.textContent = "Quick add";
+    refs.drawerTitle.textContent = "Add expense";
+    refs.drawerSubtitle.textContent = "Choose the property, record the cost, and drop it straight into the right job financials.";
+    refs.drawerExpenseProjectSearch.value = expenseDraft.projectSearch || "";
+    refs.drawerExpenseAmount.value = expenseDraft.amount || "";
+    refs.drawerExpenseDate.value = expenseDraft.relatedDate || todayDateInputValue();
+    refs.drawerExpenseCategory.value = expenseDraft.category || "";
+    refs.drawerExpenseVendor.value = expenseDraft.vendor || "";
+    refs.drawerExpenseNote.value = expenseDraft.note || "";
+    renderDrawerExpenseProjectOptions();
+    renderVendorSelectOptions(refs.drawerExpenseVendorSelect, expenseDraft.vendorId || "");
+    renderDrawerExpenseContext();
+}
+
+function renderDrawerLead() {
+    const leadDraft = state.drawer.leadDraft;
+    hideDrawerPanels();
+    refs.drawerLeadForm.hidden = false;
     refs.drawerKicker.textContent = "Quick add";
     refs.drawerTitle.textContent = "New lead";
     refs.drawerSubtitle.textContent = "Capture the lead fast, then open the full lead workspace for estimate, tasks, planning, notes, and the won-job flow.";
@@ -1535,10 +1804,8 @@ function renderDrawerLead() {
 
 function renderDrawerCustomer() {
     const customerDraft = state.drawer.customerDraft;
-    refs.drawerLeadForm.hidden = true;
+    hideDrawerPanels();
     refs.drawerCustomerForm.hidden = false;
-    refs.drawerVendorForm.hidden = true;
-    refs.drawerTaskForm.hidden = true;
     refs.drawerKicker.textContent = "Quick add";
     refs.drawerTitle.textContent = "New customer";
     refs.drawerSubtitle.textContent = "Create a clean investor or owner record without leaving the CRM workspace behind.";
@@ -1551,10 +1818,8 @@ function renderDrawerCustomer() {
 
 function renderDrawerVendor() {
     const vendorDraft = state.drawer.vendorDraft;
-    refs.drawerLeadForm.hidden = true;
-    refs.drawerCustomerForm.hidden = true;
+    hideDrawerPanels();
     refs.drawerVendorForm.hidden = false;
-    refs.drawerTaskForm.hidden = true;
     refs.drawerKicker.textContent = "Quick add";
     refs.drawerTitle.textContent = "New vendor";
     refs.drawerSubtitle.textContent = "Create a clean vendor record for trade categorization, payables, and document tracking without leaving the workspace.";
@@ -1632,9 +1897,7 @@ function renderDrawerTaskContext() {
 
 function renderDrawerTask() {
     const taskDraft = state.drawer.taskDraft;
-    refs.drawerLeadForm.hidden = true;
-    refs.drawerCustomerForm.hidden = true;
-    refs.drawerVendorForm.hidden = true;
+    hideDrawerPanels();
     refs.drawerTaskForm.hidden = false;
     refs.drawerKicker.textContent = "Quick add";
     refs.drawerTitle.textContent = "New task";
@@ -1660,6 +1923,16 @@ function renderActiveDrawer() {
 
     if (drawerType === "lead") {
         renderDrawerLead();
+        return;
+    }
+
+    if (drawerType === "mobile-more") {
+        renderDrawerMenu();
+        return;
+    }
+
+    if (drawerType === "expense") {
+        renderDrawerExpense();
         return;
     }
 
@@ -1701,6 +1974,7 @@ function switchView(viewId) {
 
     renderWorkspaceTools();
     renderWorkspaceCommandBar();
+    syncMobileChrome();
     syncLeadRouteState();
 }
 
@@ -2873,6 +3147,39 @@ function defaultEstimateTitle(lead) {
         .replace("{{projectAddress}}", safeString(lead?.projectAddress) || "your property");
 }
 
+function estimateOverviewParagraphs(estimateDraft, template = state.template || EMPTY_TEMPLATE) {
+    return (safeString(estimateDraft.emailBody) || safeString(template.intro))
+        .split("\n")
+        .map((paragraph) => paragraph.trim())
+        .filter(Boolean);
+}
+
+function estimateAssumptionList(estimateDraft, template = state.template || EMPTY_TEMPLATE) {
+    return Array.isArray(estimateDraft.assumptions) && estimateDraft.assumptions.length
+        ? estimateDraft.assumptions
+        : (safeString(template.terms) ? [safeString(template.terms)] : []);
+}
+
+function sanitiseDownloadName(value) {
+    return safeString(value)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 72);
+}
+
+function estimateDownloadFilename(lead, estimateDraft, extension = "pdf") {
+    const preferredStem = sanitiseDownloadName(safeString(estimateDraft.subject) || defaultEstimateTitle(lead));
+    const fallbackStem = sanitiseDownloadName([
+        safeString(lead?.clientName),
+        safeString(lead?.projectType),
+        "estimate"
+    ].filter(Boolean).join(" "));
+    const dateStamp = formatDateOnlyInputValue(new Date()) || "estimate";
+    const fileStem = preferredStem || fallbackStem || "golden-brick-estimate";
+    return `${fileStem}-${dateStamp}.${extension}`;
+}
+
 function buildTemplateEstimateDraft(lead) {
     const projectType = safeString(lead?.projectType).toLowerCase();
     const template = state.template || EMPTY_TEMPLATE;
@@ -2973,13 +3280,8 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
     const template = state.template || EMPTY_TEMPLATE;
     const leadName = safeString(lead?.clientName) || "Client";
     const title = safeString(estimateDraft.subject) || defaultEstimateTitle(lead);
-    const overviewBlocks = (safeString(estimateDraft.emailBody) || safeString(template.intro))
-        .split("\n")
-        .map((paragraph) => paragraph.trim())
-        .filter(Boolean);
-    const assumptions = Array.isArray(estimateDraft.assumptions) && estimateDraft.assumptions.length
-        ? estimateDraft.assumptions
-        : (safeString(template.terms) ? [safeString(template.terms)] : []);
+    const overviewBlocks = estimateOverviewParagraphs(estimateDraft, template);
+    const assumptions = estimateAssumptionList(estimateDraft, template);
     const lineItems = Array.isArray(estimateDraft.lineItems) ? estimateDraft.lineItems : [];
     const rows = lineItems.length
         ? lineItems.map((item) => `
@@ -3115,9 +3417,7 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
 
 function buildEstimatePlainText(lead, estimateDraft) {
     const template = state.template || EMPTY_TEMPLATE;
-    const assumptions = Array.isArray(estimateDraft.assumptions) && estimateDraft.assumptions.length
-        ? estimateDraft.assumptions
-        : (safeString(template.terms) ? [safeString(template.terms)] : []);
+    const assumptions = estimateAssumptionList(estimateDraft, template);
 
     return [
         COMPANY_INFO.name,
@@ -3148,6 +3448,525 @@ function buildEstimatePlainText(lead, estimateDraft) {
         "",
         safeString(template.outro || EMPTY_TEMPLATE.outro)
     ].join("\n");
+}
+
+function buildEstimateDocumentHtml(lead, estimateDraft) {
+    const previewHtml = buildEstimatePreviewHtml(lead, estimateDraft);
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(defaultEstimateTitle(lead))}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --paper: #ffffff;
+            --ink: #17120d;
+            --muted: #6d6356;
+            --line: #e7dac4;
+            --brand: #c5a059;
+            --brand-deep: #8e6a2e;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 32px;
+            background: #f4eee4;
+            color: var(--ink);
+            font-family: "Manrope", Arial, sans-serif;
+        }
+        .estimate-sheet {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 32px;
+            background: var(--paper);
+            border-top: 4px solid var(--brand);
+            box-shadow: 0 20px 40px rgba(24, 19, 15, 0.08);
+        }
+        .estimate-sheet-header {
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+            gap: 24px;
+            align-items: start;
+            margin-bottom: 24px;
+        }
+        .estimate-brand-bar,
+        .estimate-company-lockup,
+        .estimate-company-card,
+        .estimate-contact-list,
+        .estimate-project-grid,
+        .estimate-section,
+        .estimate-section-heading {
+            display: grid;
+            gap: 12px;
+        }
+        .estimate-eyebrow {
+            margin-bottom: 10px;
+            color: var(--brand-deep);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+        .estimate-sheet h3 {
+            margin: 0 0 10px;
+            font-family: "Fraunces", Georgia, serif;
+            font-size: 30px;
+            line-height: 1.1;
+        }
+        .estimate-subtitle {
+            margin: 0;
+            color: var(--muted);
+        }
+        .estimate-greeting,
+        .estimate-copy-block p,
+        .estimate-foot p,
+        .estimate-foot li,
+        .estimate-section-heading p,
+        .estimate-print-foot {
+            color: var(--muted);
+            line-height: 1.7;
+        }
+        .estimate-company-card,
+        .estimate-copy-block,
+        .estimate-next-step {
+            padding: 18px;
+            background: #faf6ef;
+            border: 1px solid var(--line);
+        }
+        .estimate-contact-row,
+        .estimate-project-card {
+            display: grid;
+            gap: 4px;
+        }
+        .estimate-contact-row span,
+        .estimate-project-card span,
+        .estimate-table th,
+        .estimate-section-heading h4 {
+            color: var(--brand-deep);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+        .estimate-contact-row strong,
+        .estimate-project-card strong {
+            display: block;
+            margin-top: 6px;
+            font-size: 15px;
+            color: var(--ink);
+        }
+        .estimate-project-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            margin-bottom: 24px;
+        }
+        .estimate-project-card {
+            padding: 16px;
+            background: #faf6ef;
+            border: 1px solid var(--line);
+        }
+        .estimate-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .estimate-table th,
+        .estimate-table td {
+            padding: 14px 0;
+            border-bottom: 1px solid var(--line);
+            vertical-align: top;
+            text-align: left;
+        }
+        .estimate-table th:last-child,
+        .estimate-table td:last-child {
+            text-align: right;
+            white-space: nowrap;
+        }
+        .estimate-table td span {
+            display: block;
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+        .estimate-table tfoot td {
+            border-bottom: 0;
+            padding-top: 16px;
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--ink);
+        }
+        .estimate-table tfoot td:last-child {
+            color: var(--brand-deep);
+        }
+        .estimate-foot {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 24px;
+            margin-top: 28px;
+        }
+        .estimate-foot ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+        .estimate-print-foot {
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+            align-items: flex-end;
+            margin-top: 28px;
+            padding-top: 18px;
+            border-top: 1px solid var(--line);
+        }
+        .estimate-print-foot strong {
+            color: var(--ink);
+        }
+        @media print {
+            body {
+                padding: 0;
+                background: #ffffff;
+            }
+            .estimate-sheet {
+                box-shadow: none;
+                max-width: none;
+                margin: 0;
+            }
+        }
+        @media (max-width: 800px) {
+            body {
+                padding: 16px;
+            }
+            .estimate-sheet-header,
+            .estimate-project-grid,
+            .estimate-foot {
+                grid-template-columns: 1fr;
+            }
+            .estimate-print-foot {
+                display: grid;
+            }
+        }
+    </style>
+</head>
+<body>${previewHtml}</body>
+</html>`;
+}
+
+function downloadBlobFile(fileName, content, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
+function downloadEstimateHtmlFallback(lead, estimateDraft) {
+    const fileName = estimateDownloadFilename(lead, estimateDraft, "html");
+    downloadBlobFile(fileName, buildEstimateDocumentHtml(lead, estimateDraft), "text/html;charset=utf-8");
+}
+
+async function loadJsPdfModule() {
+    if (!jsPdfModulePromise) {
+        jsPdfModulePromise = import("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/+esm");
+    }
+
+    return jsPdfModulePromise;
+}
+
+function applyEstimatePdfTopBar(doc) {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    doc.setFillColor(...ESTIMATE_PDF_THEME.brand);
+    doc.rect(0, 0, pageWidth, 12, "F");
+}
+
+function ensureEstimatePdfSpace(doc, cursor, requiredHeight = 24) {
+    const pageHeight = doc.internal.pageSize.getHeight();
+    if (cursor.y + requiredHeight <= pageHeight - cursor.bottom) {
+        return;
+    }
+
+    doc.addPage();
+    applyEstimatePdfTopBar(doc);
+    cursor.y = cursor.top;
+}
+
+function drawEstimatePdfParagraph(doc, cursor, text, {
+    fontSize = 11,
+    lineHeight = 16,
+    color = ESTIMATE_PDF_THEME.muted,
+    fontStyle = "normal",
+    gapAfter = 10,
+    indent = 0,
+    maxWidth = cursor.width
+} = {}) {
+    const cleanText = safeString(text);
+    if (!cleanText) {
+        cursor.y += gapAfter;
+        return;
+    }
+
+    doc.setFont("helvetica", fontStyle);
+    doc.setFontSize(fontSize);
+    doc.setTextColor(...color);
+    const lines = doc.splitTextToSize(cleanText, maxWidth - indent);
+    ensureEstimatePdfSpace(doc, cursor, (lines.length * lineHeight) + gapAfter);
+    doc.text(lines, cursor.left + indent, cursor.y);
+    cursor.y += (lines.length * lineHeight) + gapAfter;
+}
+
+function drawEstimatePdfSectionHeading(doc, cursor, title, copy = "") {
+    ensureEstimatePdfSpace(doc, cursor, 48);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.brandDeep);
+    doc.text(String(title || "").toUpperCase(), cursor.left, cursor.y);
+    cursor.y += 16;
+
+    if (copy) {
+        drawEstimatePdfParagraph(doc, cursor, copy, {
+            fontSize: 10,
+            lineHeight: 14,
+            color: ESTIMATE_PDF_THEME.muted,
+            gapAfter: 12
+        });
+    }
+}
+
+function drawEstimatePdfBulletItem(doc, cursor, text) {
+    const cleanText = safeString(text);
+    if (!cleanText) {
+        return;
+    }
+
+    const bulletIndent = 14;
+    const lineHeight = 16;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.muted);
+    const lines = doc.splitTextToSize(cleanText, cursor.width - bulletIndent);
+    ensureEstimatePdfSpace(doc, cursor, (lines.length * lineHeight) + 8);
+
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...ESTIMATE_PDF_THEME.brandDeep);
+    doc.text("•", cursor.left, cursor.y);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...ESTIMATE_PDF_THEME.muted);
+    doc.text(lines, cursor.left + bulletIndent, cursor.y);
+    cursor.y += (lines.length * lineHeight) + 8;
+}
+
+function drawEstimatePdfMetaCards(doc, cursor, items) {
+    const gap = 12;
+    const cardWidth = (cursor.width - gap) / 2;
+    const cardHeight = 58;
+
+    for (let index = 0; index < items.length; index += 2) {
+        ensureEstimatePdfSpace(doc, cursor, cardHeight + gap);
+
+        [items[index], items[index + 1]].forEach((item, columnIndex) => {
+            if (!item) return;
+
+            const x = cursor.left + (columnIndex * (cardWidth + gap));
+            const y = cursor.y;
+
+            doc.setFillColor(...ESTIMATE_PDF_THEME.panel);
+            doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
+            doc.roundedRect(x, y, cardWidth, cardHeight, 8, 8, "FD");
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.setTextColor(...ESTIMATE_PDF_THEME.brandDeep);
+            doc.text(String(item.label || "").toUpperCase(), x + 14, y + 18);
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(12);
+            doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+            const valueLines = doc.splitTextToSize(String(item.value || "Not set"), cardWidth - 28);
+            doc.text(valueLines, x + 14, y + 36);
+        });
+
+        cursor.y += cardHeight + gap;
+    }
+}
+
+function drawEstimatePdfLineItems(doc, cursor, lineItems, subtotal) {
+    drawEstimatePdfSectionHeading(doc, cursor, "Line items", "Each line item rolls into the current working estimate total.");
+
+    doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
+    doc.setLineWidth(1);
+    ensureEstimatePdfSpace(doc, cursor, 28);
+    doc.line(cursor.left, cursor.y, cursor.left + cursor.width, cursor.y);
+    cursor.y += 18;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.brandDeep);
+    doc.text("SCOPE", cursor.left, cursor.y);
+    doc.text("AMOUNT", cursor.left + cursor.width, cursor.y, { align: "right" });
+    cursor.y += 10;
+    doc.line(cursor.left, cursor.y, cursor.left + cursor.width, cursor.y);
+    cursor.y += 18;
+
+    lineItems.forEach((item) => {
+        const titleLines = doc.splitTextToSize(item.label || "Line item", cursor.width - 120);
+        const descriptionLines = doc.splitTextToSize(item.description || "Scope to be confirmed.", cursor.width - 120);
+        const rowHeight = ((titleLines.length + descriptionLines.length) * 14) + 16;
+
+        ensureEstimatePdfSpace(doc, cursor, rowHeight + 12);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+        doc.text(titleLines, cursor.left, cursor.y);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(...ESTIMATE_PDF_THEME.muted);
+        doc.text(descriptionLines, cursor.left, cursor.y + (titleLines.length * 14));
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+        doc.text(formatCurrency(item.amount || 0), cursor.left + cursor.width, cursor.y, { align: "right" });
+
+        cursor.y += rowHeight;
+        doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
+        doc.line(cursor.left, cursor.y, cursor.left + cursor.width, cursor.y);
+        cursor.y += 14;
+    });
+
+    ensureEstimatePdfSpace(doc, cursor, 44);
+    doc.setFillColor(...ESTIMATE_PDF_THEME.panel);
+    doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
+    doc.roundedRect(cursor.left, cursor.y, cursor.width, 34, 8, 8, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+    doc.text("Estimated Total", cursor.left + 16, cursor.y + 22);
+    doc.text(formatCurrency(subtotal || 0), cursor.left + cursor.width - 16, cursor.y + 22, { align: "right" });
+    cursor.y += 50;
+}
+
+function buildEstimatePdf(doc, lead, estimateDraft) {
+    const title = safeString(estimateDraft.subject) || defaultEstimateTitle(lead);
+    const leadName = safeString(lead?.clientName) || "Client";
+    const preparedDate = formatDateOnly(new Date());
+    const overviewBlocks = estimateOverviewParagraphs(estimateDraft);
+    const assumptions = estimateAssumptionList(estimateDraft);
+    const lineItems = Array.isArray(estimateDraft.lineItems) && estimateDraft.lineItems.length
+        ? estimateDraft.lineItems
+        : [{
+            label: "Scope pending",
+            description: "Add line items or create a draft estimate to start the scope.",
+            amount: 0
+        }];
+    const cursor = {
+        left: 54,
+        top: 46,
+        bottom: 52,
+        width: doc.internal.pageSize.getWidth() - 108,
+        y: 46
+    };
+
+    doc.setProperties({
+        title,
+        subject: `${COMPANY_INFO.name} estimate`,
+        author: COMPANY_INFO.name,
+        creator: COMPANY_INFO.name
+    });
+
+    applyEstimatePdfTopBar(doc);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.brandDeep);
+    doc.text(COMPANY_INFO.name.toUpperCase(), cursor.left, cursor.y);
+    cursor.y += 20;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(24);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+    const titleLines = doc.splitTextToSize(title, cursor.width);
+    doc.text(titleLines, cursor.left, cursor.y);
+    cursor.y += (titleLines.length * 28);
+
+    drawEstimatePdfParagraph(doc, cursor, "Investor-ready renovation proposal prepared for quick client review and PDF delivery.", {
+        fontSize: 11,
+        lineHeight: 15,
+        color: ESTIMATE_PDF_THEME.muted,
+        gapAfter: 14
+    });
+
+    drawEstimatePdfParagraph(doc, cursor, (state.template.greeting || EMPTY_TEMPLATE.greeting).replace("{{clientName}}", leadName), {
+        fontSize: 11,
+        lineHeight: 15,
+        color: ESTIMATE_PDF_THEME.ink,
+        fontStyle: "bold",
+        gapAfter: 14
+    });
+
+    drawEstimatePdfMetaCards(doc, cursor, [
+        { label: "Client", value: leadName },
+        { label: "Prepared", value: preparedDate },
+        { label: "Project address", value: safeString(lead?.projectAddress) || "To be confirmed" },
+        { label: "Project type", value: safeString(lead?.projectType) || "General scope" },
+        { label: "Estimated total", value: formatCurrency(estimateDraft.subtotal || 0) },
+        { label: "Prepared by", value: `${COMPANY_INFO.email} | ${COMPANY_INFO.phone}` }
+    ]);
+
+    drawEstimatePdfSectionHeading(doc, cursor, "Overview / Scope", "Use this summary to align the client on the planned scope and pricing posture before final execution details.");
+    overviewBlocks.forEach((paragraph) => {
+        drawEstimatePdfParagraph(doc, cursor, paragraph, {
+            fontSize: 11,
+            lineHeight: 16,
+            color: ESTIMATE_PDF_THEME.muted,
+            gapAfter: 10
+        });
+    });
+
+    drawEstimatePdfLineItems(doc, cursor, lineItems, estimateDraft.subtotal || 0);
+
+    drawEstimatePdfSectionHeading(doc, cursor, "Assumptions / Exclusions", "These assumptions keep the estimate clean until site conditions and final selections are confirmed.");
+    if (!assumptions.length) {
+        drawEstimatePdfParagraph(doc, cursor, "None listed.", {
+            fontSize: 11,
+            lineHeight: 16,
+            color: ESTIMATE_PDF_THEME.muted,
+            gapAfter: 12
+        });
+    } else {
+        assumptions.forEach((item) => {
+            drawEstimatePdfBulletItem(doc, cursor, item);
+        });
+        cursor.y += 4;
+    }
+
+    drawEstimatePdfSectionHeading(doc, cursor, "Next step", "");
+    drawEstimatePdfParagraph(doc, cursor, safeString(state.template.outro || EMPTY_TEMPLATE.outro), {
+        fontSize: 11,
+        lineHeight: 16,
+        color: ESTIMATE_PDF_THEME.muted,
+        gapAfter: 18
+    });
+
+    ensureEstimatePdfSpace(doc, cursor, 32);
+    doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
+    doc.line(cursor.left, cursor.y, cursor.left + cursor.width, cursor.y);
+    cursor.y += 18;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+    doc.text(COMPANY_INFO.name, cursor.left, cursor.y);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...ESTIMATE_PDF_THEME.muted);
+    doc.text(`${COMPANY_INFO.email} | ${COMPANY_INFO.phone}`, cursor.left + cursor.width, cursor.y, { align: "right" });
 }
 
 function renderEstimateLines(lineItems) {
@@ -4485,6 +5304,7 @@ function renderAll() {
     } else {
         setDrawerVisibility(false);
     }
+    syncMobileChrome();
 }
 
 async function apiPost(path, body) {
@@ -4547,12 +5367,22 @@ function selectProject(projectId) {
     state.activeJobTab = "financials";
     subscribeProjectDetail();
     renderAll();
+    if (isMobileViewport()) {
+        window.requestAnimationFrame(() => {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+    }
 }
 
 function selectCustomer(customerId) {
     state.customerDraft = null;
     state.selectedCustomerId = customerId;
     renderAll();
+    if (isMobileViewport()) {
+        window.requestAnimationFrame(() => {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+    }
 }
 
 function selectVendor(vendorId) {
@@ -4560,12 +5390,22 @@ function selectVendor(vendorId) {
     state.selectedVendorId = vendorId;
     state.activeVendorTab = "overview";
     renderAll();
+    if (isMobileViewport()) {
+        window.requestAnimationFrame(() => {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+    }
 }
 
 function selectTask(taskId) {
     state.taskDraft = null;
     state.selectedTaskId = taskId;
     renderAll();
+    if (isMobileViewport()) {
+        window.requestAnimationFrame(() => {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+    }
 }
 
 function startLeadDraft(customerId = null) {
@@ -5310,6 +6150,45 @@ async function saveTaskDrawer(event) {
     }
 }
 
+async function saveExpenseDrawer(event) {
+    event.preventDefault();
+
+    const projectId = refs.drawerExpenseProject.value || "";
+    const project = projectId ? state.projects.find((item) => item.id === projectId) : null;
+    if (!project) {
+        showToast("Choose the property first.", "error");
+        return;
+    }
+
+    const amount = toNumber(refs.drawerExpenseAmount.value);
+    if (!amount) {
+        showToast("Enter an expense amount first.", "error");
+        return;
+    }
+
+    const category = refs.drawerExpenseCategory.value.trim() || "general";
+    const selectedVendor = selectedDrawerExpenseVendor();
+    const customVendor = refs.drawerExpenseVendor.value.trim();
+    const vendor = selectedVendor?.name || customVendor;
+
+    await createProjectExpenseEntry({
+        projectId: project.id,
+        amount,
+        category,
+        vendorId: selectedVendor?.id || null,
+        vendor,
+        note: refs.drawerExpenseNote.value.trim(),
+        relatedDate: parseDateOnlyInput(refs.drawerExpenseDate.value) || new Date(),
+        receiptDocument: null
+    });
+
+    closeDrawer();
+    selectProject(project.id);
+    switchView("jobs-view");
+    openJobTab("financials", refs.expenseList);
+    showToast("Expense added.");
+}
+
 async function saveTask(event) {
     event.preventDefault();
 
@@ -5762,224 +6641,37 @@ async function copyEstimateToClipboard() {
     }
 }
 
-function openEstimatePrintView() {
+async function openEstimatePrintView() {
     const lead = currentLead();
     if (!lead) {
         showToast("Select a lead first.", "error");
         return;
     }
 
-    const previewHtml = buildEstimatePreviewHtml(lead, collectEstimateForm());
-    const printWindow = window.open("", "_blank", "noopener,noreferrer");
+    const estimateDraft = collectEstimateForm();
+    const originalLabel = refs.estimatePrintButton.textContent;
 
-    if (!printWindow) {
-        showToast("Pop-up blocked. Allow pop-ups to open the print view.", "error");
-        return;
+    refs.estimatePrintButton.disabled = true;
+    refs.estimatePrintButton.textContent = "Preparing PDF...";
+
+    try {
+        const { jsPDF } = await loadJsPdfModule();
+        const pdf = new jsPDF({
+            unit: "pt",
+            format: "letter"
+        });
+
+        buildEstimatePdf(pdf, lead, estimateDraft);
+        pdf.save(estimateDownloadFilename(lead, estimateDraft, "pdf"));
+        showToast("Estimate PDF downloaded.");
+    } catch (error) {
+        console.error("Estimate PDF download failed.", error);
+        downloadEstimateHtmlFallback(lead, estimateDraft);
+        showToast("PDF download failed. HTML estimate downloaded instead.", "error");
+    } finally {
+        refs.estimatePrintButton.disabled = false;
+        refs.estimatePrintButton.textContent = originalLabel;
     }
-
-    printWindow.document.write(`<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${escapeHtml(defaultEstimateTitle(lead))}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --paper: #ffffff;
-            --ink: #17120d;
-            --muted: #6d6356;
-            --line: #e7dac4;
-            --brand: #c5a059;
-            --brand-deep: #8e6a2e;
-        }
-        * { box-sizing: border-box; }
-        body {
-            margin: 0;
-            padding: 32px;
-            background: #f4eee4;
-            color: var(--ink);
-            font-family: "Manrope", Arial, sans-serif;
-        }
-        .estimate-sheet {
-            max-width: 960px;
-            margin: 0 auto;
-            padding: 32px;
-            background: var(--paper);
-            border-top: 4px solid var(--brand);
-            box-shadow: 0 20px 40px rgba(24, 19, 15, 0.08);
-        }
-        .estimate-sheet-header {
-            display: grid;
-            grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
-            gap: 24px;
-            align-items: start;
-            margin-bottom: 24px;
-        }
-        .estimate-brand-bar,
-        .estimate-company-lockup,
-        .estimate-company-card,
-        .estimate-contact-list,
-        .estimate-project-grid,
-        .estimate-section,
-        .estimate-section-heading {
-            display: grid;
-            gap: 12px;
-        }
-        .estimate-eyebrow {
-            margin-bottom: 10px;
-            color: var(--brand-deep);
-            font-size: 12px;
-            font-weight: 800;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-        }
-        .estimate-sheet h3 {
-            margin: 0 0 10px;
-            font-family: "Fraunces", Georgia, serif;
-            font-size: 30px;
-            line-height: 1.1;
-        }
-        .estimate-subtitle {
-            margin: 0;
-            color: var(--muted);
-        }
-        .estimate-greeting,
-        .estimate-copy-block p,
-        .estimate-foot p,
-        .estimate-foot li,
-        .estimate-section-heading p,
-        .estimate-print-foot {
-            color: var(--muted);
-            line-height: 1.7;
-        }
-        .estimate-company-card,
-        .estimate-copy-block,
-        .estimate-next-step {
-            padding: 18px;
-            background: #faf6ef;
-            border: 1px solid var(--line);
-        }
-        .estimate-contact-row,
-        .estimate-project-card {
-            display: grid;
-            gap: 4px;
-        }
-        .estimate-contact-row span,
-        .estimate-project-card span,
-        .estimate-table th,
-        .estimate-section-heading h4 {
-            color: var(--brand-deep);
-            font-size: 12px;
-            font-weight: 800;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-        }
-        .estimate-contact-row strong,
-        .estimate-project-card strong {
-            display: block;
-            margin-top: 6px;
-            font-size: 15px;
-            color: var(--ink);
-        }
-        .estimate-project-grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            margin-bottom: 24px;
-        }
-        .estimate-project-card {
-            padding: 16px;
-            background: #faf6ef;
-            border: 1px solid var(--line);
-        }
-        .estimate-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .estimate-table th,
-        .estimate-table td {
-            padding: 14px 0;
-            border-bottom: 1px solid var(--line);
-            vertical-align: top;
-            text-align: left;
-        }
-        .estimate-table th:last-child,
-        .estimate-table td:last-child {
-            text-align: right;
-            white-space: nowrap;
-        }
-        .estimate-table td span {
-            display: block;
-            margin-top: 6px;
-            color: var(--muted);
-            font-size: 14px;
-        }
-        .estimate-table tfoot td {
-            border-bottom: 0;
-            padding-top: 16px;
-            font-size: 16px;
-            font-weight: 800;
-            color: var(--ink);
-        }
-        .estimate-table tfoot td:last-child {
-            color: var(--brand-deep);
-        }
-        .estimate-foot {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 24px;
-            margin-top: 28px;
-        }
-        .estimate-foot ul {
-            margin: 0;
-            padding-left: 18px;
-        }
-        .estimate-print-foot {
-            display: flex;
-            justify-content: space-between;
-            gap: 18px;
-            align-items: flex-end;
-            margin-top: 28px;
-            padding-top: 18px;
-            border-top: 1px solid var(--line);
-        }
-        .estimate-print-foot strong {
-            color: var(--ink);
-        }
-        @media print {
-            body {
-                padding: 0;
-                background: #ffffff;
-            }
-            .estimate-sheet {
-                box-shadow: none;
-                max-width: none;
-                margin: 0;
-            }
-        }
-        @media (max-width: 800px) {
-            body {
-                padding: 16px;
-            }
-            .estimate-sheet-header,
-            .estimate-project-grid,
-            .estimate-foot {
-                grid-template-columns: 1fr;
-            }
-            .estimate-print-foot {
-                display: grid;
-            }
-        }
-    </style>
-</head>
-<body>${previewHtml}</body>
-</html>`);
-    printWindow.document.close();
-    printWindow.focus();
-    window.setTimeout(() => {
-        printWindow.print();
-    }, 250);
 }
 
 async function saveCustomer(event) {
@@ -6301,6 +6993,43 @@ async function addProjectActivityEntry(projectId, activityType, title, body = ""
     });
 }
 
+async function createProjectExpenseEntry({
+    projectId,
+    amount,
+    category = "general",
+    vendorId = null,
+    vendor = "",
+    note = "",
+    relatedDate = new Date(),
+    receiptDocument = null
+}) {
+    if (!projectId) {
+        throw new Error("Select a job first.");
+    }
+
+    await addDoc(collection(state.db, "projects", projectId, "expenses"), {
+        amount,
+        category,
+        vendorId,
+        vendor,
+        note,
+        relatedDate,
+        receiptDocumentId: receiptDocument?.id || null,
+        receiptTitle: receiptDocument?.title || "",
+        receiptUrl: documentHref(receiptDocument),
+        createdByUid: state.profile.uid,
+        createdByName: state.profile.displayName,
+        createdAt: serverTimestamp()
+    });
+
+    await addProjectActivityEntry(
+        projectId,
+        "expense",
+        "Expense recorded",
+        `${formatCurrency(amount)} recorded for ${category}${vendor ? ` with ${vendor}` : ""}.`
+    );
+}
+
 function collectAssignedWorkers(project) {
     return Array.from(refs.workerAssignmentList.querySelectorAll("[data-worker-check]")).flatMap((checkbox) => {
         if (!checkbox.checked) return [];
@@ -6328,25 +7057,15 @@ function selectedReceiptDocument() {
 }
 
 function selectedExpenseVendor() {
-    if (!refs.expenseVendorSelect) {
-        return null;
-    }
+    return selectedExpenseVendorFromSelect(refs.expenseVendorSelect);
+}
 
-    const vendorId = refs.expenseVendorSelect.value || "";
-    return vendorId ? state.vendors.find((vendor) => vendor.id === vendorId) || null : null;
+function selectedDrawerExpenseVendor() {
+    return selectedExpenseVendorFromSelect(refs.drawerExpenseVendorSelect);
 }
 
 function renderExpenseVendorOptions(selectedVendorId = refs.expenseVendorSelect?.value || "") {
-    if (!refs.expenseVendorSelect) {
-        return;
-    }
-
-    refs.expenseVendorSelect.innerHTML = [`<option value="">No vendor record</option>`].concat(
-        sortByUpdatedDesc(state.vendors).map((vendor) => `
-            <option value="${escapeHtml(vendor.id)}">${escapeHtml(`${vendor.name || "Unnamed vendor"} · ${(vendor.tradeIds || []).slice(0, 2).map((tradeId) => vendorTradeLabel(tradeId)).join(", ") || (vendor.tradeOtherText || "Trade not set")}`)}</option>
-        `)
-    ).join("");
-    refs.expenseVendorSelect.value = selectedVendorId || "";
+    renderVendorSelectOptions(refs.expenseVendorSelect, selectedVendorId);
 }
 
 async function saveProject(event) {
@@ -6444,30 +7163,20 @@ async function addExpense(event) {
     const relatedDate = parseDateOnlyInput(refs.expenseDate.value) || new Date();
     const receiptDocument = selectedReceiptDocument();
 
-    await addDoc(collection(state.db, "projects", project.id, "expenses"), {
+    await createProjectExpenseEntry({
+        projectId: project.id,
         amount,
         category,
         vendorId: selectedVendor?.id || null,
         vendor,
         note,
         relatedDate,
-        receiptDocumentId: receiptDocument?.id || null,
-        receiptTitle: receiptDocument?.title || "",
-        receiptUrl: documentHref(receiptDocument),
-        createdByUid: state.profile.uid,
-        createdByName: state.profile.displayName,
-        createdAt: serverTimestamp()
+        receiptDocument
     });
 
     refs.expenseForm.reset();
     refs.expenseDate.value = todayDateInputValue();
     renderExpenseVendorOptions("");
-    await addProjectActivityEntry(
-        project.id,
-        "expense",
-        "Expense recorded",
-        `${formatCurrency(amount)} recorded for ${category}${vendor ? ` with ${vendor}` : ""}.`
-    );
     showToast("Expense added.");
 }
 
@@ -6940,12 +7649,53 @@ function bindUi() {
 
     refs.navButtons.forEach((button) => {
         button.addEventListener("click", () => {
+            if (state.drawer.type) {
+                closeDrawer();
+            }
             if (button.dataset.view === "leads-view") {
                 state.leadWorkspaceOpen = false;
             }
             switchView(button.dataset.view);
             renderAll();
         });
+    });
+
+    refs.mobileTabButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            if (state.drawer.type) {
+                closeDrawer();
+            }
+            switchView(button.dataset.mobileView);
+            renderAll();
+        });
+    });
+
+    refs.mobileMoreButton.addEventListener("click", () => {
+        if (state.drawer.type === "mobile-more") {
+            closeDrawer();
+            return;
+        }
+        openMobileMoreDrawer();
+    });
+
+    refs.mobileExpenseFab.addEventListener("click", () => {
+        openExpenseDrawer();
+    });
+
+    refs.taskMobileBackButton.addEventListener("click", () => {
+        clearMobileDetailForView("tasks-view");
+    });
+
+    refs.customerMobileBackButton.addEventListener("click", () => {
+        clearMobileDetailForView("customers-view");
+    });
+
+    refs.jobMobileBackButton.addEventListener("click", () => {
+        clearMobileDetailForView("jobs-view");
+    });
+
+    refs.vendorMobileBackButton.addEventListener("click", () => {
+        clearMobileDetailForView("vendors-view");
     });
 
     Array.from(refs.todayScopeToggle.querySelectorAll("[data-today-scope]")).forEach((button) => {
@@ -7027,6 +7777,44 @@ function bindUi() {
 
     refs.taskResetButton.addEventListener("click", () => {
         startTaskDraft();
+    });
+
+    refs.drawerMenuList.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-drawer-view]");
+        if (!button) return;
+        closeDrawer();
+        switchView(button.dataset.drawerView);
+        renderAll();
+    });
+
+    refs.drawerExpenseProjectSearch.addEventListener("input", (event) => {
+        state.drawer.expenseDraft = {
+            ...(state.drawer.expenseDraft || defaultExpenseDrawerDraft()),
+            projectSearch: event.target.value || "",
+            projectId: refs.drawerExpenseProject.value || state.drawer.expenseDraft?.projectId || null
+        };
+        renderDrawerExpenseProjectOptions();
+        state.drawer.expenseDraft.projectId = refs.drawerExpenseProject.value || null;
+        renderDrawerExpenseContext();
+    });
+
+    refs.drawerExpenseProject.addEventListener("change", (event) => {
+        state.drawer.expenseDraft = {
+            ...(state.drawer.expenseDraft || defaultExpenseDrawerDraft()),
+            projectId: event.target.value || null
+        };
+        renderDrawerExpenseContext();
+    });
+
+    refs.drawerExpenseVendorSelect.addEventListener("change", () => {
+        const vendor = selectedDrawerExpenseVendor();
+        if (vendor) {
+            refs.drawerExpenseVendor.value = vendor.name || "";
+        }
+    });
+
+    refs.drawerExpenseForm.addEventListener("submit", (event) => {
+        saveExpenseDrawer(event).catch((error) => showToast(error.message, "error"));
     });
 
     refs.leadSearchInput.addEventListener("input", (event) => {
@@ -7321,6 +8109,10 @@ function bindUi() {
             showToast("Select a job first.", "error");
             return;
         }
+        if (isMobileViewport()) {
+            openExpenseDrawer({ projectId: currentProject().id });
+            return;
+        }
         openJobTab("financials", refs.expenseAmount);
     });
 
@@ -7436,6 +8228,16 @@ function bindUi() {
 
     refs.drawerTaskLinkedRecord.addEventListener("change", renderDrawerTaskContext);
 
+    window.addEventListener("resize", () => {
+        syncViewportHeightVar();
+        syncMobileChrome();
+    });
+
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", syncViewportHeightVar);
+        window.visualViewport.addEventListener("scroll", syncViewportHeightVar);
+    }
+
     window.addEventListener("keydown", (event) => {
         if (event.key === "Escape" && state.drawer.type) {
             closeDrawer();
@@ -7443,6 +8245,7 @@ function bindUi() {
     });
 }
 
+syncViewportHeightVar();
 bindUi();
 showAuthShell();
 bootstrapFirebase();

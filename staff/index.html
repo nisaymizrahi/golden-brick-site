@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="stylesheet" href="/staff/staff.css?v=20260407-vendors-2">
+    <link rel="stylesheet" href="/staff/staff.css?v=20260408-mobile-1">
 </head>
 <body>
     <div class="staff-page">
@@ -164,7 +164,7 @@
                     </div>
                 </section>
 
-                <section class="view" id="tasks-view" hidden>
+                <section class="view mobile-master-detail" id="tasks-view" hidden>
                     <div class="metrics-strip" id="task-metrics"></div>
 
                     <div class="workspace-grid">
@@ -193,9 +193,12 @@
 
                         <section class="panel record-panel">
                             <div class="panel-head">
-                                <div>
-                                    <span class="panel-kicker">Task detail</span>
-                                    <h2 id="task-detail-title">Select a task</h2>
+                                <div class="panel-head-mobile-copy">
+                                    <button type="button" class="ghost-button mobile-detail-back" id="task-mobile-back-button" hidden>Back</button>
+                                    <div>
+                                        <span class="panel-kicker">Task detail</span>
+                                        <h2 id="task-detail-title">Select a task</h2>
+                                    </div>
                                 </div>
                                 <span class="status-pill neutral" id="task-detail-badge">No task selected</span>
                             </div>
@@ -470,13 +473,13 @@
                                         <form class="stack-form subpanel" id="estimate-form">
                                             <div class="subpanel-head">
                                                 <h3>Current estimate</h3>
-                                                <p>Build one polished working proposal per lead, then print or save it as a PDF for the client.</p>
+                                                <p>Build one polished working proposal per lead, then download it as a PDF for the client.</p>
                                             </div>
 
                                             <div class="inline-actions">
                                                 <button type="button" class="ghost-button admin-only" id="estimate-add-line-button">Add line item</button>
                                                 <button type="button" class="ghost-button" id="estimate-copy-button">Copy estimate</button>
-                                                <button type="button" class="secondary-button" id="estimate-print-button">Print / Save as PDF</button>
+                                                <button type="button" class="secondary-button" id="estimate-print-button">Download PDF</button>
                                             </div>
 
                                             <label>
@@ -510,7 +513,7 @@
                                         <section class="subpanel estimate-preview-panel">
                                             <div class="subpanel-head">
                                                 <h3>Proposal preview</h3>
-                                                <p>Review the branded client-facing proposal here before printing or saving it to PDF.</p>
+                                                <p>Review the branded client-facing proposal here before downloading it for the client.</p>
                                             </div>
                                             <div class="estimate-preview" id="estimate-preview"></div>
                                         </section>
@@ -568,7 +571,7 @@
                     </div>
                 </section>
 
-                <section class="view" id="customers-view" hidden>
+                <section class="view mobile-master-detail" id="customers-view" hidden>
                     <div class="metrics-strip" id="customer-metrics"></div>
 
                     <div class="workspace-grid">
@@ -590,9 +593,12 @@
 
                         <section class="panel record-panel">
                             <div class="panel-head">
-                                <div>
-                                    <span class="panel-kicker">Customer card</span>
-                                    <h2 id="customer-record-title">Select a customer</h2>
+                                <div class="panel-head-mobile-copy">
+                                    <button type="button" class="ghost-button mobile-detail-back" id="customer-mobile-back-button" hidden>Back</button>
+                                    <div>
+                                        <span class="panel-kicker">Customer card</span>
+                                        <h2 id="customer-record-title">Select a customer</h2>
+                                    </div>
                                 </div>
                                 <span class="status-pill neutral" id="customer-record-badge">No customer selected</span>
                             </div>
@@ -710,7 +716,7 @@
                     </div>
                 </section>
 
-                <section class="view" id="jobs-view" hidden>
+                <section class="view mobile-master-detail" id="jobs-view" hidden>
                     <div class="metrics-strip" id="job-metrics"></div>
 
                     <div class="workspace-grid">
@@ -736,9 +742,12 @@
 
                         <section class="panel record-panel">
                             <div class="panel-head">
-                                <div>
-                                    <span class="panel-kicker">Job record</span>
-                                    <h2 id="job-record-title">Select a job</h2>
+                                <div class="panel-head-mobile-copy">
+                                    <button type="button" class="ghost-button mobile-detail-back" id="job-mobile-back-button" hidden>Back</button>
+                                    <div>
+                                        <span class="panel-kicker">Job record</span>
+                                        <h2 id="job-record-title">Select a job</h2>
+                                    </div>
                                 </div>
                                 <span class="status-pill neutral" id="job-record-badge">No job selected</span>
                             </div>
@@ -1092,7 +1101,7 @@
                     </div>
                 </section>
 
-                <section class="view" id="vendors-view" hidden>
+                <section class="view mobile-master-detail" id="vendors-view" hidden>
                     <div class="metrics-strip" id="vendor-metrics"></div>
 
                     <div class="workspace-grid">
@@ -1135,9 +1144,12 @@
 
                         <section class="panel record-panel">
                             <div class="panel-head">
-                                <div>
-                                    <span class="panel-kicker">Vendor record</span>
-                                    <h2 id="vendor-record-title">Select a vendor</h2>
+                                <div class="panel-head-mobile-copy">
+                                    <button type="button" class="ghost-button mobile-detail-back" id="vendor-mobile-back-button" hidden>Back</button>
+                                    <div>
+                                        <span class="panel-kicker">Vendor record</span>
+                                        <h2 id="vendor-record-title">Select a vendor</h2>
+                                    </div>
                                 </div>
                                 <span class="status-pill neutral" id="vendor-record-badge">No vendor selected</span>
                             </div>
@@ -1585,6 +1597,26 @@
             </main>
         </div>
 
+        <button type="button" class="mobile-expense-fab" id="mobile-expense-fab" aria-label="Add expense" hidden>+</button>
+
+        <nav class="mobile-tab-bar" id="mobile-tab-bar" aria-label="Mobile staff navigation" hidden>
+            <button type="button" class="mobile-tab-button is-active" data-mobile-view="today-view">
+                <span>Today</span>
+            </button>
+            <button type="button" class="mobile-tab-button" data-mobile-view="jobs-view">
+                <span>Jobs</span>
+            </button>
+            <button type="button" class="mobile-tab-button" data-mobile-view="vendors-view">
+                <span>Vendors</span>
+            </button>
+            <button type="button" class="mobile-tab-button" data-mobile-view="tasks-view">
+                <span>Tasks</span>
+            </button>
+            <button type="button" class="mobile-tab-button" id="mobile-more-button" aria-label="Open more sections">
+                <span>More</span>
+            </button>
+        </nav>
+
         <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
 
         <aside class="entity-drawer" id="entity-drawer" hidden aria-hidden="true">
@@ -1599,6 +1631,73 @@
                 </div>
 
                 <div class="drawer-body">
+                    <div class="drawer-menu-panel" id="drawer-menu-panel" hidden>
+                        <div class="subpanel-head">
+                            <h3>More sections</h3>
+                            <p>Open the rest of the staff CRM without fighting the sidebar on your phone.</p>
+                        </div>
+                        <div class="drawer-menu-list" id="drawer-menu-list">
+                            <button type="button" class="drawer-menu-button" data-drawer-view="leads-view">Leads</button>
+                            <button type="button" class="drawer-menu-button" data-drawer-view="customers-view">Customers</button>
+                            <button type="button" class="drawer-menu-button" data-drawer-view="staff-view">Staff</button>
+                        </div>
+                    </div>
+
+                    <form class="stack-form drawer-form" id="drawer-expense-form" hidden>
+                        <div class="subpanel-head">
+                            <h3>Select property</h3>
+                            <p>Choose the job first so the expense lands in the right property record.</p>
+                        </div>
+
+                        <label>
+                            <span>Search property</span>
+                            <input type="search" id="drawer-expense-project-search" placeholder="Search client or property address">
+                        </label>
+
+                        <label>
+                            <span>Property / Job</span>
+                            <select id="drawer-expense-project" required></select>
+                        </label>
+
+                        <div class="detail-summary" id="drawer-expense-context"></div>
+
+                        <div class="form-grid three">
+                            <label>
+                                <span>Expense amount</span>
+                                <input type="number" id="drawer-expense-amount" min="0" step="0.01" required>
+                            </label>
+                            <label>
+                                <span>Date</span>
+                                <input type="date" id="drawer-expense-date">
+                            </label>
+                            <label>
+                                <span>Category</span>
+                                <input type="text" id="drawer-expense-category" placeholder="Materials, labor, permit, dumpster">
+                            </label>
+                        </div>
+
+                        <div class="form-grid two">
+                            <label>
+                                <span>Vendor record</span>
+                                <select id="drawer-expense-vendor-select"></select>
+                            </label>
+                            <label>
+                                <span>Custom vendor / payee</span>
+                                <input type="text" id="drawer-expense-vendor" placeholder="Home Depot, subcontractor, supplier">
+                            </label>
+                        </div>
+
+                        <label>
+                            <span>Expense note</span>
+                            <textarea id="drawer-expense-note" rows="4" placeholder="What was this expense for and where does it sit in the job?"></textarea>
+                        </label>
+
+                        <div class="inline-actions">
+                            <button type="submit" class="primary-button">Save expense</button>
+                            <button type="button" class="ghost-button drawer-cancel-button">Cancel</button>
+                        </div>
+                    </form>
+
                     <form class="stack-form drawer-form" id="drawer-lead-form" hidden>
                         <div class="form-grid two">
                             <label>
@@ -1808,6 +1907,6 @@
         <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
     </div>
 
-    <script type="module" src="/staff/staff.js?v=20260407-vendors-2"></script>
+    <script type="module" src="/staff/staff.js?v=20260408-mobile-1"></script>
 </body>
 </html>
