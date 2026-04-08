@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="stylesheet" href="/staff/staff.css?v=20260408-mobile-2">
+    <link rel="stylesheet" href="/staff/staff.css?v=20260408-estimate-share-1">
 </head>
 <body>
     <div class="staff-page">
@@ -90,6 +90,12 @@
                             <button type="button" class="segmented-button is-active" data-today-scope="mine">My View</button>
                             <button type="button" class="segmented-button" data-today-scope="team">Team View</button>
                         </div>
+                        <label class="workspace-filter" id="staff-focus-shell" hidden>
+                            <span>Staff focus</span>
+                            <select id="staff-focus-select">
+                                <option value="">All staff</option>
+                            </select>
+                        </label>
                         <span class="status-pill" id="sync-status">Syncing data</span>
                     </div>
                 </header>
@@ -365,6 +371,7 @@
                                     <button type="button" class="tab-button is-active" data-lead-tab="overview">Overview</button>
                                     <button type="button" class="tab-button" data-lead-tab="estimate">Estimate</button>
                                     <button type="button" class="tab-button" data-lead-tab="tasks">Tasks</button>
+                                    <button type="button" class="tab-button" data-lead-tab="documents">Documents</button>
                                     <button type="button" class="tab-button" data-lead-tab="activity">Notes &amp; Activity</button>
                                     <button type="button" class="tab-button" data-lead-tab="job">Job</button>
                                 </div>
@@ -481,6 +488,26 @@
                                                 <p>Build one polished working proposal per lead, with Golden Brick's standard terms always included before you download the client-facing PDF.</p>
                                             </div>
 
+                                            <section class="estimate-share-panel" aria-labelledby="estimate-share-heading">
+                                                <div class="subpanel-head subpanel-head-split">
+                                                    <div>
+                                                        <h4 id="estimate-share-heading">Client share link</h4>
+                                                        <p>Generate a private estimate page the client can review, agree to terms, and sign. A completed signature files the signed agreement straight into the job documents.</p>
+                                                    </div>
+                                                    <span class="mini-pill" id="estimate-share-status-pill">Not shared</span>
+                                                </div>
+                                                <div class="estimate-share-meta" id="estimate-share-meta">Save the estimate first, then create the secure client link.</div>
+                                                <label class="estimate-share-link-field">
+                                                    <span>Client link</span>
+                                                    <input type="text" id="estimate-share-link-input" placeholder="No active link yet" readonly>
+                                                </label>
+                                                <div class="inline-actions">
+                                                    <button type="button" class="secondary-button admin-only" id="estimate-share-create-button">Create share link</button>
+                                                    <button type="button" class="ghost-button" id="estimate-share-copy-button">Copy link</button>
+                                                    <button type="button" class="ghost-button admin-only" id="estimate-share-revoke-button">Revoke link</button>
+                                                </div>
+                                            </section>
+
                                             <div class="inline-actions">
                                                 <button type="button" class="ghost-button admin-only" id="estimate-add-line-button">Add line item</button>
                                                 <button type="button" class="ghost-button" id="estimate-copy-button">Copy estimate</button>
@@ -545,6 +572,77 @@
                                         </div>
                                         <div class="stack-list" id="lead-task-list"></div>
                                     </section>
+                                </div>
+
+                                <div class="tab-pane" id="lead-tab-documents">
+                                    <div class="two-column-detail">
+                                        <section class="subpanel">
+                                            <div class="subpanel-head">
+                                                <h3>Document center</h3>
+                                                <p>Store permits, receipts, agreements, progress photos, and planning documents on the lead. Once the lead becomes a job, the same document follows into the client and job record.</p>
+                                            </div>
+                                            <div class="summary-grid job-document-summary lead-document-summary" id="lead-document-summary"></div>
+                                            <form class="stack-form" id="lead-document-form">
+                                                <div class="form-grid three">
+                                                    <label>
+                                                        <span>Category</span>
+                                                        <select id="lead-document-category">
+                                                            <option value="agreement">Agreement</option>
+                                                            <option value="estimate">Estimate</option>
+                                                            <option value="change_order">Change order</option>
+                                                            <option value="receipt">Receipt</option>
+                                                            <option value="permit">Permit</option>
+                                                            <option value="invoice">Invoice</option>
+                                                            <option value="photo">Photo</option>
+                                                            <option value="closeout">Closeout</option>
+                                                            <option value="other">Other</option>
+                                                        </select>
+                                                    </label>
+                                                    <label>
+                                                        <span>Source</span>
+                                                        <select id="lead-document-source-type">
+                                                            <option value="upload">Upload file</option>
+                                                            <option value="link">External link</option>
+                                                            <option value="manual">Manual record</option>
+                                                        </select>
+                                                    </label>
+                                                    <label>
+                                                        <span>Related date</span>
+                                                        <input type="date" id="lead-document-date">
+                                                    </label>
+                                                </div>
+                                                <label>
+                                                    <span>Title</span>
+                                                    <input type="text" id="lead-document-title" placeholder="Permit packet, signed approval, site photos, planning notes">
+                                                </label>
+                                                <label id="lead-document-url-row">
+                                                    <span>Document URL</span>
+                                                    <input type="url" id="lead-document-url" placeholder="https://drive.google.com/...">
+                                                </label>
+                                                <label id="lead-document-file-row">
+                                                    <span>File upload</span>
+                                                    <input type="file" id="lead-document-file">
+                                                </label>
+                                                <label>
+                                                    <span>Note</span>
+                                                    <textarea id="lead-document-note" rows="4" placeholder="What this document covers, what it proves, and how it should be used by the team."></textarea>
+                                                </label>
+                                                <label class="checkbox-row">
+                                                    <input type="checkbox" id="lead-document-client-visible">
+                                                    <span>Visible in client portal</span>
+                                                </label>
+                                                <button type="submit" class="primary-button">Save document</button>
+                                            </form>
+                                        </section>
+
+                                        <section class="subpanel">
+                                            <div class="subpanel-head">
+                                                <h3>Lead documents</h3>
+                                                <p>These shared records stay tied to the opportunity and automatically show up in the linked customer and job when applicable.</p>
+                                            </div>
+                                            <div class="stack-list" id="lead-document-list"></div>
+                                        </section>
+                                    </div>
                                 </div>
 
                                 <div class="tab-pane" id="lead-tab-activity">
@@ -696,6 +794,164 @@
                                     </section>
                                 </div>
 
+                                <section class="subpanel customer-portal-panel">
+                                    <div class="subpanel-head subpanel-head-split">
+                                        <div>
+                                            <h3>Client portal access</h3>
+                                            <p>Invite approved customer contacts into the client portal so they can review estimates, invoices, documents, project updates, and messages in one place.</p>
+                                        </div>
+                                        <a class="ghost-button admin-only" id="customer-portal-preview-link" href="#" target="_blank" rel="noreferrer" hidden>Preview portal</a>
+                                    </div>
+                                    <div class="summary-grid customer-portal-summary" id="customer-portal-summary"></div>
+                                    <div class="two-column-detail">
+                                        <form class="stack-form subpanel admin-only" id="customer-portal-contact-form">
+                                            <div class="subpanel-head compact">
+                                                <h4>Portal contact</h4>
+                                                <p>Create or update the invite contact, then copy a secure link for the customer to claim access.</p>
+                                            </div>
+                                            <div class="form-grid two">
+                                                <label>
+                                                    <span>Contact name</span>
+                                                    <input type="text" id="customer-portal-contact-name" placeholder="Owner, PM, spouse, office contact">
+                                                </label>
+                                                <label>
+                                                    <span>Email</span>
+                                                    <input type="email" id="customer-portal-contact-email" placeholder="client@example.com">
+                                                </label>
+                                            </div>
+                                            <div class="form-grid two">
+                                                <label>
+                                                    <span>Phone</span>
+                                                    <input type="text" id="customer-portal-contact-phone" placeholder="Optional phone number">
+                                                </label>
+                                                <label>
+                                                    <span>Access scope</span>
+                                                    <select id="customer-portal-contact-scope">
+                                                        <option value="customer">Full customer account</option>
+                                                        <option value="read_only">Read-only billing and documents</option>
+                                                    </select>
+                                                </label>
+                                            </div>
+                                            <div class="inline-actions">
+                                                <button type="submit" class="primary-button">Save and copy invite</button>
+                                                <button type="button" class="ghost-button" id="customer-portal-contact-reset-button">Clear form</button>
+                                            </div>
+                                        </form>
+
+                                        <section class="subpanel">
+                                            <div class="subpanel-head compact">
+                                                <h4>Portal contacts</h4>
+                                                <p>Claimed contacts can log in anytime. Invited contacts keep a secure claim link until you revoke or disable access.</p>
+                                            </div>
+                                            <div class="stack-list" id="customer-portal-contact-list"></div>
+                                        </section>
+                                    </div>
+                                </section>
+
+                                <section class="subpanel customer-portal-thread-panel">
+                                    <div class="subpanel-head subpanel-head-split">
+                                        <div>
+                                            <h3>Client communication</h3>
+                                            <p>Keep one clean conversation trail for this customer and each active project without sending them back to text-message chaos.</p>
+                                        </div>
+                                        <button type="button" class="ghost-button" id="customer-portal-mark-read-button">Mark thread read</button>
+                                    </div>
+                                    <div class="two-column-detail">
+                                        <section class="subpanel">
+                                            <div class="subpanel-head compact">
+                                                <h4>Threads</h4>
+                                                <p>The general thread covers the relationship. Project threads keep property-specific communication organized.</p>
+                                            </div>
+                                            <div class="stack-list" id="customer-portal-thread-list"></div>
+                                        </section>
+
+                                        <section class="subpanel">
+                                            <div class="subpanel-head compact">
+                                                <h4>Conversation</h4>
+                                                <p>Reply here when a portal user needs billing clarification, document context, or project guidance.</p>
+                                            </div>
+                                            <div class="detail-summary" id="customer-portal-thread-summary"></div>
+                                            <div class="timeline-list portal-message-list" id="customer-portal-message-list"></div>
+                                            <form class="stack-form" id="customer-portal-message-form">
+                                                <label>
+                                                    <span>Reply</span>
+                                                    <textarea id="customer-portal-message-body" rows="5" placeholder="Write a clear client-facing update, answer, or next-step note."></textarea>
+                                                </label>
+                                                <button type="submit" class="primary-button">Send message</button>
+                                            </form>
+                                        </section>
+                                    </div>
+                                </section>
+
+                                <section class="subpanel customer-document-panel">
+                                    <div class="subpanel-head">
+                                        <h3>Shared documents</h3>
+                                        <p>Keep client files, agreements, receipts, photos, and property records in one place. Attach each document to the right lead or job so it appears in every relevant workspace without duplicates.</p>
+                                    </div>
+                                    <div class="two-column-detail">
+                                        <form class="stack-form" id="customer-document-form">
+                                            <label>
+                                                <span>Attach to</span>
+                                                <select id="customer-document-target-select"></select>
+                                            </label>
+                                            <div class="form-grid three">
+                                                <label>
+                                                    <span>Category</span>
+                                                    <select id="customer-document-category">
+                                                        <option value="agreement">Agreement</option>
+                                                        <option value="estimate">Estimate</option>
+                                                        <option value="change_order">Change order</option>
+                                                        <option value="receipt">Receipt</option>
+                                                        <option value="permit">Permit</option>
+                                                        <option value="invoice">Invoice</option>
+                                                        <option value="photo">Photo</option>
+                                                        <option value="closeout">Closeout</option>
+                                                        <option value="other">Other</option>
+                                                    </select>
+                                                </label>
+                                                <label>
+                                                    <span>Source</span>
+                                                    <select id="customer-document-source-type">
+                                                        <option value="upload">Upload file</option>
+                                                        <option value="link">External link</option>
+                                                        <option value="manual">Manual record</option>
+                                                    </select>
+                                                </label>
+                                                <label>
+                                                    <span>Related date</span>
+                                                    <input type="date" id="customer-document-date">
+                                                </label>
+                                            </div>
+                                            <label>
+                                                <span>Title</span>
+                                                <input type="text" id="customer-document-title" placeholder="Investor agreement, permit set, receipt package, site photos">
+                                            </label>
+                                            <label id="customer-document-url-row">
+                                                <span>Document URL</span>
+                                                <input type="url" id="customer-document-url" placeholder="https://drive.google.com/...">
+                                            </label>
+                                            <label id="customer-document-file-row">
+                                                <span>File upload</span>
+                                                <input type="file" id="customer-document-file">
+                                            </label>
+                                            <label>
+                                                <span>Note</span>
+                                                <textarea id="customer-document-note" rows="4" placeholder="What the file covers, which property it belongs to, and why it matters."></textarea>
+                                            </label>
+                                            <label class="checkbox-row">
+                                                <input type="checkbox" id="customer-document-client-visible">
+                                                <span>Visible in client portal</span>
+                                            </label>
+                                            <button type="submit" class="primary-button">Save document</button>
+                                        </form>
+
+                                        <div class="customer-document-rail">
+                                            <div class="summary-grid job-document-summary customer-document-summary" id="customer-document-summary"></div>
+                                            <div class="stack-list" id="customer-document-list"></div>
+                                        </div>
+                                    </div>
+                                </section>
+
                                 <form class="stack-form subpanel" id="customer-task-form">
                                     <div class="subpanel-head">
                                         <h3>Create customer task</h3>
@@ -774,7 +1030,9 @@
                                 <div class="record-actions">
                                     <button type="submit" form="job-core-form" class="primary-button admin-only">Save job setup</button>
                                     <button type="button" class="secondary-button" id="job-add-expense-button">Add expense</button>
+                                    <button type="button" class="secondary-button" id="job-add-change-order-button">Add change order</button>
                                     <button type="button" class="secondary-button admin-only" id="job-add-payment-button">Record payment</button>
+                                    <button type="button" class="secondary-button admin-only" id="job-add-invoice-button">New invoice</button>
                                     <button type="button" class="secondary-button" id="job-add-document-button">Add document</button>
                                     <button type="button" class="ghost-button" id="job-add-note-button">Add note</button>
                                     <button type="button" class="ghost-button" id="job-open-lead-button">Open linked lead</button>
@@ -783,9 +1041,10 @@
                                 <div class="record-context-strip" id="job-record-context"></div>
                                 <div class="job-summary-strip" id="job-summary-strip"></div>
 
-                                <div class="tab-strip" aria-label="Job record tabs">
+                                <div class="tab-strip job-tab-strip" aria-label="Job record tabs">
                                     <button type="button" class="tab-button" data-job-tab="overview">Overview</button>
                                     <button type="button" class="tab-button is-active" data-job-tab="financials">Financials</button>
+                                    <button type="button" class="tab-button" data-job-tab="invoices">Invoices</button>
                                     <button type="button" class="tab-button" data-job-tab="scope">Scope</button>
                                     <button type="button" class="tab-button" data-job-tab="team">Team &amp; Commission</button>
                                     <button type="button" class="tab-button" data-job-tab="history">History</button>
@@ -837,6 +1096,37 @@
                                                 <span>Linked lead</span>
                                                 <input type="text" id="job-linked-lead-display" disabled>
                                             </label>
+
+                                            <section class="client-status-editor">
+                                                <div class="subpanel-head compact">
+                                                    <h4>Client-facing portal update</h4>
+                                                    <p>These fields shape what the customer sees on the portal job card and dashboard.</p>
+                                                </div>
+                                                <div class="form-grid two">
+                                                    <label>
+                                                        <span>Phase label</span>
+                                                        <input type="text" id="job-phase-label-input" placeholder="Design review, permit review, framing, finishes">
+                                                    </label>
+                                                    <label>
+                                                        <span>Target window</span>
+                                                        <input type="text" id="job-target-window-input" placeholder="Next 2 weeks, mid-May, after permit sign-off">
+                                                    </label>
+                                                </div>
+                                                <div class="form-grid two">
+                                                    <label>
+                                                        <span>Target date</span>
+                                                        <input type="date" id="job-target-date-input">
+                                                    </label>
+                                                    <label>
+                                                        <span>Next step</span>
+                                                        <input type="text" id="job-next-step-input" placeholder="Finalize tile selections, rough-in walkthrough, invoice review">
+                                                    </label>
+                                                </div>
+                                                <label>
+                                                    <span>Shared status note</span>
+                                                    <textarea id="job-shared-status-note-input" rows="4" placeholder="Short client-facing update that explains where the project stands and what comes next."></textarea>
+                                                </label>
+                                            </section>
                                         </form>
 
                                         <div class="job-overview-rail">
@@ -865,14 +1155,17 @@
                                 <div class="tab-pane is-active" id="job-tab-financials">
                                     <div class="two-column-detail">
                                         <section class="subpanel">
-                                            <div class="subpanel-head">
-                                                <h3>Revenue and change orders</h3>
-                                                <p>Base contract plus approved add-ons define the full job revenue target.</p>
+                                            <div class="subpanel-head subpanel-head-split">
+                                                <div>
+                                                    <h3>Revenue and change orders</h3>
+                                                    <p>Base contract plus approved add-ons define the full job revenue target.</p>
+                                                </div>
+                                                <button type="button" class="secondary-button" id="job-change-order-focus-button">Open change order form</button>
                                             </div>
 
                                             <div class="finance-summary finance-summary-compact" id="job-revenue-summary"></div>
 
-                                            <form class="stack-form admin-only" id="change-order-form">
+                                            <form class="stack-form change-order-form-shell" id="change-order-form">
                                                 <div class="form-grid two">
                                                     <label>
                                                         <span>Change order title</span>
@@ -901,7 +1194,8 @@
                                                     <span>Note</span>
                                                     <textarea id="change-order-note" rows="3" placeholder="What changed, why, and what was approved."></textarea>
                                                 </label>
-                                                <button type="submit" class="primary-button">Add change order</button>
+                                                <div class="inline-form-hint">Employees and admins assigned to this job can log change orders here.</div>
+                                                <button type="submit" class="primary-button">Save change order</button>
                                             </form>
 
                                             <div class="stack-list" id="change-order-list"></div>
@@ -992,6 +1286,129 @@
                                     </section>
                                 </div>
 
+                                <div class="tab-pane" id="job-tab-invoices">
+                                    <section class="subpanel">
+                                        <div class="subpanel-head subpanel-head-split">
+                                            <div>
+                                                <h3>Client invoices</h3>
+                                                <p>Create polished Golden Brick invoices, pull lines from the linked estimate, mark them paid, and download a matching receipt.</p>
+                                            </div>
+                                            <button type="button" class="secondary-button admin-only" id="invoice-new-button">New invoice</button>
+                                        </div>
+                                        <div class="summary-grid job-invoice-summary" id="job-invoice-summary"></div>
+                                        <div class="stack-list invoice-list" id="job-invoice-list"></div>
+                                    </section>
+
+                                    <div class="two-column-detail invoice-workspace">
+                                        <form class="stack-form subpanel" id="invoice-form">
+                                            <div class="subpanel-head">
+                                                <h3>Current invoice</h3>
+                                                <p>Keep the invoice client-facing and clean: clear summary, flexible detail fields, line items, and payment status tied back to job financials.</p>
+                                            </div>
+
+                                            <div class="inline-actions">
+                                                <button type="button" class="ghost-button admin-only" id="invoice-import-estimate-button">Import estimate lines</button>
+                                                <button type="button" class="ghost-button admin-only" id="invoice-add-line-button">Add invoice line</button>
+                                                <button type="button" class="secondary-button" id="invoice-download-button">Download invoice PDF</button>
+                                                <button type="button" class="secondary-button" id="invoice-receipt-button">Download receipt</button>
+                                                <button type="button" class="primary-button admin-only" id="invoice-mark-paid-button">Mark paid</button>
+                                            </div>
+                                            <p class="estimate-editor-helper">Download invoice PDF creates the client-ready billing file. Mark paid records the payment against the job and unlocks a branded receipt download for the client.</p>
+
+                                            <div class="form-grid three">
+                                                <label>
+                                                    <span>Invoice title</span>
+                                                    <input type="text" id="invoice-title" placeholder="Progress invoice for Golden Brick Construction">
+                                                </label>
+                                                <label>
+                                                    <span>Invoice number</span>
+                                                    <input type="text" id="invoice-number" placeholder="GB-20260408-01">
+                                                </label>
+                                                <label>
+                                                    <span>Status</span>
+                                                    <input type="text" id="invoice-status-display" disabled>
+                                                </label>
+                                            </div>
+
+                                            <div class="form-grid two">
+                                                <label>
+                                                    <span>Issue date</span>
+                                                    <input type="date" id="invoice-issue-date">
+                                                </label>
+                                                <label>
+                                                    <span>Due date</span>
+                                                    <input type="date" id="invoice-due-date">
+                                                </label>
+                                            </div>
+
+                                            <label>
+                                                <span>Invoice overview</span>
+                                                <textarea id="invoice-summary" rows="6" placeholder="Short billing summary, milestone note, or project billing explanation for the client."></textarea>
+                                            </label>
+
+                                            <section class="line-items-panel invoice-custom-fields-panel" aria-labelledby="invoice-custom-fields-heading">
+                                                <div class="line-items-head">
+                                                    <span id="invoice-custom-fields-heading">Custom detail fields</span>
+                                                    <button type="button" class="ghost-button admin-only" id="invoice-add-custom-field-button">Add field</button>
+                                                </div>
+                                                <p class="estimate-editor-helper">Add flexible invoice metadata like draw name, phase, project manager, property nickname, or payment terms.</p>
+                                                <div class="line-items-list invoice-custom-fields-list" id="invoice-custom-fields"></div>
+                                            </section>
+
+                                            <div class="line-items-panel invoice-line-items-panel">
+                                                <div class="line-items-head">
+                                                    <span>Invoice line items</span>
+                                                    <strong id="invoice-subtotal">$0.00</strong>
+                                                </div>
+                                                <p class="estimate-editor-helper">Use estimate lines as the starting point, then refine this invoice to match the exact draw, milestone, or final billing package.</p>
+                                                <div class="line-items-list" id="invoice-lines"></div>
+                                            </div>
+
+                                            <label>
+                                                <span>Notes / payment instructions</span>
+                                                <textarea id="invoice-notes" rows="5" placeholder="Payment instructions, billing notes, milestone explanation, or anything the client should know when paying this invoice."></textarea>
+                                            </label>
+
+                                            <section class="invoice-payment-panel">
+                                                <div class="subpanel-head">
+                                                    <h3>Receipt details</h3>
+                                                    <p>These fields are used when you mark the invoice paid and when you download the receipt.</p>
+                                                </div>
+                                                <div class="form-grid three">
+                                                    <label>
+                                                        <span>Paid date</span>
+                                                        <input type="date" id="invoice-paid-date">
+                                                    </label>
+                                                    <label>
+                                                        <span>Payment method</span>
+                                                        <input type="text" id="invoice-payment-method" placeholder="ACH, check, wire, cash">
+                                                    </label>
+                                                    <label>
+                                                        <span>Reference</span>
+                                                        <input type="text" id="invoice-payment-reference" placeholder="Check number, wire ref, ACH trace">
+                                                    </label>
+                                                </div>
+                                                <label>
+                                                    <span>Receipt note</span>
+                                                    <textarea id="invoice-payment-note" rows="4" placeholder="Optional note to include on the payment receipt."></textarea>
+                                                </label>
+                                            </section>
+
+                                            <div class="inline-actions">
+                                                <button type="submit" class="primary-button admin-only">Save invoice</button>
+                                            </div>
+                                        </form>
+
+                                        <section class="subpanel invoice-preview-panel">
+                                            <div class="subpanel-head">
+                                                <h3>Invoice preview</h3>
+                                                <p>Review the polished client-facing invoice or paid receipt before downloading the PDF you plan to send.</p>
+                                            </div>
+                                            <div class="estimate-preview invoice-preview" id="invoice-preview"></div>
+                                        </section>
+                                    </div>
+                                </div>
+
                                 <div class="tab-pane" id="job-tab-scope">
                                     <section class="subpanel">
                                         <div class="subpanel-head subpanel-head-split">
@@ -1071,7 +1488,7 @@
                                         <section class="subpanel">
                                             <div class="subpanel-head">
                                                 <h3>Document center</h3>
-                                                <p>Store agreements, receipts, permits, invoices, and closeout files in the job record or link them in manually.</p>
+                                                <p>Store agreements, receipts, permits, invoices, and closeout files in the shared record so the same document stays visible on the job, lead, and customer card.</p>
                                             </div>
                                             <div class="summary-grid job-document-summary" id="job-document-summary"></div>
                                             <form class="stack-form" id="job-document-form">
@@ -1119,6 +1536,10 @@
                                                     <span>Note</span>
                                                     <textarea id="job-document-note" rows="4" placeholder="What this document covers, how it was signed, or where it came from."></textarea>
                                                 </label>
+                                                <label class="checkbox-row">
+                                                    <input type="checkbox" id="job-document-client-visible">
+                                                    <span>Visible in client portal</span>
+                                                </label>
                                                 <button type="submit" class="primary-button">Save document</button>
                                             </form>
                                         </section>
@@ -1126,7 +1547,7 @@
                                         <section class="subpanel">
                                             <div class="subpanel-head">
                                                 <h3>Job documents</h3>
-                                                <p>Every agreement, receipt, invoice, permit, and manual document record tied to this job.</p>
+                                                <p>Every shared document tied to this job, including live estimate entries and files added from the lead, customer, or job views.</p>
                                             </div>
                                             <div class="stack-list" id="job-document-list"></div>
                                         </section>
@@ -1552,6 +1973,27 @@
 
                             <div class="record-shell">
                                 <div class="admin-only" id="staff-admin-shell">
+                                    <section class="subpanel portal-queue-panel">
+                                        <div class="subpanel-head">
+                                            <h3>Client portal queue</h3>
+                                            <p>Stay ahead of estimate approvals, unpaid invoices, unread client replies, and portal access issues from one admin view.</p>
+                                        </div>
+                                        <div class="summary-grid team-workload-summary" id="portal-queue-summary"></div>
+                                        <div class="record-list portal-queue-list" id="portal-queue-list"></div>
+                                    </section>
+
+                                    <section class="subpanel team-ops-panel">
+                                        <div class="subpanel-head subpanel-head-split">
+                                            <div>
+                                                <h3>Team workload</h3>
+                                                <p>See each employee's tasks, leads, jobs, and next pressure points in one place. Focus the CRM on one person or assign work without leaving this screen.</p>
+                                            </div>
+                                            <button type="button" class="ghost-button" id="staff-clear-focus-button" hidden>Show full team</button>
+                                        </div>
+                                        <div class="summary-grid team-workload-summary" id="staff-workload-summary"></div>
+                                        <div class="record-list staff-workload-list" id="staff-workload-list"></div>
+                                    </section>
+
                                     <form class="stack-form subpanel" id="staff-form">
                                         <div class="subpanel-head">
                                             <h3>Staff access</h3>
@@ -1618,6 +2060,22 @@
                                         <label>
                                             <span>Standard terms (always included)</span>
                                             <textarea id="template-terms" rows="5"></textarea>
+                                        </label>
+                                        <div class="subpanel-head compact">
+                                            <h4>Client agreement copy</h4>
+                                            <p>This copy appears beneath the estimate on the client share page and is frozen into the archived agreement exactly as written when the client signs.</p>
+                                        </div>
+                                        <label>
+                                            <span>Agreement title</span>
+                                            <input type="text" id="template-agreement-title">
+                                        </label>
+                                        <label>
+                                            <span>Agreement intro</span>
+                                            <textarea id="template-agreement-intro" rows="4"></textarea>
+                                        </label>
+                                        <label>
+                                            <span>Agreement terms</span>
+                                            <textarea id="template-agreement-terms" rows="6"></textarea>
                                         </label>
                                         <button type="submit" class="primary-button">Save template</button>
                                     </form>
@@ -1959,6 +2417,6 @@
         <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
     </div>
 
-    <script type="module" src="/staff/staff.js?v=20260408-mobile-2"></script>
+    <script type="module" src="/staff/staff.js?v=20260408-estimate-share-1"></script>
 </body>
 </html>

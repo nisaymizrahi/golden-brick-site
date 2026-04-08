@@ -48,9 +48,44 @@
             "value": "no-store, max-age=0"
           }
         ]
+      },
+      {
+        "source": "/client",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
+      },
+      {
+        "source": "/client/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
+      },
+      {
+        "source": "/client/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
       }
     ],
     "rewrites": [
+      {
+        "source": "/client/**",
+        "destination": "/client/index.html"
+      },
+      {
+        "source": "/estimate/**",
+        "destination": "/estimate/index.html"
+      },
       {
         "source": "/api/public/lead-intake",
         "function": {
@@ -80,9 +115,44 @@
         }
       },
       {
+        "source": "/api/staff/estimate-share",
+        "function": {
+          "functionId": "estimateShare",
+          "region": "us-central1"
+        }
+      },
+      {
         "source": "/api/staff/estimate-draft",
         "function": {
           "functionId": "generateEstimateDraft",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/public/estimate-view",
+        "function": {
+          "functionId": "publicEstimateView",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/public/estimate-sign",
+        "function": {
+          "functionId": "publicEstimateSign",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/public/agreement-document",
+        "function": {
+          "functionId": "publicAgreementDocument",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/client/**",
+        "function": {
+          "functionId": "clientPortalApi",
           "region": "us-central1"
         }
       }

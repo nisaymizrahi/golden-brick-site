@@ -1,10 +1,13 @@
 "use strict";
 
+const crypto = require("node:crypto");
 const admin = require("firebase-admin");
+const PDFDocument = require("pdfkit");
 const logger = require("firebase-functions/logger");
 const { onRequest } = require("firebase-functions/v2/https");
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { defineString } = require("firebase-functions/params");
+const { buildClientPortalApi } = require("./clientPortal");
 
 admin.initializeApp();
 
@@ -38,6 +41,19 @@ const LEGACY_ESTIMATE_TEMPLATE_TERMS = new Set([
   "Pricing is a planning estimate until site conditions, access, finish selections, and final scope are confirmed.",
   "Pricing is a planning estimate until scope, access, existing conditions, and finish selections are confirmed on site."
 ]);
+
+const DEFAULT_AGREEMENT_TITLE = "Client authorization and agreement";
+
+const DEFAULT_AGREEMENT_INTRO = [
+  "If you would like Golden Brick Construction to move forward from this estimate into the next planning and production step, please review and sign the agreement terms below.",
+  "Your signature locks the estimate snapshot shown on this page into the project file so Golden Brick and the client are aligned on the approved scope and commercial terms at the time of acceptance."
+].join("\n");
+
+const DEFAULT_AGREEMENT_TERMS = [
+  "By signing below, you confirm that Golden Brick Construction may move forward based on the estimate scope and pricing snapshot shown on this page, subject to final field verification and any written revisions agreed by both parties.",
+  "Any requested scope, material, pricing, or schedule changes after signature must be documented in writing and may require a revised estimate or change order before additional work proceeds.",
+  "Scheduling, procurement, and start-date coordination remain subject to site access, deposit and payment coordination, municipal approvals, final measurements, and confirmed finish selections where applicable."
+].join("\n");
 
 function applyCors(response) {
   Object.entries(STAFF_HEADERS).forEach(([key, value]) => {
@@ -297,7 +313,10 @@ function defaultEstimateTemplate() {
       "Thanks for speaking with Golden Brick Construction. Based on the details you shared, here is a working estimate outline for the project.",
     outro:
       "Please review the scope, note any revisions, and let us know if you want to move into the next planning step.",
-    terms: DEFAULT_ESTIMATE_STANDARD_TERMS
+    terms: DEFAULT_ESTIMATE_STANDARD_TERMS,
+    agreementTitle: DEFAULT_AGREEMENT_TITLE,
+    agreementIntro: DEFAULT_AGREEMENT_INTRO,
+    agreementTerms: DEFAULT_AGREEMENT_TERMS
   };
 }
 
@@ -307,6 +326,18 @@ function resolveEstimateTemplateTerms(template = {}) {
     return DEFAULT_ESTIMATE_STANDARD_TERMS;
   }
   return terms;
+}
+
+function resolveAgreementTemplateTitle(template = {}) {
+  return safeString(template.agreementTitle) || DEFAULT_AGREEMENT_TITLE;
+}
+
+function resolveAgreementTemplateIntro(template = {}) {
+  return safeString(template.agreementIntro) || DEFAULT_AGREEMENT_INTRO;
+}
+
+function resolveAgreementTemplateTerms(template = {}) {
+  return safeString(template.agreementTerms) || DEFAULT_AGREEMENT_TERMS;
 }
 
 function normaliseStaffRole(value) {
@@ -455,7 +486,10 @@ async function fetchTemplate() {
   return {
     ...defaultEstimateTemplate(),
     ...data,
-    terms: resolveEstimateTemplateTerms(data)
+    terms: resolveEstimateTemplateTerms(data),
+    agreementTitle: resolveAgreementTemplateTitle(data),
+    agreementIntro: resolveAgreementTemplateIntro(data),
+    agreementTerms: resolveAgreementTemplateTerms(data)
   };
 }
 
@@ -597,6 +631,841 @@ function queueProjectScopeSnapshot(batch, projectRef, leadId, estimateData = {},
   return scopeItems.length;
 }
 
+function formatCurrency(value) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD"
+  }).format(toNumber(value));
+}
+
+function formatDateOnly(value) {
+  const millis = normaliseMillis(value);
+  if (!millis) return "Not set";
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  }).format(new Date(millis));
+}
+
+function formatDateTime(value) {
+  const millis = normaliseMillis(value);
+  if (!millis) return "Not set";
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(millis));
+}
+
+function splitMultilineText(value) {
+  return safeString(value)
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function cleanNullableString(value) {
+  const normalised = safeString(value);
+  return normalised || null;
+}
+
+function estimateRecordDocumentId(leadId) {
+  return `estimate-${safeString(leadId)}`;
+}
+
+function buildRecordDocumentLinksFromLeadRecord(leadId, leadData = {}, projectData = null) {
+  return {
+    leadId: cleanNullableString(leadId),
+    customerId: cleanNullableString(leadData.customerId || projectData?.customerId),
+    projectId: cleanNullableString(projectData?.id || leadData.wonProjectId)
+  };
+}
+
+function buildRecordDocumentLinksFromProjectRecord(projectId, projectData = {}, leadData = null) {
+  return {
+    projectId: cleanNullableString(projectId),
+    leadId: cleanNullableString(projectData.leadId || leadData?.id || projectId),
+    customerId: cleanNullableString(projectData.customerId || leadData?.customerId)
+  };
+}
+
+function buildEstimateRecordDocumentTitle(leadData = {}, estimateData = {}) {
+  return safeString(
+    estimateData.subject
+    || leadData.estimateTitle
+    || `Estimate for ${safeString(leadData.projectAddress || leadData.clientName || leadData.customerName || "project")}`
+  );
+}
+
+async function upsertEstimateRecordDocument(leadId, estimateData = {}, leadData = null) {
+  const recordId = estimateRecordDocumentId(leadId);
+  const recordRef = db.collection("recordDocuments").doc(recordId);
+  const [leadSnap, projectSnap, existingSnap] = await Promise.all([
+    leadData ? Promise.resolve(null) : db.collection("leads").doc(leadId).get(),
+    db.collection("projects").doc(leadId).get(),
+    recordRef.get()
+  ]);
+
+  const resolvedLeadData = leadData || (leadSnap?.exists ? leadSnap.data() : null);
+  if (!resolvedLeadData) {
+    return;
+  }
+
+  const projectData = projectSnap.exists ? { id: projectSnap.id, ...projectSnap.data() } : null;
+  const existingData = existingSnap.exists ? (existingSnap.data() || {}) : {};
+  const links = buildRecordDocumentLinksFromLeadRecord(leadId, resolvedLeadData, projectData);
+  const note = splitMultilineText(estimateData.emailBody || resolvedLeadData.estimateTitle || "")[0] || "";
+
+  await recordRef.set({
+    id: recordId,
+    documentKind: "estimate",
+    category: "estimate",
+    sourceType: "generated",
+    title: buildEstimateRecordDocumentTitle(resolvedLeadData, estimateData),
+    note,
+    relatedDate: estimateData.updatedAt
+      || estimateData.createdAt
+      || resolvedLeadData.estimateUpdatedAt
+      || existingData.relatedDate
+      || FieldValue.serverTimestamp(),
+    externalUrl: "",
+    fileUrl: "",
+    filePath: "",
+    fileName: "",
+    leadId: links.leadId,
+    customerId: links.customerId,
+    projectId: links.projectId,
+    estimateId: cleanNullableString(leadId),
+    createdByUid: safeString(estimateData.lastEditedByUid || existingData.createdByUid || "system"),
+    createdByName: safeString(estimateData.lastEditedByName || existingData.createdByName || "Golden Brick System"),
+    createdByRole: safeString(existingData.createdByRole || (estimateData.lastEditedByUid ? "staff" : "system")) || "system",
+    createdAt: existingData.createdAt || estimateData.createdAt || FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  }, { merge: true });
+}
+
+async function deleteEstimateRecordDocument(leadId) {
+  if (!safeString(leadId)) {
+    return;
+  }
+
+  await db.collection("recordDocuments").doc(estimateRecordDocumentId(leadId)).delete().catch(() => {});
+}
+
+async function syncRecordDocumentLinksForLead(leadId, leadData = {}) {
+  const normalisedLeadId = cleanNullableString(leadId);
+  if (!normalisedLeadId) {
+    return;
+  }
+
+  const projectSnap = await db.collection("projects").doc(normalisedLeadId).get();
+  const projectData = projectSnap.exists ? { id: projectSnap.id, ...projectSnap.data() } : null;
+  const links = buildRecordDocumentLinksFromLeadRecord(normalisedLeadId, leadData, projectData);
+  const docsSnap = await db.collection("recordDocuments")
+    .where("leadId", "==", normalisedLeadId)
+    .get();
+
+  if (docsSnap.empty) {
+    return;
+  }
+
+  const batch = db.batch();
+  let hasChanges = false;
+
+  docsSnap.docs.forEach((snapshot) => {
+    const data = snapshot.data() || {};
+    const updates = {};
+
+    if (cleanNullableString(data.customerId) !== links.customerId) {
+      updates.customerId = links.customerId;
+    }
+
+    if (cleanNullableString(data.projectId) !== links.projectId) {
+      updates.projectId = links.projectId;
+    }
+
+    if (Object.keys(updates).length) {
+      hasChanges = true;
+      batch.set(snapshot.ref, {
+        ...updates,
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+  });
+
+  if (hasChanges) {
+    await batch.commit();
+  }
+}
+
+async function syncRecordDocumentLinksForProject(projectId, projectData = {}) {
+  const normalisedProjectId = cleanNullableString(projectId);
+  if (!normalisedProjectId) {
+    return;
+  }
+
+  const leadId = cleanNullableString(projectData.leadId || normalisedProjectId);
+  const leadSnap = leadId ? await db.collection("leads").doc(leadId).get() : null;
+  const leadData = leadSnap?.exists ? leadSnap.data() : null;
+  const links = buildRecordDocumentLinksFromProjectRecord(normalisedProjectId, projectData, leadData);
+  const docsSnap = await db.collection("recordDocuments")
+    .where("projectId", "==", normalisedProjectId)
+    .get();
+
+  if (docsSnap.empty) {
+    return;
+  }
+
+  const batch = db.batch();
+  let hasChanges = false;
+
+  docsSnap.docs.forEach((snapshot) => {
+    const data = snapshot.data() || {};
+    const updates = {};
+
+    if (cleanNullableString(data.leadId) !== links.leadId) {
+      updates.leadId = links.leadId;
+    }
+
+    if (cleanNullableString(data.customerId) !== links.customerId) {
+      updates.customerId = links.customerId;
+    }
+
+    if (Object.keys(updates).length) {
+      hasChanges = true;
+      batch.set(snapshot.ref, {
+        ...updates,
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+  });
+
+  if (hasChanges) {
+    await batch.commit();
+  }
+}
+
+async function migrateLegacyProjectDocuments(projectId, projectData = {}) {
+  const normalisedProjectId = cleanNullableString(projectId);
+  if (!normalisedProjectId) {
+    return 0;
+  }
+
+  const legacySnap = await db.collection("projects")
+    .doc(normalisedProjectId)
+    .collection("documents")
+    .get();
+
+  if (legacySnap.empty) {
+    return 0;
+  }
+
+  const leadId = cleanNullableString(projectData.leadId || normalisedProjectId);
+  const customerId = cleanNullableString(projectData.customerId);
+  let migratedCount = 0;
+
+  for (const snapshot of legacySnap.docs) {
+    const data = snapshot.data() || {};
+    const recordRef = db.collection("recordDocuments").doc(snapshot.id);
+    const recordSnap = await recordRef.get();
+    const existingData = recordSnap.exists ? (recordSnap.data() || {}) : {};
+
+    await recordRef.set({
+      id: snapshot.id,
+      documentKind: safeString(data.documentKind || "file") === "estimate" ? "estimate" : "file",
+      category: safeString(data.category || "other") || "other",
+      sourceType: safeString(data.sourceType || "manual") || "manual",
+      title: safeString(data.title || existingData.title || "Document"),
+      note: safeString(data.note),
+      relatedDate: data.relatedDate || data.createdAt || existingData.relatedDate || null,
+      externalUrl: safeString(data.externalUrl),
+      fileUrl: safeString(data.fileUrl),
+      filePath: safeString(data.filePath),
+      fileName: safeString(data.fileName),
+      leadId,
+      customerId,
+      projectId: normalisedProjectId,
+      estimateId: cleanNullableString(data.estimateId || existingData.estimateId),
+      agreementId: cleanNullableString(data.agreementId || existingData.agreementId),
+      legacyProjectId: normalisedProjectId,
+      legacyDocumentId: snapshot.id,
+      createdByUid: safeString(data.createdByUid || existingData.createdByUid),
+      createdByName: safeString(data.createdByName || existingData.createdByName),
+      createdByRole: safeString(data.createdByRole || existingData.createdByRole),
+      createdAt: existingData.createdAt || data.createdAt || FieldValue.serverTimestamp(),
+      updatedAt: existingData.updatedAt || data.updatedAt || data.createdAt || FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    migratedCount += 1;
+  }
+
+  return migratedCount;
+}
+
+async function ensureProjectRecordDocumentMigration(projectId, projectData = {}) {
+  if (!safeString(projectId) || toNumber(projectData.recordDocumentsMigrationVersion) >= 1) {
+    return 0;
+  }
+
+  const migratedCount = await migrateLegacyProjectDocuments(projectId, projectData);
+
+  await db.collection("projects").doc(projectId).set({
+    recordDocumentsMigrationVersion: 1,
+    recordDocumentsMigratedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  return migratedCount;
+}
+
+async function deleteStoragePathIfPresent(filePath) {
+  const resolvedPath = safeString(filePath);
+  if (!resolvedPath) {
+    return;
+  }
+
+  try {
+    await admin.storage().bucket().file(resolvedPath).delete();
+  } catch (error) {
+    if (error?.code !== 404 && error?.statusCode !== 404) {
+      logger.warn("Shared document storage cleanup failed.", {
+        filePath: resolvedPath,
+        error: error?.message || String(error)
+      });
+    }
+  }
+}
+
+async function clearProjectExpenseReceiptReferences(projectId, documentId) {
+  if (!safeString(projectId) || !safeString(documentId)) {
+    return;
+  }
+
+  const expenseSnap = await db.collection("projects")
+    .doc(projectId)
+    .collection("expenses")
+    .where("receiptDocumentId", "==", documentId)
+    .get();
+
+  if (expenseSnap.empty) {
+    return;
+  }
+
+  const batch = db.batch();
+  expenseSnap.docs.forEach((snapshot) => {
+    batch.set(snapshot.ref, {
+      receiptDocumentId: null,
+      receiptTitle: "",
+      receiptUrl: "",
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+  });
+  await batch.commit();
+}
+
+async function clearVendorBillInvoiceReferences(documentId) {
+  if (!safeString(documentId)) {
+    return;
+  }
+
+  const billsSnap = await db.collection("vendorBills")
+    .where("invoiceDocumentId", "==", documentId)
+    .get();
+
+  if (billsSnap.empty) {
+    return;
+  }
+
+  const batch = db.batch();
+  billsSnap.docs.forEach((snapshot) => {
+    batch.set(snapshot.ref, {
+      invoiceDocumentId: null,
+      invoiceTitle: "",
+      invoiceFileUrl: "",
+      invoiceExternalUrl: "",
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+  });
+  await batch.commit();
+
+  await Promise.all(billsSnap.docs.map(async (snapshot) => {
+    const billData = snapshot.data() || {};
+    const projectId = safeString(billData.projectId);
+    if (!projectId) {
+      return;
+    }
+
+    await db.collection("projects")
+      .doc(projectId)
+      .collection("expenses")
+      .doc(snapshot.id)
+      .set({
+        receiptDocumentId: null,
+        receiptTitle: "",
+        receiptUrl: "",
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+  }));
+}
+
+async function cleanupDeletedRecordDocument(documentId, documentData = {}) {
+  await Promise.all([
+    deleteStoragePathIfPresent(documentData.filePath),
+    clearProjectExpenseReceiptReferences(safeString(documentData.projectId), documentId)
+  ]);
+}
+
+async function cleanupDeletedVendorDocument(documentId, documentData = {}) {
+  await Promise.all([
+    deleteStoragePathIfPresent(documentData.filePath),
+    clearVendorBillInvoiceReferences(documentId)
+  ]);
+}
+
+function serialiseDateValue(value) {
+  const millis = normaliseMillis(value);
+  return millis ? new Date(millis).toISOString() : null;
+}
+
+function createOpaqueId(byteCount = 24) {
+  return crypto.randomBytes(byteCount).toString("hex");
+}
+
+function requestProtocol(request) {
+  return safeString(request.get("x-forwarded-proto") || request.protocol || "https")
+    .split(",")[0]
+    .trim() || "https";
+}
+
+function requestHost(request) {
+  return safeString(request.get("x-forwarded-host") || request.get("host"));
+}
+
+function requestBaseUrl(request) {
+  const origin = safeString(request.get("origin"));
+  if (origin) {
+    return origin.replace(/\/+$/, "");
+  }
+
+  const host = requestHost(request);
+  if (!host) {
+    return "";
+  }
+
+  return `${requestProtocol(request)}://${host}`;
+}
+
+function buildEstimateShareUrl(request, shareId) {
+  const baseUrl = requestBaseUrl(request);
+  return `${baseUrl}/estimate/${shareId}`;
+}
+
+function buildPublicAgreementDownloadHref(request, token) {
+  const baseUrl = requestBaseUrl(request);
+  return `${baseUrl}/api/public/agreement-document?token=${encodeURIComponent(token)}`;
+}
+
+function storageDownloadUrl(bucketName, filePath, token) {
+  return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(filePath)}?alt=media&token=${token}`;
+}
+
+function requestAuditMetadata(request) {
+  const forwardedFor = safeString(request.get("x-forwarded-for"));
+  return {
+    ipAddress: forwardedFor ? forwardedFor.split(",")[0].trim() : safeString(request.ip),
+    userAgent: safeString(request.get("user-agent"))
+  };
+}
+
+function parseSignatureDataUrl(dataUrl) {
+  const matches = safeString(dataUrl).match(/^data:(image\/png);base64,([A-Za-z0-9+/=]+)$/);
+
+  if (!matches) {
+    const error = new Error("A drawn signature is required.");
+    error.status = 400;
+    throw error;
+  }
+
+  return {
+    contentType: matches[1],
+    buffer: Buffer.from(matches[2], "base64")
+  };
+}
+
+function normaliseEstimateSnapshot(estimateData = {}, template = {}) {
+  const lineItems = Array.isArray(estimateData.lineItems)
+    ? estimateData.lineItems.map((item) => ({
+      label: safeString(item.label || item.title),
+      description: safeString(item.description || item.note),
+      amount: toNumber(item.amount)
+    })).filter((item) => item.label || item.description || item.amount)
+    : [];
+
+  return {
+    subject: safeString(estimateData.subject),
+    emailBody: safeString(estimateData.emailBody),
+    assumptions: Array.isArray(estimateData.assumptions)
+      ? estimateData.assumptions.map((item) => safeString(item)).filter(Boolean)
+      : [],
+    lineItems,
+    subtotal: toNumber(estimateData.subtotal || lineItems.reduce((sum, item) => sum + toNumber(item.amount), 0)),
+    proposalTerms: resolveEstimateTemplateTerms(template)
+  };
+}
+
+function normaliseAgreementSnapshot(template = {}) {
+  return {
+    title: resolveAgreementTemplateTitle(template),
+    intro: resolveAgreementTemplateIntro(template),
+    terms: resolveAgreementTemplateTerms(template)
+  };
+}
+
+function estimateSharePriority(shareData = {}) {
+  if (shareData.status === "active") return 0;
+  if (shareData.status === "signed") return 1;
+  if (shareData.status === "revoked") return 2;
+  return 3;
+}
+
+function pickCurrentEstimateShare(shares = []) {
+  return [...shares].sort((left, right) => {
+    const priorityDiff = estimateSharePriority(left) - estimateSharePriority(right);
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
+
+    return normaliseMillis(right.updatedAt || right.createdAt) - normaliseMillis(left.updatedAt || left.createdAt);
+  })[0] || null;
+}
+
+function serialiseEstimateShare(shareData = {}, request) {
+  if (!shareData || !shareData.id) {
+    return null;
+  }
+
+  return {
+    id: shareData.id,
+    type: safeString(shareData.type || "estimate"),
+    status: safeString(shareData.status || "active"),
+    leadId: safeString(shareData.leadId),
+    customerId: safeString(shareData.customerId),
+    projectId: safeString(shareData.projectId),
+    agreementId: safeString(shareData.agreementId),
+    createdByUid: safeString(shareData.createdByUid),
+    createdByName: safeString(shareData.createdByName),
+    createdAt: serialiseDateValue(shareData.createdAt),
+    updatedAt: serialiseDateValue(shareData.updatedAt),
+    revokedAt: serialiseDateValue(shareData.revokedAt),
+    lastViewedAt: serialiseDateValue(shareData.lastViewedAt),
+    signedAt: serialiseDateValue(shareData.signedAt),
+    shareUrl: buildEstimateShareUrl(request, shareData.id)
+  };
+}
+
+async function fetchLeadShares(leadId) {
+  const sharesSnap = await db.collection("estimateShares")
+    .where("leadId", "==", leadId)
+    .get();
+
+  return sharesSnap.docs.map((snapshot) => ({
+    id: snapshot.id,
+    ...snapshot.data()
+  }));
+}
+
+async function saveStorageFile(bucket, filePath, buffer, {
+  contentType,
+  downloadToken = null,
+  metadata = {}
+} = {}) {
+  const file = bucket.file(filePath);
+  const mergedMetadata = {
+    contentType,
+    cacheControl: "private, max-age=0",
+    metadata: {
+      ...metadata
+    }
+  };
+
+  if (downloadToken) {
+    mergedMetadata.metadata.firebaseStorageDownloadTokens = downloadToken;
+  }
+
+  await file.save(buffer, {
+    resumable: false,
+    validation: false,
+    metadata: mergedMetadata
+  });
+
+  return downloadToken ? storageDownloadUrl(bucket.name, filePath, downloadToken) : "";
+}
+
+function ensurePdfSpace(doc, minimumSpace = 140) {
+  const bottomLimit = doc.page.height - doc.page.margins.bottom;
+  if (doc.y + minimumSpace <= bottomLimit) {
+    return;
+  }
+
+  doc.addPage();
+}
+
+function renderPdfParagraph(doc, text, options = {}) {
+  if (!safeString(text)) return;
+
+  const fontSize = options.fontSize || 10;
+  const color = options.color || "#554c43";
+  const lineGap = options.lineGap ?? 4;
+  const gapAfter = options.gapAfter ?? 12;
+
+  doc
+    .font(options.font || "Helvetica")
+    .fontSize(fontSize)
+    .fillColor(color)
+    .text(text, {
+      width: options.width || (doc.page.width - doc.page.margins.left - doc.page.margins.right),
+      lineGap
+    });
+
+  doc.moveDown(gapAfter / 12);
+}
+
+function renderPdfBulletList(doc, items = [], minimumSpace = 100) {
+  items.forEach((item) => {
+    ensurePdfSpace(doc, minimumSpace);
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .fillColor("#c5a059")
+      .text("•", { continued: true });
+    doc
+      .font("Helvetica")
+      .fontSize(10)
+      .fillColor("#554c43")
+      .text(` ${item}`, {
+        lineGap: 4,
+        indent: 10
+      });
+    doc.moveDown(0.3);
+  });
+}
+
+function renderPdfSectionHeading(doc, title, description = "") {
+  ensurePdfSpace(doc, 80);
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(14)
+    .fillColor("#231d17")
+    .text(title);
+
+  if (description) {
+    doc
+      .moveDown(0.2)
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor("#7b6f61")
+      .text(description, {
+        lineGap: 2
+      });
+  }
+
+  doc.moveDown(0.5);
+}
+
+function renderAgreementLineItems(doc, lineItems = []) {
+  if (!lineItems.length) {
+    renderPdfParagraph(doc, "No estimate line items were saved at the time of signature.", {
+      fontSize: 10,
+      color: "#7b6f61"
+    });
+    return;
+  }
+
+  lineItems.forEach((item) => {
+    ensurePdfSpace(doc, 80);
+    const title = safeString(item.label) || "Line item";
+    const description = safeString(item.description) || "Scope details to be confirmed.";
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .fillColor("#231d17")
+      .text(title, doc.page.margins.left, doc.y, {
+        width: doc.page.width - doc.page.margins.left - doc.page.margins.right - 110
+      });
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .fillColor("#231d17")
+      .text(formatCurrency(item.amount || 0), doc.page.width - doc.page.margins.right - 110, doc.y - 13, {
+        width: 110,
+        align: "right"
+      });
+
+    doc
+      .moveDown(0.1)
+      .font("Helvetica")
+      .fontSize(10)
+      .fillColor("#554c43")
+      .text(description, {
+        lineGap: 3
+      });
+
+    doc.moveDown(0.65);
+    doc
+      .moveTo(doc.page.margins.left, doc.y)
+      .lineTo(doc.page.width - doc.page.margins.right, doc.y)
+      .lineWidth(0.6)
+      .strokeColor("#e4d7c2")
+      .stroke();
+    doc.moveDown(0.55);
+  });
+}
+
+function buildAgreementPdfBuffer({
+  leadData = {},
+  projectData = {},
+  estimateSnapshot = {},
+  agreementSnapshot = {},
+  signerName,
+  signedAt,
+  signatureBuffer
+}) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({
+      size: "LETTER",
+      margin: 52,
+      info: {
+        Title: `Golden Brick signed agreement for ${safeString(leadData.projectAddress || leadData.clientName || "project")}`,
+        Author: "Golden Brick Construction"
+      }
+    });
+
+    const chunks = [];
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .fillColor("#c5a059")
+      .text("GOLDEN BRICK CONSTRUCTION");
+
+    doc
+      .moveDown(0.35)
+      .font("Helvetica-Bold")
+      .fontSize(22)
+      .fillColor("#231d17")
+      .text("Signed estimate agreement");
+
+    renderPdfParagraph(doc, "This PDF captures the exact estimate and agreement snapshot that the client accepted through the Golden Brick client portal.", {
+      fontSize: 10,
+      color: "#554c43",
+      gapAfter: 10
+    });
+
+    const summaryRows = [
+      ["Client", safeString(leadData.clientName || projectData.clientName || projectData.customerName || "Client")],
+      ["Property", safeString(leadData.projectAddress || projectData.projectAddress || "To be confirmed")],
+      ["Project type", safeString(leadData.projectType || projectData.projectType || "Renovation scope")],
+      ["Signed", formatDateTime(signedAt)],
+      ["Signer", safeString(signerName)],
+      ["Estimate total", formatCurrency(estimateSnapshot.subtotal || 0)]
+    ];
+
+    summaryRows.forEach(([label, value]) => {
+      ensurePdfSpace(doc, 26);
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(10)
+        .fillColor("#7b6f61")
+        .text(label, {
+          continued: true,
+          width: 90
+        });
+      doc
+        .font("Helvetica")
+        .fontSize(10)
+        .fillColor("#231d17")
+        .text(`  ${value}`);
+    });
+
+    doc.moveDown(0.7);
+    doc
+      .moveTo(doc.page.margins.left, doc.y)
+      .lineTo(doc.page.width - doc.page.margins.right, doc.y)
+      .lineWidth(0.8)
+      .strokeColor("#e4d7c2")
+      .stroke();
+    doc.moveDown(0.8);
+
+    renderPdfSectionHeading(doc, safeString(estimateSnapshot.subject) || "Estimate overview", "The proposal language below is frozen as accepted by the client.");
+    splitMultilineText(estimateSnapshot.emailBody).forEach((paragraph) => {
+      renderPdfParagraph(doc, paragraph, {
+        fontSize: 10,
+        color: "#554c43",
+        gapAfter: 8
+      });
+    });
+
+    renderPdfSectionHeading(doc, "Estimate line items", "Each scope line and amount shown here reflects the accepted estimate snapshot.");
+    renderAgreementLineItems(doc, estimateSnapshot.lineItems);
+
+    renderPdfSectionHeading(doc, "Proposal terms", "These are the standard estimate terms included at the time of acceptance.");
+    renderPdfBulletList(doc, splitMultilineText(estimateSnapshot.proposalTerms));
+
+    const assumptions = Array.isArray(estimateSnapshot.assumptions) ? estimateSnapshot.assumptions : [];
+    renderPdfSectionHeading(doc, "Project-specific assumptions and exclusions", "Any deal-specific assumptions recorded on the estimate are preserved here.");
+    if (assumptions.length) {
+      renderPdfBulletList(doc, assumptions);
+    } else {
+      renderPdfParagraph(doc, "No project-specific assumptions or exclusions were saved at the time of signature.", {
+        fontSize: 10,
+        color: "#7b6f61"
+      });
+    }
+
+    renderPdfSectionHeading(doc, agreementSnapshot.title || "Agreement terms", agreementSnapshot.intro || "");
+    renderPdfBulletList(doc, splitMultilineText(agreementSnapshot.terms));
+
+    renderPdfSectionHeading(doc, "Client signature", "This block records the acceptance captured in the client portal.");
+    if (signatureBuffer?.length) {
+      ensurePdfSpace(doc, 120);
+      doc.image(signatureBuffer, {
+        fit: [190, 70],
+        align: "left"
+      });
+      doc.moveDown(0.4);
+    }
+
+    renderPdfParagraph(doc, `Signed by: ${safeString(signerName)}`, {
+      font: "Helvetica-Bold",
+      fontSize: 11,
+      color: "#231d17",
+      gapAfter: 4
+    });
+    renderPdfParagraph(doc, `Signed at: ${formatDateTime(signedAt)}`, {
+      fontSize: 10,
+      color: "#554c43",
+      gapAfter: 4
+    });
+    renderPdfParagraph(doc, "Golden Brick Construction | info@goldenbrickc.com | (267) 715-5557", {
+      fontSize: 9,
+      color: "#7b6f61",
+      gapAfter: 0
+    });
+
+    doc.end();
+  });
+}
+
 async function addLeadActivity(leadId, data) {
   const activityRef = db.collection("leads").doc(leadId).collection("activities").doc();
 
@@ -715,6 +1584,266 @@ async function verifyLeadStaffAccess(leadId, profile = {}) {
   }
 
   return { leadRef, leadData };
+}
+
+async function ensureProjectForLead({
+  leadId,
+  leadRef,
+  leadData,
+  actorProfile = {},
+  allowAmbiguousCustomerCreate = false
+}) {
+  const projectRef = db.collection("projects").doc(leadId);
+  const existingProjectSnap = await projectRef.get();
+  let customerLink = await ensureLeadCustomerLink(leadRef, leadData);
+
+  if (customerLink.matchResult === "review_required") {
+    if (allowAmbiguousCustomerCreate) {
+      const customerRef = db.collection("customers").doc();
+      const createdCustomer = await ensureCustomerDocument(customerRef, leadData);
+      await leadRef.set({
+        customerId: createdCustomer.id,
+        customerName: createdCustomer.name,
+        customerMatchResult: "created",
+        customerReviewRequired: false,
+        customerMatchIds: [createdCustomer.id],
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      customerLink = {
+        customerId: createdCustomer.id,
+        customerName: createdCustomer.name,
+        matchResult: "created",
+        reviewRequired: false,
+        customerMatchIds: [createdCustomer.id]
+      };
+    } else {
+      const error = new Error("Customer review is required before converting this lead.");
+      error.status = 409;
+      error.matchResult = customerLink.matchResult;
+      error.customerMatchIds = customerLink.customerMatchIds;
+      throw error;
+    }
+  }
+
+  if (customerLink.matchResult === "review_required") {
+    const error = new Error("Customer review is required before converting this lead.");
+    error.status = 409;
+    error.matchResult = customerLink.matchResult;
+    error.customerMatchIds = customerLink.customerMatchIds;
+    throw error;
+  }
+
+  if (existingProjectSnap.exists) {
+    await leadRef.set({
+      status: "closed_won",
+      statusLabel: statusLabel("closed_won"),
+      customerId: customerLink.customerId,
+      customerName: customerLink.customerName,
+      wonProjectId: leadId,
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    const existingProjectData = {
+      id: leadId,
+      ...(existingProjectSnap.data() || {})
+    };
+
+    await Promise.all([
+      syncRecordDocumentLinksForLead(leadId, {
+        ...leadData,
+        customerId: customerLink.customerId,
+        wonProjectId: leadId
+      }),
+      syncRecordDocumentLinksForProject(leadId, existingProjectData),
+      ensureProjectRecordDocumentMigration(leadId, existingProjectData)
+    ]);
+
+    return {
+      existing: true,
+      projectId: leadId,
+      scopeItemCount: 0,
+      customerLink,
+      projectRef,
+      projectData: existingProjectData
+    };
+  }
+
+  const [refreshedLeadSnap, estimateSnap] = await Promise.all([
+    leadRef.get(),
+    db.collection("estimates").doc(leadId).get()
+  ]);
+  const refreshedLead = refreshedLeadSnap.data() || leadData;
+  const estimateData = estimateSnap.exists ? estimateSnap.data() : null;
+  const leadOwnerUid = safeString(refreshedLead.assignedToUid || actorProfile.uid);
+  const leadOwnerName = safeString(refreshedLead.assignedToName || actorProfile.displayName || actorProfile.email);
+  const leadOwnerEmail = normaliseEmail(refreshedLead.assignedToEmail || actorProfile.email);
+  const assignedWorkers = leadOwnerUid ? [{
+    uid: leadOwnerUid,
+    name: leadOwnerName,
+    email: leadOwnerEmail,
+    percent: 100
+  }] : [];
+  const allowedStaffUids = uniqueValues([
+    leadOwnerUid,
+    ...assignedWorkers.map((worker) => worker.uid)
+  ]);
+  const batch = db.batch();
+  const initialSummary = computeFinanceSummary(
+    {
+      baseContractValue: toNumber(refreshedLead.estimateSubtotal || 0),
+      assignedWorkers
+    },
+    [],
+    [],
+    []
+  );
+  const scopeItemCount = queueProjectScopeSnapshot(batch, projectRef, leadId, estimateData, actorProfile);
+
+  batch.set(projectRef, {
+    id: leadId,
+    leadId,
+    customerId: customerLink.customerId,
+    customerName: customerLink.customerName,
+    clientName: safeString(refreshedLead.clientName),
+    clientEmail: normaliseEmail(refreshedLead.clientEmail),
+    clientPhone: safeString(refreshedLead.clientPhone),
+    projectAddress: safeString(refreshedLead.projectAddress),
+    projectType: safeString(refreshedLead.projectType),
+    status: "in_progress",
+    baseContractValue: initialSummary.baseContractValue,
+    approvedChangeOrdersTotal: initialSummary.approvedChangeOrdersTotal,
+    totalContractRevenue: initialSummary.totalContractRevenue,
+    cashPosition: initialSummary.cashPosition,
+    balanceRemaining: initialSummary.balanceRemaining,
+    jobValue: initialSummary.totalContractRevenue,
+    assignedLeadOwnerUid: leadOwnerUid || null,
+    assignedWorkers,
+    assignedWorkerIds: assignedWorkers.map((worker) => worker.uid).filter(Boolean),
+    allowedStaffUids,
+    phaseLabel: "Planning and construction",
+    nextStep: "Golden Brick will confirm the next planning or construction step directly in the client portal.",
+    sharedStatusNote: "Your project record is open and the team will keep updates, billing, and documents organized here.",
+    targetDate: null,
+    targetWindow: "",
+    commissionLocked: false,
+    lockedCommissionSnapshot: null,
+    financials: initialSummary,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  batch.set(leadRef, {
+    status: "closed_won",
+    statusLabel: statusLabel("closed_won"),
+    customerId: customerLink.customerId,
+    customerName: customerLink.customerName,
+    wonProjectId: leadId,
+    updatedAt: FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  await batch.commit();
+
+  const createdProjectData = {
+    id: leadId,
+    leadId,
+    customerId: customerLink.customerId,
+    customerName: customerLink.customerName,
+    clientName: safeString(refreshedLead.clientName),
+    clientEmail: normaliseEmail(refreshedLead.clientEmail),
+    clientPhone: safeString(refreshedLead.clientPhone),
+    projectAddress: safeString(refreshedLead.projectAddress),
+    projectType: safeString(refreshedLead.projectType),
+    status: "in_progress",
+    financials: initialSummary
+  };
+
+  await Promise.all([
+    syncRecordDocumentLinksForLead(leadId, {
+      ...refreshedLead,
+      customerId: customerLink.customerId,
+      wonProjectId: leadId
+    }),
+    syncRecordDocumentLinksForProject(leadId, createdProjectData),
+    ensureProjectRecordDocumentMigration(leadId, createdProjectData)
+  ]);
+
+  return {
+    existing: false,
+    projectId: leadId,
+    scopeItemCount,
+    customerLink,
+    projectRef,
+    projectData: createdProjectData
+  };
+}
+
+function buildPublicEstimatePayload({
+  request,
+  shareData,
+  leadData,
+  estimateSnapshot,
+  agreementSnapshot,
+  signedAgreement = null
+}) {
+  return {
+    ok: true,
+    readOnly: safeString(shareData.status) === "signed",
+    share: serialiseEstimateShare(shareData, request),
+    lead: {
+      clientName: safeString(leadData.clientName || leadData.customerName),
+      projectAddress: safeString(leadData.projectAddress),
+      projectType: safeString(leadData.projectType),
+      clientEmail: normaliseEmail(leadData.clientEmail),
+      clientPhone: safeString(leadData.clientPhone)
+    },
+    estimate: {
+      subject: safeString(estimateSnapshot.subject),
+      emailBody: safeString(estimateSnapshot.emailBody),
+      lineItems: Array.isArray(estimateSnapshot.lineItems) ? estimateSnapshot.lineItems : [],
+      subtotal: toNumber(estimateSnapshot.subtotal),
+      assumptions: Array.isArray(estimateSnapshot.assumptions) ? estimateSnapshot.assumptions : [],
+      terms: splitMultilineText(estimateSnapshot.proposalTerms)
+    },
+    agreement: {
+      title: safeString(agreementSnapshot.title),
+      intro: safeString(agreementSnapshot.intro),
+      terms: splitMultilineText(agreementSnapshot.terms)
+    },
+    signature: signedAgreement ? {
+      signerName: safeString(signedAgreement.signerName),
+      signedAt: serialiseDateValue(signedAgreement.signedAt),
+      downloadHref: buildPublicAgreementDownloadHref(request, shareData.id)
+    } : null
+  };
+}
+
+async function fetchEstimateShareContext(token) {
+  const shareId = safeString(token);
+  const shareRef = db.collection("estimateShares").doc(shareId);
+  const shareSnap = await shareRef.get();
+
+  if (!shareSnap.exists) {
+    const error = new Error("This estimate link is not available.");
+    error.status = 404;
+    throw error;
+  }
+
+  const shareData = {
+    id: shareSnap.id,
+    ...shareSnap.data()
+  };
+
+  if (safeString(shareData.type || "estimate") !== "estimate") {
+    const error = new Error("This share link is not supported.");
+    error.status = 400;
+    throw error;
+  }
+
+  return {
+    shareRef,
+    shareData
+  };
 }
 
 function vendorBillShouldMirrorExpense(vendorBillData = {}) {
@@ -1163,6 +2292,12 @@ exports.syncLeadCustomerLink = onRequest(
 
       const { leadRef, leadData } = await verifyLeadStaffAccess(leadId, staff.profile);
       const customerLink = await ensureLeadCustomerLink(leadRef, leadData);
+      await syncRecordDocumentLinksForLead(leadId, {
+        ...leadData,
+        customerId: customerLink.customerId || null,
+        customerName: customerLink.customerName || "",
+        wonProjectId: leadData.wonProjectId || null
+      });
 
       respondJson(response, 200, {
         ok: true,
@@ -1173,6 +2308,202 @@ exports.syncLeadCustomerLink = onRequest(
       respondJson(response, error.status || 500, {
         ok: false,
         message: error.message || "Could not sync the lead customer."
+      });
+    }
+  }
+);
+
+exports.estimateShare = onRequest(
+  {
+    region: "us-central1",
+    cors: true
+  },
+  async (request, response) => {
+    applyCors(response);
+
+    if (request.method === "OPTIONS") {
+      response.status(204).send("");
+      return;
+    }
+
+    if (request.method !== "POST") {
+      response.status(405).send("Method not allowed.");
+      return;
+    }
+
+    try {
+      const staff = await verifyStaffRequest(request);
+      const payload = await parseRequestPayload(request);
+      const leadId = safeString(payload.leadId);
+      const action = safeString(payload.action || "get").toLowerCase();
+
+      if (!leadId) {
+        respondJson(response, 400, {
+          ok: false,
+          message: "leadId is required."
+        });
+        return;
+      }
+
+      const { leadRef, leadData } = await verifyLeadStaffAccess(leadId, staff.profile);
+      const existingProjectSnap = await db.collection("projects").doc(leadId).get();
+      const shares = await fetchLeadShares(leadId);
+      const currentShare = pickCurrentEstimateShare(shares);
+
+      if (action === "get") {
+        respondJson(response, 200, {
+          ok: true,
+          share: currentShare ? serialiseEstimateShare(currentShare, request) : null
+        });
+        return;
+      }
+
+      if (staff.profile.role !== "admin") {
+        respondJson(response, 403, {
+          ok: false,
+          message: "Only admins can manage estimate share links."
+        });
+        return;
+      }
+
+      if (action === "revoke") {
+        if (!currentShare || currentShare.status !== "active") {
+          respondJson(response, 200, {
+            ok: true,
+            share: currentShare ? serialiseEstimateShare(currentShare, request) : null
+          });
+          return;
+        }
+
+        await db.collection("estimateShares").doc(currentShare.id).set({
+          status: "revoked",
+          revokedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        await addLeadActivity(leadId, {
+          activityType: "estimate_share",
+          title: "Estimate share link revoked",
+          body: "The active client estimate link was revoked from the staff portal.",
+          actorName: staff.profile.displayName,
+          actorUid: staff.profile.uid,
+          actorRole: staff.profile.role
+        });
+
+        if (existingProjectSnap.exists) {
+          await addProjectActivity(leadId, {
+            activityType: "agreement",
+            title: "Estimate share link revoked",
+            body: "The client-facing estimate share link was revoked for this project.",
+            actorName: staff.profile.displayName,
+            actorUid: staff.profile.uid,
+            actorRole: staff.profile.role
+          });
+        }
+
+        const revokedSnap = await db.collection("estimateShares").doc(currentShare.id).get();
+        respondJson(response, 200, {
+          ok: true,
+          share: serialiseEstimateShare({
+            id: revokedSnap.id,
+            ...revokedSnap.data()
+          }, request)
+        });
+        return;
+      }
+
+      if (action !== "create") {
+        respondJson(response, 400, {
+          ok: false,
+          message: "Unsupported estimate share action."
+        });
+        return;
+      }
+
+      const estimateSnap = await db.collection("estimates").doc(leadId).get();
+      if (!estimateSnap.exists) {
+        respondJson(response, 400, {
+          ok: false,
+          message: "Save the estimate before creating a share link."
+        });
+        return;
+      }
+
+      const batch = db.batch();
+      shares
+        .filter((share) => share.status === "active")
+        .forEach((share) => {
+          batch.set(db.collection("estimateShares").doc(share.id), {
+            status: "revoked",
+            revokedAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp()
+          }, { merge: true });
+        });
+
+      const shareId = createOpaqueId();
+      const shareRef = db.collection("estimateShares").doc(shareId);
+      const nextLeadStatus = ["new_lead", "follow_up"].includes(safeString(leadData.status))
+        ? "estimate_sent"
+        : safeString(leadData.status || "estimate_sent");
+
+      batch.set(shareRef, {
+        id: shareId,
+        type: "estimate",
+        status: "active",
+        leadId,
+        customerId: safeString(leadData.customerId) || null,
+        projectId: existingProjectSnap.exists ? leadId : null,
+        createdByUid: staff.profile.uid,
+        createdByName: staff.profile.displayName,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        revokedAt: null,
+        lastViewedAt: null,
+        signedAt: null,
+        agreementId: null
+      }, { merge: true });
+
+      batch.set(leadRef, {
+        status: nextLeadStatus,
+        statusLabel: statusLabel(nextLeadStatus),
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      await batch.commit();
+
+      await addLeadActivity(leadId, {
+        activityType: "estimate_share",
+        title: "Estimate share link created",
+        body: "A secure client estimate link was created from the staff portal.",
+        actorName: staff.profile.displayName,
+        actorUid: staff.profile.uid,
+        actorRole: staff.profile.role
+      });
+
+      if (existingProjectSnap.exists) {
+        await addProjectActivity(leadId, {
+          activityType: "agreement",
+          title: "Estimate share link created",
+          body: "A secure client estimate link was created for this project.",
+          actorName: staff.profile.displayName,
+          actorUid: staff.profile.uid,
+          actorRole: staff.profile.role
+        });
+      }
+
+      const createdSnap = await shareRef.get();
+      respondJson(response, 200, {
+        ok: true,
+        share: serialiseEstimateShare({
+          id: createdSnap.id,
+          ...createdSnap.data()
+        }, request)
+      });
+    } catch (error) {
+      logger.error("Estimate share request failed.", error);
+      respondJson(response, error.status || 500, {
+        ok: false,
+        message: error.message || "Could not manage the estimate share link."
       });
     }
   }
@@ -1198,7 +2529,7 @@ exports.convertLeadToProject = onRequest(
 
     try {
       const staff = await verifyStaffRequest(request);
-      const payload = request.body || {};
+      const payload = await parseRequestPayload(request);
       const leadId = safeString(payload.leadId);
 
       if (!leadId) {
@@ -1210,136 +2541,516 @@ exports.convertLeadToProject = onRequest(
       }
 
       const { leadRef, leadData } = await verifyLeadStaffAccess(leadId, staff.profile);
-      const existingProjectSnap = await db.collection("projects").doc(leadId).get();
-
-      if (existingProjectSnap.exists) {
-        respondJson(response, 200, {
-          ok: true,
-          existing: true,
-          projectId: leadId
-        });
-        return;
-      }
-
-      const customerLink = await ensureLeadCustomerLink(leadRef, leadData);
-
-      if (customerLink.matchResult === "review_required") {
-        respondJson(response, 409, {
-          ok: false,
-          message: "Customer review is required before converting this lead.",
-          matchResult: customerLink.matchResult,
-          customerMatchIds: customerLink.customerMatchIds
-        });
-        return;
-      }
-
-      const [refreshedLeadSnap, estimateSnap] = await Promise.all([
-        leadRef.get(),
-        db.collection("estimates").doc(leadId).get()
-      ]);
-      const refreshedLead = refreshedLeadSnap.data();
-      const estimateData = estimateSnap.exists ? estimateSnap.data() : null;
-      const leadOwnerUid = safeString(refreshedLead.assignedToUid || staff.profile.uid);
-      const leadOwnerName = safeString(refreshedLead.assignedToName || staff.profile.displayName || staff.profile.email);
-      const leadOwnerEmail = normaliseEmail(refreshedLead.assignedToEmail || staff.profile.email);
-      const assignedWorkers = leadOwnerUid ? [{
-        uid: leadOwnerUid,
-        name: leadOwnerName,
-        email: leadOwnerEmail,
-        percent: 100
-      }] : [];
-      const allowedStaffUids = uniqueValues([
-        leadOwnerUid,
-        ...assignedWorkers.map((worker) => worker.uid)
-      ]);
-      const projectRef = db.collection("projects").doc(leadId);
-      const batch = db.batch();
-      const initialSummary = computeFinanceSummary(
-        {
-          baseContractValue: toNumber(refreshedLead.estimateSubtotal || 0),
-          assignedWorkers
-        },
-        [],
-        [],
-        []
-      );
-      const scopeItemCount = queueProjectScopeSnapshot(batch, projectRef, leadId, estimateData, staff.profile);
-
-      batch.set(projectRef, {
-        id: leadId,
+      const result = await ensureProjectForLead({
         leadId,
-        customerId: customerLink.customerId,
-        customerName: customerLink.customerName,
-        clientName: safeString(refreshedLead.clientName),
-        clientEmail: normaliseEmail(refreshedLead.clientEmail),
-        clientPhone: safeString(refreshedLead.clientPhone),
-        projectAddress: safeString(refreshedLead.projectAddress),
-        projectType: safeString(refreshedLead.projectType),
-        status: "in_progress",
-        baseContractValue: initialSummary.baseContractValue,
-        approvedChangeOrdersTotal: initialSummary.approvedChangeOrdersTotal,
-        totalContractRevenue: initialSummary.totalContractRevenue,
-        cashPosition: initialSummary.cashPosition,
-        balanceRemaining: initialSummary.balanceRemaining,
-        jobValue: initialSummary.totalContractRevenue,
-        assignedLeadOwnerUid: leadOwnerUid || null,
-        assignedWorkers,
-        assignedWorkerIds: assignedWorkers.map((worker) => worker.uid).filter(Boolean),
-        allowedStaffUids,
-        commissionLocked: false,
-        lockedCommissionSnapshot: null,
-        financials: initialSummary,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
-
-      batch.set(leadRef, {
-        status: "closed_won",
-        statusLabel: statusLabel("closed_won"),
-        customerId: customerLink.customerId,
-        customerName: customerLink.customerName,
-        wonProjectId: leadId,
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
-
-      await batch.commit();
-
-      await addLeadActivity(leadId, {
-        activityType: "system",
-        title: "Lead converted to job",
-        body: "Won job created and linked to the customer record.",
-        actorName: staff.profile.displayName,
-        actorUid: staff.profile.uid,
-        actorRole: staff.profile.role
+        leadRef,
+        leadData,
+        actorProfile: staff.profile
       });
 
-      await addProjectActivity(leadId, {
-        activityType: "system",
-        title: "Job created from won lead",
-        body: scopeItemCount
-          ? `The won lead was converted into the operational job record and ${scopeItemCount} estimate items were copied into the renovation scope tracker.`
-          : "The won lead was converted into the operational job record.",
-        actorName: staff.profile.displayName,
-        actorUid: staff.profile.uid,
-        actorRole: staff.profile.role
-      });
+      if (!result.existing) {
+        await addLeadActivity(leadId, {
+          activityType: "system",
+          title: "Lead converted to job",
+          body: "Won job created and linked to the customer record.",
+          actorName: staff.profile.displayName,
+          actorUid: staff.profile.uid,
+          actorRole: staff.profile.role
+        });
+
+        await addProjectActivity(leadId, {
+          activityType: "system",
+          title: "Job created from won lead",
+          body: result.scopeItemCount
+            ? `The won lead was converted into the operational job record and ${result.scopeItemCount} estimate items were copied into the renovation scope tracker.`
+            : "The won lead was converted into the operational job record.",
+          actorName: staff.profile.displayName,
+          actorUid: staff.profile.uid,
+          actorRole: staff.profile.role
+        });
+      }
 
       respondJson(response, 200, {
         ok: true,
-        existing: false,
+        existing: result.existing,
         projectId: leadId,
-        matchResult: customerLink.matchResult,
-        scopeItemCount
+        matchResult: result.customerLink.matchResult,
+        scopeItemCount: result.scopeItemCount
       });
     } catch (error) {
       logger.error("Lead conversion failed.", error);
       respondJson(response, error.status || 500, {
         ok: false,
-        message: error.message || "Could not convert the lead right now."
+        message: error.message || "Could not convert the lead right now.",
+        matchResult: error.matchResult || null,
+        customerMatchIds: error.customerMatchIds || []
       });
     }
   }
 );
+
+exports.publicEstimateView = onRequest(
+  {
+    region: "us-central1",
+    cors: true
+  },
+  async (request, response) => {
+    applyCors(response);
+
+    if (request.method === "OPTIONS") {
+      response.status(204).send("");
+      return;
+    }
+
+    if (request.method !== "GET") {
+      response.status(405).send("Method not allowed.");
+      return;
+    }
+
+    try {
+      const token = safeString(request.query.token);
+      if (!token) {
+        respondJson(response, 400, {
+          ok: false,
+          message: "token is required."
+        });
+        return;
+      }
+
+      const { shareRef, shareData } = await fetchEstimateShareContext(token);
+
+      if (shareData.status === "revoked") {
+        respondJson(response, 410, {
+          ok: false,
+          status: "revoked",
+          message: "This estimate link has been revoked."
+        });
+        return;
+      }
+
+      let leadData = {};
+      let estimateSnapshot = {};
+      let agreementSnapshot = {};
+      let signedAgreement = null;
+
+      if (shareData.status === "signed" && safeString(shareData.agreementId)) {
+        const agreementSnap = await db.collection("agreements").doc(shareData.agreementId).get();
+
+        if (!agreementSnap.exists) {
+          const error = new Error("The signed agreement could not be found.");
+          error.status = 404;
+          throw error;
+        }
+
+        const agreementData = agreementSnap.data() || {};
+        leadData = agreementData.leadSnapshot || {};
+        estimateSnapshot = agreementData.estimateSnapshot || {};
+        agreementSnapshot = agreementData.agreementSnapshot || {};
+        signedAgreement = {
+          signerName: safeString(agreementData.signerName),
+          signedAt: agreementData.signedAt || null
+        };
+      } else {
+        const [leadSnap, estimateSnap, template] = await Promise.all([
+          db.collection("leads").doc(shareData.leadId).get(),
+          db.collection("estimates").doc(shareData.leadId).get(),
+          fetchTemplate()
+        ]);
+
+        if (!leadSnap.exists || !estimateSnap.exists) {
+          const error = new Error("This estimate link is no longer available.");
+          error.status = 404;
+          throw error;
+        }
+
+        leadData = leadSnap.data() || {};
+        estimateSnapshot = normaliseEstimateSnapshot(estimateSnap.data() || {}, template);
+        agreementSnapshot = normaliseAgreementSnapshot(template);
+      }
+
+      await shareRef.set({
+        lastViewedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      respondJson(response, 200, buildPublicEstimatePayload({
+        request,
+        shareData,
+        leadData,
+        estimateSnapshot,
+        agreementSnapshot,
+        signedAgreement
+      }));
+    } catch (error) {
+      logger.error("Public estimate view failed.", error);
+      respondJson(response, error.status || 500, {
+        ok: false,
+        status: error.status === 410 ? "revoked" : "invalid",
+        message: error.message || "Could not load this estimate."
+      });
+    }
+  }
+);
+
+exports.publicEstimateSign = onRequest(
+  {
+    region: "us-central1",
+    cors: true
+  },
+  async (request, response) => {
+    applyCors(response);
+
+    if (request.method === "OPTIONS") {
+      response.status(204).send("");
+      return;
+    }
+
+    if (request.method !== "POST") {
+      response.status(405).send("Method not allowed.");
+      return;
+    }
+
+    try {
+      const payload = await parseRequestPayload(request);
+      const token = safeString(payload.token);
+      const signerName = safeString(payload.signerName);
+      const accepted = payload.accepted === true
+        || safeString(payload.accepted).toLowerCase() === "true"
+        || safeString(payload.accepted).toLowerCase() === "on";
+
+      if (!token) {
+        respondJson(response, 400, {
+          ok: false,
+          message: "token is required."
+        });
+        return;
+      }
+
+      const { shareRef, shareData } = await fetchEstimateShareContext(token);
+
+      if (shareData.status === "revoked") {
+        respondJson(response, 410, {
+          ok: false,
+          status: "revoked",
+          message: "This estimate link has been revoked."
+        });
+        return;
+      }
+
+      if (shareData.status === "signed" && safeString(shareData.agreementId)) {
+        const agreementSnap = await db.collection("agreements").doc(shareData.agreementId).get();
+        const agreementData = agreementSnap.exists ? (agreementSnap.data() || {}) : {};
+
+        respondJson(response, 200, {
+          ok: true,
+          alreadySigned: true,
+          status: "signed",
+          agreementId: safeString(shareData.agreementId),
+          signedAt: serialiseDateValue(shareData.signedAt || agreementData.signedAt),
+          downloadHref: buildPublicAgreementDownloadHref(request, shareData.id)
+        });
+        return;
+      }
+
+      if (!accepted) {
+        respondJson(response, 400, {
+          ok: false,
+          message: "You must agree to the terms before signing."
+        });
+        return;
+      }
+
+      if (!signerName) {
+        respondJson(response, 400, {
+          ok: false,
+          message: "Your full legal name is required."
+        });
+        return;
+      }
+
+      const signature = parseSignatureDataUrl(payload.signatureDataUrl);
+      const [leadSnap, estimateSnap, template] = await Promise.all([
+        db.collection("leads").doc(shareData.leadId).get(),
+        db.collection("estimates").doc(shareData.leadId).get(),
+        fetchTemplate()
+      ]);
+
+      if (!leadSnap.exists || !estimateSnap.exists) {
+        respondJson(response, 404, {
+          ok: false,
+          message: "This estimate is no longer available."
+        });
+        return;
+      }
+
+      const leadData = leadSnap.data() || {};
+      const portalActor = {
+        uid: "client-portal",
+        email: "portal@goldenbrick.local",
+        displayName: "Golden Brick Client Portal",
+        role: "system"
+      };
+      const projectResult = await ensureProjectForLead({
+        leadId: shareData.leadId,
+        leadRef: db.collection("leads").doc(shareData.leadId),
+        leadData,
+        actorProfile: portalActor,
+        allowAmbiguousCustomerCreate: true
+      });
+      const projectSnap = await db.collection("projects").doc(projectResult.projectId).get();
+      const projectData = projectSnap.exists ? (projectSnap.data() || {}) : (projectResult.projectData || {});
+      const estimateSnapshot = normaliseEstimateSnapshot(estimateSnap.data() || {}, template);
+      const agreementSnapshot = normaliseAgreementSnapshot(template);
+      const signedAt = new Date();
+      const agreementRef = db.collection("agreements").doc();
+      const recordDocumentRef = db.collection("recordDocuments").doc();
+      const bucket = admin.storage().bucket();
+      const signaturePath = `agreements/${agreementRef.id}/signature.png`;
+      const pdfPath = `agreements/${agreementRef.id}/signed-agreement.pdf`;
+      const pdfDownloadToken = createOpaqueId(18);
+      const pdfBuffer = await buildAgreementPdfBuffer({
+        leadData,
+        projectData,
+        estimateSnapshot,
+        agreementSnapshot,
+        signerName,
+        signedAt,
+        signatureBuffer: signature.buffer
+      });
+      const pdfUrl = await saveStorageFile(bucket, pdfPath, pdfBuffer, {
+        contentType: "application/pdf",
+        downloadToken: pdfDownloadToken,
+        metadata: {
+          agreementId: agreementRef.id,
+          shareId: shareData.id
+        }
+      });
+      await saveStorageFile(bucket, signaturePath, signature.buffer, {
+        contentType: signature.contentType,
+        metadata: {
+          agreementId: agreementRef.id,
+          shareId: shareData.id
+        }
+      });
+
+      const leadSnapshot = {
+        clientName: safeString(leadData.clientName || leadData.customerName),
+        projectAddress: safeString(leadData.projectAddress),
+        projectType: safeString(leadData.projectType),
+        clientEmail: normaliseEmail(leadData.clientEmail),
+        clientPhone: safeString(leadData.clientPhone)
+      };
+      const audit = requestAuditMetadata(request);
+      const batch = db.batch();
+
+      batch.set(agreementRef, {
+        id: agreementRef.id,
+        type: "estimate",
+        status: "signed",
+        leadId: shareData.leadId,
+        projectId: projectResult.projectId,
+        customerId: projectResult.customerLink.customerId,
+        customerName: projectResult.customerLink.customerName,
+        shareId: shareData.id,
+        leadSnapshot,
+        projectSnapshot: {
+          clientName: safeString(projectData.clientName || projectData.customerName),
+          projectAddress: safeString(projectData.projectAddress),
+          projectType: safeString(projectData.projectType)
+        },
+        estimateSnapshot,
+        agreementSnapshot,
+        signerName,
+        signedAt,
+        signedIpAddress: audit.ipAddress,
+        signedUserAgent: audit.userAgent,
+        signaturePath,
+        signatureContentType: signature.contentType,
+        pdfPath,
+        pdfUrl,
+        pdfFileName: "signed-agreement.pdf",
+        jobDocumentId: recordDocumentRef.id,
+        recordDocumentId: recordDocumentRef.id,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      batch.set(recordDocumentRef, {
+        id: recordDocumentRef.id,
+        documentKind: "file",
+        category: "agreement",
+        sourceType: "upload",
+        title: `Signed agreement - ${formatDateOnly(signedAt)}`,
+        note: `Signed by ${signerName} through the client estimate link.`,
+        relatedDate: signedAt,
+        externalUrl: "",
+        fileUrl: pdfUrl,
+        filePath: pdfPath,
+        fileName: "signed-agreement.pdf",
+        leadId: cleanNullableString(shareData.leadId),
+        customerId: cleanNullableString(projectResult.customerLink.customerId),
+        projectId: cleanNullableString(projectResult.projectId),
+        agreementId: agreementRef.id,
+        createdByUid: portalActor.uid,
+        createdByName: portalActor.displayName,
+        createdByRole: portalActor.role,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      batch.set(shareRef, {
+        status: "signed",
+        signedAt,
+        agreementId: agreementRef.id,
+        projectId: projectResult.projectId,
+        customerId: projectResult.customerLink.customerId,
+        lastViewedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      await batch.commit();
+
+      if (!projectResult.existing) {
+        await addLeadActivity(shareData.leadId, {
+          activityType: "system",
+          title: "Lead converted to job",
+          body: "The client signature converted this estimate into the operational job record.",
+          actorName: portalActor.displayName,
+          actorUid: portalActor.uid,
+          actorRole: portalActor.role
+        });
+
+        await addProjectActivity(projectResult.projectId, {
+          activityType: "system",
+          title: "Job created from client signature",
+          body: projectResult.scopeItemCount
+            ? `The client signature created the job record and copied ${projectResult.scopeItemCount} estimate items into the renovation scope tracker.`
+            : "The client signature created the job record.",
+          actorName: portalActor.displayName,
+          actorUid: portalActor.uid,
+          actorRole: portalActor.role
+        });
+      }
+
+      await addLeadActivity(shareData.leadId, {
+        activityType: "agreement",
+        title: "Client signed estimate agreement",
+        body: `${signerName} accepted the estimate and signed the agreement through the client link.`,
+        actorName: portalActor.displayName,
+        actorUid: portalActor.uid,
+        actorRole: portalActor.role
+      });
+
+      await addProjectActivity(projectResult.projectId, {
+        activityType: "agreement",
+        title: "Client agreement signed",
+        body: `${signerName} signed the estimate agreement through the client portal.`,
+        actorName: portalActor.displayName,
+        actorUid: portalActor.uid,
+        actorRole: portalActor.role
+      });
+
+      await addProjectActivity(projectResult.projectId, {
+        activityType: "document",
+        title: "Signed agreement filed",
+        body: "The signed agreement PDF was stored in the job documents and archived in the agreements folder.",
+        actorName: portalActor.displayName,
+        actorUid: portalActor.uid,
+        actorRole: portalActor.role
+      });
+
+      respondJson(response, 200, {
+        ok: true,
+        status: "signed",
+        agreementId: agreementRef.id,
+        projectId: projectResult.projectId,
+        signedAt: signedAt.toISOString(),
+        downloadHref: buildPublicAgreementDownloadHref(request, shareData.id)
+      });
+    } catch (error) {
+      logger.error("Public estimate sign failed.", error);
+      respondJson(response, error.status || 500, {
+        ok: false,
+        message: error.message || "Could not sign the agreement right now."
+      });
+    }
+  }
+);
+
+exports.publicAgreementDocument = onRequest(
+  {
+    region: "us-central1",
+    cors: true
+  },
+  async (request, response) => {
+    applyCors(response);
+
+    if (request.method === "OPTIONS") {
+      response.status(204).send("");
+      return;
+    }
+
+    if (request.method !== "GET") {
+      response.status(405).send("Method not allowed.");
+      return;
+    }
+
+    try {
+      const token = safeString(request.query.token);
+      if (!token) {
+        response.status(400).send("token is required.");
+        return;
+      }
+
+      const { shareData } = await fetchEstimateShareContext(token);
+      if (shareData.status !== "signed" || !safeString(shareData.agreementId)) {
+        response.status(404).send("Agreement not available.");
+        return;
+      }
+
+      const agreementSnap = await db.collection("agreements").doc(shareData.agreementId).get();
+      if (!agreementSnap.exists) {
+        response.status(404).send("Agreement not available.");
+        return;
+      }
+
+      const agreementData = agreementSnap.data() || {};
+      const pdfPath = safeString(agreementData.pdfPath);
+      if (!pdfPath) {
+        response.status(404).send("Agreement file missing.");
+        return;
+      }
+
+      response.setHeader("Content-Type", "application/pdf");
+      response.setHeader("Content-Disposition", `inline; filename=\"${safeString(agreementData.pdfFileName) || "signed-agreement.pdf"}\"`);
+
+      admin.storage().bucket().file(pdfPath).createReadStream()
+        .on("error", (streamError) => {
+          logger.error("Agreement PDF stream failed.", streamError);
+          if (!response.headersSent) {
+            response.status(500).send("Could not stream the agreement.");
+          } else {
+            response.end();
+          }
+        })
+        .pipe(response);
+    } catch (error) {
+      logger.error("Public agreement document request failed.", error);
+      response.status(error.status || 500).send(error.message || "Could not load the agreement.");
+    }
+  }
+);
+
+exports.clientPortalApi = buildClientPortalApi({
+  admin,
+  db,
+  FieldValue,
+  logger,
+  onRequest,
+  verifyStaffRequest,
+  buildEstimateShareUrl,
+  buildPublicAgreementDownloadHref
+});
 
 exports.generateEstimateDraft = onRequest(
   {
@@ -1452,6 +3163,54 @@ exports.generateEstimateDraft = onRequest(
   }
 );
 
+exports.syncEstimateRecordDocumentOnWrite = onDocumentWritten(
+  {
+    region: "us-central1",
+    document: "estimates/{leadId}"
+  },
+  async (event) => {
+    if (!event.data.after.exists) {
+      await deleteEstimateRecordDocument(event.params.leadId);
+      return;
+    }
+
+    await upsertEstimateRecordDocument(
+      event.params.leadId,
+      event.data.after.data() || {}
+    );
+  }
+);
+
+exports.cleanupRecordDocumentOnWrite = onDocumentWritten(
+  {
+    region: "us-central1",
+    document: "recordDocuments/{documentId}"
+  },
+  async (event) => {
+    if (event.data.after.exists) {
+      return;
+    }
+
+    const beforeData = event.data.before.exists ? event.data.before.data() : {};
+    await cleanupDeletedRecordDocument(event.params.documentId, beforeData);
+  }
+);
+
+exports.cleanupVendorDocumentOnWrite = onDocumentWritten(
+  {
+    region: "us-central1",
+    document: "vendorDocuments/{documentId}"
+  },
+  async (event) => {
+    if (event.data.after.exists) {
+      return;
+    }
+
+    const beforeData = event.data.before.exists ? event.data.before.data() : {};
+    await cleanupDeletedVendorDocument(event.params.documentId, beforeData);
+  }
+);
+
 exports.syncProjectFinancialsOnExpenses = onDocumentWritten(
   {
     region: "us-central1",
@@ -1518,6 +3277,15 @@ exports.syncProjectDerivedDataOnWrite = onDocumentWritten(
       await syncProjectFinancials(event.params.projectId);
     }
 
+    await ensureProjectRecordDocumentMigration(event.params.projectId, {
+      id: event.params.projectId,
+      ...afterData
+    });
+    await syncRecordDocumentLinksForProject(event.params.projectId, {
+      id: event.params.projectId,
+      ...afterData
+    });
+
     const customerIds = uniqueValues([beforeData.customerId, afterData.customerId]);
     await Promise.all(customerIds.map((customerId) => syncCustomerSummary(customerId)));
   }
@@ -1532,6 +3300,10 @@ exports.syncCustomerDataOnLeadWrite = onDocumentWritten(
     const beforeData = event.data.before.exists ? event.data.before.data() : {};
     const afterData = event.data.after.exists ? event.data.after.data() : {};
     const customerIds = uniqueValues([beforeData.customerId, afterData.customerId]);
+
+    if (event.data.after.exists) {
+      await syncRecordDocumentLinksForLead(event.params.leadId, afterData);
+    }
 
     await Promise.all(customerIds.map((customerId) => syncCustomerSummary(customerId)));
   }

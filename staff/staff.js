@@ -10,9 +10,13 @@ import {
 import {
     addDoc,
     collection,
+    collectionGroup,
+    deleteDoc,
     doc,
     getDoc,
+    getDocs,
     getFirestore,
+    increment,
     onSnapshot,
     query,
     serverTimestamp,
@@ -22,6 +26,7 @@ import {
     writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
+    deleteObject,
     getDownloadURL,
     getStorage,
     ref as storageRef,
@@ -55,7 +60,7 @@ const VIEW_META = {
     },
     "staff-view": {
         title: "Staff",
-        subtitle: "Manage access, default lead routing, and the estimate template that powers proposal previews."
+        subtitle: "Manage staff access, review each employee's workload, assign follow-up tasks, and control the default lead routing."
     }
 };
 
@@ -114,6 +119,12 @@ const PAYMENT_TYPE_META = {
     progress: "Progress",
     final: "Final",
     adjustment: "Adjustment"
+};
+
+const INVOICE_STATUS_META = {
+    draft: "Draft",
+    sent: "Sent",
+    paid: "Paid"
 };
 
 const VENDOR_STATUS_META = {
@@ -190,6 +201,19 @@ const DEFAULT_ESTIMATE_STANDARD_TERMS = [
     "Golden Brick Construction is not responsible for unforeseen concealed, latent, or site conditions discovered after work begins. Any resulting scope, schedule, or pricing adjustments must be documented in writing before additional work proceeds."
 ].join("\n");
 
+const DEFAULT_AGREEMENT_TITLE = "Client authorization and agreement";
+
+const DEFAULT_AGREEMENT_INTRO = [
+    "If you would like Golden Brick Construction to move forward from this estimate into the next planning and production step, please review and sign the agreement terms below.",
+    "Your signature locks the estimate snapshot shown on the client page into the project file so Golden Brick and the client are aligned on the approved scope and commercial terms at the time of acceptance."
+].join("\n");
+
+const DEFAULT_AGREEMENT_TERMS = [
+    "By signing below, you confirm that Golden Brick Construction may move forward based on the estimate scope and pricing snapshot shown on this page, subject to final field verification and any written revisions agreed by both parties.",
+    "Any requested scope, material, pricing, or schedule changes after signature must be documented in writing and may require a revised estimate or change order before additional work proceeds.",
+    "Scheduling, procurement, and start-date coordination remain subject to site access, deposit and payment coordination, municipal approvals, final measurements, and confirmed finish selections where applicable."
+].join("\n");
+
 const LEGACY_ESTIMATE_TEMPLATE_TERMS = [
     "Pricing is a planning estimate until site conditions, access, finish selections, and final scope are confirmed.",
     "Pricing is a planning estimate until scope, access, existing conditions, and finish selections are confirmed on site."
@@ -202,7 +226,10 @@ const EMPTY_TEMPLATE = {
     greeting: "Hi {{clientName}},",
     intro: "Thanks for speaking with Golden Brick Construction. Based on the information shared so far, here is a working estimate outline for your project.",
     outro: "Please review the draft and let us know what you would like us to tighten before the next step.",
-    terms: DEFAULT_ESTIMATE_STANDARD_TERMS
+    terms: DEFAULT_ESTIMATE_STANDARD_TERMS,
+    agreementTitle: DEFAULT_AGREEMENT_TITLE,
+    agreementIntro: DEFAULT_AGREEMENT_INTRO,
+    agreementTerms: DEFAULT_AGREEMENT_TERMS
 };
 
 const COMPANY_INFO = {
@@ -238,6 +265,8 @@ const refs = {
     workspaceSubtitle: document.getElementById("workspace-subtitle"),
     workspaceCommandBar: document.getElementById("workspace-command-bar"),
     todayScopeToggle: document.getElementById("today-scope-toggle"),
+    staffFocusShell: document.getElementById("staff-focus-shell"),
+    staffFocusSelect: document.getElementById("staff-focus-select"),
     sidebarSummary: document.getElementById("sidebar-summary"),
     currentUserCard: document.getElementById("current-user-card"),
     navButtons: Array.from(document.querySelectorAll(".nav-button")),
@@ -315,6 +344,12 @@ const refs = {
     leadTabButtons: Array.from(document.querySelectorAll("[data-lead-tab]")),
     estimateForm: document.getElementById("estimate-form"),
     estimateAiButton: document.getElementById("estimate-ai-button"),
+    estimateShareStatusPill: document.getElementById("estimate-share-status-pill"),
+    estimateShareMeta: document.getElementById("estimate-share-meta"),
+    estimateShareLinkInput: document.getElementById("estimate-share-link-input"),
+    estimateShareCreateButton: document.getElementById("estimate-share-create-button"),
+    estimateShareCopyButton: document.getElementById("estimate-share-copy-button"),
+    estimateShareRevokeButton: document.getElementById("estimate-share-revoke-button"),
     estimateAddLineButton: document.getElementById("estimate-add-line-button"),
     estimateCopyButton: document.getElementById("estimate-copy-button"),
     estimatePrintButton: document.getElementById("estimate-print-button"),
@@ -327,6 +362,19 @@ const refs = {
     estimatePreview: document.getElementById("estimate-preview"),
     leadTaskList: document.getElementById("lead-task-list"),
     leadTaskDrawerButton: document.getElementById("lead-task-drawer-button"),
+    leadDocumentSummary: document.getElementById("lead-document-summary"),
+    leadDocumentForm: document.getElementById("lead-document-form"),
+    leadDocumentCategory: document.getElementById("lead-document-category"),
+    leadDocumentSourceType: document.getElementById("lead-document-source-type"),
+    leadDocumentDate: document.getElementById("lead-document-date"),
+    leadDocumentTitle: document.getElementById("lead-document-title"),
+    leadDocumentUrlRow: document.getElementById("lead-document-url-row"),
+    leadDocumentUrl: document.getElementById("lead-document-url"),
+    leadDocumentFileRow: document.getElementById("lead-document-file-row"),
+    leadDocumentFile: document.getElementById("lead-document-file"),
+    leadDocumentNote: document.getElementById("lead-document-note"),
+    leadDocumentClientVisible: document.getElementById("lead-document-client-visible"),
+    leadDocumentList: document.getElementById("lead-document-list"),
     noteForm: document.getElementById("note-form"),
     noteBody: document.getElementById("note-body"),
     noteList: document.getElementById("note-list"),
@@ -356,6 +404,35 @@ const refs = {
     customerJobsList: document.getElementById("customer-jobs-list"),
     customerCurrentEstimate: document.getElementById("customer-current-estimate"),
     customerTaskList: document.getElementById("customer-task-list"),
+    customerPortalPreviewLink: document.getElementById("customer-portal-preview-link"),
+    customerPortalSummary: document.getElementById("customer-portal-summary"),
+    customerPortalContactForm: document.getElementById("customer-portal-contact-form"),
+    customerPortalContactName: document.getElementById("customer-portal-contact-name"),
+    customerPortalContactEmail: document.getElementById("customer-portal-contact-email"),
+    customerPortalContactPhone: document.getElementById("customer-portal-contact-phone"),
+    customerPortalContactScope: document.getElementById("customer-portal-contact-scope"),
+    customerPortalContactResetButton: document.getElementById("customer-portal-contact-reset-button"),
+    customerPortalContactList: document.getElementById("customer-portal-contact-list"),
+    customerPortalMarkReadButton: document.getElementById("customer-portal-mark-read-button"),
+    customerPortalThreadList: document.getElementById("customer-portal-thread-list"),
+    customerPortalThreadSummary: document.getElementById("customer-portal-thread-summary"),
+    customerPortalMessageList: document.getElementById("customer-portal-message-list"),
+    customerPortalMessageForm: document.getElementById("customer-portal-message-form"),
+    customerPortalMessageBody: document.getElementById("customer-portal-message-body"),
+    customerDocumentForm: document.getElementById("customer-document-form"),
+    customerDocumentTargetSelect: document.getElementById("customer-document-target-select"),
+    customerDocumentCategory: document.getElementById("customer-document-category"),
+    customerDocumentSourceType: document.getElementById("customer-document-source-type"),
+    customerDocumentDate: document.getElementById("customer-document-date"),
+    customerDocumentTitle: document.getElementById("customer-document-title"),
+    customerDocumentUrlRow: document.getElementById("customer-document-url-row"),
+    customerDocumentUrl: document.getElementById("customer-document-url"),
+    customerDocumentFileRow: document.getElementById("customer-document-file-row"),
+    customerDocumentFile: document.getElementById("customer-document-file"),
+    customerDocumentNote: document.getElementById("customer-document-note"),
+    customerDocumentClientVisible: document.getElementById("customer-document-client-visible"),
+    customerDocumentSummary: document.getElementById("customer-document-summary"),
+    customerDocumentList: document.getElementById("customer-document-list"),
     customerTaskForm: document.getElementById("customer-task-form"),
     customerTaskTitle: document.getElementById("customer-task-title"),
     customerTaskDue: document.getElementById("customer-task-due"),
@@ -372,7 +449,9 @@ const refs = {
     jobRecordEmpty: document.getElementById("job-record-empty"),
     jobRecordShell: document.getElementById("job-record-shell"),
     jobAddExpenseButton: document.getElementById("job-add-expense-button"),
+    jobAddChangeOrderButton: document.getElementById("job-add-change-order-button"),
     jobAddPaymentButton: document.getElementById("job-add-payment-button"),
+    jobAddInvoiceButton: document.getElementById("job-add-invoice-button"),
     jobAddDocumentButton: document.getElementById("job-add-document-button"),
     jobAddNoteButton: document.getElementById("job-add-note-button"),
     jobSummaryStrip: document.getElementById("job-summary-strip"),
@@ -385,6 +464,11 @@ const refs = {
     jobAddressDisplay: document.getElementById("job-address-display"),
     jobTotalRevenueDisplay: document.getElementById("job-total-revenue-display"),
     jobLinkedLeadDisplay: document.getElementById("job-linked-lead-display"),
+    jobPhaseLabelInput: document.getElementById("job-phase-label-input"),
+    jobTargetWindowInput: document.getElementById("job-target-window-input"),
+    jobTargetDateInput: document.getElementById("job-target-date-input"),
+    jobNextStepInput: document.getElementById("job-next-step-input"),
+    jobSharedStatusNoteInput: document.getElementById("job-shared-status-note-input"),
     jobRecordContext: document.getElementById("job-record-context"),
     jobOverviewSummary: document.getElementById("job-overview-summary"),
     workerAssignmentList: document.getElementById("worker-assignment-list"),
@@ -397,6 +481,7 @@ const refs = {
     changeOrderDate: document.getElementById("change-order-date"),
     changeOrderNote: document.getElementById("change-order-note"),
     changeOrderList: document.getElementById("change-order-list"),
+    jobChangeOrderFocusButton: document.getElementById("job-change-order-focus-button"),
     expenseForm: document.getElementById("expense-form"),
     expenseAmount: document.getElementById("expense-amount"),
     expenseDate: document.getElementById("expense-date"),
@@ -413,6 +498,31 @@ const refs = {
     paymentMethod: document.getElementById("payment-method"),
     paymentNote: document.getElementById("payment-note"),
     paymentList: document.getElementById("payment-list"),
+    jobInvoiceSummary: document.getElementById("job-invoice-summary"),
+    jobInvoiceList: document.getElementById("job-invoice-list"),
+    invoiceForm: document.getElementById("invoice-form"),
+    invoiceNewButton: document.getElementById("invoice-new-button"),
+    invoiceImportEstimateButton: document.getElementById("invoice-import-estimate-button"),
+    invoiceAddLineButton: document.getElementById("invoice-add-line-button"),
+    invoiceAddCustomFieldButton: document.getElementById("invoice-add-custom-field-button"),
+    invoiceDownloadButton: document.getElementById("invoice-download-button"),
+    invoiceReceiptButton: document.getElementById("invoice-receipt-button"),
+    invoiceMarkPaidButton: document.getElementById("invoice-mark-paid-button"),
+    invoiceTitle: document.getElementById("invoice-title"),
+    invoiceNumber: document.getElementById("invoice-number"),
+    invoiceStatusDisplay: document.getElementById("invoice-status-display"),
+    invoiceIssueDate: document.getElementById("invoice-issue-date"),
+    invoiceDueDate: document.getElementById("invoice-due-date"),
+    invoiceSummary: document.getElementById("invoice-summary"),
+    invoiceCustomFields: document.getElementById("invoice-custom-fields"),
+    invoiceLines: document.getElementById("invoice-lines"),
+    invoiceSubtotal: document.getElementById("invoice-subtotal"),
+    invoiceNotes: document.getElementById("invoice-notes"),
+    invoicePaidDate: document.getElementById("invoice-paid-date"),
+    invoicePaymentMethod: document.getElementById("invoice-payment-method"),
+    invoicePaymentReference: document.getElementById("invoice-payment-reference"),
+    invoicePaymentNote: document.getElementById("invoice-payment-note"),
+    invoicePreview: document.getElementById("invoice-preview"),
     jobScopeSummary: document.getElementById("job-scope-summary"),
     jobScopeList: document.getElementById("job-scope-list"),
     jobScopeImportButton: document.getElementById("job-scope-import-button"),
@@ -437,6 +547,7 @@ const refs = {
     jobDocumentFileRow: document.getElementById("job-document-file-row"),
     jobDocumentFile: document.getElementById("job-document-file"),
     jobDocumentNote: document.getElementById("job-document-note"),
+    jobDocumentClientVisible: document.getElementById("job-document-client-visible"),
     jobDocumentList: document.getElementById("job-document-list"),
 
     vendorMetrics: document.getElementById("vendor-metrics"),
@@ -511,6 +622,11 @@ const refs = {
     staffList: document.getElementById("staff-list"),
     staffAdminShell: document.getElementById("staff-admin-shell"),
     staffEmployeeMessage: document.getElementById("staff-employee-message"),
+    portalQueueSummary: document.getElementById("portal-queue-summary"),
+    portalQueueList: document.getElementById("portal-queue-list"),
+    staffWorkloadSummary: document.getElementById("staff-workload-summary"),
+    staffWorkloadList: document.getElementById("staff-workload-list"),
+    staffClearFocusButton: document.getElementById("staff-clear-focus-button"),
     staffForm: document.getElementById("staff-form"),
     staffEmail: document.getElementById("staff-email"),
     staffDisplayName: document.getElementById("staff-display-name"),
@@ -525,6 +641,9 @@ const refs = {
     templateIntro: document.getElementById("template-intro"),
     templateOutro: document.getElementById("template-outro"),
     templateTerms: document.getElementById("template-terms"),
+    templateAgreementTitle: document.getElementById("template-agreement-title"),
+    templateAgreementIntro: document.getElementById("template-agreement-intro"),
+    templateAgreementTerms: document.getElementById("template-agreement-terms"),
 
     mobileCreateFab: document.getElementById("mobile-create-fab"),
     mobileTabBar: document.getElementById("mobile-tab-bar"),
@@ -607,10 +726,12 @@ const state = {
     template: { ...EMPTY_TEMPLATE },
     selectedLeadId: null,
     selectedProjectId: null,
+    selectedProjectInvoiceId: null,
     selectedCustomerId: null,
     selectedVendorId: null,
     selectedTaskId: null,
     selectedStaffKey: null,
+    staffFocusUid: "",
     leadDraft: null,
     customerDraft: null,
     vendorDraft: null,
@@ -621,13 +742,27 @@ const state = {
     leadActivities: [],
     projectExpenses: [],
     projectPayments: [],
+    projectInvoices: [],
     projectChangeOrders: [],
     projectScopeItems: [],
     projectDocuments: [],
+    leadDocuments: [],
+    customerDocuments: [],
+    customerPortalContacts: [],
+    customerPortalThreads: [],
+    customerPortalMessages: {},
+    selectedCustomerPortalContactId: null,
+    selectedCustomerPortalThreadId: null,
     projectNotes: [],
     projectActivities: [],
     projectLeadActivities: [],
+    projectInvoiceDraft: null,
+    portalQueueEstimateShares: [],
+    portalQueueInvoices: [],
+    portalQueueThreads: [],
+    portalQueueContacts: [],
     estimate: null,
+    estimateShare: null,
     activeLeadTab: "overview",
     activeJobTab: "financials",
     activeView: "today-view",
@@ -660,8 +795,11 @@ const state = {
     sessionResetting: false,
     unsubs: {
         base: [],
+        portalQueues: [],
         scopedProjects: [],
         leadDetail: [],
+        customerDetail: [],
+        customerPortalMessages: [],
         projectDetail: []
     }
 };
@@ -696,6 +834,62 @@ function defaultExpenseDrawerDraft(projectId = null) {
         vendorId: "",
         vendor: "",
         note: ""
+    };
+}
+
+function addDays(value, dayCount) {
+    const baseDate = typeof value?.toDate === "function" ? value.toDate() : new Date(value);
+    if (Number.isNaN(baseDate.getTime())) {
+        return new Date();
+    }
+    const nextDate = new Date(baseDate);
+    nextDate.setDate(nextDate.getDate() + dayCount);
+    return nextDate;
+}
+
+function projectInvoiceSequence(project) {
+    const projectKey = safeString(project?.id || "job").slice(-4).toUpperCase() || "JOB";
+    return `${projectKey}-${String((state.projectInvoices?.length || 0) + 1).padStart(2, "0")}`;
+}
+
+function defaultProjectInvoiceDraft(project, seed = {}) {
+    const issueDate = seed.issueDate || new Date();
+    const dueDate = seed.dueDate || addDays(issueDate, 7);
+    const projectLineItems = Array.isArray(seed.lineItems)
+        ? seed.lineItems.map((item) => ({
+            label: safeString(item.label || item.title),
+            description: safeString(item.description || item.note),
+            amount: toNumber(item.amount)
+        }))
+        : [];
+    const subtotal = projectLineItems.reduce((sum, item) => sum + toNumber(item.amount), 0);
+
+    return {
+        id: seed.id || null,
+        projectId: project?.id || null,
+        leadId: project?.leadId || null,
+        customerId: project?.customerId || null,
+        title: seed.title || `Invoice for ${safeString(project?.projectAddress) || safeString(project?.clientName) || "current project"}`,
+        invoiceNumber: seed.invoiceNumber || `GB-${formatDateOnlyInputValue(issueDate).replaceAll("-", "")}-${projectInvoiceSequence(project)}`,
+        status: seed.status || "draft",
+        issueDate,
+        dueDate,
+        summary: seed.summary || "Please review the billing breakdown below for the current Golden Brick Construction scope. This invoice reflects the approved work and can be paid using the method noted below.",
+        customFields: Array.isArray(seed.customFields) ? seed.customFields.map((field) => ({
+            label: safeString(field.label),
+            value: safeString(field.value)
+        })) : [
+            { label: "Project type", value: safeString(project?.projectType) || "Renovation scope" },
+            { label: "Billing stage", value: safeString(project?.status === "completed" ? "Final billing" : "Progress billing") || "Progress billing" }
+        ],
+        lineItems: projectLineItems,
+        subtotal: Number(subtotal.toFixed(2)),
+        notes: seed.notes || "Thank you for working with Golden Brick Construction. Please contact us with any billing questions or if you need revised documentation for your records.",
+        paidAt: seed.paidAt || null,
+        paymentMethod: seed.paymentMethod || "",
+        paymentReference: seed.paymentReference || "",
+        paymentNote: seed.paymentNote || "",
+        paymentRecordId: seed.paymentRecordId || null
     };
 }
 
@@ -762,6 +956,8 @@ function clearMobileDetailForView(viewId) {
     } else if (viewId === "customers-view") {
         state.selectedCustomerId = null;
         state.customerDraft = null;
+        clearUnsubs(state.unsubs.customerDetail);
+        state.customerDocuments = [];
     } else if (viewId === "jobs-view") {
         state.selectedProjectId = null;
         clearUnsubs(state.unsubs.projectDetail);
@@ -1114,6 +1310,7 @@ async function resetAuthSession(message) {
     clearUnsubs(state.unsubs.base);
     clearUnsubs(state.unsubs.scopedProjects);
     clearUnsubs(state.unsubs.leadDetail);
+    clearUnsubs(state.unsubs.customerDetail);
     clearUnsubs(state.unsubs.projectDetail);
     closeDrawer();
     setBanner("", "info");
@@ -1173,12 +1370,34 @@ function currentProject() {
     return state.projects.find((project) => project.id === state.selectedProjectId) || null;
 }
 
+function currentProjectInvoiceDoc() {
+    return state.projectInvoices.find((invoice) => invoice.id === state.selectedProjectInvoiceId) || null;
+}
+
+function currentProjectInvoice() {
+    return state.projectInvoiceDraft || currentProjectInvoiceDoc();
+}
+
 function currentCustomerDoc() {
     return state.customers.find((customer) => customer.id === state.selectedCustomerId) || null;
 }
 
 function currentCustomer() {
     return state.customerDraft || currentCustomerDoc();
+}
+
+function currentCustomerPortalContact() {
+    return state.customerPortalContacts.find((contact) => contact.id === state.selectedCustomerPortalContactId) || null;
+}
+
+function currentCustomerPortalThread() {
+    return state.customerPortalThreads.find((thread) => thread.id === state.selectedCustomerPortalThreadId) || null;
+}
+
+function currentCustomerPortalMessages(threadId = state.selectedCustomerPortalThreadId) {
+    return Array.isArray(state.customerPortalMessages[threadId])
+        ? state.customerPortalMessages[threadId]
+        : [];
 }
 
 function currentVendorDoc() {
@@ -1228,7 +1447,79 @@ function activeStaffOptions() {
     }];
 }
 
+function currentStaffFocusUid() {
+    if (!isAdmin()) {
+        return "";
+    }
+
+    return safeString(state.staffFocusUid);
+}
+
+function currentStaffFocusMember() {
+    const focusUid = currentStaffFocusUid();
+    if (!focusUid) return null;
+
+    return activeStaffOptions().find((member) => safeString(member.uid) === focusUid) || null;
+}
+
+function leadMatchesStaffFocus(lead, staffUid = currentStaffFocusUid()) {
+    if (!staffUid) return true;
+    return safeString(lead?.assignedToUid) === staffUid;
+}
+
+function taskMatchesStaffFocus(task, staffUid = currentStaffFocusUid()) {
+    if (!staffUid) return true;
+    return safeString(task?.assignedToUid) === staffUid;
+}
+
+function projectMatchesStaffFocus(project, staffUid = currentStaffFocusUid()) {
+    if (!staffUid) return true;
+
+    const allowedStaff = Array.isArray(project?.allowedStaffUids) ? project.allowedStaffUids : [];
+    const assignedWorkers = Array.isArray(project?.assignedWorkers) ? project.assignedWorkers : [];
+    return allowedStaff.includes(staffUid)
+        || safeString(project?.assignedLeadOwnerUid) === staffUid
+        || assignedWorkers.some((worker) => safeString(worker?.uid) === staffUid);
+}
+
+function customerMatchesStaffFocus(customer, staffUid = currentStaffFocusUid()) {
+    if (!staffUid) return true;
+
+    const allowedStaff = Array.isArray(customer?.allowedStaffUids) ? customer.allowedStaffUids : [];
+    if (allowedStaff.includes(staffUid)) {
+        return true;
+    }
+
+    return state.leads.some((lead) => lead.customerId === customer?.id && leadMatchesStaffFocus(lead, staffUid))
+        || state.projects.some((project) => project.customerId === customer?.id && projectMatchesStaffFocus(project, staffUid));
+}
+
+function visibleLeads() {
+    const focusUid = currentStaffFocusUid();
+    return focusUid ? state.leads.filter((lead) => leadMatchesStaffFocus(lead, focusUid)) : state.leads;
+}
+
+function visibleTasks() {
+    const focusUid = currentStaffFocusUid();
+    return focusUid ? state.tasks.filter((task) => taskMatchesStaffFocus(task, focusUid)) : state.tasks;
+}
+
+function visibleProjects() {
+    const focusUid = currentStaffFocusUid();
+    return focusUid ? state.projects.filter((project) => projectMatchesStaffFocus(project, focusUid)) : state.projects;
+}
+
+function visibleCustomers() {
+    const focusUid = currentStaffFocusUid();
+    return focusUid ? state.customers.filter((customer) => customerMatchesStaffFocus(customer, focusUid)) : state.customers;
+}
+
 function preferredLeadAssignee() {
+    const focusMember = currentStaffFocusMember();
+    if (focusMember) {
+        return focusMember;
+    }
+
     const options = activeStaffOptions();
     return options.find((member) => member.defaultLeadAssignee) || options[0] || null;
 }
@@ -1363,7 +1654,7 @@ function vendorRollup(vendor) {
     };
 }
 
-function customerRollup(customer) {
+function customerRollup(customer, options = {}) {
     if (!customer) {
         return {
             leads: [],
@@ -1376,8 +1667,10 @@ function customerRollup(customer) {
         };
     }
 
-    const leads = sortByUpdatedDesc(state.leads.filter((lead) => lead.customerId === customer.id));
-    const projects = sortByUpdatedDesc(state.projects.filter((project) => project.customerId === customer.id));
+    const leadSource = Array.isArray(options.leads) ? options.leads : visibleLeads();
+    const projectSource = Array.isArray(options.projects) ? options.projects : visibleProjects();
+    const leads = sortByUpdatedDesc(leadSource.filter((lead) => lead.customerId === customer.id));
+    const projects = sortByUpdatedDesc(projectSource.filter((project) => project.customerId === customer.id));
     const openLeads = leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status));
     const lostLeads = leads.filter((lead) => lead.status === "closed_lost");
     const currentEstimateLead = latestByUpdated(openLeads.filter((lead) => Boolean(lead.hasEstimate)));
@@ -1395,6 +1688,522 @@ function customerRollup(customer) {
         totalPaymentsReceived,
         currentEstimateLead
     };
+}
+
+function leadForProject(project) {
+    if (!project) return null;
+
+    return state.leads.find((lead) => {
+        return safeString(lead.id) === safeString(project.leadId)
+            || safeString(lead.wonProjectId) === safeString(project.id)
+            || safeString(lead.id) === safeString(project.id);
+    }) || null;
+}
+
+function recordDocumentSortValue(item) {
+    return toMillis(item?.relatedDate || item?.updatedAt || item?.createdAt);
+}
+
+function sortRecordDocuments(items = []) {
+    return [...items].sort((left, right) => recordDocumentSortValue(right) - recordDocumentSortValue(left));
+}
+
+function isEstimateRecordDocument(item) {
+    return safeString(item?.documentKind) === "estimate" || safeString(item?.category) === "estimate";
+}
+
+function defaultRecordDocumentTitle(category = "other") {
+    return DOCUMENT_CATEGORY_META[category] || "Document";
+}
+
+function estimateRecordDocumentId(leadId) {
+    return `estimate-${safeString(leadId)}`;
+}
+
+function buildRecordDocumentLinksFromLead(lead) {
+    const linkedProject = projectForLead(lead);
+
+    return {
+        leadId: safeString(lead?.id) || null,
+        customerId: safeString(lead?.customerId || linkedProject?.customerId) || null,
+        projectId: safeString(linkedProject?.id || lead?.wonProjectId) || null
+    };
+}
+
+function buildRecordDocumentLinksFromProject(project) {
+    const linkedLead = leadForProject(project);
+
+    return {
+        projectId: safeString(project?.id) || null,
+        leadId: safeString(project?.leadId || linkedLead?.id || project?.id) || null,
+        customerId: safeString(project?.customerId || linkedLead?.customerId) || null
+    };
+}
+
+function customerDocumentTargetOptions(customer, rollup = customerRollup(customer)) {
+    const options = [];
+
+    sortRecordDocuments(rollup.projects).forEach((project) => {
+        options.push({
+            value: `project:${project.id}`,
+            label: `Job · ${project.projectAddress || project.clientName || "Property pending"}`
+        });
+    });
+
+    sortRecordDocuments(rollup.leads).forEach((lead) => {
+        options.push({
+            value: `lead:${lead.id}`,
+            label: `Lead · ${lead.projectAddress || lead.clientName || "Opportunity pending"}`
+        });
+    });
+
+    if (!options.length && customer?.id) {
+        options.push({
+            value: `customer:${customer.id}`,
+            label: "Customer only · Account-level record"
+        });
+    }
+
+    return options;
+}
+
+function parseRecordDocumentTarget(value) {
+    const [type, ...rest] = safeString(value).split(":");
+    return {
+        type: safeString(type),
+        id: safeString(rest.join(":"))
+    };
+}
+
+function buildRecordDocumentLinksFromCustomerTarget(customer, targetValue) {
+    const target = parseRecordDocumentTarget(targetValue);
+
+    if (target.type === "project" && target.id) {
+        const project = state.projects.find((item) => item.id === target.id) || null;
+        if (project) {
+            return {
+                ...buildRecordDocumentLinksFromProject(project),
+                customerId: safeString(customer?.id || project.customerId) || null
+            };
+        }
+    }
+
+    if (target.type === "lead" && target.id) {
+        const lead = state.leads.find((item) => item.id === target.id) || null;
+        if (lead) {
+            return {
+                ...buildRecordDocumentLinksFromLead(lead),
+                customerId: safeString(customer?.id || lead.customerId) || null
+            };
+        }
+    }
+
+    if (customer?.id) {
+        return {
+            leadId: null,
+            customerId: customer.id,
+            projectId: null
+        };
+    }
+
+    return {
+        leadId: null,
+        customerId: null,
+        projectId: null
+    };
+}
+
+function recordDocumentScopeLabel(item) {
+    const scopes = [];
+
+    if (safeString(item?.customerId)) scopes.push("Customer");
+    if (safeString(item?.leadId)) scopes.push("Lead");
+    if (safeString(item?.projectId)) scopes.push("Job");
+
+    return scopes.length ? scopes.join(" + ") : "Standalone record";
+}
+
+function recordDocumentSourceLabel(item) {
+    if (isEstimateRecordDocument(item)) {
+        return "Live estimate";
+    }
+
+    return DOCUMENT_SOURCE_META[item?.sourceType] || "Manual record";
+}
+
+function buildRecordDocumentSummaryMarkup(documents = []) {
+    const items = [
+        { label: "All records", value: String(documents.length) },
+        { label: "Live estimates", value: String(documents.filter(isEstimateRecordDocument).length) },
+        { label: "Agreements", value: String(documents.filter((item) => item.category === "agreement").length) },
+        { label: "Receipts", value: String(documents.filter((item) => item.category === "receipt").length) }
+    ];
+
+    return items.map((item) => `
+        <article class="summary-card">
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.value)}</strong>
+        </article>
+    `).join("");
+}
+
+function buildRecordDocumentCard(item) {
+    const href = documentHref(item);
+    const isEstimate = isEstimateRecordDocument(item);
+    const canOpenEstimate = safeString(item?.leadId) && (isAdmin() || state.leads.some((lead) => lead.id === item.leadId));
+    const meta = [
+        DOCUMENT_CATEGORY_META[item?.category] || "Other",
+        recordDocumentSourceLabel(item),
+        formatDateOnly(item?.relatedDate || item?.updatedAt || item?.createdAt),
+        recordDocumentScopeLabel(item),
+        item?.clientVisible === true ? "Client portal visible" : ""
+    ].filter(Boolean);
+    const note = safeString(item?.note);
+    const actions = [];
+
+    if (isEstimate && canOpenEstimate) {
+        actions.push(`
+            <button type="button" class="secondary-button" data-record-document-open-estimate="${escapeHtml(item.id)}" data-lead-id="${escapeHtml(item.leadId)}">
+                Open estimate
+            </button>
+        `);
+        actions.push(`
+            <button type="button" class="ghost-button" data-record-document-download-estimate="${escapeHtml(item.id)}" data-lead-id="${escapeHtml(item.leadId)}">
+                Download PDF
+            </button>
+        `);
+    } else if (href) {
+        actions.push(`
+            <a class="secondary-button" href="${escapeHtml(href)}" target="_blank" rel="noreferrer">
+                Open document
+            </a>
+        `);
+    }
+
+    if (isAdmin()) {
+        actions.push(`
+            <button type="button" class="ghost-button" data-record-document-delete="${escapeHtml(item.id)}">
+                Delete
+            </button>
+        `);
+    }
+
+    return `
+        <article class="document-card ${isEstimate ? "is-estimate" : ""}">
+            <div class="document-card-head">
+                <div class="document-card-title-wrap">
+                    <div class="document-card-kicker">${escapeHtml(isEstimate ? "Shared estimate record" : "Shared document")}</div>
+                    <strong class="document-card-title">${escapeHtml(item.title || defaultRecordDocumentTitle(item.category))}</strong>
+                    ${note ? `<p class="document-card-note">${escapeHtml(note)}</p>` : ""}
+                </div>
+                ${actions.length ? `<div class="document-card-actions">${actions.join("")}</div>` : ""}
+            </div>
+            <div class="document-card-meta">${meta.map((entry) => `<span>${escapeHtml(entry)}</span>`).join("")}</div>
+            <div class="document-card-links">
+                Added by ${escapeHtml(item.createdByName || "Golden Brick")}
+            </div>
+        </article>
+    `;
+}
+
+function renderRecordDocumentList(container, documents = [], emptyMessage) {
+    const items = sortRecordDocuments(documents);
+
+    if (!items.length) {
+        renderEmptyList(container, emptyMessage);
+        return;
+    }
+
+    container.innerHTML = items.map((item) => buildRecordDocumentCard(item)).join("");
+}
+
+function toggleRecordDocumentSourceFields(sourceField, urlRow, fileRow) {
+    const sourceType = sourceField?.value || "upload";
+    if (urlRow) {
+        urlRow.hidden = sourceType !== "link";
+    }
+    if (fileRow) {
+        fileRow.hidden = sourceType !== "upload";
+    }
+}
+
+function renderLeadDocumentSourceFields() {
+    toggleRecordDocumentSourceFields(refs.leadDocumentSourceType, refs.leadDocumentUrlRow, refs.leadDocumentFileRow);
+}
+
+function renderCustomerDocumentSourceFields() {
+    toggleRecordDocumentSourceFields(refs.customerDocumentSourceType, refs.customerDocumentUrlRow, refs.customerDocumentFileRow);
+}
+
+async function uploadRecordDocumentFile(documentId, file) {
+    const safeFileName = safeString(file?.name).replace(/[^a-zA-Z0-9._-]+/g, "-");
+    const uploadRef = storageRef(state.storage, `recordDocuments/${documentId}/${safeFileName}`);
+    await uploadBytes(uploadRef, file);
+
+    return {
+        fileUrl: await getDownloadURL(uploadRef),
+        filePath: uploadRef.fullPath,
+        fileName: file.name
+    };
+}
+
+async function createRecordDocument({
+    links,
+    category = "other",
+    sourceType = "manual",
+    title = "",
+    note = "",
+    relatedDate = new Date(),
+    externalUrl = "",
+    file = null,
+    clientVisible = false
+}) {
+    const documentRef = doc(collection(state.db, "recordDocuments"));
+    let resolvedExternalUrl = "";
+    const basePayload = {
+        id: documentRef.id,
+        documentKind: "file",
+        category,
+        sourceType,
+        title: title.trim() || defaultRecordDocumentTitle(category),
+        note: note.trim(),
+        relatedDate,
+        externalUrl: "",
+        fileUrl: "",
+        filePath: "",
+        fileName: "",
+        leadId: links?.leadId || null,
+        customerId: links?.customerId || null,
+        projectId: links?.projectId || null,
+        clientVisible: clientVisible === true,
+        estimateId: null,
+        createdByUid: state.profile?.uid || "",
+        createdByName: state.profile?.displayName || state.profile?.email || "Golden Brick",
+        createdByRole: state.profile?.role || "employee",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+    };
+
+    if (sourceType === "link") {
+        resolvedExternalUrl = safeString(externalUrl);
+        if (!resolvedExternalUrl) {
+            throw new Error("Add the external document link first.");
+        }
+    }
+
+    if (sourceType === "upload") {
+        if (!file) {
+            throw new Error("Choose a file to upload.");
+        }
+
+        await setDoc(documentRef, basePayload, { merge: true });
+
+        try {
+            const upload = await uploadRecordDocumentFile(documentRef.id, file);
+            await setDoc(documentRef, {
+                externalUrl: "",
+                fileUrl: upload.fileUrl,
+                filePath: upload.filePath,
+                fileName: upload.fileName,
+                updatedAt: serverTimestamp()
+            }, { merge: true });
+        } catch (error) {
+            await deleteDoc(documentRef).catch(() => {});
+            throw error;
+        }
+
+        return documentRef.id;
+    }
+
+    await setDoc(documentRef, {
+        ...basePayload,
+        externalUrl: resolvedExternalUrl,
+    }, { merge: true });
+
+    return documentRef.id;
+}
+
+async function resolveEstimateRecordContext(leadId) {
+    const lead = state.leads.find((item) => item.id === leadId) || null;
+    if (!lead) {
+        throw new Error("Linked lead not found for this estimate.");
+    }
+
+    if (state.selectedLeadId === leadId && state.estimate) {
+        return {
+            lead,
+            estimate: state.estimate
+        };
+    }
+
+    const estimateSnap = await getDoc(doc(state.db, "estimates", leadId));
+    if (!estimateSnap.exists()) {
+        throw new Error("No estimate is saved for this lead yet.");
+    }
+
+    return {
+        lead,
+        estimate: normaliseFirestoreDoc(estimateSnap)
+    };
+}
+
+async function downloadEstimatePdfForLead(leadId) {
+    const { lead, estimate } = await resolveEstimateRecordContext(leadId);
+
+    try {
+        const { jsPDF } = await loadJsPdfModule();
+        const pdf = new jsPDF({
+            unit: "pt",
+            format: "letter"
+        });
+
+        buildEstimatePdf(pdf, lead, estimate);
+        pdf.save(estimateDownloadFilename(lead, estimate, "pdf"));
+        return "pdf";
+    } catch (error) {
+        console.error("Estimate PDF download failed from shared document card.", error);
+        downloadEstimateHtmlFallback(lead, estimate);
+        return "html";
+    }
+}
+
+function openEstimateRecordFromDocument(leadId) {
+    if (!safeString(leadId)) {
+        showToast("This estimate is not linked to a lead yet.", "error");
+        return;
+    }
+
+    selectLead(leadId, { openWorkspace: true, preserveTab: true });
+    switchView("leads-view");
+    openLeadTab("estimate", refs.estimateSubject);
+}
+
+async function safeDeleteStoragePath(path) {
+    if (!safeString(path)) {
+        return;
+    }
+
+    try {
+        await deleteObject(storageRef(state.storage, path));
+    } catch (error) {
+        if (error?.code !== "storage/object-not-found") {
+            throw error;
+        }
+    }
+}
+
+async function clearRecordDocumentExpenseLinks(documentItem) {
+    if (!safeString(documentItem?.projectId) || !safeString(documentItem?.id)) {
+        return;
+    }
+
+    const expensesSnap = await getDocs(query(
+        collection(state.db, "projects", documentItem.projectId, "expenses"),
+        where("receiptDocumentId", "==", documentItem.id)
+    ));
+
+    await Promise.all(expensesSnap.docs.map((snapshot) => updateDoc(snapshot.ref, {
+        receiptDocumentId: null,
+        receiptTitle: "",
+        receiptUrl: "",
+        updatedAt: serverTimestamp()
+    })));
+}
+
+async function clearVendorDocumentBillLinks(documentId) {
+    if (!safeString(documentId)) {
+        return;
+    }
+
+    const billsSnap = await getDocs(query(collection(state.db, "vendorBills"), where("invoiceDocumentId", "==", documentId)));
+
+    await Promise.all(billsSnap.docs.map((snapshot) => updateDoc(snapshot.ref, {
+        invoiceDocumentId: null,
+        invoiceTitle: "",
+        invoiceFileUrl: "",
+        invoiceExternalUrl: "",
+        updatedAt: serverTimestamp()
+    })));
+}
+
+async function deleteRecordDocument(item) {
+    if (!isAdmin()) {
+        showToast("Only admins can delete shared documents.", "error");
+        return;
+    }
+
+    if (!item?.id) {
+        showToast("Document not found.", "error");
+        return;
+    }
+
+    const confirmed = window.confirm(`Delete "${item.title || "this document"}" everywhere it appears?`);
+    if (!confirmed) {
+        return;
+    }
+
+    await safeDeleteStoragePath(item.filePath);
+    await clearRecordDocumentExpenseLinks(item);
+    await deleteDoc(doc(state.db, "recordDocuments", item.id));
+    showToast("Shared document deleted.");
+}
+
+async function deleteVendorDocument(item) {
+    if (!isAdmin()) {
+        showToast("Only admins can delete vendor documents.", "error");
+        return;
+    }
+
+    if (!item?.id) {
+        showToast("Vendor document not found.", "error");
+        return;
+    }
+
+    const confirmed = window.confirm(`Delete "${item.title || "this vendor document"}"?`);
+    if (!confirmed) {
+        return;
+    }
+
+    await safeDeleteStoragePath(item.filePath);
+    await clearVendorDocumentBillLinks(item.id);
+    await deleteDoc(doc(state.db, "vendorDocuments", item.id));
+    showToast("Vendor document deleted.");
+}
+
+async function upsertEstimateRecordDocumentForLead(leadId, estimateData, leadData = null) {
+    const lead = leadData || state.leads.find((item) => item.id === leadId) || null;
+    if (!lead?.id) {
+        return;
+    }
+
+    const recordId = estimateRecordDocumentId(lead.id);
+    const recordRef = doc(state.db, "recordDocuments", recordId);
+    const existingSnap = await getDoc(recordRef);
+    const links = buildRecordDocumentLinksFromLead(lead);
+    const note = splitEstimateMultilineText(estimateData?.emailBody || lead.estimateTitle || "")[0] || "";
+
+    await setDoc(recordRef, {
+        id: recordId,
+        documentKind: "estimate",
+        category: "estimate",
+        sourceType: "generated",
+        title: safeString(estimateData?.subject || lead.estimateTitle || `Estimate for ${lead.projectAddress || lead.clientName || "project"}`),
+        note,
+        relatedDate: estimateData?.updatedAt || lead.estimateUpdatedAt || new Date(),
+        externalUrl: "",
+        fileUrl: "",
+        filePath: "",
+        fileName: "",
+        leadId: links.leadId,
+        customerId: links.customerId,
+        projectId: links.projectId,
+        estimateId: lead.id,
+        createdByUid: state.profile?.uid || "system",
+        createdByName: state.profile?.displayName || "Golden Brick System",
+        createdByRole: state.profile?.role || "system",
+        createdAt: existingSnap.exists() ? existingSnap.data()?.createdAt || serverTimestamp() : serverTimestamp(),
+        updatedAt: serverTimestamp()
+    }, { merge: true });
 }
 
 function buildEmployeeCustomerRecords() {
@@ -1568,14 +2377,15 @@ function defaultVendorDraft() {
 }
 
 function defaultTaskDraft(linked = {}) {
+    const focusMember = currentStaffFocusMember();
     return {
         title: "",
         description: "",
         status: "open",
         priority: "high",
-        assignedToUid: state.profile?.uid || "",
-        assignedToName: state.profile?.displayName || "",
-        assignedToEmail: state.profile?.email || "",
+        assignedToUid: linked.assignedToUid || focusMember?.uid || state.profile?.uid || "",
+        assignedToName: linked.assignedToName || focusMember?.displayName || focusMember?.email || state.profile?.displayName || "",
+        assignedToEmail: linked.assignedToEmail || focusMember?.email || state.profile?.email || "",
         dueAt: null,
         leadId: linked.leadId || null,
         customerId: linked.customerId || null,
@@ -1793,7 +2603,7 @@ function renderDrawerLeadCustomerOptions() {
     const leadDraft = state.drawer.leadDraft || defaultLeadDraft();
     const search = safeString(refs.drawerLeadCustomerSearch?.value || leadDraft.customerSearch).toLowerCase();
     const selectedCustomerId = leadDraft.customerId || "";
-    const customers = sortByUpdatedDesc(state.customers).filter((customer) => {
+    const customers = sortByUpdatedDesc(visibleCustomers()).filter((customer) => {
         if (!search) return true;
         const blob = [
             customer.name,
@@ -1839,7 +2649,7 @@ function renderDrawerExpenseProjectOptions() {
     const expenseDraft = state.drawer.expenseDraft || defaultExpenseDrawerDraft();
     const search = safeString(refs.drawerExpenseProjectSearch.value || expenseDraft.projectSearch).toLowerCase();
     const selectedProjectId = refs.drawerExpenseProject.value || expenseDraft.projectId || "";
-    const options = sortByUpdatedDesc(state.projects).filter((project) => {
+    const options = sortByUpdatedDesc(visibleProjects()).filter((project) => {
         if (!search) return true;
         const blob = [
             project.clientName,
@@ -1985,17 +2795,17 @@ function renderDrawerTaskRecordOptions() {
     let options = [];
 
     if (linkedType === "lead") {
-        options = sortByUpdatedDesc(state.leads).map((lead) => ({
+        options = sortByUpdatedDesc(visibleLeads()).map((lead) => ({
             value: lead.id,
             label: `${lead.clientName || "Unnamed lead"} · ${lead.projectAddress || "Address pending"}`
         }));
     } else if (linkedType === "customer") {
-        options = sortByUpdatedDesc(state.customers).map((customer) => ({
+        options = sortByUpdatedDesc(visibleCustomers()).map((customer) => ({
             value: customer.id,
             label: `${customer.name || "Unnamed customer"} · ${customer.primaryAddress || customer.primaryEmail || customer.primaryPhone || "No contact info"}`
         }));
     } else if (linkedType === "project") {
-        options = sortByUpdatedDesc(state.projects).map((project) => ({
+        options = sortByUpdatedDesc(visibleProjects()).map((project) => ({
             value: project.id,
             label: `${project.clientName || "Unnamed job"} · ${project.projectAddress || "Address pending"}`
         }));
@@ -2121,13 +2931,42 @@ function switchView(viewId) {
     syncLeadRouteState();
 }
 
+function renderStaffFocusOptions() {
+    if (!refs.staffFocusShell || !refs.staffFocusSelect) {
+        return;
+    }
+
+    const supportedViews = ["today-view", "tasks-view", "leads-view", "customers-view", "jobs-view", "staff-view"];
+    const shouldShow = isAdmin() && supportedViews.includes(state.activeView);
+    refs.staffFocusShell.hidden = !shouldShow;
+
+    if (!shouldShow) {
+        return;
+    }
+
+    const members = activeStaffOptions().filter((member) => safeString(member.uid));
+    if (state.staffFocusUid && !members.some((member) => member.uid === state.staffFocusUid)) {
+        state.staffFocusUid = "";
+    }
+    refs.staffFocusSelect.innerHTML = [`<option value="">All staff</option>`].concat(
+        members.map((member) => `
+            <option value="${escapeHtml(member.uid)}">${escapeHtml(member.displayName || member.email || "Staff member")}</option>
+        `)
+    ).join("");
+
+    const focusUid = currentStaffFocusUid();
+    refs.staffFocusSelect.value = members.some((member) => member.uid === focusUid) ? focusUid : "";
+}
+
 function renderWorkspaceTools() {
-    const shouldShowTodayToggle = isAdmin() && state.activeView === "today-view";
+    const shouldShowTodayToggle = isAdmin() && state.activeView === "today-view" && !currentStaffFocusUid();
     refs.todayScopeToggle.hidden = !shouldShowTodayToggle;
 
     Array.from(refs.todayScopeToggle.querySelectorAll("[data-today-scope]")).forEach((button) => {
         button.classList.toggle("is-active", button.dataset.todayScope === state.todayScope);
     });
+
+    renderStaffFocusOptions();
 }
 
 function taskIsCompleted(task) {
@@ -2152,7 +2991,7 @@ function taskSortValue(task) {
 
 function filteredTasks() {
     const search = state.taskSearch.trim().toLowerCase();
-    let tasks = [...state.tasks];
+    let tasks = [...visibleTasks()];
 
     if (search) {
         tasks = tasks.filter((task) => {
@@ -2182,7 +3021,7 @@ function filteredTasks() {
 
 function filteredLeads() {
     const search = state.leadSearch.trim().toLowerCase();
-    let leads = [...state.leads];
+    let leads = [...visibleLeads()];
 
     if (search) {
         leads = leads.filter((lead) => {
@@ -2211,7 +3050,7 @@ function filteredLeads() {
 
 function filteredCustomers() {
     const search = state.customerSearch.trim().toLowerCase();
-    const customers = sortByUpdatedDesc(state.customers);
+    const customers = sortByUpdatedDesc(visibleCustomers());
     if (!search) return customers;
 
     return customers.filter((customer) => {
@@ -2227,7 +3066,7 @@ function filteredCustomers() {
 
 function filteredProjects() {
     const search = state.jobSearch.trim().toLowerCase();
-    let projects = [...state.projects];
+    let projects = [...visibleProjects()];
 
     if (state.jobStatus === "active") {
         projects = projects.filter((project) => project.status !== "completed");
@@ -2251,6 +3090,11 @@ function filteredProjects() {
 }
 
 function openLeadsForToday() {
+    const focusUid = currentStaffFocusUid();
+    if (focusUid) {
+        return sortByUpdatedDesc(visibleLeads().filter((lead) => lead.status === "new_lead"));
+    }
+
     const scopeLeads = isAdmin() && state.todayScope === "team"
         ? state.leads
         : state.leads.filter((lead) => lead.assignedToUid === state.profile?.uid);
@@ -2259,6 +3103,13 @@ function openLeadsForToday() {
 }
 
 function estimateReviewLeads() {
+    const focusUid = currentStaffFocusUid();
+    if (focusUid) {
+        return sortByUpdatedDesc(visibleLeads().filter((lead) => {
+            return ["new_lead", "follow_up", "estimate_sent"].includes(lead.status) && Boolean(lead.hasEstimate);
+        }));
+    }
+
     const scopeLeads = isAdmin() && state.todayScope === "team"
         ? state.leads
         : state.leads.filter((lead) => lead.assignedToUid === state.profile?.uid);
@@ -2270,12 +3121,16 @@ function estimateReviewLeads() {
 
 function taskScopeSet() {
     if (!state.profile) return [];
+    const focusUid = currentStaffFocusUid();
+    if (focusUid) return visibleTasks();
     if (isAdmin() && state.todayScope === "team") return state.tasks;
     return state.tasks.filter((task) => task.assignedToUid === state.profile.uid);
 }
 
 function projectScopeSet() {
     if (!state.profile) return [];
+    const focusUid = currentStaffFocusUid();
+    if (focusUid) return visibleProjects();
     if (isAdmin() && state.todayScope === "team") return state.projects;
     return state.projects.filter((project) => {
         const allowed = Array.isArray(project.allowedStaffUids) ? project.allowedStaffUids : [];
@@ -2283,7 +3138,7 @@ function projectScopeSet() {
     });
 }
 
-function leadCounts(leads = state.leads) {
+function leadCounts(leads = visibleLeads()) {
     return leads.reduce((totals, lead) => {
         const status = lead.status || "new_lead";
         totals[status] = (totals[status] || 0) + 1;
@@ -2338,9 +3193,9 @@ function renderCurrentUserCard() {
 
 function renderSidebarSummary() {
     const counts = leadCounts();
-    const openTaskCount = state.tasks.filter((task) => !taskIsCompleted(task)).length;
-    const customerCount = state.customers.length;
-    const activeProjectCount = state.projects.filter((project) => project.status !== "completed").length;
+    const openTaskCount = visibleTasks().filter((task) => !taskIsCompleted(task)).length;
+    const customerCount = visibleCustomers().length;
+    const activeProjectCount = visibleProjects().filter((project) => project.status !== "completed").length;
     const activeVendorCount = state.vendors.filter((vendor) => safeString(vendor.status || "active") === "active").length;
 
     refs.sidebarSummary.innerHTML = `
@@ -2404,23 +3259,27 @@ function renderWorkspaceCommandBar() {
     }
 
     const isMobile = isMobileViewport();
-    const openLeadCount = state.leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status)).length;
-    const unassignedLeadCount = state.leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status) && !lead.assignedToUid).length;
-    const commandTaskSource = state.activeView === "today-view" ? taskScopeSet() : state.tasks;
+    const visibleLeadSet = visibleLeads();
+    const visibleTaskSet = visibleTasks();
+    const visibleProjectSet = visibleProjects();
+    const visibleCustomerSet = visibleCustomers();
+    const openLeadCount = visibleLeadSet.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status)).length;
+    const unassignedLeadCount = visibleLeadSet.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status) && !lead.assignedToUid).length;
+    const commandTaskSource = state.activeView === "today-view" ? taskScopeSet() : visibleTaskSet;
     const overdueCount = commandTaskSource.filter((task) => taskIsOverdue(task)).length;
     const dueTodayCount = commandTaskSource.filter((task) => taskIsDueToday(task)).length;
-    const estimateReadyCount = state.leads.filter((lead) => {
+    const estimateReadyCount = visibleLeadSet.filter((lead) => {
         return ["new_lead", "follow_up", "estimate_sent"].includes(lead.status) && Boolean(lead.hasEstimate);
     }).length;
-    const activeJobCount = state.projects.filter((project) => project.status !== "completed").length;
-    const completedJobCount = state.projects.filter((project) => project.status === "completed").length;
-    const repeatClientCount = state.customers.filter((customer) => {
+    const activeJobCount = visibleProjectSet.filter((project) => project.status !== "completed").length;
+    const completedJobCount = visibleProjectSet.filter((project) => project.status === "completed").length;
+    const repeatClientCount = visibleCustomerSet.filter((customer) => {
         const rollup = customerRollup(customer);
         return (rollup.leads.length + rollup.projects.length) > 1;
     }).length;
-    const totalPaymentsReceived = state.projects.reduce((sum, project) => sum + toNumber(project.financials?.totalPayments), 0);
-    const taskOpenCount = state.tasks.filter((task) => !taskIsCompleted(task)).length;
-    const taskCompletedCount = state.tasks.filter((task) => taskIsCompleted(task)).length;
+    const totalPaymentsReceived = visibleProjectSet.reduce((sum, project) => sum + toNumber(project.financials?.totalPayments), 0);
+    const taskOpenCount = visibleTaskSet.filter((task) => !taskIsCompleted(task)).length;
+    const taskCompletedCount = visibleTaskSet.filter((task) => taskIsCompleted(task)).length;
     const selectedLead = state.activeView === "leads-view" && state.leadWorkspaceOpen ? currentLead() : null;
     const selectedCustomer = currentCustomerDoc();
     const selectedProject = currentProject();
@@ -2432,6 +3291,7 @@ function renderWorkspaceCommandBar() {
         return status === "open" || status === "scheduled";
     }).length;
     const overdueVendorBillCount = state.vendorBills.filter((bill) => vendorBillIsOverdue(bill)).length;
+    const focusMember = currentStaffFocusMember();
 
     const actionButtons = [];
     const summaryChips = [];
@@ -2442,8 +3302,16 @@ function renderWorkspaceCommandBar() {
         actionButtons.push(buildCommandAction("New vendor", "ghost-button", { "data-command": "start-vendor-draft" }));
     }
 
+    if (focusMember && !isMobile) {
+        actionButtons.push(buildCommandAction("Show full team", "ghost-button", { "data-command": "clear-staff-focus" }));
+    }
+
     if (!isMobile) {
         actionButtons.push(buildCommandAction("New task", isAdmin() ? "secondary-button" : "primary-button", { "data-command": "start-task-draft" }));
+    }
+
+    if (focusMember) {
+        summaryChips.push(buildCommandChip("Staff focus", focusMember.displayName || focusMember.email || "Staff"));
     }
 
     if (state.activeView === "today-view") {
@@ -2505,7 +3373,7 @@ function renderWorkspaceCommandBar() {
         summaryChips.push(buildCommandChip("Open leads", openLeadCount));
         summaryChips.push(buildCommandChip("Unassigned", unassignedLeadCount));
         summaryChips.push(buildCommandChip("Estimate ready", estimateReadyCount));
-        summaryChips.push(buildCommandChip("Won", state.leads.filter((lead) => lead.status === "closed_won").length));
+        summaryChips.push(buildCommandChip("Won", visibleLeadSet.filter((lead) => lead.status === "closed_won").length));
     }
 
     if (state.activeView === "customers-view") {
@@ -2533,9 +3401,9 @@ function renderWorkspaceCommandBar() {
             }));
         }
 
-        summaryChips.push(buildCommandChip("Customers", state.customers.length));
+        summaryChips.push(buildCommandChip("Customers", visibleCustomerSet.length));
         summaryChips.push(buildCommandChip("Repeat clients", repeatClientCount));
-        summaryChips.push(buildCommandChip("Open opportunities", state.leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status)).length));
+        summaryChips.push(buildCommandChip("Open opportunities", visibleLeadSet.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status)).length));
         summaryChips.push(buildCommandChip("Payments received", formatCurrency(totalPaymentsReceived)));
     }
 
@@ -2558,7 +3426,7 @@ function renderWorkspaceCommandBar() {
             actionButtons.push(buildCommandAction("Job task", "ghost-button", { "data-command": "job-create-task" }));
         }
 
-        const jobsAwaitingPayment = state.projects.filter((project) => {
+        const jobsAwaitingPayment = visibleProjectSet.filter((project) => {
             return project.status !== "completed" && toNumber(project.financials?.totalPayments) < toNumber(project.jobValue);
         }).length;
 
@@ -2746,11 +3614,12 @@ function buildTaskMeta(task) {
 }
 
 function renderTaskMetrics() {
+    const tasks = visibleTasks();
     renderMetricStrip(refs.taskMetrics, [
-        { label: "Open", value: state.tasks.filter((task) => !taskIsCompleted(task)).length },
-        { label: "Overdue", value: state.tasks.filter((task) => taskIsOverdue(task)).length },
-        { label: "Due today", value: state.tasks.filter((task) => taskIsDueToday(task)).length },
-        { label: "Completed", value: state.tasks.filter((task) => taskIsCompleted(task)).length }
+        { label: "Open", value: tasks.filter((task) => !taskIsCompleted(task)).length },
+        { label: "Overdue", value: tasks.filter((task) => taskIsOverdue(task)).length },
+        { label: "Due today", value: tasks.filter((task) => taskIsDueToday(task)).length },
+        { label: "Completed", value: tasks.filter((task) => taskIsCompleted(task)).length }
     ]);
 }
 
@@ -2912,8 +3781,9 @@ function renderTaskDetail() {
 }
 
 function renderLeadMetrics() {
-    const counts = leadCounts();
-    const winRate = state.leads.length ? `${Math.round((counts.closed_won / state.leads.length) * 100)}%` : "0%";
+    const leads = visibleLeads();
+    const counts = leadCounts(leads);
+    const winRate = leads.length ? `${Math.round((counts.closed_won / leads.length) * 100)}%` : "0%";
 
     renderMetricStrip(refs.leadMetrics, [
         { label: "New leads", value: counts.new_lead },
@@ -2941,7 +3811,7 @@ function renderCustomerOptions(selectedId = null) {
 
     refs.leadCustomerSelect.disabled = false;
     const matchedIds = new Set(matchedCustomers.map((customer) => customer.id));
-    const remainingCustomers = sortByUpdatedDesc(state.customers).filter((customer) => !matchedIds.has(customer.id));
+    const remainingCustomers = sortByUpdatedDesc(visibleCustomers()).filter((customer) => !matchedIds.has(customer.id));
     const matchedMarkup = matchedCustomers.length
         ? `
             <optgroup label="Review matches">
@@ -3363,6 +4233,52 @@ function estimateStandardTermsMarkup(template = state.template || EMPTY_TEMPLATE
     return estimateStandardTerms(template)
         .map((item) => `<div class="estimate-standard-term">${escapeHtml(item)}</div>`)
         .join("");
+}
+
+function estimateAgreementTitle(template = state.template || EMPTY_TEMPLATE) {
+    return safeString(template?.agreementTitle) || EMPTY_TEMPLATE.agreementTitle;
+}
+
+function estimateAgreementIntro(template = state.template || EMPTY_TEMPLATE) {
+    return safeString(template?.agreementIntro) || EMPTY_TEMPLATE.agreementIntro;
+}
+
+function estimateAgreementTermsText(template = state.template || EMPTY_TEMPLATE) {
+    return safeString(template?.agreementTerms) || EMPTY_TEMPLATE.agreementTerms;
+}
+
+function estimateAgreementTerms(template = state.template || EMPTY_TEMPLATE) {
+    return splitEstimateMultilineText(estimateAgreementTermsText(template));
+}
+
+function estimateShareStatusMeta(share = state.estimateShare) {
+    const status = safeString(share?.status || "not_shared");
+
+    if (status === "active") {
+        return {
+            label: "Live link",
+            copy: "The private client estimate page is active and ready to share."
+        };
+    }
+
+    if (status === "signed") {
+        return {
+            label: "Signed",
+            copy: "The client completed the agreement and the signed document is archived."
+        };
+    }
+
+    if (status === "revoked") {
+        return {
+            label: "Revoked",
+            copy: "This link is no longer available to the client."
+        };
+    }
+
+    return {
+        label: "Not shared",
+        copy: "Save the estimate first, then create the secure client link."
+    };
 }
 
 function sanitiseDownloadName(value) {
@@ -4267,10 +5183,23 @@ function renderEstimateLines(lineItems) {
 
     refs.estimateLines.innerHTML = rows.map((item, index) => `
         <div class="line-item-row" data-line-index="${index}">
-            <input type="text" data-line-field="label" value="${escapeHtml(item.label || "")}" placeholder="Line item" ${editable ? "" : "disabled"}>
-            <input type="text" data-line-field="description" value="${escapeHtml(item.description || "")}" placeholder="What is included" ${editable ? "" : "disabled"}>
-            <input type="number" data-line-field="amount" value="${escapeHtml(item.amount ?? "")}" min="0" step="0.01" placeholder="0.00" ${editable ? "" : "disabled"}>
-            <button type="button" class="ghost-button" data-remove-line="${index}" ${editable ? "" : "hidden disabled"}>Remove</button>
+            <div class="line-item-main-fields">
+                <label class="line-item-field">
+                    <span>Line item</span>
+                    <input type="text" data-line-field="label" value="${escapeHtml(item.label || "")}" placeholder="Cabinet install, demolition, tile package, trim, etc." ${editable ? "" : "disabled"}>
+                </label>
+                <label class="line-item-field line-item-amount-field">
+                    <span>Amount</span>
+                    <input type="number" data-line-field="amount" value="${escapeHtml(item.amount ?? "")}" min="0" step="0.01" placeholder="0.00" ${editable ? "" : "disabled"}>
+                </label>
+            </div>
+            <label class="line-item-field line-item-description-field">
+                <span>What's included</span>
+                <textarea data-line-field="description" rows="4" placeholder="Spell out what is included, material level, prep, installation, and closeout details so the client can understand the scope." ${editable ? "" : "disabled"}>${escapeHtml(item.description || "")}</textarea>
+            </label>
+            <div class="line-item-actions">
+                <button type="button" class="ghost-button" data-remove-line="${index}" ${editable ? "" : "hidden disabled"}>Remove</button>
+            </div>
         </div>
     `).join("");
 
@@ -4283,8 +5212,18 @@ function renderEstimateLines(lineItems) {
         });
     });
 
-    Array.from(refs.estimateLines.querySelectorAll("input")).forEach((input) => {
-        input.addEventListener("input", updateEstimatePreview);
+    Array.from(refs.estimateLines.querySelectorAll("input, textarea")).forEach((field) => {
+        if (field.tagName === "TEXTAREA") {
+            field.style.height = "auto";
+            field.style.height = `${Math.max(field.scrollHeight, 110)}px`;
+        }
+        field.addEventListener("input", () => {
+            if (field.tagName === "TEXTAREA") {
+                field.style.height = "auto";
+                field.style.height = `${Math.max(field.scrollHeight, 110)}px`;
+            }
+            updateEstimatePreview();
+        });
     });
 }
 
@@ -4299,6 +5238,42 @@ function updateEstimatePreview() {
     const estimate = collectEstimateForm();
     refs.estimateSubtotal.textContent = formatCurrency(estimate.subtotal);
     refs.estimatePreview.innerHTML = buildEstimatePreviewHtml(lead, estimate);
+}
+
+function renderEstimateSharePanel(lead = currentLead()) {
+    const share = state.estimateShare;
+    const statusMeta = estimateShareStatusMeta(share);
+    const detailBits = [];
+
+    if (share?.createdAt) {
+        detailBits.push(`Created ${formatDateTime(share.createdAt)}`);
+    }
+    if (share?.lastViewedAt) {
+        detailBits.push(`Last viewed ${formatDateTime(share.lastViewedAt)}`);
+    }
+    if (share?.signedAt) {
+        detailBits.push(`Signed ${formatDateTime(share.signedAt)}`);
+    }
+    if (share?.revokedAt) {
+        detailBits.push(`Revoked ${formatDateTime(share.revokedAt)}`);
+    }
+
+    refs.estimateShareStatusPill.textContent = statusMeta.label;
+    refs.estimateShareMeta.textContent = detailBits.length
+        ? `${statusMeta.copy} ${detailBits.join(" · ")}`
+        : statusMeta.copy;
+    refs.estimateShareLinkInput.value = share?.shareUrl || "";
+    refs.estimateShareLinkInput.placeholder = share?.shareUrl ? "" : "No active link yet";
+
+    const canShareLead = Boolean(lead?.id && (lead?.hasEstimate || state.estimate));
+    refs.estimateShareCreateButton.disabled = !isAdmin() || !canShareLead;
+    refs.estimateShareCopyButton.disabled = !share?.shareUrl;
+    refs.estimateShareRevokeButton.disabled = !isAdmin() || safeString(share?.status) !== "active";
+    refs.estimateShareCreateButton.textContent = share?.status === "active"
+        ? "Regenerate link"
+        : share?.status === "signed"
+            ? "Create new link"
+            : "Create share link";
 }
 
 function renderEstimatePanel() {
@@ -4318,7 +5293,1265 @@ function renderEstimatePanel() {
     refs.estimateAssumptions.readOnly = !isAdmin();
     refs.estimateStandardTermsDisplay.innerHTML = estimateStandardTermsMarkup();
     renderEstimateLines(Array.isArray(estimate.lineItems) ? estimate.lineItems : []);
+    renderEstimateSharePanel(lead);
     updateEstimatePreview();
+}
+
+function invoiceClientName(project) {
+    return safeString(project?.clientName || project?.customerName || state.customers.find((item) => item.id === project?.customerId)?.name) || "Client";
+}
+
+function invoiceProjectAddress(project) {
+    return safeString(project?.projectAddress) || "To be confirmed";
+}
+
+function hydrateProjectInvoice(project, invoice = {}) {
+    const draft = defaultProjectInvoiceDraft(project, invoice);
+    const lineItems = Array.isArray(invoice.lineItems)
+        ? invoice.lineItems.map((item) => ({
+            label: safeString(item.label || item.title),
+            description: safeString(item.description || item.note),
+            amount: toNumber(item.amount)
+        })).filter((item) => item.label || item.description || item.amount)
+        : draft.lineItems;
+    const customFields = Array.isArray(invoice.customFields)
+        ? invoice.customFields.map((field) => ({
+            label: safeString(field.label),
+            value: safeString(field.value)
+        })).filter((field) => field.label || field.value)
+        : draft.customFields;
+    const subtotal = lineItems.reduce((sum, item) => sum + toNumber(item.amount), 0);
+
+    return {
+        ...draft,
+        ...invoice,
+        status: safeString(invoice.status) || draft.status,
+        issueDate: invoice.issueDate || draft.issueDate,
+        dueDate: invoice.dueDate || draft.dueDate,
+        lineItems,
+        customFields,
+        subtotal: Number(subtotal.toFixed(2)),
+        summary: safeString(invoice.summary || draft.summary),
+        notes: safeString(invoice.notes || draft.notes),
+        paymentMethod: safeString(invoice.paymentMethod || draft.paymentMethod),
+        paymentReference: safeString(invoice.paymentReference || draft.paymentReference),
+        paymentNote: safeString(invoice.paymentNote || draft.paymentNote),
+        paidAt: invoice.paidAt || draft.paidAt || null,
+        paymentRecordId: invoice.paymentRecordId || draft.paymentRecordId || null
+    };
+}
+
+function renderInvoiceCustomFields(customFields, editable = isAdmin()) {
+    const rows = customFields.length ? customFields : (editable ? [{ label: "", value: "" }] : []);
+
+    if (!rows.length) {
+        refs.invoiceCustomFields.innerHTML = `<div class="empty-note">No extra invoice detail fields have been added to this invoice yet.</div>`;
+        return;
+    }
+
+    refs.invoiceCustomFields.innerHTML = rows.map((field, index) => `
+        <div class="invoice-custom-field-row" data-invoice-custom-index="${index}">
+            <label class="line-item-field">
+                <span>Field label</span>
+                <input type="text" data-invoice-custom-field="label" value="${escapeHtml(field.label || "")}" placeholder="Billing stage, property nickname, phase, project manager" ${editable ? "" : "disabled"}>
+            </label>
+            <label class="line-item-field">
+                <span>Field value</span>
+                <input type="text" data-invoice-custom-field="value" value="${escapeHtml(field.value || "")}" placeholder="Kitchen draw 1, 712 N Preston, Phase 2, etc." ${editable ? "" : "disabled"}>
+            </label>
+            <div class="line-item-actions">
+                <button type="button" class="ghost-button" data-remove-invoice-custom="${index}" ${editable ? "" : "hidden disabled"}>Remove</button>
+            </div>
+        </div>
+    `).join("");
+
+    Array.from(refs.invoiceCustomFields.querySelectorAll("[data-remove-invoice-custom]")).forEach((button) => {
+        button.addEventListener("click", () => {
+            const fields = collectInvoiceForm().customFields;
+            fields.splice(Number(button.dataset.removeInvoiceCustom), 1);
+            renderInvoiceCustomFields(fields, editable);
+            updateInvoicePreview();
+        });
+    });
+
+    Array.from(refs.invoiceCustomFields.querySelectorAll("input")).forEach((field) => {
+        field.addEventListener("input", () => {
+            syncProjectInvoiceDraftFromForm();
+        });
+    });
+}
+
+function renderInvoiceLines(lineItems, editable = isAdmin()) {
+    const rows = lineItems.length ? lineItems : (editable ? [{ label: "", description: "", amount: "" }] : []);
+
+    if (!rows.length) {
+        refs.invoiceLines.innerHTML = `<div class="empty-note">No invoice lines have been added yet.</div>`;
+        return;
+    }
+
+    refs.invoiceLines.innerHTML = rows.map((item, index) => `
+        <div class="line-item-row" data-invoice-line-index="${index}">
+            <div class="line-item-main-fields">
+                <label class="line-item-field">
+                    <span>Invoice line</span>
+                    <input type="text" data-invoice-line-field="label" value="${escapeHtml(item.label || "")}" placeholder="Deposit, demolition draw, progress payment, final completion billing" ${editable ? "" : "disabled"}>
+                </label>
+                <label class="line-item-field line-item-amount-field">
+                    <span>Amount</span>
+                    <input type="number" data-invoice-line-field="amount" value="${escapeHtml(item.amount ?? "")}" min="0" step="0.01" placeholder="0.00" ${editable ? "" : "disabled"}>
+                </label>
+            </div>
+            <label class="line-item-field line-item-description-field">
+                <span>What's included</span>
+                <textarea data-invoice-line-field="description" rows="4" placeholder="Describe what this billing line covers so the client understands the draw, phase, or approved scope behind the amount." ${editable ? "" : "disabled"}>${escapeHtml(item.description || "")}</textarea>
+            </label>
+            <div class="line-item-actions">
+                <button type="button" class="ghost-button" data-remove-invoice-line="${index}" ${editable ? "" : "hidden disabled"}>Remove</button>
+            </div>
+        </div>
+    `).join("");
+
+    Array.from(refs.invoiceLines.querySelectorAll("[data-remove-invoice-line]")).forEach((button) => {
+        button.addEventListener("click", () => {
+            const lines = collectInvoiceForm().lineItems;
+            lines.splice(Number(button.dataset.removeInvoiceLine), 1);
+            renderInvoiceLines(lines, editable);
+            updateInvoicePreview();
+        });
+    });
+
+    Array.from(refs.invoiceLines.querySelectorAll("input, textarea")).forEach((field) => {
+        if (field.tagName === "TEXTAREA") {
+            field.style.height = "auto";
+            field.style.height = `${Math.max(field.scrollHeight, 110)}px`;
+        }
+        field.addEventListener("input", () => {
+            if (field.tagName === "TEXTAREA") {
+                field.style.height = "auto";
+                field.style.height = `${Math.max(field.scrollHeight, 110)}px`;
+            }
+            syncProjectInvoiceDraftFromForm();
+        });
+    });
+}
+
+function collectInvoiceForm(baseInvoice = currentProjectInvoice()) {
+    const lineItems = Array.from(refs.invoiceLines.querySelectorAll("[data-invoice-line-index]")).map((row) => ({
+        label: row.querySelector('[data-invoice-line-field="label"]').value.trim(),
+        description: row.querySelector('[data-invoice-line-field="description"]').value.trim(),
+        amount: toNumber(row.querySelector('[data-invoice-line-field="amount"]').value)
+    })).filter((item) => item.label || item.description || item.amount);
+
+    const customFields = Array.from(refs.invoiceCustomFields.querySelectorAll("[data-invoice-custom-index]")).map((row) => ({
+        label: row.querySelector('[data-invoice-custom-field="label"]').value.trim(),
+        value: row.querySelector('[data-invoice-custom-field="value"]').value.trim()
+    })).filter((field) => field.label || field.value);
+
+    const subtotal = lineItems.reduce((sum, item) => sum + toNumber(item.amount), 0);
+
+    return hydrateProjectInvoice(currentProject(), {
+        ...(baseInvoice || {}),
+        title: refs.invoiceTitle.value.trim(),
+        invoiceNumber: refs.invoiceNumber.value.trim(),
+        issueDate: parseDateOnlyInput(refs.invoiceIssueDate.value) || baseInvoice?.issueDate || new Date(),
+        dueDate: parseDateOnlyInput(refs.invoiceDueDate.value) || baseInvoice?.dueDate || addDays(new Date(), 7),
+        summary: refs.invoiceSummary.value.trim(),
+        customFields,
+        lineItems,
+        subtotal: Number(subtotal.toFixed(2)),
+        notes: refs.invoiceNotes.value.trim(),
+        paidAt: parseDateOnlyInput(refs.invoicePaidDate.value) || baseInvoice?.paidAt || null,
+        paymentMethod: refs.invoicePaymentMethod.value.trim(),
+        paymentReference: refs.invoicePaymentReference.value.trim(),
+        paymentNote: refs.invoicePaymentNote.value.trim()
+    });
+}
+
+function syncProjectInvoiceDraftFromForm({ updatePreview = true } = {}) {
+    const project = currentProject();
+    if (!project) {
+        return null;
+    }
+
+    const baseInvoice = currentProjectInvoiceDoc() || currentProjectInvoice() || defaultProjectInvoiceDraft(project);
+    state.projectInvoiceDraft = collectInvoiceForm(baseInvoice);
+
+    if (updatePreview) {
+        refs.invoiceSubtotal.textContent = formatCurrency(state.projectInvoiceDraft.subtotal || 0);
+        refs.invoicePreview.innerHTML = buildInvoicePreviewHtml(project, state.projectInvoiceDraft);
+    }
+
+    return state.projectInvoiceDraft;
+}
+
+function invoiceDownloadFilename(project, invoiceDraft, extension = "pdf", prefix = "invoice") {
+    const stem = sanitiseDownloadName(`${invoiceDraft.invoiceNumber || prefix}-${invoiceClientName(project)}-${project?.projectAddress || project?.projectType || "project"}`) || `golden-brick-${prefix}`;
+    const dateStamp = formatDateOnlyInputValue(invoiceDraft.paidAt || invoiceDraft.issueDate || new Date()) || "document";
+    return `${stem}-${dateStamp}.${extension}`;
+}
+
+function invoiceCustomFieldMarkup(invoiceDraft) {
+    return invoiceDraft.customFields.length
+        ? `<ul class="invoice-custom-field-list">${invoiceDraft.customFields.map((field) => `
+            <li>
+                <span>${escapeHtml(field.label || "Detail")}</span>
+                <strong>${escapeHtml(field.value || "Not set")}</strong>
+            </li>
+        `).join("")}</ul>`
+        : `<div class="estimate-note-empty">No extra invoice detail fields have been added to this billing package yet.</div>`;
+}
+
+function buildInvoicePreviewHtml(project, invoiceDraft) {
+    const preparedDate = formatDateOnly(invoiceDraft.issueDate);
+    const dueDate = formatDateOnly(invoiceDraft.dueDate);
+    const paymentDate = invoiceDraft.paidAt ? formatDateOnly(invoiceDraft.paidAt) : "Pending";
+    const rows = invoiceDraft.lineItems.length
+        ? invoiceDraft.lineItems.map((item) => `
+            <tr>
+                <td>
+                    <strong>${escapeHtml(item.label || "Invoice line")}</strong>
+                    <span>${escapeHtml(item.description || "Billing details to be confirmed.")}</span>
+                </td>
+                <td>${escapeHtml(formatCurrency(item.amount || 0))}</td>
+            </tr>
+        `).join("")
+        : `
+            <tr>
+                <td>
+                    <strong>Invoice scope pending</strong>
+                    <span>Add line items or import the estimate lines to build this invoice.</span>
+                </td>
+                <td>${escapeHtml(formatCurrency(0))}</td>
+            </tr>
+        `;
+
+    return `
+        <article class="estimate-sheet invoice-sheet">
+            <header class="invoice-sheet-header">
+                <div class="invoice-brand-bar">
+                    <div class="estimate-eyebrow">${escapeHtml(COMPANY_INFO.name)}</div>
+                    <div class="invoice-brand-copy">
+                        <div class="invoice-status-pill ${escapeHtml(invoiceDraft.status)}">${escapeHtml(INVOICE_STATUS_META[invoiceDraft.status] || "Draft")}</div>
+                        <h3>${escapeHtml(invoiceDraft.title || "Invoice")}</h3>
+                        <p>Professional client invoice prepared from the current Golden Brick job record so billing, collections, and receipts stay tied to the real project economics.</p>
+                    </div>
+                </div>
+
+                <div class="invoice-company-card">
+                    <div>
+                        <span>Prepared by</span>
+                        <strong>${escapeHtml(COMPANY_INFO.name)}</strong>
+                    </div>
+                    <div>
+                        <span>Email</span>
+                        <strong>${escapeHtml(COMPANY_INFO.email)}</strong>
+                    </div>
+                    <div>
+                        <span>Phone</span>
+                        <strong>${escapeHtml(COMPANY_INFO.phone)}</strong>
+                    </div>
+                </div>
+            </header>
+
+            <section class="invoice-meta-grid">
+                <article class="invoice-meta-card">
+                    <span>Invoice number</span>
+                    <strong>${escapeHtml(invoiceDraft.invoiceNumber || "Pending save")}</strong>
+                </article>
+                <article class="invoice-meta-card">
+                    <span>Issue date</span>
+                    <strong>${escapeHtml(preparedDate)}</strong>
+                </article>
+                <article class="invoice-meta-card">
+                    <span>Due date</span>
+                    <strong>${escapeHtml(dueDate)}</strong>
+                </article>
+                <article class="invoice-meta-card">
+                    <span>Client</span>
+                    <strong>${escapeHtml(invoiceClientName(project))}</strong>
+                </article>
+            </section>
+
+            <section class="invoice-summary-grid">
+                <article class="invoice-summary-card">
+                    <span>Project address</span>
+                    <strong>${escapeHtml(invoiceProjectAddress(project))}</strong>
+                </article>
+                <article class="invoice-summary-card">
+                    <span>Project type</span>
+                    <strong>${escapeHtml(project?.projectType || "Renovation scope")}</strong>
+                </article>
+                <article class="invoice-summary-card">
+                    <span>Total due</span>
+                    <strong>${escapeHtml(formatCurrency(invoiceDraft.subtotal || 0))}</strong>
+                </article>
+                <article class="invoice-summary-card">
+                    <span>Payment status</span>
+                    <strong>${escapeHtml(invoiceDraft.status === "paid" ? `Paid ${paymentDate}` : "Awaiting payment")}</strong>
+                </article>
+            </section>
+
+            <section class="invoice-section">
+                <div class="invoice-section-heading">
+                    <span>Invoice overview</span>
+                    <p>Use this summary to explain what billing stage the client is paying for and what work or milestone it represents.</p>
+                </div>
+                <div class="invoice-summary-shell">
+                    <p>${escapeHtml(invoiceDraft.summary || "No invoice summary added yet.")}</p>
+                </div>
+            </section>
+
+            <section class="invoice-section">
+                <div class="invoice-section-heading">
+                    <span>Custom details</span>
+                    <p>Flexible invoice metadata for milestone naming, property nicknames, terms, or any other billing context you want the client to see.</p>
+                </div>
+                <div class="invoice-summary-shell">
+                    ${invoiceCustomFieldMarkup(invoiceDraft)}
+                </div>
+            </section>
+
+            <section class="invoice-section">
+                <div class="invoice-section-heading">
+                    <span>Invoice lines</span>
+                    <p>Each invoice line explains exactly what is being billed in this draw, milestone, or final payment request.</p>
+                </div>
+                <div class="invoice-summary-shell">
+                    <table class="invoice-line-item-table">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="invoice-section">
+                <div class="invoice-total-shell">
+                    <span>Total due</span>
+                    <strong>${escapeHtml(formatCurrency(invoiceDraft.subtotal || 0))}</strong>
+                    <p>${escapeHtml(invoiceDraft.notes || "Payment instructions and billing notes will appear here.")}</p>
+                </div>
+            </section>
+
+            <section class="invoice-footer-grid">
+                <div class="invoice-section">
+                    <div class="invoice-section-heading">
+                        <span>Payment instructions</span>
+                        <p>Use this section to clarify payment expectations, timing, and remittance notes for the client.</p>
+                    </div>
+                    <div class="invoice-summary-shell">
+                        <p>${escapeHtml(invoiceDraft.notes || "No payment instructions added yet.")}</p>
+                    </div>
+                </div>
+
+                <div class="invoice-section">
+                    <div class="invoice-section-heading">
+                        <span>${escapeHtml(invoiceDraft.status === "paid" ? "Receipt status" : "Next step")}</span>
+                        <p>${escapeHtml(invoiceDraft.status === "paid"
+                            ? "This invoice has been marked paid, so the same billing information can now be delivered as a receipt."
+                            : "After you send this invoice, you can mark it paid later to record the collection and generate a receipt.")}</p>
+                    </div>
+                    <div class="invoice-receipt-panel">
+                        <div><span>Paid date</span><strong>${escapeHtml(paymentDate)}</strong></div>
+                        <div><span>Payment method</span><strong>${escapeHtml(invoiceDraft.paymentMethod || "Pending")}</strong></div>
+                        <div><span>Reference</span><strong>${escapeHtml(invoiceDraft.paymentReference || "Not set")}</strong></div>
+                        <p>${escapeHtml(invoiceDraft.paymentNote || "No receipt note has been added.")}</p>
+                    </div>
+                </div>
+            </section>
+
+            <footer class="estimate-print-foot">
+                <div>
+                    <strong>${escapeHtml(COMPANY_INFO.name)}</strong>
+                    <div>${escapeHtml(COMPANY_INFO.email)} · ${escapeHtml(COMPANY_INFO.phone)}</div>
+                </div>
+                <div>${escapeHtml(invoiceDraft.status === "paid" ? "Paid receipt ready for client delivery." : "Invoice ready for client delivery.")}</div>
+            </footer>
+        </article>
+    `;
+}
+
+function buildInvoiceReceiptHtml(project, invoiceDraft) {
+    return `
+        <article class="estimate-sheet invoice-sheet">
+            <header class="invoice-sheet-header">
+                <div class="invoice-brand-bar">
+                    <div class="estimate-eyebrow">${escapeHtml(COMPANY_INFO.name)}</div>
+                    <div class="invoice-brand-copy">
+                        <div class="invoice-status-pill paid">Paid receipt</div>
+                        <h3>Receipt for ${escapeHtml(invoiceDraft.invoiceNumber || "invoice")}</h3>
+                        <p>This receipt confirms payment received by Golden Brick Construction for the invoice below.</p>
+                    </div>
+                </div>
+                <div class="invoice-company-card">
+                    <div>
+                        <span>Client</span>
+                        <strong>${escapeHtml(invoiceClientName(project))}</strong>
+                    </div>
+                    <div>
+                        <span>Project address</span>
+                        <strong>${escapeHtml(invoiceProjectAddress(project))}</strong>
+                    </div>
+                    <div>
+                        <span>Receipt date</span>
+                        <strong>${escapeHtml(formatDateOnly(invoiceDraft.paidAt || new Date()))}</strong>
+                    </div>
+                </div>
+            </header>
+
+            <section class="invoice-meta-grid">
+                <article class="invoice-meta-card">
+                    <span>Invoice number</span>
+                    <strong>${escapeHtml(invoiceDraft.invoiceNumber || "Pending save")}</strong>
+                </article>
+                <article class="invoice-meta-card">
+                    <span>Amount received</span>
+                    <strong>${escapeHtml(formatCurrency(invoiceDraft.subtotal || 0))}</strong>
+                </article>
+                <article class="invoice-meta-card">
+                    <span>Payment method</span>
+                    <strong>${escapeHtml(invoiceDraft.paymentMethod || "Not set")}</strong>
+                </article>
+                <article class="invoice-meta-card">
+                    <span>Reference</span>
+                    <strong>${escapeHtml(invoiceDraft.paymentReference || "Not set")}</strong>
+                </article>
+            </section>
+
+            <section class="invoice-section">
+                <div class="invoice-section-heading">
+                    <span>Receipt summary</span>
+                    <p>Payment received for the following Golden Brick invoice and job scope.</p>
+                </div>
+                <div class="invoice-summary-shell">
+                    <p>${escapeHtml(invoiceDraft.paymentNote || invoiceDraft.summary || "Payment received and applied to the linked project invoice.")}</p>
+                </div>
+            </section>
+
+            <section class="invoice-section">
+                <div class="invoice-total-shell">
+                    <span>Received total</span>
+                    <strong>${escapeHtml(formatCurrency(invoiceDraft.subtotal || 0))}</strong>
+                    <p>Thank you for your payment. This receipt can be kept for your accounting and project records.</p>
+                </div>
+            </section>
+
+            <footer class="estimate-print-foot">
+                <div>
+                    <strong>${escapeHtml(COMPANY_INFO.name)}</strong>
+                    <div>${escapeHtml(COMPANY_INFO.email)} · ${escapeHtml(COMPANY_INFO.phone)}</div>
+                </div>
+                <div>Receipt issued for client records.</div>
+            </footer>
+        </article>
+    `;
+}
+
+function buildInvoiceDocumentHtml(project, invoiceDraft, mode = "invoice") {
+    const previewHtml = mode === "receipt"
+        ? buildInvoiceReceiptHtml(project, invoiceDraft)
+        : buildInvoicePreviewHtml(project, invoiceDraft);
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>${escapeHtml(mode === "receipt" ? `Receipt - ${invoiceDraft.invoiceNumber || "invoice"}` : invoiceDraft.title || "Invoice")}</title>
+    <style>
+        :root {
+            --brand: #c5a059;
+            --brand-deep: #8e6a2e;
+            --ink: #17120d;
+            --muted: #6d6356;
+            --line: #e7dac5;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 28px;
+            background: #f5eee5;
+            color: var(--ink);
+            font-family: "Manrope", "Helvetica Neue", Arial, sans-serif;
+        }
+        .estimate-sheet {
+            display: grid;
+            gap: 24px;
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 34px;
+            background: #fffdf9;
+            border: 1px solid rgba(70, 53, 34, 0.08);
+            border-top: 4px solid var(--brand);
+            border-radius: 18px;
+            box-shadow: 0 20px 40px rgba(26, 21, 16, 0.08);
+        }
+        .estimate-eyebrow,
+        .invoice-meta-card span,
+        .invoice-summary-card span,
+        .invoice-section-heading span {
+            color: var(--brand-deep);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+        .invoice-sheet-header,
+        .invoice-meta-grid,
+        .invoice-summary-grid,
+        .invoice-footer-grid {
+            display: grid;
+            gap: 18px;
+        }
+        .invoice-sheet-header {
+            grid-template-columns: minmax(0, 1.12fr) minmax(300px, 0.88fr);
+        }
+        .invoice-brand-copy,
+        .invoice-company-card,
+        .invoice-section,
+        .invoice-section-heading,
+        .invoice-receipt-panel {
+            display: grid;
+            gap: 12px;
+        }
+        .invoice-brand-copy h3 {
+            margin: 0;
+            font-family: "Fraunces", Georgia, serif;
+            font-size: 34px;
+            line-height: 1.06;
+        }
+        .invoice-status-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 30px;
+            padding: 6px 12px;
+            width: max-content;
+            border-radius: 999px;
+            background: rgba(197, 160, 89, 0.14);
+            color: var(--brand-deep);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+        .invoice-status-pill.paid {
+            background: rgba(47, 107, 69, 0.12);
+            color: #2f6b45;
+        }
+        .invoice-company-card,
+        .invoice-summary-shell,
+        .invoice-total-shell,
+        .invoice-receipt-panel,
+        .invoice-meta-card,
+        .invoice-summary-card,
+        .invoice-custom-field-list li {
+            padding: 18px;
+            background: #faf6ef;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+        }
+        .invoice-meta-grid,
+        .invoice-summary-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+        .invoice-meta-card strong,
+        .invoice-summary-card strong,
+        .invoice-company-card strong {
+            display: block;
+            margin-top: 4px;
+            font-size: 16px;
+        }
+        .invoice-section-heading p,
+        .invoice-summary-shell p,
+        .invoice-brand-copy p,
+        .invoice-company-card p,
+        .invoice-line-item-table td span,
+        .invoice-receipt-panel p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.7;
+        }
+        .invoice-line-item-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .invoice-line-item-table th,
+        .invoice-line-item-table td {
+            padding: 14px 0;
+            border-bottom: 1px solid var(--line);
+            vertical-align: top;
+            text-align: left;
+        }
+        .invoice-line-item-table th:last-child,
+        .invoice-line-item-table td:last-child {
+            text-align: right;
+            white-space: nowrap;
+        }
+        .invoice-total-shell strong {
+            font-family: "Fraunces", Georgia, serif;
+            font-size: 38px;
+            line-height: 1;
+        }
+        .invoice-footer-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .invoice-custom-field-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: grid;
+            gap: 10px;
+        }
+        .invoice-custom-field-list li {
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+        }
+        .estimate-print-foot {
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+            align-items: flex-end;
+            padding-top: 18px;
+            border-top: 1px solid var(--line);
+            color: var(--muted);
+            font-size: 14px;
+        }
+        @media print {
+            body {
+                padding: 0;
+                background: #ffffff;
+            }
+            .estimate-sheet {
+                box-shadow: none;
+                max-width: none;
+                margin: 0;
+            }
+        }
+        @media (max-width: 820px) {
+            body { padding: 16px; }
+            .invoice-sheet-header,
+            .invoice-meta-grid,
+            .invoice-summary-grid,
+            .invoice-footer-grid {
+                grid-template-columns: 1fr;
+            }
+            .estimate-print-foot {
+                display: grid;
+            }
+        }
+    </style>
+</head>
+<body>${previewHtml}</body>
+</html>`;
+}
+
+function downloadInvoiceHtmlFallback(project, invoiceDraft, mode = "invoice") {
+    const prefix = mode === "receipt" ? "receipt" : "invoice";
+    downloadBlobFile(
+        invoiceDownloadFilename(project, invoiceDraft, "html", prefix),
+        buildInvoiceDocumentHtml(project, invoiceDraft, mode),
+        "text/html;charset=utf-8"
+    );
+}
+
+function buildInvoicePdf(doc, project, invoiceDraft) {
+    const cursor = {
+        left: 54,
+        top: 46,
+        bottom: 52,
+        width: doc.internal.pageSize.getWidth() - 108,
+        y: 46
+    };
+
+    doc.setProperties({
+        title: invoiceDraft.title || "Invoice",
+        subject: `${COMPANY_INFO.name} invoice`,
+        author: COMPANY_INFO.name,
+        creator: COMPANY_INFO.name
+    });
+
+    applyEstimatePdfTopBar(doc);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.brandDeep);
+    doc.text(COMPANY_INFO.name.toUpperCase(), cursor.left, cursor.y);
+    cursor.y += 20;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(24);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+    doc.text(doc.splitTextToSize(invoiceDraft.title || "Invoice", cursor.width), cursor.left, cursor.y);
+    cursor.y += 30;
+
+    drawEstimatePdfParagraph(doc, cursor, "Professional client invoice prepared directly from the live Golden Brick job record.", {
+        fontSize: 11,
+        lineHeight: 15,
+        color: ESTIMATE_PDF_THEME.muted,
+        gapAfter: 14
+    });
+
+    drawEstimatePdfMetaCards(doc, cursor, [
+        { label: "Invoice number", value: invoiceDraft.invoiceNumber || "Pending save" },
+        { label: "Status", value: INVOICE_STATUS_META[invoiceDraft.status] || "Draft" },
+        { label: "Issue date", value: formatDateOnly(invoiceDraft.issueDate) },
+        { label: "Due date", value: formatDateOnly(invoiceDraft.dueDate) },
+        { label: "Client", value: invoiceClientName(project) },
+        { label: "Project address", value: invoiceProjectAddress(project) }
+    ]);
+
+    drawEstimatePdfSectionHeading(doc, cursor, "Invoice overview", "Use this summary to align the client on what this billing package covers.");
+    drawEstimatePdfParagraph(doc, cursor, invoiceDraft.summary || "No invoice overview added yet.", {
+        fontSize: 11,
+        lineHeight: 16,
+        color: ESTIMATE_PDF_THEME.muted,
+        gapAfter: 14
+    });
+
+    if (invoiceDraft.customFields.length) {
+        drawEstimatePdfSectionHeading(doc, cursor, "Custom details", "Flexible invoice fields for milestone naming, terms, or project context.");
+        invoiceDraft.customFields.forEach((field) => {
+            drawEstimatePdfBulletItem(doc, cursor, `${field.label || "Detail"}: ${field.value || "Not set"}`);
+        });
+        cursor.y += 4;
+    }
+
+    drawEstimatePdfSectionHeading(doc, cursor, "Invoice lines", "Each line item explains exactly what is being billed in this invoice.");
+    doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
+    doc.line(cursor.left, cursor.y, cursor.left + cursor.width, cursor.y);
+    cursor.y += 18;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.brandDeep);
+    doc.text("DESCRIPTION", cursor.left, cursor.y);
+    doc.text("AMOUNT", cursor.left + cursor.width, cursor.y, { align: "right" });
+    cursor.y += 10;
+    doc.line(cursor.left, cursor.y, cursor.left + cursor.width, cursor.y);
+    cursor.y += 18;
+
+    (invoiceDraft.lineItems.length ? invoiceDraft.lineItems : [{
+        label: "Invoice scope pending",
+        description: "Add billing lines or import the estimate lines.",
+        amount: 0
+    }]).forEach((item) => {
+        const titleLines = doc.splitTextToSize(item.label || "Invoice line", cursor.width - 120);
+        const descriptionLines = doc.splitTextToSize(item.description || "Billing details pending.", cursor.width - 120);
+        const rowHeight = ((titleLines.length + descriptionLines.length) * 14) + 16;
+
+        ensureEstimatePdfSpace(doc, cursor, rowHeight + 12);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+        doc.text(titleLines, cursor.left, cursor.y);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(...ESTIMATE_PDF_THEME.muted);
+        doc.text(descriptionLines, cursor.left, cursor.y + (titleLines.length * 14));
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+        doc.text(formatCurrency(item.amount || 0), cursor.left + cursor.width, cursor.y, { align: "right" });
+        cursor.y += rowHeight;
+        doc.line(cursor.left, cursor.y, cursor.left + cursor.width, cursor.y);
+        cursor.y += 14;
+    });
+
+    ensureEstimatePdfSpace(doc, cursor, 44);
+    doc.setFillColor(...ESTIMATE_PDF_THEME.panel);
+    doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
+    doc.roundedRect(cursor.left, cursor.y, cursor.width, 34, 8, 8, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+    doc.text("Total due", cursor.left + 16, cursor.y + 22);
+    doc.text(formatCurrency(invoiceDraft.subtotal || 0), cursor.left + cursor.width - 16, cursor.y + 22, { align: "right" });
+    cursor.y += 50;
+
+    drawEstimatePdfSectionHeading(doc, cursor, "Payment instructions", "");
+    drawEstimatePdfParagraph(doc, cursor, invoiceDraft.notes || "Contact Golden Brick Construction for remittance and billing questions.", {
+        fontSize: 11,
+        lineHeight: 16,
+        color: ESTIMATE_PDF_THEME.muted,
+        gapAfter: 18
+    });
+
+    ensureEstimatePdfSpace(doc, cursor, 32);
+    doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
+    doc.line(cursor.left, cursor.y, cursor.left + cursor.width, cursor.y);
+    cursor.y += 18;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+    doc.text(COMPANY_INFO.name, cursor.left, cursor.y);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...ESTIMATE_PDF_THEME.muted);
+    doc.text(`${COMPANY_INFO.email} | ${COMPANY_INFO.phone}`, cursor.left + cursor.width, cursor.y, { align: "right" });
+}
+
+function buildInvoiceReceiptPdf(doc, project, invoiceDraft) {
+    const cursor = {
+        left: 54,
+        top: 46,
+        bottom: 52,
+        width: doc.internal.pageSize.getWidth() - 108,
+        y: 46
+    };
+
+    doc.setProperties({
+        title: `Receipt ${invoiceDraft.invoiceNumber || ""}`.trim(),
+        subject: `${COMPANY_INFO.name} receipt`,
+        author: COMPANY_INFO.name,
+        creator: COMPANY_INFO.name
+    });
+
+    applyEstimatePdfTopBar(doc);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.brandDeep);
+    doc.text(COMPANY_INFO.name.toUpperCase(), cursor.left, cursor.y);
+    cursor.y += 20;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(24);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+    doc.text(doc.splitTextToSize(`Receipt for ${invoiceDraft.invoiceNumber || "invoice"}`, cursor.width), cursor.left, cursor.y);
+    cursor.y += 30;
+
+    drawEstimatePdfParagraph(doc, cursor, "Payment receipt confirming funds received for the invoice below.", {
+        fontSize: 11,
+        lineHeight: 15,
+        color: ESTIMATE_PDF_THEME.muted,
+        gapAfter: 14
+    });
+
+    drawEstimatePdfMetaCards(doc, cursor, [
+        { label: "Client", value: invoiceClientName(project) },
+        { label: "Project address", value: invoiceProjectAddress(project) },
+        { label: "Invoice number", value: invoiceDraft.invoiceNumber || "Pending save" },
+        { label: "Receipt date", value: formatDateOnly(invoiceDraft.paidAt || new Date()) },
+        { label: "Payment method", value: invoiceDraft.paymentMethod || "Not set" },
+        { label: "Amount received", value: formatCurrency(invoiceDraft.subtotal || 0) }
+    ]);
+
+    drawEstimatePdfSectionHeading(doc, cursor, "Receipt summary", "");
+    drawEstimatePdfParagraph(doc, cursor, invoiceDraft.paymentNote || invoiceDraft.summary || "Payment received and applied to the linked Golden Brick invoice.", {
+        fontSize: 11,
+        lineHeight: 16,
+        color: ESTIMATE_PDF_THEME.muted,
+        gapAfter: 18
+    });
+
+    ensureEstimatePdfSpace(doc, cursor, 44);
+    doc.setFillColor(...ESTIMATE_PDF_THEME.panel);
+    doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
+    doc.roundedRect(cursor.left, cursor.y, cursor.width, 34, 8, 8, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+    doc.text("Received total", cursor.left + 16, cursor.y + 22);
+    doc.text(formatCurrency(invoiceDraft.subtotal || 0), cursor.left + cursor.width - 16, cursor.y + 22, { align: "right" });
+    cursor.y += 50;
+
+    ensureEstimatePdfSpace(doc, cursor, 32);
+    doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
+    doc.line(cursor.left, cursor.y, cursor.left + cursor.width, cursor.y);
+    cursor.y += 18;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+    doc.text(COMPANY_INFO.name, cursor.left, cursor.y);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...ESTIMATE_PDF_THEME.muted);
+    doc.text(`${COMPANY_INFO.email} | ${COMPANY_INFO.phone}`, cursor.left + cursor.width, cursor.y, { align: "right" });
+}
+
+function updateInvoicePreview() {
+    const project = currentProject();
+    if (!project) {
+        refs.invoicePreview.innerHTML = `<div class="invoice-preview-empty">Select a job first to create or review invoices.</div>`;
+        refs.invoiceSubtotal.textContent = formatCurrency(0);
+        return;
+    }
+
+    const invoiceDraft = state.projectInvoiceDraft
+        || collectInvoiceForm(currentProjectInvoice() || defaultProjectInvoiceDraft(project));
+    refs.invoiceSubtotal.textContent = formatCurrency(invoiceDraft.subtotal);
+    refs.invoicePreview.innerHTML = buildInvoicePreviewHtml(project, invoiceDraft);
+}
+
+function renderProjectInvoiceSummary(project) {
+    const invoices = sortByUpdatedDesc(state.projectInvoices);
+    const paidInvoices = invoices.filter((invoice) => invoice.status === "paid");
+    const outstandingInvoices = invoices.filter((invoice) => invoice.status !== "paid");
+    const totalBilled = invoices.reduce((sum, invoice) => sum + toNumber(invoice.subtotal), 0);
+    const totalCollected = paidInvoices.reduce((sum, invoice) => sum + toNumber(invoice.subtotal), 0);
+
+    refs.jobInvoiceSummary.innerHTML = [
+        { label: "Invoices", value: String(invoices.length) },
+        { label: "Outstanding", value: String(outstandingInvoices.length) },
+        { label: "Total billed", value: formatCurrency(totalBilled) },
+        { label: "Collected", value: formatCurrency(totalCollected) }
+    ].map((item) => `
+        <article class="summary-card">
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.value)}</strong>
+        </article>
+    `).join("");
+}
+
+function renderProjectInvoiceList(project) {
+    if (!state.projectInvoices.length) {
+        refs.jobInvoiceList.innerHTML = `<div class="empty-note">No invoices saved on this job yet. Create one here, import the estimate lines, and send a polished billing package.</div>`;
+        return;
+    }
+
+    const activeInvoiceId = currentProjectInvoice()?.id || state.selectedProjectInvoiceId || "";
+    refs.jobInvoiceList.innerHTML = sortByUpdatedDesc(state.projectInvoices).map((invoice) => `
+        <button type="button" class="record-button invoice-record-button ${activeInvoiceId === invoice.id ? "is-selected" : ""}" data-project-invoice-id="${escapeHtml(invoice.id)}">
+            <div class="record-topline">
+                <span class="mini-pill">${escapeHtml(invoice.invoiceNumber || "Invoice")}</span>
+                <span class="mini-pill">${escapeHtml(INVOICE_STATUS_META[invoice.status] || "Draft")}</span>
+            </div>
+            <span class="record-title">${escapeHtml(invoice.title || "Invoice")}</span>
+            <p class="record-copy">${escapeHtml(invoice.summary || invoiceProjectAddress(project))}</p>
+            <div class="record-meta">
+                <div>${escapeHtml(formatCurrency(invoice.subtotal || 0))}</div>
+                <div>Issued ${escapeHtml(formatDateOnly(invoice.issueDate || invoice.createdAt))}</div>
+                <div>${escapeHtml(invoice.status === "paid" ? `Paid ${formatDateOnly(invoice.paidAt || invoice.updatedAt)}` : `Due ${formatDateOnly(invoice.dueDate || invoice.issueDate || invoice.createdAt)}`)}</div>
+            </div>
+        </button>
+    `).join("");
+}
+
+function setInvoiceFormEditable(editable) {
+    [
+        refs.invoiceTitle,
+        refs.invoiceNumber,
+        refs.invoiceIssueDate,
+        refs.invoiceDueDate,
+        refs.invoiceSummary,
+        refs.invoiceNotes,
+        refs.invoicePaidDate,
+        refs.invoicePaymentMethod,
+        refs.invoicePaymentReference,
+        refs.invoicePaymentNote
+    ].forEach((field) => {
+        if (!field) return;
+        field.readOnly = !editable;
+        field.disabled = !editable && field.type === "date";
+    });
+}
+
+function renderInvoicePanel(project) {
+    if (!project) {
+        refs.invoiceStatusDisplay.value = "";
+        refs.invoicePreview.innerHTML = `<div class="invoice-preview-empty">Select a job first to create or review invoices.</div>`;
+        refs.invoiceSubtotal.textContent = formatCurrency(0);
+        refs.jobInvoiceSummary.innerHTML = "";
+        refs.jobInvoiceList.innerHTML = `<div class="empty-note">Select a job to load invoices.</div>`;
+        return;
+    }
+
+    if (!state.projectInvoiceDraft && !state.selectedProjectInvoiceId && state.projectInvoices.length) {
+        state.selectedProjectInvoiceId = sortByUpdatedDesc(state.projectInvoices)[0]?.id || null;
+    }
+
+    let invoice = currentProjectInvoice();
+    if (!invoice && isAdmin() && state.activeJobTab === "invoices") {
+        state.projectInvoiceDraft = defaultProjectInvoiceDraft(project);
+        invoice = state.projectInvoiceDraft;
+    }
+
+    renderProjectInvoiceSummary(project);
+    renderProjectInvoiceList(project);
+
+    const editable = isAdmin();
+    setInvoiceFormEditable(editable);
+
+    if (!invoice) {
+        refs.invoiceTitle.value = "";
+        refs.invoiceNumber.value = "";
+        refs.invoiceStatusDisplay.value = "No invoice selected";
+        refs.invoiceIssueDate.value = "";
+        refs.invoiceDueDate.value = "";
+        refs.invoiceSummary.value = "";
+        refs.invoiceNotes.value = "";
+        refs.invoicePaidDate.value = "";
+        refs.invoicePaymentMethod.value = "";
+        refs.invoicePaymentReference.value = "";
+        refs.invoicePaymentNote.value = "";
+        renderInvoiceCustomFields([], editable);
+        renderInvoiceLines([], editable);
+        refs.invoicePreview.innerHTML = `<div class="invoice-preview-empty">No invoice is selected for this job yet.</div>`;
+        refs.invoiceSubtotal.textContent = formatCurrency(0);
+        refs.invoiceDownloadButton.disabled = true;
+        refs.invoiceReceiptButton.disabled = true;
+        refs.invoiceMarkPaidButton.disabled = true;
+        refs.invoiceImportEstimateButton.disabled = !editable;
+        refs.invoiceAddLineButton.disabled = !editable;
+        refs.invoiceAddCustomFieldButton.disabled = !editable;
+        return;
+    }
+
+    const hydrated = hydrateProjectInvoice(project, invoice);
+    refs.invoiceTitle.value = hydrated.title || "";
+    refs.invoiceNumber.value = hydrated.invoiceNumber || "";
+    refs.invoiceStatusDisplay.value = INVOICE_STATUS_META[hydrated.status] || "Draft";
+    refs.invoiceIssueDate.value = formatDateOnlyInputValue(hydrated.issueDate);
+    refs.invoiceDueDate.value = formatDateOnlyInputValue(hydrated.dueDate);
+    refs.invoiceSummary.value = hydrated.summary || "";
+    refs.invoiceNotes.value = hydrated.notes || "";
+    refs.invoicePaidDate.value = formatDateOnlyInputValue(hydrated.paidAt);
+    refs.invoicePaymentMethod.value = hydrated.paymentMethod || "";
+    refs.invoicePaymentReference.value = hydrated.paymentReference || "";
+    refs.invoicePaymentNote.value = hydrated.paymentNote || "";
+    renderInvoiceCustomFields(hydrated.customFields, editable);
+    renderInvoiceLines(hydrated.lineItems, editable);
+    refs.invoiceSubtotal.textContent = formatCurrency(hydrated.subtotal || 0);
+    refs.invoicePreview.innerHTML = buildInvoicePreviewHtml(project, hydrated);
+    refs.invoiceDownloadButton.disabled = false;
+    refs.invoiceReceiptButton.disabled = hydrated.status !== "paid";
+    refs.invoiceMarkPaidButton.disabled = !editable || hydrated.status === "paid";
+    refs.invoiceImportEstimateButton.disabled = !editable || (!project.leadId && !state.projectScopeItems.length);
+    refs.invoiceAddLineButton.disabled = !editable;
+    refs.invoiceAddCustomFieldButton.disabled = !editable;
+}
+
+async function invoiceImportSourceItems(project) {
+    if (state.projectScopeItems.length) {
+        return state.projectScopeItems
+            .slice()
+            .sort((left, right) => toNumber(left.estimateIndex) - toNumber(right.estimateIndex))
+            .map((item) => ({
+                label: safeString(item.title || item.label),
+                description: safeString(item.description || item.note),
+                amount: toNumber(item.amount)
+            }))
+            .filter((item) => item.label || item.description || item.amount);
+    }
+
+    if (!project?.leadId) {
+        return [];
+    }
+
+    const estimateSnap = await getDoc(doc(state.db, "estimates", project.leadId));
+    if (!estimateSnap.exists()) {
+        return [];
+    }
+
+    return estimateScopeItems(normaliseFirestoreDoc(estimateSnap)).map((item) => ({
+        label: safeString(item.label || item.title),
+        description: safeString(item.description),
+        amount: toNumber(item.amount)
+    }));
+}
+
+async function importInvoiceLinesFromEstimate() {
+    const project = currentProject();
+    if (!project || !isAdmin()) {
+        showToast("Only admins can import estimate lines into an invoice.", "error");
+        return;
+    }
+
+    const lineItems = await invoiceImportSourceItems(project);
+    if (!lineItems.length) {
+        showToast("No estimate lines were found for this job yet.", "error");
+        return;
+    }
+
+    if (!currentProjectInvoice()) {
+        state.projectInvoiceDraft = defaultProjectInvoiceDraft(project, { lineItems });
+    }
+
+    const baseInvoice = currentProjectInvoiceDoc() || state.projectInvoiceDraft || currentProjectInvoice() || defaultProjectInvoiceDraft(project);
+    state.projectInvoiceDraft = hydrateProjectInvoice(project, {
+        ...baseInvoice,
+        lineItems
+    });
+    renderInvoiceLines(lineItems, true);
+    updateInvoicePreview();
+    await addProjectActivityEntry(
+        project.id,
+        "invoice",
+        "Invoice lines imported",
+        `Invoice draft pulled ${lineItems.length} line items from the estimate scope for billing prep.`
+    );
+    showToast("Estimate lines imported into the invoice.");
+}
+
+async function persistProjectInvoice({ forceStatus = null } = {}) {
+    const project = currentProject();
+    if (!project || !isAdmin()) {
+        throw new Error("Select a job first.");
+    }
+
+    const existing = currentProjectInvoiceDoc();
+    const draft = collectInvoiceForm(existing || currentProjectInvoice() || defaultProjectInvoiceDraft(project));
+    const invoiceRef = existing
+        ? doc(state.db, "projects", project.id, "invoices", existing.id)
+        : doc(collection(state.db, "projects", project.id, "invoices"));
+    const nextStatus = forceStatus || draft.status || "draft";
+    const payload = {
+        id: invoiceRef.id,
+        projectId: project.id,
+        leadId: project.leadId || null,
+        customerId: project.customerId || null,
+        customerName: project.customerName || "",
+        clientName: project.clientName || "",
+        projectAddress: project.projectAddress || "",
+        projectType: project.projectType || "",
+        title: draft.title,
+        invoiceNumber: draft.invoiceNumber,
+        status: nextStatus,
+        issueDate: draft.issueDate,
+        dueDate: draft.dueDate,
+        summary: draft.summary,
+        customFields: draft.customFields,
+        lineItems: draft.lineItems,
+        subtotal: draft.subtotal,
+        notes: draft.notes,
+        paidAt: nextStatus === "paid" ? (draft.paidAt || new Date()) : draft.paidAt || null,
+        paymentMethod: draft.paymentMethod,
+        paymentReference: draft.paymentReference,
+        paymentNote: draft.paymentNote,
+        paymentRecordId: existing?.paymentRecordId || state.projectInvoiceDraft?.paymentRecordId || draft.paymentRecordId || null,
+        updatedAt: serverTimestamp(),
+        createdAt: existing?.createdAt || state.projectInvoiceDraft?.createdAt || serverTimestamp(),
+        createdByUid: existing?.createdByUid || state.profile.uid,
+        createdByName: existing?.createdByName || state.profile.displayName
+    };
+
+    if (!payload.title) {
+        throw new Error("Invoice title is required.");
+    }
+
+    if (!payload.invoiceNumber) {
+        throw new Error("Invoice number is required.");
+    }
+
+    await setDoc(invoiceRef, payload, { merge: true });
+    state.projectInvoiceDraft = null;
+    state.selectedProjectInvoiceId = invoiceRef.id;
+
+    await addProjectActivityEntry(
+        project.id,
+        "invoice",
+        existing ? "Invoice updated" : "Invoice created",
+        `${payload.invoiceNumber} is ${existing ? "updated" : "ready"} for ${formatCurrency(payload.subtotal || 0)}.`
+    );
+
+    return {
+        id: invoiceRef.id,
+        created: !existing,
+        invoice: hydrateProjectInvoice(project, payload)
+    };
+}
+
+async function saveProjectInvoice(event) {
+    event.preventDefault();
+
+    try {
+        const result = await persistProjectInvoice();
+        showToast(result.created ? "Invoice created." : "Invoice updated.");
+    } catch (error) {
+        showToast(error.message, "error");
+    }
+}
+
+async function markInvoicePaid() {
+    const project = currentProject();
+    if (!project || !isAdmin()) return;
+
+    const activeInvoice = currentProjectInvoice();
+    if (!activeInvoice) {
+        showToast("Create or select an invoice first.", "error");
+        return;
+    }
+
+    if (activeInvoice.status === "paid" || activeInvoice.paymentRecordId) {
+        showToast("This invoice is already marked paid.", "error");
+        return;
+    }
+
+    const saved = await persistProjectInvoice({ forceStatus: "paid" });
+    const invoice = saved.invoice;
+
+    const paymentRef = doc(collection(state.db, "projects", project.id, "payments"));
+    await setDoc(paymentRef, {
+        id: paymentRef.id,
+        amount: invoice.subtotal,
+        paymentType: "progress",
+        method: invoice.paymentMethod,
+        note: `Applied to invoice ${invoice.invoiceNumber}${invoice.paymentNote ? ` · ${invoice.paymentNote}` : ""}`,
+        relatedDate: invoice.paidAt || new Date(),
+        invoiceId: saved.id,
+        invoiceNumber: invoice.invoiceNumber,
+        createdByUid: state.profile.uid,
+        createdByName: state.profile.displayName,
+        createdAt: serverTimestamp()
+    }, { merge: true });
+
+    await updateDoc(doc(state.db, "projects", project.id, "invoices", saved.id), {
+        status: "paid",
+        paidAt: invoice.paidAt || new Date(),
+        paymentRecordId: paymentRef.id,
+        updatedAt: serverTimestamp()
+    });
+
+    await addProjectActivityEntry(
+        project.id,
+        "invoice",
+        "Invoice marked paid",
+        `${invoice.invoiceNumber} was marked paid for ${formatCurrency(invoice.subtotal || 0)}${invoice.paymentMethod ? ` via ${invoice.paymentMethod}` : ""}.`
+    );
+
+    showToast("Invoice marked paid and payment recorded.");
+}
+
+async function downloadInvoicePdf(mode = "invoice") {
+    const project = currentProject();
+    const activeInvoice = currentProjectInvoice();
+    if (!project || !activeInvoice) {
+        showToast("Create or select an invoice first.", "error");
+        return;
+    }
+
+    const invoiceDraft = collectInvoiceForm(activeInvoice);
+    if (mode === "receipt" && invoiceDraft.status !== "paid") {
+        showToast("Mark the invoice paid before downloading a receipt.", "error");
+        return;
+    }
+
+    const button = mode === "receipt" ? refs.invoiceReceiptButton : refs.invoiceDownloadButton;
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = mode === "receipt" ? "Preparing receipt..." : "Preparing PDF...";
+
+    try {
+        const { jsPDF } = await loadJsPdfModule();
+        const pdf = new jsPDF({ unit: "pt", format: "letter" });
+        if (mode === "receipt") {
+            buildInvoiceReceiptPdf(pdf, project, invoiceDraft);
+        } else {
+            buildInvoicePdf(pdf, project, invoiceDraft);
+        }
+        pdf.save(invoiceDownloadFilename(project, invoiceDraft, "pdf", mode === "receipt" ? "receipt" : "invoice"));
+        showToast(mode === "receipt" ? "Receipt PDF downloaded." : "Invoice PDF downloaded.");
+    } catch (error) {
+        console.error(`${mode === "receipt" ? "Receipt" : "Invoice"} PDF download failed.`, error);
+        downloadInvoiceHtmlFallback(project, invoiceDraft, mode);
+        showToast(`${mode === "receipt" ? "Receipt" : "Invoice"} PDF failed. HTML file downloaded instead.`, "error");
+    } finally {
+        button.disabled = false;
+        button.textContent = originalLabel;
+    }
 }
 
 function renderEntityTaskList(container, tasks, emptyMessage) {
@@ -4390,6 +6623,10 @@ function renderLeadDetail() {
         renderLeadCustomerMatch(null);
         refs.leadRecordContext.innerHTML = "";
         refs.leadPlanningNotesInput.value = "";
+        renderEstimateSharePanel(null);
+        refs.leadDocumentSummary.innerHTML = "";
+        renderEmptyList(refs.leadDocumentList, "Select or save a lead to manage shared documents.");
+        refs.leadDocumentForm.querySelector("button").disabled = true;
         refs.leadRecordEmpty.hidden = false;
         refs.leadRecordShell.hidden = true;
         return;
@@ -4426,32 +6663,576 @@ function renderLeadDetail() {
     renderActivityList(refs.noteList, state.leadActivities, "No activity recorded yet.");
     renderEstimatePanel();
     renderEntityTaskList(refs.leadTaskList, lead.id ? relatedTasksForEntity("leadId", lead.id) : [], "Save the lead first to attach tasks.");
+    renderLeadDocumentSourceFields();
+    renderLeadDocumentSummary();
+    renderLeadDocumentList();
     renderLeadJobSummary(lead);
     renderLeadTabState();
 
     refs.noteForm.querySelector("button").disabled = !lead.id;
+    refs.leadDocumentForm.querySelector("button").disabled = !lead.id;
     refs.estimateAiButton.disabled = !lead.id || !isAdmin();
     refs.estimateAddLineButton.disabled = !isAdmin();
     refs.leadCreateTaskButton.disabled = !lead.id;
     refs.leadTaskDrawerButton.disabled = !lead.id;
     refs.leadMarkWonButton.disabled = !lead.id;
     refs.leadMarkLostButton.disabled = !lead.id;
+
+    if (!refs.leadDocumentDate.value) {
+        refs.leadDocumentDate.value = todayDateInputValue();
+    }
+    if (!refs.leadDocumentSourceType.value) {
+        refs.leadDocumentSourceType.value = "upload";
+        renderLeadDocumentSourceFields();
+    }
 }
 
 function renderCustomerMetrics() {
-    const totalSales = state.customers.reduce((sum, customer) => {
+    const customers = visibleCustomers();
+    const visibleLeadSet = visibleLeads();
+    const totalSales = customers.reduce((sum, customer) => {
         return sum + toNumber(customer.totalWonSales || customerRollup(customer).totalWonSales);
     }, 0);
-    const totalPayments = state.customers.reduce((sum, customer) => {
+    const totalPayments = customers.reduce((sum, customer) => {
         return sum + toNumber(customer.totalPaymentsReceived || customerRollup(customer).totalPaymentsReceived);
     }, 0);
 
     renderMetricStrip(refs.customerMetrics, [
-        { label: "Customers", value: state.customers.length },
-        { label: "Open opportunities", value: state.leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status)).length },
+        { label: "Customers", value: customers.length },
+        { label: "Open opportunities", value: visibleLeadSet.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status)).length },
         { label: "Won sales", value: formatCurrency(totalSales) },
         { label: "Payments received", value: formatCurrency(totalPayments) }
     ]);
+}
+
+function portalInviteStatusLabel(contact = {}) {
+    if (contact.disabledAt) return "Disabled";
+    if (safeString(contact.inviteStatus) === "claimed" || safeString(contact.authUid)) return "Claimed";
+    if (safeString(contact.inviteStatus) === "revoked") return "Revoked";
+    if (safeString(contact.inviteStatus) === "invited") return "Invited";
+    return "Not invited";
+}
+
+function portalThreadTitle(thread = {}) {
+    if (safeString(thread.threadType) === "project") {
+        return safeString(thread.title || thread.projectAddress || "Project updates") || "Project updates";
+    }
+    return safeString(thread.title || "General project updates") || "General project updates";
+}
+
+function setCustomerPortalPreviewLink(contact = null) {
+    const href = safeString(contact?.inviteUrl || "");
+    refs.customerPortalPreviewLink.hidden = !href;
+    refs.customerPortalPreviewLink.href = href || "#";
+    refs.customerPortalPreviewLink.textContent = safeString(contact?.authUid)
+        ? "Open login view"
+        : "Preview invite";
+}
+
+function resetCustomerPortalContactForm() {
+    state.selectedCustomerPortalContactId = null;
+    refs.customerPortalContactForm?.reset();
+    if (refs.customerPortalContactScope) {
+        refs.customerPortalContactScope.value = "customer";
+    }
+    setCustomerPortalPreviewLink(null);
+}
+
+async function copyTextToClipboard(value, successMessage = "Copied.") {
+    const text = safeString(value);
+    if (!text) {
+        throw new Error("Nothing to copy yet.");
+    }
+
+    if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        showToast(successMessage);
+        return true;
+    }
+
+    const temp = document.createElement("textarea");
+    temp.value = text;
+    temp.setAttribute("readonly", "readonly");
+    temp.style.position = "fixed";
+    temp.style.opacity = "0";
+    document.body.append(temp);
+    temp.select();
+    temp.setSelectionRange(0, temp.value.length);
+    document.execCommand("copy");
+    temp.remove();
+    showToast(successMessage);
+    return true;
+}
+
+function selectCustomerPortalContact(contactId) {
+    const contact = state.customerPortalContacts.find((entry) => entry.id === contactId) || null;
+    state.selectedCustomerPortalContactId = contact?.id || null;
+
+    if (!contact) {
+        resetCustomerPortalContactForm();
+        renderCustomerPortalContactList(currentCustomer());
+        return;
+    }
+
+    refs.customerPortalContactName.value = contact.name || "";
+    refs.customerPortalContactEmail.value = contact.email || "";
+    refs.customerPortalContactPhone.value = contact.phone || "";
+    refs.customerPortalContactScope.value = contact.accessScope || "customer";
+    setCustomerPortalPreviewLink(contact);
+    renderCustomerPortalContactList(currentCustomer());
+}
+
+async function ensureCustomerPortalThread(customerId, projectId = "") {
+    const customer = state.customers.find((entry) => entry.id === customerId) || null;
+    if (!customer) {
+        throw new Error("Customer not found.");
+    }
+
+    const project = projectId
+        ? state.projects.find((entry) => entry.id === projectId && entry.customerId === customerId)
+        : null;
+    const threadId = project ? `project-${project.id}` : "general";
+    const ref = doc(state.db, "customers", customerId, "threads", threadId);
+
+    await setDoc(ref, {
+        id: threadId,
+        customerId,
+        threadType: project ? "project" : "general",
+        projectId: project?.id || null,
+        projectAddress: project?.projectAddress || "",
+        projectType: project?.projectType || "",
+        title: project?.projectAddress || "General project updates",
+        lastMessagePreview: "",
+        lastAuthorRole: "",
+        lastMessageAt: null,
+        clientUnreadCount: 0,
+        staffUnreadCount: 0,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    return threadId;
+}
+
+async function selectCustomerPortalThread(threadId, { markRead = false } = {}) {
+    const customer = currentCustomerDoc();
+    if (!customer?.id) {
+        return;
+    }
+
+    let nextThreadId = safeString(threadId);
+    if (!nextThreadId) {
+        nextThreadId = await ensureCustomerPortalThread(customer.id);
+    }
+
+    state.selectedCustomerPortalThreadId = nextThreadId;
+    renderCustomerPortalThreadList(customer);
+    renderCustomerPortalConversation(customer);
+
+    if (markRead) {
+        await markCustomerPortalThreadRead();
+    }
+}
+
+async function runCustomerPortalInviteAction(action, contact) {
+    const customer = currentCustomerDoc();
+    if (!customer?.id) {
+        throw new Error("Save the customer first.");
+    }
+
+    const payload = {
+        action,
+        customerId: customer.id,
+        contactId: contact?.id || "",
+        name: contact?.name || "",
+        email: contact?.email || "",
+        phone: contact?.phone || "",
+        accessScope: contact?.accessScope || "customer"
+    };
+
+    const response = await apiPost("/api/client/invite", payload);
+    if (response.contact?.id) {
+        state.selectedCustomerPortalContactId = response.contact.id;
+        setCustomerPortalPreviewLink(response.contact);
+    }
+
+    const actionMessages = {
+        create: "Portal invite created.",
+        resend: "Portal invite refreshed.",
+        copy: safeString(response.contact?.authUid) ? "Portal login link copied." : "Portal invite copied.",
+        revoke: "Portal access revoked.",
+        disable: "Portal access disabled.",
+        enable: "Portal access re-enabled."
+    };
+
+    if (action === "copy" && response.contact?.inviteUrl) {
+        await copyTextToClipboard(
+            response.contact.inviteUrl,
+            safeString(response.contact.authUid) ? "Portal login link copied." : "Portal invite copied."
+        );
+    } else {
+        showToast(actionMessages[action] || "Portal access updated.");
+    }
+
+    return response;
+}
+
+async function saveCustomerPortalContact(event) {
+    event.preventDefault();
+    const customer = currentCustomerDoc();
+    if (!customer?.id) {
+        showToast("Save the customer first.", "error");
+        return;
+    }
+
+    if (!isAdmin()) {
+        showToast("Only admins can manage portal contacts.", "error");
+        return;
+    }
+
+    const existing = currentCustomerPortalContact();
+    const payload = {
+        id: existing?.id || "",
+        name: refs.customerPortalContactName.value.trim(),
+        email: refs.customerPortalContactEmail.value.trim(),
+        phone: refs.customerPortalContactPhone.value.trim(),
+        accessScope: refs.customerPortalContactScope.value || "customer",
+        authUid: existing?.authUid || "",
+        inviteUrl: existing?.inviteUrl || ""
+    };
+
+    if (!payload.email) {
+        showToast("Portal contact email is required.", "error");
+        refs.customerPortalContactEmail.focus();
+        return;
+    }
+
+    const emailChanged = normaliseEmail(payload.email) !== normaliseEmail(existing?.email);
+    const action = existing?.authUid && !emailChanged ? "copy" : "create";
+    const response = await runCustomerPortalInviteAction(action, payload);
+    if (response.contact?.id) {
+        selectCustomerPortalContact(response.contact.id);
+    }
+}
+
+async function markCustomerPortalThreadRead() {
+    const customer = currentCustomerDoc();
+    const thread = currentCustomerPortalThread();
+
+    if (!customer?.id || !thread?.id) {
+        return;
+    }
+
+    await setDoc(doc(state.db, "customers", customer.id, "threads", thread.id), {
+        staffUnreadCount: 0,
+        lastStaffReadAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    showToast("Thread marked read.");
+}
+
+async function saveCustomerPortalMessage(event) {
+    event.preventDefault();
+    const customer = currentCustomerDoc();
+
+    if (!customer?.id) {
+        showToast("Save the customer first.", "error");
+        return;
+    }
+
+    let thread = currentCustomerPortalThread();
+    if (!thread) {
+        const threadId = await ensureCustomerPortalThread(customer.id);
+        state.selectedCustomerPortalThreadId = threadId;
+        thread = currentCustomerPortalThread() || { id: threadId, threadType: "general" };
+    }
+
+    const body = refs.customerPortalMessageBody.value.trim();
+    if (!body) {
+        showToast("Write the client-facing message first.", "error");
+        refs.customerPortalMessageBody.focus();
+        return;
+    }
+
+    const messageRef = doc(collection(state.db, "customers", customer.id, "threads", thread.id, "messages"));
+    const threadRef = doc(state.db, "customers", customer.id, "threads", thread.id);
+    const authorName = state.profile?.displayName || state.profile?.email || "Golden Brick";
+
+    const batch = writeBatch(state.db);
+    batch.set(messageRef, {
+        id: messageRef.id,
+        body,
+        authorRole: "staff",
+        authorUid: state.profile?.uid || "",
+        authorName,
+        readByClientAt: null,
+        readByStaffAt: serverTimestamp(),
+        createdAt: serverTimestamp()
+    }, { merge: true });
+    batch.set(threadRef, {
+        customerId: customer.id,
+        threadType: thread.threadType || "general",
+        projectId: thread.projectId || null,
+        projectAddress: thread.projectAddress || "",
+        projectType: thread.projectType || "",
+        title: portalThreadTitle(thread),
+        lastMessageAt: serverTimestamp(),
+        lastMessagePreview: body.slice(0, 240),
+        lastAuthorRole: "staff",
+        clientUnreadCount: increment(1),
+        staffUnreadCount: 0,
+        updatedAt: serverTimestamp()
+    }, { merge: true });
+    await batch.commit();
+
+    refs.customerPortalMessageBody.value = "";
+    showToast("Client message sent.");
+}
+
+function renderCustomerPortalSummary(customer, rollup) {
+    if (!customer?.id) {
+        refs.customerPortalSummary.innerHTML = "";
+        return;
+    }
+
+    const contacts = state.customerPortalContacts;
+    const claimedCount = contacts.filter((contact) => safeString(contact.authUid)).length;
+    const invitedCount = contacts.filter((contact) => safeString(contact.inviteStatus) === "invited" && !contact.disabledAt).length;
+    const unreadThreads = state.customerPortalThreads.filter((thread) => toNumber(thread.staffUnreadCount) > 0).length;
+    const clientVisibleDocuments = state.customerDocuments.filter((document) => document.clientVisible === true || safeString(document.agreementId)).length;
+
+    refs.customerPortalSummary.innerHTML = [
+        { label: "Portal contacts", value: String(contacts.length) },
+        { label: "Claimed logins", value: String(claimedCount) },
+        { label: "Invites out", value: String(invitedCount) },
+        { label: "Unread client threads", value: String(unreadThreads) },
+        { label: "Active jobs in portal", value: String(rollup.projects.length) },
+        { label: "Visible documents", value: String(clientVisibleDocuments) }
+    ].map((item) => `
+        <article class="summary-card">
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.value)}</strong>
+        </article>
+    `).join("");
+}
+
+function renderCustomerPortalContactList(customer) {
+    if (!customer?.id) {
+        renderEmptyList(refs.customerPortalContactList, "Save the customer first to manage portal access.");
+        return;
+    }
+
+    if (!isAdmin()) {
+        renderEmptyList(refs.customerPortalContactList, "Portal contact management is available to admins.");
+        return;
+    }
+
+    if (!state.customerPortalContacts.length) {
+        renderEmptyList(refs.customerPortalContactList, "No portal contacts added yet.");
+        return;
+    }
+
+    refs.customerPortalContactList.innerHTML = state.customerPortalContacts
+        .slice()
+        .sort((left, right) => toMillis(right.updatedAt || right.createdAt) - toMillis(left.updatedAt || left.createdAt))
+        .map((contact) => {
+            const isSelected = contact.id === state.selectedCustomerPortalContactId;
+            const status = portalInviteStatusLabel(contact);
+            const actionLabel = safeString(contact.authUid)
+                ? "Copy login"
+                : (safeString(contact.inviteStatus) === "invited" ? "Copy invite" : "Create invite");
+            return `
+                <article class="simple-item portal-contact-card ${isSelected ? "is-selected" : ""}">
+                    <div class="record-topline">
+                        <span class="mini-pill">${escapeHtml(status)}</span>
+                        <span class="mini-pill">${escapeHtml(contact.accessScope || "customer")}</span>
+                    </div>
+                    <strong>${escapeHtml(contact.name || contact.email || "Portal contact")}</strong>
+                    <p>${escapeHtml(contact.email || "No email added")}</p>
+                    <div class="simple-meta">
+                        ${escapeHtml(contact.phone || "No phone")} ·
+                        ${escapeHtml(contact.lastInvitedAt ? `Last invite ${formatDateTime(contact.lastInvitedAt)}` : "No invite sent yet")}
+                    </div>
+                    <div class="inline-actions portal-contact-actions">
+                        <button type="button" class="ghost-button" data-portal-contact-action="edit" data-contact-id="${escapeHtml(contact.id)}">Edit</button>
+                        <button type="button" class="secondary-button" data-portal-contact-action="copy" data-contact-id="${escapeHtml(contact.id)}">${escapeHtml(actionLabel)}</button>
+                        <button type="button" class="ghost-button" data-portal-contact-action="${contact.disabledAt ? "enable" : "disable"}" data-contact-id="${escapeHtml(contact.id)}">
+                            ${escapeHtml(contact.disabledAt ? "Re-enable" : "Disable")}
+                        </button>
+                        <button type="button" class="ghost-button" data-portal-contact-action="revoke" data-contact-id="${escapeHtml(contact.id)}">Revoke</button>
+                    </div>
+                </article>
+            `;
+        }).join("");
+}
+
+function renderCustomerPortalThreadList(customer) {
+    if (!customer?.id) {
+        renderEmptyList(refs.customerPortalThreadList, "Save the customer first to open portal communication.");
+        return;
+    }
+
+    if (!state.customerPortalThreads.length) {
+        renderEmptyList(refs.customerPortalThreadList, "No portal conversations have started yet.");
+        return;
+    }
+
+    refs.customerPortalThreadList.innerHTML = state.customerPortalThreads
+        .slice()
+        .sort((left, right) => toMillis(right.lastMessageAt || right.updatedAt || right.createdAt) - toMillis(left.lastMessageAt || left.updatedAt || left.createdAt))
+        .map((thread) => {
+            const unread = toNumber(thread.staffUnreadCount);
+            const isSelected = thread.id === state.selectedCustomerPortalThreadId;
+            return `
+                <button type="button" class="record-button portal-thread-button ${isSelected ? "is-selected" : ""}" data-portal-thread-id="${escapeHtml(thread.id)}">
+                    <div class="record-topline">
+                        <span class="mini-pill">${escapeHtml(safeString(thread.threadType) === "project" ? "Project thread" : "General")}</span>
+                        <span class="mini-pill">${escapeHtml(unread ? `${unread} unread` : "Read")}</span>
+                    </div>
+                    <span class="record-title">${escapeHtml(portalThreadTitle(thread))}</span>
+                    <p class="record-copy">${escapeHtml(thread.lastMessagePreview || "No messages yet. The client portal will keep project communication here.")}</p>
+                    <div class="record-meta">
+                        <div>${escapeHtml(thread.projectAddress || "Customer-wide communication")}</div>
+                        <div>${escapeHtml(thread.lastMessageAt ? formatDateTime(thread.lastMessageAt) : "Waiting for first message")}</div>
+                    </div>
+                </button>
+            `;
+        }).join("");
+}
+
+function renderCustomerPortalConversation(customer) {
+    const thread = currentCustomerPortalThread();
+
+    if (!customer?.id || !thread) {
+        refs.customerPortalThreadSummary.innerHTML = "Select a portal thread to read or reply.";
+        renderEmptyList(refs.customerPortalMessageList, "No client conversation selected yet.");
+        refs.customerPortalMessageBody.value = "";
+        refs.customerPortalMessageForm.querySelector("button").disabled = true;
+        refs.customerPortalMarkReadButton.disabled = true;
+        return;
+    }
+
+    refs.customerPortalThreadSummary.innerHTML = `
+        <div><strong>${escapeHtml(portalThreadTitle(thread))}</strong></div>
+        <div>${escapeHtml(thread.projectAddress || "General customer communication")}</div>
+        <div>${escapeHtml(thread.lastMessageAt ? `Last activity ${formatDateTime(thread.lastMessageAt)}` : "No messages yet.")}</div>
+    `;
+
+    const messages = currentCustomerPortalMessages(thread.id);
+    if (!messages.length) {
+        renderEmptyList(refs.customerPortalMessageList, "No messages in this thread yet.");
+    } else {
+        refs.customerPortalMessageList.innerHTML = messages.map((message) => `
+            <article class="timeline-item portal-message-item ${safeString(message.authorRole) === "staff" ? "is-staff" : "is-client"}">
+                <strong>${escapeHtml(message.authorName || (safeString(message.authorRole) === "staff" ? "Golden Brick" : "Client"))}</strong>
+                <p>${escapeHtml(message.body || "")}</p>
+                <div class="timeline-meta">
+                    ${escapeHtml(safeString(message.authorRole) === "staff" ? "Staff reply" : "Client message")} · ${escapeHtml(formatDateTime(message.createdAt))}
+                </div>
+            </article>
+        `).join("");
+    }
+
+    refs.customerPortalMessageForm.querySelector("button").disabled = false;
+    refs.customerPortalMarkReadButton.disabled = toNumber(thread.staffUnreadCount) === 0;
+}
+
+function renderPortalQueuePanel() {
+    if (!isAdmin()) {
+        refs.portalQueueSummary.innerHTML = "";
+        refs.portalQueueList.innerHTML = "";
+        return;
+    }
+
+    const awaitingSignature = state.portalQueueEstimateShares.filter((share) => safeString(share.status) === "active");
+    const invoiceDue = state.portalQueueInvoices.filter((invoice) => safeString(invoice.status) !== "paid");
+    const unreadThreads = state.portalQueueThreads.filter((thread) => toNumber(thread.staffUnreadCount) > 0);
+    const accessIssues = state.portalQueueContacts.filter((contact) => {
+        if (contact.disabledAt || safeString(contact.inviteStatus) === "revoked") {
+            return true;
+        }
+        if (safeString(contact.inviteStatus) === "invited" && toMillis(contact.lastInvitedAt) && (Date.now() - toMillis(contact.lastInvitedAt)) > (1000 * 60 * 60 * 24 * 7)) {
+            return true;
+        }
+        return false;
+    });
+
+    refs.portalQueueSummary.innerHTML = [
+        { label: "Awaiting signature", value: String(awaitingSignature.length) },
+        { label: "Invoices due", value: String(invoiceDue.length) },
+        { label: "Unread client threads", value: String(unreadThreads.length) },
+        { label: "Access issues", value: String(accessIssues.length) }
+    ].map((item) => `
+        <article class="summary-card">
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.value)}</strong>
+        </article>
+    `).join("");
+
+    const queueCards = [
+        ...awaitingSignature.slice(0, 4).map((share) => {
+            const lead = state.leads.find((item) => item.id === share.leadId);
+            return stackCardButton({
+                title: lead?.clientName || lead?.projectAddress || "Estimate awaiting signature",
+                copy: lead?.projectAddress || "Client estimate share is still active.",
+                pill: "Awaiting signature",
+                secondaryPill: formatDateTime(share.createdAt || share.updatedAt),
+                dataAttrs: {
+                    "data-open-lead": share.leadId,
+                    "data-open-view": "leads-view"
+                },
+                meta: `<div>${escapeHtml(lead?.customerName || "Lead record")}</div>`
+            });
+        }),
+        ...invoiceDue.slice(0, 4).map((invoice) => {
+            const project = state.projects.find((entry) => entry.id === invoice.projectId) || null;
+            return stackCardButton({
+                title: invoice.title || invoice.invoiceNumber || "Invoice due",
+                copy: invoice.projectAddress || project?.projectAddress || "Customer billing follow-up is needed.",
+                pill: "Invoice due",
+                secondaryPill: formatCurrency(invoice.subtotal || 0),
+                dataAttrs: {
+                    "data-open-project": invoice.projectId,
+                    "data-open-view": "jobs-view"
+                },
+                meta: `<div>${escapeHtml(invoice.dueDate ? `Due ${formatDateOnly(invoice.dueDate)}` : "No due date")}</div>`
+            });
+        }),
+        ...unreadThreads.slice(0, 4).map((thread) => {
+            return stackCardButton({
+                title: portalThreadTitle(thread),
+                copy: thread.lastMessagePreview || "New client reply waiting.",
+                pill: "Client reply",
+                secondaryPill: `${toNumber(thread.staffUnreadCount)} unread`,
+                dataAttrs: {
+                    "data-open-customer": thread.customerId,
+                    "data-open-view": "customers-view"
+                },
+                meta: `<div>${escapeHtml(thread.projectAddress || "General customer thread")}</div>`
+            });
+        }),
+        ...accessIssues.slice(0, 4).map((contact) => {
+            return stackCardButton({
+                title: contact.name || contact.email || "Portal contact",
+                copy: contact.email || "Portal access issue",
+                pill: "Access issue",
+                secondaryPill: portalInviteStatusLabel(contact),
+                dataAttrs: {
+                    "data-open-customer": contact.customerId,
+                    "data-open-view": "customers-view"
+                },
+                meta: `<div>${escapeHtml(contact.lastInvitedAt ? `Last invite ${formatDateOnly(contact.lastInvitedAt)}` : "No invite sent yet")}</div>`
+            });
+        })
+    ];
+
+    if (!queueCards.length) {
+        renderEmptyList(refs.portalQueueList, "The client portal queue is clear right now.");
+        return;
+    }
+
+    refs.portalQueueList.innerHTML = queueCards.join("");
 }
 
 function renderCustomerList() {
@@ -4548,6 +7329,21 @@ function renderCustomerDetail() {
         refs.customerRecordBadge.textContent = "No customer selected";
         refs.customerRecordBadge.className = "status-pill neutral";
         refs.customerRecordContext.innerHTML = "";
+        refs.customerDocumentTargetSelect.innerHTML = `<option value="">Save the customer first</option>`;
+        refs.customerDocumentTargetSelect.disabled = true;
+        refs.customerPortalSummary.innerHTML = "";
+        setCustomerPortalPreviewLink(null);
+        refs.customerPortalContactForm.reset();
+        refs.customerPortalContactScope.value = "customer";
+        renderEmptyList(refs.customerPortalContactList, "Select a customer to manage portal access.");
+        renderEmptyList(refs.customerPortalThreadList, "Select a customer to open portal communication.");
+        refs.customerPortalThreadSummary.innerHTML = "Select a customer to open portal communication.";
+        renderEmptyList(refs.customerPortalMessageList, "Select a customer to open portal communication.");
+        refs.customerDocumentSummary.innerHTML = "";
+        renderEmptyList(refs.customerDocumentList, "Select a customer to manage shared documents.");
+        refs.customerPortalMessageForm.querySelector("button").disabled = true;
+        refs.customerPortalMarkReadButton.disabled = true;
+        refs.customerDocumentForm.querySelector("button").disabled = true;
         refs.customerRecordEmpty.hidden = false;
         refs.customerRecordShell.hidden = true;
         return;
@@ -4623,15 +7419,47 @@ function renderCustomerDetail() {
         : "No active estimate linked to this customer.";
 
     renderEntityTaskList(refs.customerTaskList, customer.id ? relatedTasksForEntity("customerId", customer.id) : [], "Save the customer first to attach tasks.");
-    renderTaskAssigneeOptions(refs.customerTaskAssignee, state.profile?.uid || "");
+    renderCustomerPortalSummary(customer, rollup);
+    renderCustomerPortalContactList(customer);
+    renderCustomerPortalThreadList(customer);
+    renderCustomerPortalConversation(customer);
+    renderCustomerDocumentTargetOptions(customer, rollup);
+    renderCustomerDocumentSourceFields();
+    renderCustomerDocumentSummary();
+    renderCustomerDocumentList();
+    renderTaskAssigneeOptions(refs.customerTaskAssignee, currentStaffFocusUid() || state.profile?.uid || "");
     refs.customerTaskForm.querySelector("button").disabled = !customer.id;
+    refs.customerPortalContactForm.querySelector("button").disabled = !customer.id;
+    refs.customerDocumentForm.querySelector("button").disabled = !customer.id || !refs.customerDocumentTargetSelect.value;
+
+    const selectedPortalContact = currentCustomerPortalContact();
+    if (selectedPortalContact) {
+        refs.customerPortalContactName.value = selectedPortalContact.name || "";
+        refs.customerPortalContactEmail.value = selectedPortalContact.email || "";
+        refs.customerPortalContactPhone.value = selectedPortalContact.phone || "";
+        refs.customerPortalContactScope.value = selectedPortalContact.accessScope || "customer";
+        setCustomerPortalPreviewLink(selectedPortalContact);
+    } else {
+        refs.customerPortalContactForm.reset();
+        refs.customerPortalContactScope.value = "customer";
+        setCustomerPortalPreviewLink(null);
+    }
+
+    if (!refs.customerDocumentDate.value) {
+        refs.customerDocumentDate.value = todayDateInputValue();
+    }
+    if (!refs.customerDocumentSourceType.value) {
+        refs.customerDocumentSourceType.value = "upload";
+        renderCustomerDocumentSourceFields();
+    }
 }
 
 function renderJobMetrics() {
-    const inProgress = state.projects.filter((project) => project.status !== "completed").length;
-    const completed = state.projects.filter((project) => project.status === "completed").length;
-    const totalRevenue = state.projects.reduce((sum, project) => sum + projectRevenueValue(project), 0);
-    const totalPayments = state.projects.reduce((sum, project) => sum + toNumber(projectFinancials(project).totalPayments), 0);
+    const projects = visibleProjects();
+    const inProgress = projects.filter((project) => project.status !== "completed").length;
+    const completed = projects.filter((project) => project.status === "completed").length;
+    const totalRevenue = projects.reduce((sum, project) => sum + projectRevenueValue(project), 0);
+    const totalPayments = projects.reduce((sum, project) => sum + toNumber(projectFinancials(project).totalPayments), 0);
 
     renderMetricStrip(refs.jobMetrics, [
         { label: "In progress", value: inProgress },
@@ -4821,14 +7649,13 @@ function renderJobOverviewSummary(project) {
     const financials = projectFinancials(project);
     const linkedLead = project.leadId ? state.leads.find((lead) => lead.id === project.leadId) : null;
     const openTasks = relatedTasksForEntity("projectId", project.id).filter((task) => !taskIsCompleted(task));
-    const documents = state.projectDocuments.length;
     const assignedWorkers = Array.isArray(project.assignedWorkers) ? project.assignedWorkers.length : 0;
 
     refs.jobOverviewSummary.innerHTML = [
         { label: "Lead owner", value: project.assignedWorkers?.find((worker) => worker.uid === project.assignedLeadOwnerUid)?.name || state.staffRoster.find((member) => member.uid === project.assignedLeadOwnerUid)?.displayName || "Unassigned" },
         { label: "Assigned workers", value: String(assignedWorkers) },
         { label: "Open tasks", value: String(openTasks.length) },
-        { label: "Documents", value: String(documents) },
+        { label: "Invoices", value: String(state.projectInvoices.length) },
         { label: "Estimate total", value: linkedLead ? formatCurrency(linkedLead.estimateSubtotal || 0) : "No estimate" },
         { label: "Balance remaining", value: formatCurrency(financials.balanceRemaining || project.balanceRemaining || 0) }
     ].map((item) => `
@@ -4852,6 +7679,10 @@ function renderJobTabState() {
 function openJobTab(tab, focusTarget = null) {
     state.activeJobTab = tab;
     renderJobTabState();
+    const activeButton = refs.jobTabButtons.find((button) => button.dataset.jobTab === tab);
+    if (activeButton) {
+        activeButton.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    }
     queueFocus(focusTarget);
 }
 
@@ -4920,7 +7751,7 @@ function renderPaymentList() {
             <strong>${escapeHtml(PAYMENT_TYPE_META[payment.paymentType] || payment.method || "Payment")} · ${escapeHtml(formatCurrency(payment.amount || 0))}</strong>
             <p>${escapeHtml(payment.note || "")}</p>
             <div class="simple-meta">
-                ${escapeHtml(formatDateOnly(payment.relatedDate || payment.createdAt))} · ${escapeHtml(payment.method || "No method")}
+                ${escapeHtml(formatDateOnly(payment.relatedDate || payment.createdAt))} · ${escapeHtml(payment.method || "No method")}${payment.invoiceNumber ? ` · ${escapeHtml(payment.invoiceNumber)}` : ""}
             </div>
         </article>
     `, "No payments recorded yet.");
@@ -5208,33 +8039,44 @@ function renderJobDocumentSourceFields() {
     refs.jobDocumentFileRow.hidden = sourceType !== "upload";
 }
 
+function renderLeadDocumentSummary() {
+    refs.leadDocumentSummary.innerHTML = buildRecordDocumentSummaryMarkup(state.leadDocuments);
+}
+
+function renderLeadDocumentList() {
+    renderRecordDocumentList(refs.leadDocumentList, state.leadDocuments, "No shared documents are linked to this lead yet.");
+}
+
+function renderCustomerDocumentTargetOptions(customer, rollup = customerRollup(customer)) {
+    const options = customerDocumentTargetOptions(customer, rollup);
+    const currentValue = refs.customerDocumentTargetSelect.value || "";
+
+    refs.customerDocumentTargetSelect.disabled = !options.length;
+    refs.customerDocumentTargetSelect.innerHTML = options.length
+        ? options.map((option) => `
+            <option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>
+        `).join("")
+        : `<option value="">No linked lead or job yet</option>`;
+
+    refs.customerDocumentTargetSelect.value = options.some((option) => option.value === currentValue)
+        ? currentValue
+        : (options[0]?.value || "");
+}
+
+function renderCustomerDocumentSummary() {
+    refs.customerDocumentSummary.innerHTML = buildRecordDocumentSummaryMarkup(state.customerDocuments);
+}
+
+function renderCustomerDocumentList() {
+    renderRecordDocumentList(refs.customerDocumentList, state.customerDocuments, "No shared documents are linked to this customer yet.");
+}
+
 function renderJobDocumentSummary() {
-    const categories = ["agreement", "receipt", "permit", "closeout"];
-    refs.jobDocumentSummary.innerHTML = categories.map((category) => {
-        const count = state.projectDocuments.filter((item) => item.category === category).length;
-        return `
-            <article class="summary-card">
-                <span>${escapeHtml(DOCUMENT_CATEGORY_META[category])}</span>
-                <strong>${escapeHtml(String(count))}</strong>
-            </article>
-        `;
-    }).join("");
+    refs.jobDocumentSummary.innerHTML = buildRecordDocumentSummaryMarkup(state.projectDocuments);
 }
 
 function renderJobDocumentList() {
-    renderSimpleEntries(refs.jobDocumentList, state.projectDocuments, (item) => {
-        const href = documentHref(item);
-        return `
-            <article class="simple-item">
-                <strong>${escapeHtml(item.title || "Document")}</strong>
-                <p>${escapeHtml(item.note || "")}</p>
-                <div class="simple-meta">
-                    ${escapeHtml(DOCUMENT_CATEGORY_META[item.category] || "Other")} · ${escapeHtml(DOCUMENT_SOURCE_META[item.sourceType] || "Manual record")} · ${escapeHtml(formatDateOnly(item.relatedDate || item.createdAt))}
-                </div>
-                ${href ? `<div class="simple-meta"><a href="${escapeHtml(href)}" target="_blank" rel="noreferrer">Open document</a></div>` : ""}
-            </article>
-        `;
-    }, "No documents saved on this job yet.");
+    renderRecordDocumentList(refs.jobDocumentList, state.projectDocuments, "No shared documents are linked to this job yet.");
 }
 
 function renderJobDetail() {
@@ -5247,6 +8089,17 @@ function renderJobDetail() {
         refs.jobRecordContext.innerHTML = "";
         refs.jobScopeSummary.innerHTML = "";
         refs.jobScopeImportButton.hidden = true;
+        refs.jobInvoiceSummary.innerHTML = "";
+        refs.jobInvoiceList.innerHTML = "";
+        refs.invoicePreview.innerHTML = `<div class="invoice-preview-empty">Select a job first to create or review invoices.</div>`;
+        refs.invoiceSubtotal.textContent = formatCurrency(0);
+        refs.jobDocumentSummary.innerHTML = "";
+        renderEmptyList(refs.jobDocumentList, "Select a job to load shared documents.");
+        refs.jobPhaseLabelInput.value = "";
+        refs.jobTargetWindowInput.value = "";
+        refs.jobTargetDateInput.value = "";
+        refs.jobNextStepInput.value = "";
+        refs.jobSharedStatusNoteInput.value = "";
         refs.jobRecordEmpty.hidden = false;
         refs.jobRecordShell.hidden = true;
         return;
@@ -5268,6 +8121,16 @@ function renderJobDetail() {
     refs.jobAddressDisplay.value = project.projectAddress || "";
     refs.jobTotalRevenueDisplay.value = formatCurrency(projectRevenueValue(project));
     refs.jobLinkedLeadDisplay.value = linkedLead?.clientName || linkedLead?.projectAddress || "Lead record linked automatically from won conversion";
+    refs.jobPhaseLabelInput.value = project.phaseLabel || "";
+    refs.jobTargetWindowInput.value = project.targetWindow || "";
+    refs.jobTargetDateInput.value = formatDateOnlyInputValue(project.targetDate);
+    refs.jobNextStepInput.value = project.nextStep || "";
+    refs.jobSharedStatusNoteInput.value = project.sharedStatusNote || "";
+    refs.jobPhaseLabelInput.readOnly = !isAdmin();
+    refs.jobTargetWindowInput.readOnly = !isAdmin();
+    refs.jobTargetDateInput.disabled = !isAdmin();
+    refs.jobNextStepInput.readOnly = !isAdmin();
+    refs.jobSharedStatusNoteInput.readOnly = !isAdmin();
     renderJobOwnerOptions(project);
     renderWorkerAssignments(project);
     renderJobRecordContext(project);
@@ -5279,6 +8142,7 @@ function renderJobDetail() {
     renderExpenseVendorOptions();
     renderExpenseList();
     renderPaymentList();
+    renderInvoicePanel(project);
     renderJobScopeSummary(project);
     renderJobScopeList(project);
     renderTeamFinancialSummary(project);
@@ -5625,6 +8489,13 @@ function renderVendorDocumentList(vendor, rollup) {
     renderSimpleEntries(refs.vendorDocumentList, rollup.documents, (item) => {
         const href = documentHref(item);
         const expiryMeta = item.expirationDate ? ` · Expires ${formatDateOnly(item.expirationDate)}` : "";
+        const actions = isAdmin()
+            ? `
+                <div class="inline-actions">
+                    <button type="button" class="ghost-button" data-vendor-document-delete="${escapeHtml(item.id)}">Delete</button>
+                </div>
+            `
+            : "";
         return `
             <article class="simple-item">
                 <strong>${escapeHtml(item.title || "Document")}</strong>
@@ -5635,6 +8506,7 @@ function renderVendorDocumentList(vendor, rollup) {
                     ${expiryMeta ? expiryMeta : ""}
                 </div>
                 ${href ? `<div class="simple-meta"><a href="${escapeHtml(href)}" target="_blank" rel="noreferrer">Open document</a></div>` : ""}
+                ${actions}
             </article>
         `;
     }, "No vendor documents saved yet.");
@@ -5709,6 +8581,199 @@ function renderTemplateForm() {
     refs.templateIntro.value = state.template.intro || EMPTY_TEMPLATE.intro;
     refs.templateOutro.value = state.template.outro || EMPTY_TEMPLATE.outro;
     refs.templateTerms.value = estimateTemplateTermsText(state.template);
+    refs.templateAgreementTitle.value = estimateAgreementTitle(state.template);
+    refs.templateAgreementIntro.value = estimateAgreementIntro(state.template);
+    refs.templateAgreementTerms.value = estimateAgreementTermsText(state.template);
+}
+
+function staffWorkloadForMember(member) {
+    const staffUid = safeString(member?.uid);
+    const tasks = sortByUpdatedDesc(state.tasks.filter((task) => taskMatchesStaffFocus(task, staffUid)));
+    const openTasks = tasks.filter((task) => !taskIsCompleted(task));
+    const overdueTasks = openTasks.filter((task) => taskIsOverdue(task)).sort((left, right) => taskSortValue(left) - taskSortValue(right));
+    const dueTodayTasks = openTasks.filter((task) => taskIsDueToday(task)).sort((left, right) => taskSortValue(left) - taskSortValue(right));
+    const leads = sortByUpdatedDesc(state.leads.filter((lead) => leadMatchesStaffFocus(lead, staffUid)));
+    const openLeads = leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status));
+    const activeJobs = sortByUpdatedDesc(state.projects.filter((project) => {
+        return project.status !== "completed" && projectMatchesStaffFocus(project, staffUid);
+    }));
+    const customers = state.customers.filter((customer) => customerMatchesStaffFocus(customer, staffUid));
+
+    return {
+        member,
+        openTasks,
+        overdueTasks,
+        dueTodayTasks,
+        openLeads,
+        activeJobs,
+        customers,
+        estimateReadyCount: openLeads.filter((lead) => Boolean(lead.hasEstimate)).length,
+        newestLead: leads[0] || null,
+        nextTask: overdueTasks[0] || openTasks.sort((left, right) => taskSortValue(left) - taskSortValue(right))[0] || null
+    };
+}
+
+function applyStaffFocus(staffUid = "") {
+    state.staffFocusUid = safeString(staffUid);
+
+    const visibleLeadIds = new Set(visibleLeads().map((lead) => lead.id));
+    const visibleTaskIds = new Set(visibleTasks().map((task) => task.id));
+    const visibleProjectIds = new Set(visibleProjects().map((project) => project.id));
+    const visibleCustomerIds = new Set(visibleCustomers().map((customer) => customer.id));
+
+    if (state.selectedLeadId && !visibleLeadIds.has(state.selectedLeadId)) {
+        clearUnsubs(state.unsubs.leadDetail);
+        state.selectedLeadId = null;
+        state.leadWorkspaceOpen = false;
+        state.leadDocuments = [];
+        syncLeadRouteState();
+    }
+
+    if (state.selectedTaskId && !visibleTaskIds.has(state.selectedTaskId)) {
+        state.selectedTaskId = null;
+    }
+
+    if (state.selectedProjectId && !visibleProjectIds.has(state.selectedProjectId)) {
+        clearUnsubs(state.unsubs.projectDetail);
+        state.selectedProjectId = null;
+        state.selectedProjectInvoiceId = null;
+        state.projectScopeItems = [];
+        state.projectInvoices = [];
+        state.projectInvoiceDraft = null;
+    }
+
+    if (state.selectedCustomerId && !visibleCustomerIds.has(state.selectedCustomerId)) {
+        clearUnsubs(state.unsubs.customerDetail);
+        state.selectedCustomerId = null;
+        state.customerDocuments = [];
+    }
+
+    renderAll();
+}
+
+function renderStaffWorkloadPanel() {
+    if (!refs.staffWorkloadSummary || !refs.staffWorkloadList || !refs.staffClearFocusButton) {
+        return;
+    }
+
+    if (!isAdmin()) {
+        refs.staffWorkloadSummary.innerHTML = "";
+        refs.staffWorkloadList.innerHTML = "";
+        refs.staffClearFocusButton.hidden = true;
+        return;
+    }
+
+    const focusUid = currentStaffFocusUid();
+    const focusMember = currentStaffFocusMember();
+    const members = activeStaffOptions().filter((member) => safeString(member.uid));
+    const workloadMembers = focusUid
+        ? members.filter((member) => safeString(member.uid) === focusUid)
+        : members;
+
+    refs.staffClearFocusButton.hidden = !focusUid;
+
+    if (!workloadMembers.length) {
+        refs.staffWorkloadSummary.innerHTML = "";
+        renderEmptyList(refs.staffWorkloadList, "No signed-in staff members are available for workload tracking yet.");
+        return;
+    }
+
+    const workloads = workloadMembers.map((member) => staffWorkloadForMember(member));
+    const totals = workloads.reduce((summary, workload) => {
+        summary.staff += 1;
+        summary.openTasks += workload.openTasks.length;
+        summary.overdueTasks += workload.overdueTasks.length;
+        summary.openLeads += workload.openLeads.length;
+        summary.activeJobs += workload.activeJobs.length;
+        return summary;
+    }, {
+        staff: 0,
+        openTasks: 0,
+        overdueTasks: 0,
+        openLeads: 0,
+        activeJobs: 0
+    });
+
+    refs.staffWorkloadSummary.innerHTML = [
+        { label: focusMember ? "Focused staff" : "Tracked staff", value: focusMember?.displayName || String(totals.staff) },
+        { label: "Open tasks", value: String(totals.openTasks) },
+        { label: "Overdue tasks", value: String(totals.overdueTasks) },
+        { label: "Open leads", value: String(totals.openLeads) }
+    ].map((item) => `
+        <article class="summary-card">
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.value)}</strong>
+        </article>
+    `).join("");
+
+    refs.staffWorkloadList.innerHTML = workloads.map((workload) => {
+        const { member } = workload;
+        const isFocused = focusUid && safeString(member.uid) === focusUid;
+        const nextTaskLabel = workload.nextTask
+            ? `${workload.nextTask.title || "Untitled task"}${workload.nextTask.dueAt ? ` · ${formatDateTime(workload.nextTask.dueAt)}` : ""}`
+            : "No open tasks assigned";
+        const newestLeadLabel = workload.newestLead
+            ? `${workload.newestLead.clientName || workload.newestLead.projectAddress || "Open lead"} · ${STATUS_META[workload.newestLead.status] || "Lead"}`
+            : "No assigned leads right now";
+
+        return `
+            <article class="simple-item staff-workload-card ${isFocused ? "is-focused" : ""}">
+                <div class="record-topline">
+                    <span class="mini-pill">${escapeHtml(member.role || "employee")}</span>
+                    <span class="mini-pill">${escapeHtml(isFocused ? "CRM focused" : (member.defaultLeadAssignee ? "Default lead owner" : "Active staff"))}</span>
+                </div>
+                <strong>${escapeHtml(member.displayName || member.email || "Staff member")}</strong>
+                <p>${escapeHtml(member.email || "")}</p>
+                <div class="staff-workload-grid">
+                    <article class="staff-workload-metric">
+                        <span>Open tasks</span>
+                        <strong>${escapeHtml(String(workload.openTasks.length))}</strong>
+                    </article>
+                    <article class="staff-workload-metric">
+                        <span>Overdue</span>
+                        <strong>${escapeHtml(String(workload.overdueTasks.length))}</strong>
+                    </article>
+                    <article class="staff-workload-metric">
+                        <span>Due today</span>
+                        <strong>${escapeHtml(String(workload.dueTodayTasks.length))}</strong>
+                    </article>
+                    <article class="staff-workload-metric">
+                        <span>Open leads</span>
+                        <strong>${escapeHtml(String(workload.openLeads.length))}</strong>
+                    </article>
+                    <article class="staff-workload-metric">
+                        <span>Active jobs</span>
+                        <strong>${escapeHtml(String(workload.activeJobs.length))}</strong>
+                    </article>
+                </div>
+                <div class="staff-workload-notes">
+                    <div><strong>Next task:</strong> ${escapeHtml(nextTaskLabel)}</div>
+                    <div><strong>Newest lead:</strong> ${escapeHtml(newestLeadLabel)}</div>
+                    <div><strong>Customers in view:</strong> ${escapeHtml(String(workload.customers.length))} · <strong>Estimate-ready leads:</strong> ${escapeHtml(String(workload.estimateReadyCount))}</div>
+                </div>
+                <div class="staff-workload-actions">
+                    <button
+                        type="button"
+                        class="${isFocused ? "secondary-button" : "ghost-button"}"
+                        data-command="${isFocused ? "clear-staff-focus" : "focus-staff"}"
+                        data-staff-focus-uid="${escapeHtml(member.uid)}"
+                    >
+                        ${escapeHtml(isFocused ? "Show full team" : "Focus CRM")}
+                    </button>
+                    <button
+                        type="button"
+                        class="primary-button"
+                        data-command="start-task-draft"
+                        data-task-assignee-uid="${escapeHtml(member.uid)}"
+                        data-task-assignee-name="${escapeHtml(member.displayName || member.email || "Assigned staff")}"
+                        data-task-assignee-email="${escapeHtml(member.email || "")}"
+                    >
+                        Add task
+                    </button>
+                </div>
+            </article>
+        `;
+    }).join("");
 }
 
 function renderStaffList() {
@@ -5774,6 +8839,8 @@ function renderAll() {
     renderVendorList();
     renderVendorDetail();
     renderTemplateForm();
+    renderPortalQueuePanel();
+    renderStaffWorkloadPanel();
     renderStaffList();
     if (state.drawer.type) {
         renderActiveDrawer();
@@ -5843,6 +8910,8 @@ function closeLeadWorkspace() {
 
 function selectProject(projectId) {
     state.selectedProjectId = projectId;
+    state.selectedProjectInvoiceId = null;
+    state.projectInvoiceDraft = null;
     state.activeJobTab = "financials";
     subscribeProjectDetail();
     renderAll();
@@ -5853,9 +8922,32 @@ function selectProject(projectId) {
     }
 }
 
+function selectProjectInvoice(invoiceId, { openTab = true } = {}) {
+    state.selectedProjectInvoiceId = invoiceId;
+    state.projectInvoiceDraft = null;
+    if (openTab) {
+        state.activeJobTab = "invoices";
+    }
+    renderJobDetail();
+}
+
+function startProjectInvoiceDraft(seed = {}) {
+    const project = currentProject();
+    if (!project) {
+        showToast("Select a job first.", "error");
+        return;
+    }
+
+    state.selectedProjectInvoiceId = null;
+    state.projectInvoiceDraft = defaultProjectInvoiceDraft(project, seed);
+    state.activeJobTab = "invoices";
+    renderJobDetail();
+}
+
 function selectCustomer(customerId) {
     state.customerDraft = null;
     state.selectedCustomerId = customerId;
+    subscribeCustomerDetail();
     renderAll();
     if (isMobileViewport()) {
         window.requestAnimationFrame(() => {
@@ -5889,10 +8981,13 @@ function selectTask(taskId) {
 
 function startLeadDraft(customerId = null) {
     const customer = customerId ? state.customers.find((item) => item.id === customerId) : null;
+    clearUnsubs(state.unsubs.leadDetail);
     state.selectedLeadId = null;
     state.leadDraft = defaultLeadDraft(customer || null);
     state.leadActivities = [];
     state.estimate = null;
+    state.estimateShare = null;
+    state.leadDocuments = [];
     state.activeLeadTab = "overview";
     state.leadWorkspaceOpen = true;
     switchView("leads-view");
@@ -5900,8 +8995,10 @@ function startLeadDraft(customerId = null) {
 }
 
 function startCustomerDraft() {
+    clearUnsubs(state.unsubs.customerDetail);
     state.selectedCustomerId = null;
     state.customerDraft = defaultCustomerDraft();
+    state.customerDocuments = [];
     switchView("customers-view");
     renderAll();
 }
@@ -6015,16 +9112,27 @@ function resetSelectionFromSnapshots() {
     if (state.selectedLeadId && !state.leads.some((lead) => lead.id === state.selectedLeadId)) {
         state.selectedLeadId = null;
         state.leadWorkspaceOpen = false;
+        state.estimateShare = null;
+        state.leadDocuments = [];
         syncLeadRouteState();
     }
 
     if (state.selectedProjectId && !state.projects.some((project) => project.id === state.selectedProjectId)) {
         state.selectedProjectId = null;
+        state.selectedProjectInvoiceId = null;
         state.projectScopeItems = [];
+        state.projectInvoices = [];
+        state.projectInvoiceDraft = null;
     }
 
     if (state.selectedCustomerId && !state.customers.some((customer) => customer.id === state.selectedCustomerId)) {
         state.selectedCustomerId = null;
+        state.customerDocuments = [];
+        state.customerPortalContacts = [];
+        state.customerPortalThreads = [];
+        state.customerPortalMessages = {};
+        state.selectedCustomerPortalContactId = null;
+        state.selectedCustomerPortalThreadId = null;
     }
 
     if (state.selectedVendorId && !state.vendors.some((vendor) => vendor.id === state.selectedVendorId)) {
@@ -6039,6 +9147,8 @@ function resetSelectionFromSnapshots() {
 function subscribeBaseData() {
     clearUnsubs(state.unsubs.base);
     state.unsubs.base = [];
+    clearUnsubs(state.unsubs.portalQueues);
+    state.unsubs.portalQueues = [];
     clearUnsubs(state.unsubs.scopedProjects);
     state.unsubs.scopedProjects = [];
 
@@ -6055,6 +9165,7 @@ function subscribeBaseData() {
         restoreLeadWorkspaceFromRoute();
         resetSelectionFromSnapshots();
         subscribeLeadDetail();
+        subscribeCustomerDetail();
         renderAll();
         setSyncStatus("Lead data live");
     }, (error) => {
@@ -6067,6 +9178,7 @@ function subscribeBaseData() {
             refreshScopedCustomers();
             resetSelectionFromSnapshots();
             subscribeProjectDetail();
+            subscribeCustomerDetail();
             renderAll();
         }, (error) => {
             handleBaseSubscriptionError("Job data", error);
@@ -6080,6 +9192,7 @@ function subscribeBaseData() {
         state.unsubs.base.push(onSnapshot(collection(state.db, "customers"), (snapshot) => {
             state.customers = snapshot.docs.map(normaliseFirestoreDoc);
             resetSelectionFromSnapshots();
+            subscribeCustomerDetail();
             renderAll();
         }, (error) => {
             handleBaseSubscriptionError("Customer data", error);
@@ -6143,8 +9256,48 @@ function subscribeBaseData() {
         }, (error) => {
             handleBaseSubscriptionError("Staff roster", error);
         }));
+
+        state.unsubs.portalQueues.push(onSnapshot(collection(state.db, "estimateShares"), (snapshot) => {
+            state.portalQueueEstimateShares = snapshot.docs
+                .map(normaliseFirestoreDoc)
+                .sort((left, right) => toMillis(right.updatedAt || right.createdAt) - toMillis(left.updatedAt || left.createdAt));
+            renderPortalQueuePanel();
+        }, (error) => {
+            handleBaseSubscriptionError("Portal estimate queue", error);
+        }));
+
+        state.unsubs.portalQueues.push(onSnapshot(collectionGroup(state.db, "invoices"), (snapshot) => {
+            state.portalQueueInvoices = snapshot.docs
+                .map(normaliseFirestoreDoc)
+                .sort((left, right) => toMillis(right.updatedAt || right.createdAt) - toMillis(left.updatedAt || left.createdAt));
+            renderPortalQueuePanel();
+        }, (error) => {
+            handleBaseSubscriptionError("Portal invoice queue", error);
+        }));
+
+        state.unsubs.portalQueues.push(onSnapshot(collectionGroup(state.db, "threads"), (snapshot) => {
+            state.portalQueueThreads = snapshot.docs
+                .map(normaliseFirestoreDoc)
+                .sort((left, right) => toMillis(right.lastMessageAt || right.updatedAt || right.createdAt) - toMillis(left.lastMessageAt || left.updatedAt || left.createdAt));
+            renderPortalQueuePanel();
+        }, (error) => {
+            handleBaseSubscriptionError("Portal thread queue", error);
+        }));
+
+        state.unsubs.portalQueues.push(onSnapshot(collectionGroup(state.db, "contacts"), (snapshot) => {
+            state.portalQueueContacts = snapshot.docs
+                .map(normaliseFirestoreDoc)
+                .sort((left, right) => toMillis(right.updatedAt || right.createdAt) - toMillis(left.updatedAt || left.createdAt));
+            renderPortalQueuePanel();
+        }, (error) => {
+            handleBaseSubscriptionError("Portal contact queue", error);
+        }));
     } else {
         state.staffRoster = [];
+        state.portalQueueEstimateShares = [];
+        state.portalQueueInvoices = [];
+        state.portalQueueThreads = [];
+        state.portalQueueContacts = [];
     }
 }
 
@@ -6153,11 +9306,15 @@ function subscribeLeadDetail() {
     state.unsubs.leadDetail = [];
     state.leadActivities = [];
     state.estimate = null;
+    state.estimateShare = null;
+    state.leadDocuments = [];
 
     if (!state.selectedLeadId) {
         renderLeadDetail();
         return;
     }
+
+    void refreshEstimateShareState(state.selectedLeadId);
 
     state.unsubs.leadDetail.push(onSnapshot(collection(state.db, "leads", state.selectedLeadId, "activities"), (snapshot) => {
         state.leadActivities = snapshot.docs
@@ -6180,6 +9337,128 @@ function subscribeLeadDetail() {
             renderLeadDetail();
         });
     }));
+
+    state.unsubs.leadDetail.push(onSnapshot(query(collection(state.db, "recordDocuments"), where("leadId", "==", state.selectedLeadId)), (snapshot) => {
+        state.leadDocuments = snapshot.docs
+            .map(normaliseFirestoreDoc)
+            .sort((left, right) => toMillis(right.relatedDate || right.updatedAt || right.createdAt) - toMillis(left.relatedDate || left.updatedAt || left.createdAt));
+        renderLeadDetail();
+    }, (error) => {
+        handleDetailSubscriptionError("Lead documents", error, () => {
+            state.leadDocuments = [];
+            renderLeadDetail();
+        });
+    }));
+}
+
+function subscribeCustomerDetail() {
+    clearUnsubs(state.unsubs.customerDetail);
+    state.unsubs.customerDetail = [];
+    clearUnsubs(state.unsubs.customerPortalMessages);
+    state.unsubs.customerPortalMessages = [];
+    state.customerDocuments = [];
+    state.customerPortalContacts = [];
+    state.customerPortalThreads = [];
+    state.customerPortalMessages = {};
+    state.selectedCustomerPortalContactId = null;
+    state.selectedCustomerPortalThreadId = null;
+
+    if (!state.selectedCustomerId) {
+        renderCustomerDetail();
+        return;
+    }
+
+    state.unsubs.customerDetail.push(onSnapshot(query(collection(state.db, "recordDocuments"), where("customerId", "==", state.selectedCustomerId)), (snapshot) => {
+        state.customerDocuments = snapshot.docs
+            .map(normaliseFirestoreDoc)
+            .sort((left, right) => toMillis(right.relatedDate || right.updatedAt || right.createdAt) - toMillis(left.relatedDate || left.updatedAt || left.createdAt));
+        renderCustomerDetail();
+    }, (error) => {
+        handleDetailSubscriptionError("Customer documents", error, () => {
+            state.customerDocuments = [];
+            renderCustomerDetail();
+        });
+    }));
+
+    if (isAdmin()) {
+        state.unsubs.customerDetail.push(onSnapshot(collection(state.db, "customers", state.selectedCustomerId, "contacts"), (snapshot) => {
+            state.customerPortalContacts = snapshot.docs
+                .map(normaliseFirestoreDoc)
+                .sort((left, right) => toMillis(right.updatedAt || right.createdAt) - toMillis(left.updatedAt || left.createdAt));
+
+            if (state.selectedCustomerPortalContactId && !state.customerPortalContacts.some((contact) => contact.id === state.selectedCustomerPortalContactId)) {
+                state.selectedCustomerPortalContactId = null;
+            }
+
+            if (!state.selectedCustomerPortalContactId && state.customerPortalContacts.length) {
+                state.selectedCustomerPortalContactId = state.customerPortalContacts[0].id;
+            }
+
+            if (state.selectedCustomerPortalContactId) {
+                const selected = state.customerPortalContacts.find((contact) => contact.id === state.selectedCustomerPortalContactId) || null;
+                setCustomerPortalPreviewLink(selected);
+            } else {
+                setCustomerPortalPreviewLink(null);
+            }
+
+            renderCustomerDetail();
+        }, (error) => {
+            handleDetailSubscriptionError("Portal contacts", error, () => {
+                state.customerPortalContacts = [];
+                state.selectedCustomerPortalContactId = null;
+                setCustomerPortalPreviewLink(null);
+                renderCustomerDetail();
+            });
+        }));
+    }
+
+    state.unsubs.customerDetail.push(onSnapshot(collection(state.db, "customers", state.selectedCustomerId, "threads"), (snapshot) => {
+        clearUnsubs(state.unsubs.customerPortalMessages);
+        state.unsubs.customerPortalMessages = [];
+        state.customerPortalMessages = {};
+
+        state.customerPortalThreads = snapshot.docs
+            .map(normaliseFirestoreDoc)
+            .sort((left, right) => toMillis(right.lastMessageAt || right.updatedAt || right.createdAt) - toMillis(left.lastMessageAt || left.updatedAt || left.createdAt));
+
+        if (state.selectedCustomerPortalThreadId && !state.customerPortalThreads.some((thread) => thread.id === state.selectedCustomerPortalThreadId)) {
+            state.selectedCustomerPortalThreadId = null;
+        }
+
+        if (!state.selectedCustomerPortalThreadId && state.customerPortalThreads.length) {
+            const generalThread = state.customerPortalThreads.find((thread) => thread.id === "general") || null;
+            state.selectedCustomerPortalThreadId = generalThread?.id || state.customerPortalThreads[0].id;
+        }
+
+        state.customerPortalThreads.forEach((thread) => {
+            state.unsubs.customerPortalMessages.push(onSnapshot(
+                collection(state.db, "customers", state.selectedCustomerId, "threads", thread.id, "messages"),
+                (messageSnapshot) => {
+                    state.customerPortalMessages[thread.id] = messageSnapshot.docs
+                        .map(normaliseFirestoreDoc)
+                        .sort((left, right) => toMillis(left.createdAt) - toMillis(right.createdAt));
+                    renderCustomerDetail();
+                },
+                (error) => {
+                    handleDetailSubscriptionError("Portal messages", error, () => {
+                        state.customerPortalMessages[thread.id] = [];
+                        renderCustomerDetail();
+                    });
+                }
+            ));
+        });
+
+        renderCustomerDetail();
+    }, (error) => {
+        handleDetailSubscriptionError("Portal threads", error, () => {
+            clearUnsubs(state.unsubs.customerPortalMessages);
+            state.unsubs.customerPortalMessages = [];
+            state.customerPortalThreads = [];
+            state.customerPortalMessages = {};
+            state.selectedCustomerPortalThreadId = null;
+            renderCustomerDetail();
+        });
+    }));
 }
 
 function subscribeProjectDetail() {
@@ -6187,12 +9466,15 @@ function subscribeProjectDetail() {
     state.unsubs.projectDetail = [];
     state.projectExpenses = [];
     state.projectPayments = [];
+    state.projectInvoices = [];
     state.projectChangeOrders = [];
     state.projectScopeItems = [];
     state.projectDocuments = [];
     state.projectNotes = [];
     state.projectActivities = [];
     state.projectLeadActivities = [];
+    state.projectInvoiceDraft = null;
+    state.selectedProjectInvoiceId = null;
 
     if (!state.selectedProjectId) {
         renderJobDetail();
@@ -6219,6 +9501,28 @@ function subscribeProjectDetail() {
     }, (error) => {
         handleDetailSubscriptionError("Job payments", error, () => {
             state.projectPayments = [];
+            renderJobDetail();
+        });
+    }));
+
+    state.unsubs.projectDetail.push(onSnapshot(collection(state.db, "projects", state.selectedProjectId, "invoices"), (snapshot) => {
+        state.projectInvoices = snapshot.docs
+            .map(normaliseFirestoreDoc)
+            .map((item) => hydrateProjectInvoice(currentProject(), item))
+            .sort((left, right) => toMillis(right.updatedAt || right.createdAt) - toMillis(left.updatedAt || left.createdAt));
+
+        if (state.selectedProjectInvoiceId && !state.projectInvoices.some((invoice) => invoice.id === state.selectedProjectInvoiceId)) {
+            state.selectedProjectInvoiceId = null;
+        }
+        if (!state.projectInvoiceDraft && !state.selectedProjectInvoiceId && state.projectInvoices.length) {
+            state.selectedProjectInvoiceId = state.projectInvoices[0].id;
+        }
+        renderJobDetail();
+    }, (error) => {
+        handleDetailSubscriptionError("Job invoices", error, () => {
+            state.projectInvoices = [];
+            state.selectedProjectInvoiceId = null;
+            state.projectInvoiceDraft = null;
             renderJobDetail();
         });
     }));
@@ -6251,10 +9555,10 @@ function subscribeProjectDetail() {
         });
     }));
 
-    state.unsubs.projectDetail.push(onSnapshot(collection(state.db, "projects", state.selectedProjectId, "documents"), (snapshot) => {
+    state.unsubs.projectDetail.push(onSnapshot(query(collection(state.db, "recordDocuments"), where("projectId", "==", state.selectedProjectId)), (snapshot) => {
         state.projectDocuments = snapshot.docs
             .map(normaliseFirestoreDoc)
-            .sort((left, right) => toMillis(right.relatedDate || right.createdAt) - toMillis(left.relatedDate || left.createdAt));
+            .sort((left, right) => toMillis(right.relatedDate || right.updatedAt || right.createdAt) - toMillis(left.relatedDate || left.updatedAt || left.createdAt));
         renderJobDetail();
     }, (error) => {
         handleDetailSubscriptionError("Job documents", error, () => {
@@ -6322,8 +9626,11 @@ async function bootstrapFirebase() {
 
         onAuthStateChanged(state.auth, async (user) => {
             clearUnsubs(state.unsubs.base);
+            clearUnsubs(state.unsubs.portalQueues);
             clearUnsubs(state.unsubs.scopedProjects);
             clearUnsubs(state.unsubs.leadDetail);
+            clearUnsubs(state.unsubs.customerDetail);
+            clearUnsubs(state.unsubs.customerPortalMessages);
             clearUnsubs(state.unsubs.projectDetail);
 
             if (!user) {
@@ -6337,20 +9644,37 @@ async function bootstrapFirebase() {
                 state.staffRoster = [];
                 state.selectedLeadId = null;
                 state.selectedProjectId = null;
+                state.selectedProjectInvoiceId = null;
                 state.selectedCustomerId = null;
                 state.selectedTaskId = null;
+                state.selectedStaffKey = null;
+                state.staffFocusUid = "";
                 state.leadDraft = null;
                 state.customerDraft = null;
                 state.taskDraft = null;
                 state.leadActivities = [];
                 state.projectExpenses = [];
                 state.projectPayments = [];
+                state.projectInvoices = [];
                 state.projectChangeOrders = [];
                 state.projectScopeItems = [];
                 state.projectDocuments = [];
+                state.leadDocuments = [];
+                state.customerDocuments = [];
+                state.customerPortalContacts = [];
+                state.customerPortalThreads = [];
+                state.customerPortalMessages = {};
+                state.selectedCustomerPortalContactId = null;
+                state.selectedCustomerPortalThreadId = null;
                 state.projectNotes = [];
                 state.projectActivities = [];
                 state.projectLeadActivities = [];
+                state.projectInvoiceDraft = null;
+                state.portalQueueEstimateShares = [];
+                state.portalQueueInvoices = [];
+                state.portalQueueThreads = [];
+                state.portalQueueContacts = [];
+                state.estimateShare = null;
                 state.activeJobTab = "financials";
                 closeDrawer();
                 setBanner("", "info");
@@ -7063,6 +10387,19 @@ async function saveEstimateDraft(event) {
         createdAt: serverTimestamp()
     });
 
+    await upsertEstimateRecordDocumentForLead(lead.id, {
+        ...estimate,
+        updatedAt: new Date(),
+        lastEditedByUid: state.profile.uid,
+        lastEditedByName: state.profile.displayName
+    }, {
+        ...lead,
+        hasEstimate: true,
+        estimateSubtotal: estimate.subtotal,
+        estimateTitle: estimate.subject,
+        estimateUpdatedAt: new Date()
+    });
+
     showToast("Estimate saved.");
 }
 
@@ -7113,6 +10450,19 @@ async function createEstimateDraft() {
                 createdAt: serverTimestamp()
             })
         ]);
+
+        await upsertEstimateRecordDocumentForLead(lead.id, {
+            ...draft,
+            updatedAt: new Date(),
+            lastEditedByUid: state.profile.uid,
+            lastEditedByName: state.profile.displayName
+        }, {
+            ...lead,
+            hasEstimate: true,
+            estimateSubtotal: draft.subtotal,
+            estimateTitle: draft.subject,
+            estimateUpdatedAt: new Date()
+        });
 
         state.estimate = {
             ...estimatePayload,
@@ -7176,6 +10526,94 @@ async function openEstimatePrintView() {
     }
 }
 
+async function refreshEstimateShareState(leadId = state.selectedLeadId) {
+    if (!state.currentUser || !leadId) {
+        state.estimateShare = null;
+        renderEstimateSharePanel(currentLead());
+        return null;
+    }
+
+    try {
+        const payload = await apiPost("/api/staff/estimate-share", {
+            action: "get",
+            leadId
+        });
+
+        if (state.selectedLeadId !== leadId) {
+            return payload.share || null;
+        }
+
+        state.estimateShare = payload.share || null;
+        renderEstimateSharePanel(currentLead());
+        return state.estimateShare;
+    } catch (error) {
+        console.error("Estimate share refresh failed.", error);
+        if (state.selectedLeadId === leadId) {
+            state.estimateShare = null;
+            renderEstimateSharePanel(currentLead());
+        }
+        return null;
+    }
+}
+
+async function createEstimateShareLink() {
+    const lead = currentLeadDoc();
+    if (!lead?.id) {
+        showToast("Save the lead and estimate first.", "error");
+        return;
+    }
+
+    if (!isAdmin()) {
+        showToast("Only admins can create share links.", "error");
+        return;
+    }
+
+    const payload = await apiPost("/api/staff/estimate-share", {
+        action: "create",
+        leadId: lead.id
+    });
+
+    state.estimateShare = payload.share || null;
+    renderEstimateSharePanel(lead);
+    showToast("Client estimate link created.");
+}
+
+async function copyEstimateShareLink() {
+    if (!state.estimateShare?.shareUrl) {
+        showToast("Create the share link first.", "error");
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(state.estimateShare.shareUrl);
+        showToast("Estimate link copied.");
+    } catch (error) {
+        showToast("Could not copy the estimate link.", "error");
+    }
+}
+
+async function revokeEstimateShareLink() {
+    const lead = currentLeadDoc();
+    if (!lead?.id || !state.estimateShare?.id) {
+        showToast("No active share link to revoke.", "error");
+        return;
+    }
+
+    if (!isAdmin()) {
+        showToast("Only admins can revoke share links.", "error");
+        return;
+    }
+
+    const payload = await apiPost("/api/staff/estimate-share", {
+        action: "revoke",
+        leadId: lead.id
+    });
+
+    state.estimateShare = payload.share || null;
+    renderEstimateSharePanel(lead);
+    showToast("Estimate link revoked.");
+}
+
 async function saveCustomer(event) {
     event.preventDefault();
 
@@ -7209,9 +10647,11 @@ async function saveCustomer(event) {
 
         state.customerDraft = null;
         state.selectedCustomerId = customerRef.id;
+        subscribeCustomerDetail();
         showToast("Customer created.");
     } else {
         await updateDoc(doc(state.db, "customers", existing.id), payload);
+        subscribeCustomerDetail();
         showToast("Customer updated.");
     }
 }
@@ -7578,6 +11018,11 @@ async function saveProject(event) {
     const ownerUid = refs.jobOwnerSelect.value || null;
     const nextStatus = refs.jobStatusSelect.value || "in_progress";
     const nextBaseContractValue = toNumber(refs.jobBaseContractInput.value);
+    const nextPhaseLabel = refs.jobPhaseLabelInput.value.trim();
+    const nextTargetWindow = refs.jobTargetWindowInput.value.trim();
+    const nextTargetDate = parseDateOnlyInput(refs.jobTargetDateInput.value);
+    const nextNextStep = refs.jobNextStepInput.value.trim();
+    const nextSharedStatusNote = refs.jobSharedStatusNoteInput.value.trim();
     const assignedWorkers = collectAssignedWorkers(project);
 
     const allowedStaffUids = uniqueValues([
@@ -7597,6 +11042,11 @@ async function saveProject(event) {
         assignedLeadOwnerUid: ownerUid,
         assignedWorkers,
         assignedWorkerIds: assignedWorkers.map((worker) => worker.uid).filter(Boolean),
+        phaseLabel: nextPhaseLabel,
+        targetWindow: nextTargetWindow,
+        targetDate: nextTargetDate,
+        nextStep: nextNextStep,
+        sharedStatusNote: nextSharedStatusNote,
         allowedStaffUids,
         updatedAt: serverTimestamp()
     });
@@ -7639,6 +11089,30 @@ async function saveProject(event) {
             "team",
             "Team setup updated",
             `${assignedWorkers.length} workers are assigned to this job.`
+        ));
+    }
+
+    const previousClientFacingKey = JSON.stringify({
+        phaseLabel: safeString(project.phaseLabel),
+        targetWindow: safeString(project.targetWindow),
+        targetDate: formatDateOnlyInputValue(project.targetDate),
+        nextStep: safeString(project.nextStep),
+        sharedStatusNote: safeString(project.sharedStatusNote)
+    });
+    const nextClientFacingKey = JSON.stringify({
+        phaseLabel: nextPhaseLabel,
+        targetWindow: nextTargetWindow,
+        targetDate: formatDateOnlyInputValue(nextTargetDate),
+        nextStep: nextNextStep,
+        sharedStatusNote: nextSharedStatusNote
+    });
+
+    if (previousClientFacingKey !== nextClientFacingKey) {
+        activityWrites.push(addProjectActivityEntry(
+            project.id,
+            "client_update",
+            "Client portal update refreshed",
+            "The client-facing phase, next step, and shared project update were refreshed."
         ));
     }
 
@@ -7724,7 +11198,7 @@ async function addPayment(event) {
 async function addChangeOrder(event) {
     event.preventDefault();
     const project = currentProject();
-    if (!project || !isAdmin()) return;
+    if (!project) return;
 
     const title = refs.changeOrderTitle.value.trim();
     const amount = toNumber(refs.changeOrderAmount.value);
@@ -7787,65 +11261,102 @@ async function addJobNote(event) {
     showToast("Job note saved.");
 }
 
+async function saveLeadDocument(event) {
+    event.preventDefault();
+    const lead = currentLeadDoc();
+
+    if (!lead?.id) {
+        showToast("Save the lead first.", "error");
+        return;
+    }
+
+    const category = refs.leadDocumentCategory.value || "other";
+    const sourceType = refs.leadDocumentSourceType.value || "upload";
+
+    await createRecordDocument({
+        links: buildRecordDocumentLinksFromLead(lead),
+        category,
+        sourceType,
+        title: refs.leadDocumentTitle.value.trim(),
+        note: refs.leadDocumentNote.value.trim(),
+        relatedDate: parseDateOnlyInput(refs.leadDocumentDate.value) || new Date(),
+        externalUrl: refs.leadDocumentUrl.value,
+        file: refs.leadDocumentFile.files?.[0] || null,
+        clientVisible: refs.leadDocumentClientVisible.checked
+    });
+
+    refs.leadDocumentForm.reset();
+    refs.leadDocumentCategory.value = "agreement";
+    refs.leadDocumentSourceType.value = "upload";
+    refs.leadDocumentDate.value = todayDateInputValue();
+    refs.leadDocumentClientVisible.checked = false;
+    renderLeadDocumentSourceFields();
+    showToast("Shared document saved to this lead.");
+}
+
+async function saveCustomerDocument(event) {
+    event.preventDefault();
+    const customer = currentCustomerDoc();
+
+    if (!customer?.id) {
+        showToast("Save the customer first.", "error");
+        return;
+    }
+
+    const targetValue = refs.customerDocumentTargetSelect.value || "";
+    const links = buildRecordDocumentLinksFromCustomerTarget(customer, targetValue);
+
+    if (!links.customerId && !links.leadId && !links.projectId) {
+        showToast("Choose where this customer document should attach first.", "error");
+        return;
+    }
+
+    await createRecordDocument({
+        links,
+        category: refs.customerDocumentCategory.value || "other",
+        sourceType: refs.customerDocumentSourceType.value || "upload",
+        title: refs.customerDocumentTitle.value.trim(),
+        note: refs.customerDocumentNote.value.trim(),
+        relatedDate: parseDateOnlyInput(refs.customerDocumentDate.value) || new Date(),
+        externalUrl: refs.customerDocumentUrl.value,
+        file: refs.customerDocumentFile.files?.[0] || null,
+        clientVisible: refs.customerDocumentClientVisible.checked
+    });
+
+    refs.customerDocumentForm.reset();
+    refs.customerDocumentCategory.value = "agreement";
+    refs.customerDocumentSourceType.value = "upload";
+    refs.customerDocumentDate.value = todayDateInputValue();
+    refs.customerDocumentClientVisible.checked = false;
+    renderCustomerDocumentTargetOptions(customer, customerRollup(customer));
+    renderCustomerDocumentSourceFields();
+    showToast("Shared document saved to this customer record.");
+}
+
 async function saveJobDocument(event) {
     event.preventDefault();
     const project = currentProject();
     if (!project) return;
 
     const category = refs.jobDocumentCategory.value || "other";
-    const sourceType = refs.jobDocumentSourceType.value || "upload";
-    const title = refs.jobDocumentTitle.value.trim() || DOCUMENT_CATEGORY_META[category] || "Document";
-    const note = refs.jobDocumentNote.value.trim();
-    const relatedDate = parseDateOnlyInput(refs.jobDocumentDate.value) || new Date();
-    const documentRef = doc(collection(state.db, "projects", project.id, "documents"));
-    let externalUrl = "";
-    let fileUrl = "";
-    let filePath = "";
-    let fileName = "";
+    const title = refs.jobDocumentTitle.value.trim() || defaultRecordDocumentTitle(category);
 
-    if (sourceType === "link") {
-        externalUrl = refs.jobDocumentUrl.value.trim();
-        if (!externalUrl) {
-            showToast("Add the external document link first.", "error");
-            return;
-        }
-    }
-
-    if (sourceType === "upload") {
-        const file = refs.jobDocumentFile.files?.[0];
-        if (!file) {
-            showToast("Choose a file to upload.", "error");
-            return;
-        }
-
-        fileName = file.name;
-        const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-");
-        const uploadRef = storageRef(state.storage, `projects/${project.id}/documents/${documentRef.id}/${safeFileName}`);
-        await uploadBytes(uploadRef, file);
-        fileUrl = await getDownloadURL(uploadRef);
-        filePath = uploadRef.fullPath;
-    }
-
-    await setDoc(documentRef, {
-        id: documentRef.id,
+    await createRecordDocument({
+        links: buildRecordDocumentLinksFromProject(project),
         category,
-        sourceType,
+        sourceType: refs.jobDocumentSourceType.value || "upload",
         title,
-        note,
-        relatedDate,
-        externalUrl,
-        fileUrl,
-        filePath,
-        fileName,
-        createdByUid: state.profile.uid,
-        createdByName: state.profile.displayName,
-        createdByRole: state.profile.role,
-        createdAt: serverTimestamp()
-    }, { merge: true });
+        note: refs.jobDocumentNote.value.trim(),
+        relatedDate: parseDateOnlyInput(refs.jobDocumentDate.value) || new Date(),
+        externalUrl: refs.jobDocumentUrl.value,
+        file: refs.jobDocumentFile.files?.[0] || null,
+        clientVisible: refs.jobDocumentClientVisible.checked
+    });
 
     refs.jobDocumentForm.reset();
     refs.jobDocumentSourceType.value = "upload";
     refs.jobDocumentDate.value = todayDateInputValue();
+    refs.jobDocumentClientVisible.checked = false;
     renderJobDocumentSourceFields();
     await addProjectActivityEntry(
         project.id,
@@ -7888,6 +11399,9 @@ async function saveTemplate(event) {
         intro: refs.templateIntro.value.trim(),
         outro: refs.templateOutro.value.trim(),
         terms: refs.templateTerms.value.trim() || EMPTY_TEMPLATE.terms,
+        agreementTitle: refs.templateAgreementTitle.value.trim() || EMPTY_TEMPLATE.agreementTitle,
+        agreementIntro: refs.templateAgreementIntro.value.trim() || EMPTY_TEMPLATE.agreementIntro,
+        agreementTerms: refs.templateAgreementTerms.value.trim() || EMPTY_TEMPLATE.agreementTerms,
         updatedAt: serverTimestamp(),
         createdAt: state.template?.createdAt || serverTimestamp()
     }, { merge: true });
@@ -8024,7 +11538,11 @@ function handleCommandAction(target) {
     }
 
     if (command === "start-task-draft") {
-        openTaskDrawer();
+        openTaskDrawer({
+            assignedToUid: target.dataset.taskAssigneeUid || "",
+            assignedToName: target.dataset.taskAssigneeName || "",
+            assignedToEmail: target.dataset.taskAssigneeEmail || ""
+        });
         return;
     }
 
@@ -8044,6 +11562,16 @@ function handleCommandAction(target) {
             openLeadsListSurface();
         }
         switchView(targetView);
+        return;
+    }
+
+    if (command === "focus-staff") {
+        applyStaffFocus(target.dataset.staffFocusUid || "");
+        return;
+    }
+
+    if (command === "clear-staff-focus") {
+        applyStaffFocus("");
         return;
     }
 
@@ -8134,6 +11662,44 @@ function handleRecordOpen(target) {
     }
 }
 
+function bindRecordDocumentListActions(container, resolveItems) {
+    if (!container) {
+        return;
+    }
+
+    container.addEventListener("click", (event) => {
+        const actionTarget = event.target.closest("[data-record-document-open-estimate], [data-record-document-download-estimate], [data-record-document-delete]");
+        if (!actionTarget) {
+            return;
+        }
+
+        const items = typeof resolveItems === "function" ? resolveItems() : [];
+        const documentId = actionTarget.dataset.recordDocumentOpenEstimate
+            || actionTarget.dataset.recordDocumentDownloadEstimate
+            || actionTarget.dataset.recordDocumentDelete
+            || "";
+        const documentItem = items.find((item) => item.id === documentId) || null;
+
+        if (actionTarget.dataset.recordDocumentOpenEstimate) {
+            openEstimateRecordFromDocument(actionTarget.dataset.leadId || documentItem?.leadId || "");
+            return;
+        }
+
+        if (actionTarget.dataset.recordDocumentDownloadEstimate) {
+            downloadEstimatePdfForLead(actionTarget.dataset.leadId || documentItem?.leadId || "")
+                .then((mode) => {
+                    showToast(mode === "html" ? "PDF download failed. HTML estimate downloaded instead." : "Estimate PDF downloaded.");
+                })
+                .catch((error) => showToast(error.message, "error"));
+            return;
+        }
+
+        if (actionTarget.dataset.recordDocumentDelete) {
+            deleteRecordDocument(documentItem).catch((error) => showToast(error.message, "error"));
+        }
+    });
+}
+
 function bindUi() {
     refs.signInButton.addEventListener("click", async () => {
         try {
@@ -8218,6 +11784,12 @@ function bindUi() {
         });
     });
 
+    if (refs.staffFocusSelect) {
+        refs.staffFocusSelect.addEventListener("change", (event) => {
+            applyStaffFocus(event.target.value || "");
+        });
+    }
+
     [
         refs.workspaceCommandBar,
         refs.todayOverdueList,
@@ -8235,6 +11807,8 @@ function bindUi() {
         refs.leadTaskList,
         refs.customerTaskList,
         refs.jobTaskList,
+        refs.staffWorkloadList,
+        refs.portalQueueList,
         refs.vendorRecordContext,
         refs.vendorJobList,
         refs.vendorBillList
@@ -8482,12 +12056,30 @@ function bindUi() {
         addNote(event).catch((error) => showToast(error.message, "error"));
     });
 
+    refs.leadDocumentForm.addEventListener("submit", (event) => {
+        saveLeadDocument(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.leadDocumentSourceType.addEventListener("change", renderLeadDocumentSourceFields);
+
     refs.estimateForm.addEventListener("submit", (event) => {
         saveEstimateDraft(event).catch((error) => showToast(error.message, "error"));
     });
 
     refs.estimateAiButton.addEventListener("click", () => {
         createEstimateDraft().catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.estimateShareCreateButton.addEventListener("click", () => {
+        createEstimateShareLink().catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.estimateShareCopyButton.addEventListener("click", () => {
+        copyEstimateShareLink().catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.estimateShareRevokeButton.addEventListener("click", () => {
+        revokeEstimateShareLink().catch((error) => showToast(error.message, "error"));
     });
 
     refs.estimateAddLineButton.addEventListener("click", () => {
@@ -8520,6 +12112,47 @@ function bindUi() {
 
     refs.customerForm.addEventListener("submit", (event) => {
         saveCustomer(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.customerDocumentForm.addEventListener("submit", (event) => {
+        saveCustomerDocument(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.customerDocumentSourceType.addEventListener("change", renderCustomerDocumentSourceFields);
+    refs.customerDocumentTargetSelect.addEventListener("change", () => {
+        refs.customerDocumentForm.querySelector("button").disabled = !refs.customerDocumentTargetSelect.value;
+    });
+    refs.customerPortalContactForm.addEventListener("submit", (event) => {
+        saveCustomerPortalContact(event).catch((error) => showToast(error.message, "error"));
+    });
+    refs.customerPortalContactResetButton.addEventListener("click", () => {
+        resetCustomerPortalContactForm();
+        renderCustomerPortalContactList(currentCustomer());
+    });
+    refs.customerPortalContactList.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-portal-contact-action]");
+        if (!button) return;
+        const contact = state.customerPortalContacts.find((entry) => entry.id === button.dataset.contactId) || null;
+        if (!contact) return;
+
+        const action = button.dataset.portalContactAction;
+        if (action === "edit") {
+            selectCustomerPortalContact(contact.id);
+            return;
+        }
+
+        runCustomerPortalInviteAction(action, contact).catch((error) => showToast(error.message, "error"));
+    });
+    refs.customerPortalThreadList.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-portal-thread-id]");
+        if (!button) return;
+        selectCustomerPortalThread(button.dataset.portalThreadId).catch((error) => showToast(error.message, "error"));
+    });
+    refs.customerPortalMessageForm.addEventListener("submit", (event) => {
+        saveCustomerPortalMessage(event).catch((error) => showToast(error.message, "error"));
+    });
+    refs.customerPortalMarkReadButton.addEventListener("click", () => {
+        markCustomerPortalThreadRead().catch((error) => showToast(error.message, "error"));
     });
 
     refs.customerCreateLeadButton.addEventListener("click", () => {
@@ -8618,6 +12251,13 @@ function bindUi() {
         saveVendorDocument(event).catch((error) => showToast(error.message, "error"));
     });
 
+    refs.vendorDocumentList.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-vendor-document-delete]");
+        if (!button) return;
+        const documentItem = state.vendorDocuments.find((item) => item.id === button.dataset.vendorDocumentDelete) || null;
+        deleteVendorDocument(documentItem).catch((error) => showToast(error.message, "error"));
+    });
+
     refs.vendorBillSourceTypeInput.addEventListener("change", renderVendorBillSourceFields);
     refs.vendorDocumentSourceTypeInput.addEventListener("change", renderVendorDocumentSourceFields);
     refs.vendorDocumentCategoryInput.addEventListener("change", renderVendorDocumentAccessDefaults);
@@ -8697,12 +12337,37 @@ function bindUi() {
         openJobTab("financials", refs.expenseAmount);
     });
 
+    bindRefEvent("jobAddChangeOrderButton", "job-add-change-order-button", "click", () => {
+        if (!currentProject()) {
+            showToast("Select a job first.", "error");
+            return;
+        }
+        openJobTab("financials", refs.changeOrderTitle);
+    });
+
+    bindRefEvent("jobChangeOrderFocusButton", "job-change-order-focus-button", "click", () => {
+        if (!currentProject()) {
+            showToast("Select a job first.", "error");
+            return;
+        }
+        openJobTab("financials", refs.changeOrderTitle);
+    });
+
     bindRefEvent("jobAddPaymentButton", "job-add-payment-button", "click", () => {
         if (!currentProject()) {
             showToast("Select a job first.", "error");
             return;
         }
         openJobTab("financials", refs.paymentAmount);
+    });
+
+    bindRefEvent("jobAddInvoiceButton", "job-add-invoice-button", "click", () => {
+        if (!currentProject()) {
+            showToast("Select a job first.", "error");
+            return;
+        }
+        startProjectInvoiceDraft();
+        openJobTab("invoices", refs.invoiceTitle);
     });
 
     bindRefEvent("jobAddDocumentButton", "job-add-document-button", "click", () => {
@@ -8736,6 +12401,71 @@ function bindUi() {
 
     bindRefEvent("paymentForm", "payment-form", "submit", (event) => {
         addPayment(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    bindRefEvent("jobInvoiceList", "job-invoice-list", "click", (event) => {
+        const button = event.target.closest("[data-project-invoice-id]");
+        if (!button) return;
+        selectProjectInvoice(button.dataset.projectInvoiceId);
+    });
+
+    bindRefEvent("invoiceNewButton", "invoice-new-button", "click", () => {
+        startProjectInvoiceDraft();
+        openJobTab("invoices", refs.invoiceTitle);
+    });
+
+    bindRefEvent("invoiceImportEstimateButton", "invoice-import-estimate-button", "click", () => {
+        importInvoiceLinesFromEstimate().catch((error) => showToast(error.message, "error"));
+    });
+
+    bindRefEvent("invoiceAddLineButton", "invoice-add-line-button", "click", () => {
+        const lines = collectInvoiceForm().lineItems;
+        lines.push({ label: "", description: "", amount: "" });
+        renderInvoiceLines(lines, isAdmin());
+        syncProjectInvoiceDraftFromForm();
+    });
+
+    bindRefEvent("invoiceAddCustomFieldButton", "invoice-add-custom-field-button", "click", () => {
+        const fields = collectInvoiceForm().customFields;
+        fields.push({ label: "", value: "" });
+        renderInvoiceCustomFields(fields, isAdmin());
+        syncProjectInvoiceDraftFromForm();
+    });
+
+    bindRefEvent("invoiceForm", "invoice-form", "submit", saveProjectInvoice);
+
+    bindRefEvent("invoiceMarkPaidButton", "invoice-mark-paid-button", "click", () => {
+        markInvoicePaid().catch((error) => showToast(error.message, "error"));
+    });
+
+    bindRefEvent("invoiceDownloadButton", "invoice-download-button", "click", () => {
+        downloadInvoicePdf("invoice").catch((error) => showToast(error.message, "error"));
+    });
+
+    bindRefEvent("invoiceReceiptButton", "invoice-receipt-button", "click", () => {
+        downloadInvoicePdf("receipt").catch((error) => showToast(error.message, "error"));
+    });
+
+    [
+        "invoiceTitle",
+        "invoiceNumber",
+        "invoiceIssueDate",
+        "invoiceDueDate",
+        "invoiceSummary",
+        "invoiceNotes",
+        "invoicePaidDate",
+        "invoicePaymentMethod",
+        "invoicePaymentReference",
+        "invoicePaymentNote"
+    ].forEach((key) => {
+        const field = refs[key];
+        if (!field) return;
+        field.addEventListener("input", () => {
+            syncProjectInvoiceDraftFromForm();
+        });
+        field.addEventListener("change", () => {
+            syncProjectInvoiceDraftFromForm();
+        });
     });
 
     bindRefEvent("changeOrderForm", "change-order-form", "submit", (event) => {
@@ -8775,10 +12505,17 @@ function bindUi() {
     });
 
     refs.staffFormReset.addEventListener("click", resetStaffForm);
+    bindRefEvent("staffClearFocusButton", "staff-clear-focus-button", "click", () => {
+        applyStaffFocus("");
+    });
 
     refs.templateForm.addEventListener("submit", (event) => {
         saveTemplate(event).catch((error) => showToast(error.message, "error"));
     });
+
+    bindRecordDocumentListActions(refs.leadDocumentList, () => state.leadDocuments);
+    bindRecordDocumentListActions(refs.customerDocumentList, () => state.customerDocuments);
+    bindRecordDocumentListActions(refs.jobDocumentList, () => state.projectDocuments);
 
     refs.drawerCloseButton.addEventListener("click", closeDrawer);
     refs.drawerBackdrop.addEventListener("click", closeDrawer);

@@ -35,12 +35,66 @@ service firebase.storage {
       );
     }
 
+    function leadDocExists(leadId) {
+      return firestore.exists(/databases/(default)/documents/leads/$(leadId));
+    }
+
+    function canAccessLead(leadId) {
+      return isAdmin() || (
+        isActiveStaff() &&
+        leadDocExists(leadId) &&
+        firestore.get(/databases/(default)/documents/leads/$(leadId)).data.assignedToUid == request.auth.uid
+      );
+    }
+
+    function customerDocExists(customerId) {
+      return firestore.exists(/databases/(default)/documents/customers/$(customerId));
+    }
+
+    function canAccessCustomer(customerId) {
+      return isAdmin() || (
+        isActiveStaff() &&
+        customerDocExists(customerId) &&
+        firestore.get(/databases/(default)/documents/customers/$(customerId)).data.allowedStaffUids is list &&
+        firestore.get(/databases/(default)/documents/customers/$(customerId)).data.allowedStaffUids.hasAny([request.auth.uid])
+      );
+    }
+
     function vendorDocumentDocExists(documentId) {
       return firestore.exists(/databases/(default)/documents/vendorDocuments/$(documentId));
     }
 
     function vendorDocumentData(documentId) {
       return firestore.get(/databases/(default)/documents/vendorDocuments/$(documentId)).data;
+    }
+
+    function recordDocumentDocExists(documentId) {
+      return firestore.exists(/databases/(default)/documents/recordDocuments/$(documentId));
+    }
+
+    function recordDocumentData(documentId) {
+      return firestore.get(/databases/(default)/documents/recordDocuments/$(documentId)).data;
+    }
+
+    function canAccessRecordDocument(documentId) {
+      return isAdmin() || (
+        isActiveStaff() &&
+        recordDocumentDocExists(documentId) && (
+          (
+            recordDocumentData(documentId).projectId is string &&
+            recordDocumentData(documentId).projectId != "" &&
+            canAccessProject(recordDocumentData(documentId).projectId)
+          ) || (
+            recordDocumentData(documentId).leadId is string &&
+            recordDocumentData(documentId).leadId != "" &&
+            canAccessLead(recordDocumentData(documentId).leadId)
+          ) || (
+            recordDocumentData(documentId).customerId is string &&
+            recordDocumentData(documentId).customerId != "" &&
+            canAccessCustomer(recordDocumentData(documentId).customerId)
+          )
+        )
+      );
     }
 
     match /projects/{projectId}/{allPaths=**} {
@@ -53,6 +107,15 @@ service firebase.storage {
         vendorDocumentDocExists(documentId) &&
         vendorDocumentData(documentId).accessLevel != "admin_only"
       );
+      allow write: if isAdmin();
+    }
+
+    match /recordDocuments/{documentId}/{allPaths=**} {
+      allow read, write: if canAccessRecordDocument(documentId);
+    }
+
+    match /agreements/{agreementId}/{allPaths=**} {
+      allow read: if isActiveStaff();
       allow write: if isAdmin();
     }
   }
