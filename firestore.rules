@@ -170,6 +170,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /serviceTemplates/{templateId} {
+      allow read: if isActiveStaff();
+      allow create, update, delete: if isAdmin();
+    }
+
     match /leads/{leadId} {
       allow get: if canReadLead(resource.data);
       allow list: if isAdmin() || (
@@ -244,6 +249,33 @@ service cloud.firestore {
           allow create, update, delete: if canReadCustomer(get(/databases/$(database)/documents/customers/$(customerId)).data);
         }
       }
+    }
+
+    match /{documentPath=**}/contacts/{contactId} {
+      allow get, list: if isAdmin() || (
+        resource.data.customerId is string &&
+        resource.data.customerId != "" &&
+        exists(/databases/$(database)/documents/customers/$(resource.data.customerId)) &&
+        canReadCustomer(get(/databases/$(database)/documents/customers/$(resource.data.customerId)).data)
+      );
+    }
+
+    match /{documentPath=**}/threads/{threadId} {
+      allow get, list: if isAdmin() || (
+        resource.data.customerId is string &&
+        resource.data.customerId != "" &&
+        exists(/databases/$(database)/documents/customers/$(resource.data.customerId)) &&
+        canReadCustomer(get(/databases/$(database)/documents/customers/$(resource.data.customerId)).data)
+      );
+    }
+
+    match /{documentPath=**}/invoices/{invoiceId} {
+      allow get, list: if isAdmin() || (
+        resource.data.projectId is string &&
+        resource.data.projectId != "" &&
+        exists(/databases/$(database)/documents/projects/$(resource.data.projectId)) &&
+        canReadProject(get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data)
+      );
     }
 
     match /vendors/{vendorId} {

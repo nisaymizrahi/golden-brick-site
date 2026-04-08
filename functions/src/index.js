@@ -3,10 +3,11 @@
 const crypto = require("node:crypto");
 const admin = require("firebase-admin");
 const PDFDocument = require("pdfkit");
+const Stripe = require("stripe");
 const logger = require("firebase-functions/logger");
 const { onRequest } = require("firebase-functions/v2/https");
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
-const { defineString } = require("firebase-functions/params");
+const { defineSecret, defineString } = require("firebase-functions/params");
 const { buildClientPortalApi } = require("./clientPortal");
 
 admin.initializeApp();
@@ -16,6 +17,8 @@ const FieldValue = admin.firestore.FieldValue;
 const Timestamp = admin.firestore.Timestamp;
 
 const CRM_ADMIN_EMAILS = defineString("CRM_ADMIN_EMAILS", { default: "" });
+const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
+const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET");
 
 const STAFF_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -54,6 +57,48 @@ const DEFAULT_AGREEMENT_TERMS = [
   "Any requested scope, material, pricing, or schedule changes after signature must be documented in writing and may require a revised estimate or change order before additional work proceeds.",
   "Scheduling, procurement, and start-date coordination remain subject to site access, deposit and payment coordination, municipal approvals, final measurements, and confirmed finish selections where applicable."
 ].join("\n");
+
+const DEFAULT_SERVICE_TEMPLATES = [
+  {
+    id: "property-purchase-estimate-review",
+    internalName: "Property Purchase Estimate Review",
+    clientTitle: "Property Purchase Estimate Review",
+    defaultPrice: 100,
+    defaultInvoiceLines: [
+      {
+        label: "Property purchase estimate review",
+        description: "Golden Brick reviews the property, outlines likely renovation needs, and provides a fast investor-ready estimate opinion before purchase.",
+        amount: 100
+      }
+    ],
+    defaultSummary: "Golden Brick reviews the property and provides a focused estimate opinion before acquisition so you can pressure-test scope, timing, and risk.",
+    defaultPlanningNotes: "Confirm property address, gather any listing photos or inspection notes, and send the client one concise take with the biggest renovation risks called out.",
+    defaultPaymentRequirement: "upfront_required",
+    active: true
+  },
+  {
+    id: "repair-scope-deal-analysis",
+    internalName: "Repair Scope + Deal Analysis",
+    clientTitle: "Repair Scope + Deal Analysis",
+    defaultPrice: 250,
+    defaultInvoiceLines: [
+      {
+        label: "Repair scope and recommendations",
+        description: "Golden Brick defines the likely repair path based on the client's goals and outlines the most sensible scope options.",
+        amount: 150
+      },
+      {
+        label: "Deal analysis and estimate options",
+        description: "We prepare working budget ranges, tradeoff options, and investor-friendly deal numbers to support the decision.",
+        amount: 100
+      }
+    ],
+    defaultSummary: "Golden Brick builds the repair scope around the client's goals, adds our recommendations, and returns practical pricing options plus deal-analysis numbers.",
+    defaultPlanningNotes: "Collect the client's decision criteria, confirm whether this is wholesale, flip, or rental hold, and frame at least two realistic scope paths before delivering pricing.",
+    defaultPaymentRequirement: "upfront_required",
+    active: true
+  }
+];
 
 function applyCors(response) {
   Object.entries(STAFF_HEADERS).forEach(([key, value]) => {
@@ -303,6 +348,60 @@ async function ensureLeadCustomerLink(leadRef, leadData = {}) {
   };
 }
 
+async function ensureServiceOrderCustomer(orderData = {}) {
+  if (safeString(orderData.customerId)) {
+    const linkedCustomer = await ensureCustomerDocument(
+      db.collection("customers").doc(orderData.customerId),
+      orderData
+    );
+    return {
+      customerId: linkedCustomer.id,
+      customerName: linkedCustomer.name,
+      matchResult: "linked",
+      reviewRequired: false,
+      customerMatchIds: [linkedCustomer.id]
+    };
+  }
+
+  const matches = await findMatchingCustomers(orderData);
+
+  if (matches.length > 1) {
+    const error = new Error("Multiple customer matches were found. Pick the customer first, then create the service order.");
+    error.status = 409;
+    error.matchResult = "review_required";
+    error.customerMatchIds = matches.map((customer) => customer.id);
+    throw error;
+  }
+
+  if (matches.length === 1) {
+    const linkedCustomer = await ensureCustomerDocument(
+      db.collection("customers").doc(matches[0].id),
+      {
+        ...orderData,
+        customerId: matches[0].id,
+        customerName: matches[0].name || orderData.clientName
+      }
+    );
+    return {
+      customerId: linkedCustomer.id,
+      customerName: linkedCustomer.name,
+      matchResult: "linked",
+      reviewRequired: false,
+      customerMatchIds: [linkedCustomer.id]
+    };
+  }
+
+  const customerRef = db.collection("customers").doc();
+  const createdCustomer = await ensureCustomerDocument(customerRef, orderData);
+  return {
+    customerId: createdCustomer.id,
+    customerName: createdCustomer.name,
+    matchResult: "created",
+    reviewRequired: false,
+    customerMatchIds: [createdCustomer.id]
+  };
+}
+
 function defaultEstimateTemplate() {
   return {
     id: "estimate-default",
@@ -340,6 +439,195 @@ function resolveAgreementTemplateTerms(template = {}) {
   return safeString(template.agreementTerms) || DEFAULT_AGREEMENT_TERMS;
 }
 
+function defaultServiceTemplateSeed(template = {}) {
+  const starter = DEFAULT_SERVICE_TEMPLATES.find((item) => item.id === template.id) || DEFAULT_SERVICE_TEMPLATES[0];
+  return {
+    id: safeString(template.id || starter.id),
+    internalName: safeString(template.internalName || starter.internalName),
+    clientTitle: safeString(template.clientTitle || starter.clientTitle),
+    defaultPrice: toNumber(template.defaultPrice || starter.defaultPrice),
+    defaultInvoiceLines: Array.isArray(template.defaultInvoiceLines) && template.defaultInvoiceLines.length
+      ? template.defaultInvoiceLines.map((line) => ({
+        label: safeString(line.label || line.title),
+        description: safeString(line.description || line.note),
+        amount: toNumber(line.amount)
+      }))
+      : starter.defaultInvoiceLines.map((line) => ({ ...line })),
+    defaultSummary: safeString(template.defaultSummary || starter.defaultSummary),
+    defaultPlanningNotes: safeString(template.defaultPlanningNotes || starter.defaultPlanningNotes),
+    defaultPaymentRequirement: safeString(template.defaultPaymentRequirement || starter.defaultPaymentRequirement) || "upfront_required",
+    active: template.active !== false
+  };
+}
+
+function normaliseServiceTemplateDoc(template = {}) {
+  return {
+    ...defaultServiceTemplateSeed(template),
+    defaultPrice: toNumber(template.defaultPrice ?? defaultServiceTemplateSeed(template).defaultPrice),
+    defaultInvoiceLines: Array.isArray(template.defaultInvoiceLines) && template.defaultInvoiceLines.length
+      ? template.defaultInvoiceLines
+        .map((line) => ({
+          label: safeString(line.label || line.title),
+          description: safeString(line.description || line.note),
+          amount: toNumber(line.amount)
+        }))
+        .filter((line) => line.label || line.description || line.amount)
+      : defaultServiceTemplateSeed(template).defaultInvoiceLines
+  };
+}
+
+function serviceTemplateLineItemsForAmount(template = {}, overrideAmount = null) {
+  const baseLines = Array.isArray(template.defaultInvoiceLines) && template.defaultInvoiceLines.length
+    ? template.defaultInvoiceLines.map((line) => ({
+      label: safeString(line.label || line.title),
+      description: safeString(line.description || line.note),
+      amount: toNumber(line.amount)
+    }))
+    : [
+      {
+        label: safeString(template.clientTitle || template.internalName || "Service"),
+        description: safeString(template.defaultSummary || "Golden Brick professional service."),
+        amount: toNumber(template.defaultPrice)
+      }
+    ];
+
+  const targetAmount = toNumber(
+    overrideAmount !== null && overrideAmount !== ""
+      ? overrideAmount
+      : template.defaultPrice
+  );
+  const baseTotal = baseLines.reduce((sum, line) => sum + toNumber(line.amount), 0);
+
+  if (!targetAmount) {
+    return baseLines;
+  }
+
+  if (baseLines.length === 1) {
+    baseLines[0].amount = targetAmount;
+    return baseLines;
+  }
+
+  const delta = Number((targetAmount - baseTotal).toFixed(2));
+  if (Math.abs(delta) >= 0.01) {
+    baseLines.push({
+      label: delta > 0 ? "Pricing adjustment" : "Included discount",
+      description: delta > 0
+        ? "Adjustment to align the order with the confirmed client price."
+        : "Discount applied to align the order with the confirmed client price.",
+      amount: delta
+    });
+  }
+
+  return baseLines;
+}
+
+function buildInvoiceFingerprint(invoiceData = {}) {
+  return JSON.stringify({
+    title: safeString(invoiceData.title),
+    issueDate: serialiseDateValue(invoiceData.issueDate),
+    dueDate: serialiseDateValue(invoiceData.dueDate),
+    summary: safeString(invoiceData.summary),
+    notes: safeString(invoiceData.notes),
+    customFields: Array.isArray(invoiceData.customFields)
+      ? invoiceData.customFields.map((field) => ({
+        label: safeString(field.label),
+        value: safeString(field.value)
+      }))
+      : [],
+    lineItems: Array.isArray(invoiceData.lineItems)
+      ? invoiceData.lineItems.map((item) => ({
+        label: safeString(item.label),
+        description: safeString(item.description),
+        amount: toNumber(item.amount)
+      }))
+      : [],
+    subtotal: Number(toNumber(invoiceData.subtotal).toFixed(2))
+  });
+}
+
+function serviceOrderBillingStatus(paymentRequirement, totalRevenue = 0, totalPayments = 0, hasReadyLink = false) {
+  if (toNumber(totalRevenue) > 0 && toNumber(totalPayments) >= toNumber(totalRevenue) - 0.01) {
+    return "paid";
+  }
+
+  if (toNumber(totalPayments) > 0) {
+    return "partially_paid";
+  }
+
+  if (hasReadyLink) {
+    return "payment_link_ready";
+  }
+
+  return safeString(paymentRequirement) === "can_pay_later"
+    ? "can_pay_later"
+    : "awaiting_payment";
+}
+
+function createStripeClient() {
+  const secretKey = safeString(STRIPE_SECRET_KEY.value());
+  if (!secretKey) {
+    const error = new Error("Stripe secret key is not configured.");
+    error.status = 500;
+    throw error;
+  }
+
+  return new Stripe(secretKey, {
+    apiVersion: "2026-02-25.clover"
+  });
+}
+
+async function ensureDefaultServiceTemplates() {
+  const batch = db.batch();
+  let writes = 0;
+
+  for (const template of DEFAULT_SERVICE_TEMPLATES) {
+    const templateRef = db.collection("serviceTemplates").doc(template.id);
+    const templateSnap = await templateRef.get();
+    if (templateSnap.exists) {
+      continue;
+    }
+
+    writes += 1;
+    batch.set(templateRef, {
+      ...normaliseServiceTemplateDoc(template),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+  }
+
+  if (writes) {
+    await batch.commit();
+  }
+}
+
+async function fetchServiceTemplate(templateId) {
+  await ensureDefaultServiceTemplates();
+
+  const serviceTemplateId = safeString(templateId);
+  if (!serviceTemplateId) {
+    const error = new Error("templateId is required.");
+    error.status = 400;
+    throw error;
+  }
+
+  const templateSnap = await db.collection("serviceTemplates").doc(serviceTemplateId).get();
+  if (templateSnap.exists) {
+    return normaliseServiceTemplateDoc({
+      id: templateSnap.id,
+      ...templateSnap.data()
+    });
+  }
+
+  const fallbackTemplate = DEFAULT_SERVICE_TEMPLATES.find((item) => item.id === serviceTemplateId);
+  if (fallbackTemplate) {
+    return normaliseServiceTemplateDoc(fallbackTemplate);
+  }
+
+  const error = new Error("Service template not found.");
+  error.status = 404;
+  throw error;
+}
+
 function normaliseStaffRole(value) {
   return safeString(value).toLowerCase() === "admin" ? "admin" : "employee";
 }
@@ -366,6 +654,74 @@ function serialiseStaffProfile(profile = {}) {
     active: profile.active !== false,
     defaultLeadAssignee: Boolean(profile.defaultLeadAssignee)
   };
+}
+
+async function fetchStaffSummariesByUid(uids = []) {
+  const cleanUids = uniqueValues(uids);
+  if (!cleanUids.length) {
+    return [];
+  }
+
+  const userSnaps = await Promise.all(
+    cleanUids.map((uid) => db.collection("users").doc(uid).get())
+  );
+
+  return userSnaps
+    .map((snapshot) => (snapshot.exists ? snapshot.data() : null))
+    .filter(Boolean)
+    .map((profile) => ({
+      uid: safeString(profile.uid),
+      email: normaliseEmail(profile.email),
+      displayName: safeString(profile.displayName || profile.email),
+      role: normaliseStaffRole(profile.role)
+    }));
+}
+
+function buildAssignedWorkers(staffProfiles = [], ownerUid = "", fallbackProfile = null) {
+  const orderedUids = uniqueValues([
+    ownerUid,
+    ...staffProfiles.map((profile) => safeString(profile.uid))
+  ]);
+  const orderedProfiles = orderedUids
+    .map((uid) => {
+      const existing = staffProfiles.find((profile) => safeString(profile.uid) === uid);
+      if (existing) {
+        return existing;
+      }
+
+      if (fallbackProfile && safeString(fallbackProfile.uid) === uid) {
+        return {
+          uid,
+          email: normaliseEmail(fallbackProfile.email),
+          displayName: safeString(fallbackProfile.displayName || fallbackProfile.email),
+          role: normaliseStaffRole(fallbackProfile.role)
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean);
+
+  if (!orderedProfiles.length) {
+    return [];
+  }
+
+  const equalSplit = Number((100 / orderedProfiles.length).toFixed(2));
+  let remaining = 100;
+
+  return orderedProfiles.map((profile, index) => {
+    const percent = index === orderedProfiles.length - 1
+      ? Number(remaining.toFixed(2))
+      : equalSplit;
+    remaining -= percent;
+
+    return {
+      uid: safeString(profile.uid),
+      name: safeString(profile.displayName || profile.email || "Assigned worker"),
+      email: normaliseEmail(profile.email),
+      percent
+    };
+  });
 }
 
 function normaliseAssignedWorkers(assignedWorkers = []) {
@@ -2042,6 +2398,591 @@ async function syncCustomerSummary(customerId) {
   }, { merge: true });
 }
 
+function buildServiceOrderInvoiceNumber(projectId, issueDate = new Date()) {
+  const projectKey = safeString(projectId).slice(-4).toUpperCase() || "JOB";
+  const datePart = new Intl.DateTimeFormat("en-CA").format(issueDate).replaceAll("-", "");
+  return `GB-${datePart}-${projectKey}-SO1`;
+}
+
+async function createServiceOrderArtifacts({
+  payload = {},
+  serviceTemplate,
+  customerLink,
+  actorProfile = {}
+}) {
+  const createdAt = FieldValue.serverTimestamp();
+  const projectRef = db.collection("projects").doc();
+  const issueDate = new Date();
+  const dueDate = new Date(issueDate);
+  dueDate.setDate(dueDate.getDate() + 7);
+  const ownerUid = safeString(payload.assignedLeadOwnerUid || actorProfile.uid);
+  const requestedWorkerUids = uniqueValues([
+    ownerUid,
+    ...(Array.isArray(payload.assignedWorkerUids) ? payload.assignedWorkerUids : [])
+  ]);
+  const staffProfiles = await fetchStaffSummariesByUid(requestedWorkerUids);
+  const assignedWorkers = buildAssignedWorkers(staffProfiles, ownerUid, actorProfile);
+  const allowedStaffUids = uniqueValues([
+    ownerUid,
+    ...assignedWorkers.map((worker) => worker.uid)
+  ]);
+  const lineItems = serviceTemplateLineItemsForAmount(
+    serviceTemplate,
+    payload.priceOverride
+  );
+  const subtotal = Number(
+    lineItems.reduce((sum, item) => sum + toNumber(item.amount), 0).toFixed(2)
+  );
+  const financials = computeFinanceSummary(
+    {
+      baseContractValue: subtotal,
+      assignedWorkers
+    },
+    [],
+    [],
+    []
+  );
+  const paymentRequirement =
+    safeString(payload.paymentRequirement || serviceTemplate.defaultPaymentRequirement) || "upfront_required";
+  const billingStatus = serviceOrderBillingStatus(
+    paymentRequirement,
+    financials.totalContractRevenue,
+    0,
+    false
+  );
+  const serviceTemplateSnapshot = {
+    id: serviceTemplate.id,
+    internalName: serviceTemplate.internalName,
+    clientTitle: serviceTemplate.clientTitle,
+    defaultPrice: toNumber(serviceTemplate.defaultPrice),
+    defaultSummary: safeString(serviceTemplate.defaultSummary),
+    defaultPlanningNotes: safeString(serviceTemplate.defaultPlanningNotes),
+    defaultPaymentRequirement: safeString(serviceTemplate.defaultPaymentRequirement),
+    defaultInvoiceLines: serviceTemplate.defaultInvoiceLines || [],
+    resolvedLineItems: lineItems,
+    resolvedSubtotal: subtotal
+  };
+  const projectPayload = {
+    id: projectRef.id,
+    leadId: null,
+    customerId: customerLink.customerId,
+    customerName: customerLink.customerName,
+    clientName: safeString(payload.clientName),
+    clientEmail: normaliseEmail(payload.clientEmail),
+    clientPhone: safeString(payload.clientPhone),
+    projectAddress: safeString(payload.clientAddress),
+    projectType: safeString(serviceTemplate.clientTitle || "Service order"),
+    status: "in_progress",
+    jobKind: "service_order",
+    serviceTemplateId: serviceTemplate.id,
+    serviceTemplateSnapshot,
+    paymentRequirement,
+    billingStatus,
+    planningNotes: safeString(serviceTemplate.defaultPlanningNotes),
+    baseContractValue: financials.baseContractValue,
+    approvedChangeOrdersTotal: financials.approvedChangeOrdersTotal,
+    totalContractRevenue: financials.totalContractRevenue,
+    cashPosition: financials.cashPosition,
+    balanceRemaining: financials.balanceRemaining,
+    jobValue: financials.totalContractRevenue,
+    assignedLeadOwnerUid: ownerUid || null,
+    assignedWorkers,
+    assignedWorkerIds: assignedWorkers.map((worker) => worker.uid).filter(Boolean),
+    allowedStaffUids,
+    phaseLabel: "Service order",
+    nextStep: paymentRequirement === "upfront_required"
+      ? "Generate and send the payment link before starting delivery."
+      : "Delivery can begin now or once the client approves the scope.",
+    sharedStatusNote: paymentRequirement === "upfront_required"
+      ? "This service order is ready. Send the Stripe payment link from the invoice tab to collect payment."
+      : "This service order is open. The team can begin work and collect payment using the invoice tab when ready.",
+    commissionLocked: false,
+    lockedCommissionSnapshot: null,
+    financials,
+    createdAt,
+    updatedAt: createdAt
+  };
+  const invoiceRef = projectRef.collection("invoices").doc();
+  const invoicePayload = {
+    id: invoiceRef.id,
+    projectId: projectRef.id,
+    leadId: null,
+    customerId: customerLink.customerId,
+    customerName: customerLink.customerName,
+    clientName: safeString(payload.clientName),
+    projectAddress: safeString(payload.clientAddress),
+    projectType: safeString(serviceTemplate.clientTitle || "Service order"),
+    title: `${safeString(serviceTemplate.clientTitle || serviceTemplate.internalName || "Service order")} invoice`,
+    invoiceNumber: buildServiceOrderInvoiceNumber(projectRef.id, issueDate),
+    status: "draft",
+    issueDate,
+    dueDate,
+    summary: safeString(serviceTemplate.defaultSummary),
+    customFields: [
+      {
+        label: "Service",
+        value: safeString(serviceTemplate.clientTitle || serviceTemplate.internalName || "Service order")
+      },
+      {
+        label: "Billing",
+        value: paymentRequirement === "upfront_required" ? "Upfront payment required" : "Can pay later"
+      }
+    ],
+    lineItems,
+    subtotal,
+    notes: paymentRequirement === "upfront_required"
+      ? "Payment is required before delivery begins. Use the Golden Brick payment link when you are ready to collect."
+      : "This invoice can be sent now or after delivery, depending on the service arrangement.",
+    paymentRequirement,
+    paidAt: null,
+    paymentMethod: "",
+    paymentReference: "",
+    paymentNote: "",
+    paymentRecordId: null,
+    stripeCheckoutUrl: "",
+    stripeCheckoutSessionId: "",
+    stripePaymentStatus: "",
+    stripeCheckoutFingerprint: buildInvoiceFingerprint({
+      title: `${safeString(serviceTemplate.clientTitle || serviceTemplate.internalName || "Service order")} invoice`,
+      issueDate,
+      dueDate,
+      summary: safeString(serviceTemplate.defaultSummary),
+      customFields: [
+        {
+          label: "Service",
+          value: safeString(serviceTemplate.clientTitle || serviceTemplate.internalName || "Service order")
+        },
+        {
+          label: "Billing",
+          value: paymentRequirement === "upfront_required" ? "Upfront payment required" : "Can pay later"
+        }
+      ],
+      lineItems,
+      subtotal,
+      notes: paymentRequirement === "upfront_required"
+        ? "Payment is required before delivery begins. Use the Golden Brick payment link when you are ready to collect."
+        : "This invoice can be sent now or after delivery, depending on the service arrangement."
+    }),
+    stripeLinkCreatedAt: null,
+    createdAt,
+    updatedAt: createdAt,
+    createdByUid: actorProfile.uid,
+    createdByName: actorProfile.displayName
+  };
+
+  const batch = db.batch();
+  batch.set(projectRef, projectPayload, { merge: true });
+  batch.set(invoiceRef, invoicePayload, { merge: true });
+  await batch.commit();
+
+  await addProjectActivity(projectRef.id, {
+    activityType: "system",
+    title: "Service order created",
+    body: `${safeString(serviceTemplate.clientTitle || serviceTemplate.internalName || "Service order")} was opened with a draft invoice for ${formatCurrency(subtotal)}.`,
+    actorName: actorProfile.displayName,
+    actorUid: actorProfile.uid,
+    actorRole: actorProfile.role
+  });
+
+  return {
+    projectId: projectRef.id,
+    invoiceId: invoiceRef.id,
+    projectPayload,
+    invoicePayload,
+    billingStatus,
+    subtotal
+  };
+}
+
+async function expireCheckoutSessionIfNeeded(stripe, sessionId) {
+  const checkoutSessionId = safeString(sessionId);
+  if (!checkoutSessionId) {
+    return;
+  }
+
+  try {
+    await stripe.checkout.sessions.expire(checkoutSessionId);
+  } catch (error) {
+    logger.warn("Stripe checkout session could not be expired.", {
+      sessionId: checkoutSessionId,
+      error: error?.message || String(error)
+    });
+  }
+}
+
+exports.createServiceOrder = onRequest(
+  {
+    region: "us-central1",
+    cors: true,
+    invoker: "public"
+  },
+  async (request, response) => {
+    applyCors(response);
+
+    if (request.method === "OPTIONS") {
+      response.status(204).send("");
+      return;
+    }
+
+    if (request.method !== "POST") {
+      response.status(405).send("Method not allowed.");
+      return;
+    }
+
+    try {
+      const staff = await verifyStaffRequest(request);
+      if (staff.profile.role !== "admin") {
+        respondJson(response, 403, {
+          ok: false,
+          message: "Only admins can create service orders."
+        });
+        return;
+      }
+
+      const payload = await parseRequestPayload(request);
+      if (!safeString(payload.clientName)) {
+        respondJson(response, 400, {
+          ok: false,
+          message: "Client name is required."
+        });
+        return;
+      }
+
+      if (!safeString(payload.clientPhone) && !safeString(payload.clientEmail)) {
+        respondJson(response, 400, {
+          ok: false,
+          message: "Client phone or email is required."
+        });
+        return;
+      }
+
+      const serviceTemplate = await fetchServiceTemplate(payload.templateId);
+      const customerLink = await ensureServiceOrderCustomer({
+        customerId: safeString(payload.customerId),
+        clientName: safeString(payload.clientName),
+        clientEmail: safeString(payload.clientEmail),
+        clientPhone: safeString(payload.clientPhone),
+        projectAddress: safeString(payload.clientAddress),
+        assignedToUid: safeString(payload.assignedLeadOwnerUid || staff.profile.uid)
+      });
+      const created = await createServiceOrderArtifacts({
+        payload,
+        serviceTemplate,
+        customerLink,
+        actorProfile: staff.profile
+      });
+
+      respondJson(response, 200, {
+        ok: true,
+        projectId: created.projectId,
+        invoiceId: created.invoiceId,
+        customerId: customerLink.customerId,
+        customerName: customerLink.customerName,
+        matchResult: customerLink.matchResult,
+        billingStatus: created.billingStatus
+      });
+    } catch (error) {
+      logger.error("Service order creation failed.", error);
+      respondJson(response, error.status || 500, {
+        ok: false,
+        message: error.message || "Could not create the service order.",
+        matchResult: error.matchResult || null,
+        customerMatchIds: error.customerMatchIds || []
+      });
+    }
+  }
+);
+
+exports.createServiceCheckout = onRequest(
+  {
+    region: "us-central1",
+    cors: true,
+    invoker: "public",
+    secrets: [STRIPE_SECRET_KEY]
+  },
+  async (request, response) => {
+    applyCors(response);
+
+    if (request.method === "OPTIONS") {
+      response.status(204).send("");
+      return;
+    }
+
+    if (request.method !== "POST") {
+      response.status(405).send("Method not allowed.");
+      return;
+    }
+
+    try {
+      const staff = await verifyStaffRequest(request);
+      if (staff.profile.role !== "admin") {
+        respondJson(response, 403, {
+          ok: false,
+          message: "Only admins can generate payment links."
+        });
+        return;
+      }
+
+      const payload = await parseRequestPayload(request);
+      const projectId = safeString(payload.projectId);
+      const invoiceId = safeString(payload.invoiceId);
+
+      if (!projectId || !invoiceId) {
+        respondJson(response, 400, {
+          ok: false,
+          message: "projectId and invoiceId are required."
+        });
+        return;
+      }
+
+      const projectRef = db.collection("projects").doc(projectId);
+      const invoiceRef = projectRef.collection("invoices").doc(invoiceId);
+      const [projectSnap, invoiceSnap] = await Promise.all([
+        projectRef.get(),
+        invoiceRef.get()
+      ]);
+
+      if (!projectSnap.exists || !invoiceSnap.exists) {
+        respondJson(response, 404, {
+          ok: false,
+          message: "Project invoice not found."
+        });
+        return;
+      }
+
+      const projectData = projectSnap.data() || {};
+      const invoiceData = invoiceSnap.data() || {};
+
+      if (safeString(invoiceData.status) === "paid") {
+        respondJson(response, 400, {
+          ok: false,
+          message: "This invoice is already paid."
+        });
+        return;
+      }
+
+      const stripe = createStripeClient();
+      if (safeString(invoiceData.stripeCheckoutSessionId)) {
+        await expireCheckoutSessionIfNeeded(stripe, invoiceData.stripeCheckoutSessionId);
+      }
+
+      const lineItems = (Array.isArray(invoiceData.lineItems) ? invoiceData.lineItems : [])
+        .filter((item) => safeString(item.label) || safeString(item.description) || toNumber(item.amount))
+        .map((item) => ({
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: safeString(item.label || "Golden Brick service"),
+              description: safeString(item.description)
+            },
+            unit_amount: Math.round(toNumber(item.amount) * 100)
+          },
+          quantity: 1
+        }));
+
+      const fallbackLineItem = {
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: safeString(invoiceData.title || "Golden Brick invoice"),
+            description: safeString(invoiceData.summary)
+          },
+          unit_amount: Math.round(toNumber(invoiceData.subtotal) * 100)
+        },
+        quantity: 1
+      };
+
+      const baseUrl = requestBaseUrl(request) || "https://golden-brick-construction.web.app";
+      const customerEmail = normaliseEmail(projectData.clientEmail || invoiceData.clientEmail);
+      const invoiceAmount = toNumber(invoiceData.subtotal);
+      if (invoiceAmount <= 0) {
+        respondJson(response, 400, {
+          ok: false,
+          message: "Invoice total must be greater than zero before generating a payment link."
+        });
+        return;
+      }
+
+      const checkoutSession = await stripe.checkout.sessions.create({
+        mode: "payment",
+        submit_type: "pay",
+        ...(customerEmail ? { customer_email: customerEmail } : {}),
+        success_url: `${baseUrl}/staff/?view=jobs&projectId=${encodeURIComponent(projectId)}&invoiceId=${encodeURIComponent(invoiceId)}&checkout=success`,
+        cancel_url: `${baseUrl}/staff/?view=jobs&projectId=${encodeURIComponent(projectId)}&invoiceId=${encodeURIComponent(invoiceId)}&checkout=cancelled`,
+        line_items: lineItems.length ? lineItems : [fallbackLineItem],
+        metadata: {
+          projectId,
+          invoiceId,
+          customerId: safeString(projectData.customerId || invoiceData.customerId),
+          jobKind: safeString(projectData.jobKind || "standard"),
+          serviceTemplateId: safeString(projectData.serviceTemplateId)
+        }
+      });
+
+      const fingerprint = buildInvoiceFingerprint(invoiceData);
+      const billingStatus = serviceOrderBillingStatus(
+        projectData.paymentRequirement,
+        toNumber(projectData.totalContractRevenue || projectData.jobValue || projectData.baseContractValue),
+        toNumber(projectData.financials && projectData.financials.totalPayments),
+        true
+      );
+
+      await Promise.all([
+        invoiceRef.set({
+          stripeCheckoutUrl: safeString(checkoutSession.url),
+          stripeCheckoutSessionId: safeString(checkoutSession.id),
+          stripePaymentStatus: "open",
+          stripeCheckoutFingerprint: fingerprint,
+          stripeLinkCreatedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true }),
+        projectRef.set({
+          billingStatus,
+          updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true })
+      ]);
+
+      await addProjectActivity(projectId, {
+        activityType: "invoice",
+        title: "Stripe payment link created",
+        body: `${safeString(invoiceData.invoiceNumber || invoiceData.title || "Invoice")} now has a Stripe Checkout link ready to copy and send.`,
+        actorName: staff.profile.displayName,
+        actorUid: staff.profile.uid,
+        actorRole: staff.profile.role
+      });
+
+      respondJson(response, 200, {
+        ok: true,
+        checkoutUrl: safeString(checkoutSession.url),
+        invoice: {
+          ...invoiceData,
+          stripeCheckoutUrl: safeString(checkoutSession.url),
+          stripeCheckoutSessionId: safeString(checkoutSession.id),
+          stripePaymentStatus: "open",
+          stripeCheckoutFingerprint: fingerprint,
+          stripeLinkCreatedAt: new Date().toISOString()
+        },
+        billingStatus
+      });
+    } catch (error) {
+      logger.error("Stripe checkout generation failed.", error);
+      respondJson(response, error.status || 500, {
+        ok: false,
+        message: error.message || "Could not create the payment link."
+      });
+    }
+  }
+);
+
+exports.stripeWebhook = onRequest(
+  {
+    region: "us-central1",
+    cors: false,
+    invoker: "public",
+    secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET]
+  },
+  async (request, response) => {
+    if (request.method !== "POST") {
+      response.status(405).send("Method not allowed.");
+      return;
+    }
+
+    try {
+      const stripe = createStripeClient();
+      const signature = safeString(request.get("stripe-signature"));
+      const webhookSecret = safeString(STRIPE_WEBHOOK_SECRET.value());
+      const event = stripe.webhooks.constructEvent(
+        request.rawBody,
+        signature,
+        webhookSecret
+      );
+
+      if (event.type === "checkout.session.completed") {
+        const session = event.data.object;
+        const projectId = safeString(session.metadata && session.metadata.projectId);
+        const invoiceId = safeString(session.metadata && session.metadata.invoiceId);
+
+        if (projectId && invoiceId) {
+          const projectRef = db.collection("projects").doc(projectId);
+          const invoiceRef = projectRef.collection("invoices").doc(invoiceId);
+          const [projectSnap, invoiceSnap] = await Promise.all([
+            projectRef.get(),
+            invoiceRef.get()
+          ]);
+
+          if (projectSnap.exists && invoiceSnap.exists) {
+            const projectData = projectSnap.data() || {};
+            const invoiceData = invoiceSnap.data() || {};
+
+            if (!safeString(invoiceData.paymentRecordId)) {
+              const paymentAmount = Number(
+                (toNumber(session.amount_total) / 100).toFixed(2)
+              ) || toNumber(invoiceData.subtotal);
+              const paidAt = session.created
+                ? new Date(session.created * 1000)
+                : new Date();
+              const paymentRef = projectRef.collection("payments").doc();
+              const projectedTotalPayments =
+                toNumber(projectData.financials && projectData.financials.totalPayments) +
+                paymentAmount;
+              const billingStatus = serviceOrderBillingStatus(
+                projectData.paymentRequirement,
+                toNumber(projectData.totalContractRevenue || projectData.jobValue || projectData.baseContractValue),
+                projectedTotalPayments,
+                false
+              );
+
+              const batch = db.batch();
+              batch.set(paymentRef, {
+                id: paymentRef.id,
+                amount: paymentAmount,
+                paymentType: "progress",
+                method: "Stripe Checkout",
+                note: `Stripe Checkout payment received for ${safeString(invoiceData.invoiceNumber || "invoice")}.`,
+                relatedDate: paidAt,
+                invoiceId,
+                invoiceNumber: safeString(invoiceData.invoiceNumber),
+                createdByUid: "stripe-webhook",
+                createdByName: "Stripe Webhook",
+                createdAt: FieldValue.serverTimestamp()
+              }, { merge: true });
+              batch.set(invoiceRef, {
+                status: "paid",
+                paidAt,
+                paymentMethod: "Stripe Checkout",
+                paymentReference: safeString(session.payment_intent || session.id),
+                paymentNote: safeString(invoiceData.paymentNote || "Payment received through Stripe Checkout."),
+                paymentRecordId: paymentRef.id,
+                stripePaymentStatus: "paid",
+                updatedAt: FieldValue.serverTimestamp()
+              }, { merge: true });
+              batch.set(projectRef, {
+                billingStatus,
+                updatedAt: FieldValue.serverTimestamp()
+              }, { merge: true });
+              await batch.commit();
+
+              await addProjectActivity(projectId, {
+                activityType: "payment",
+                title: "Stripe payment received",
+                body: `${formatCurrency(paymentAmount)} was received through Stripe Checkout for ${safeString(invoiceData.invoiceNumber || "the invoice")}.`,
+                actorName: "Stripe Webhook",
+                actorUid: "stripe-webhook",
+                actorRole: "system"
+              });
+            }
+          }
+        }
+      }
+
+      response.json({ received: true });
+    } catch (error) {
+      logger.error("Stripe webhook failed.", error);
+      response.status(400).send(`Webhook Error: ${error.message}`);
+    }
+  }
+);
+
 exports.publicLeadIntake = onRequest(
   {
     region: "us-central1",
@@ -2203,7 +3144,10 @@ exports.syncStaffSession = onRequest(
         return;
       }
 
-      await ensureDefaultTemplate();
+      await Promise.all([
+        ensureDefaultTemplate(),
+        ensureDefaultServiceTemplates()
+      ]);
 
       const profile = buildStaffProfile(decoded, allowedData);
 
@@ -3238,6 +4182,66 @@ exports.syncProjectFinancialsOnChangeOrders = onDocumentWritten(
   },
   async (event) => {
     await syncProjectFinancials(event.params.projectId);
+  }
+);
+
+exports.syncServiceOrderInvoiceCheckoutState = onDocumentWritten(
+  {
+    region: "us-central1",
+    document: "projects/{projectId}/invoices/{invoiceId}",
+    secrets: [STRIPE_SECRET_KEY]
+  },
+  async (event) => {
+    if (!event.data.before.exists || !event.data.after.exists) {
+      return;
+    }
+
+    const beforeData = event.data.before.data() || {};
+    const afterData = event.data.after.data() || {};
+    const previousSessionId = safeString(beforeData.stripeCheckoutSessionId);
+
+    if (!previousSessionId || safeString(beforeData.status) === "paid") {
+      return;
+    }
+
+    const beforeFingerprint = safeString(beforeData.stripeCheckoutFingerprint) || buildInvoiceFingerprint(beforeData);
+    const afterFingerprint = safeString(afterData.stripeCheckoutFingerprint) || buildInvoiceFingerprint(afterData);
+    const shouldExpire = safeString(afterData.status) !== "paid"
+      && (
+        safeString(afterData.stripePaymentStatus) === "stale"
+        || beforeFingerprint !== afterFingerprint
+      );
+
+    if (!shouldExpire) {
+      return;
+    }
+
+    try {
+      const stripe = createStripeClient();
+      await expireCheckoutSessionIfNeeded(stripe, previousSessionId);
+    } catch (error) {
+      logger.warn("Service order checkout invalidation skipped.", {
+        invoiceId: event.params.invoiceId,
+        error: error?.message || String(error)
+      });
+    }
+
+    const projectRef = db.collection("projects").doc(event.params.projectId);
+    const projectSnap = await projectRef.get();
+    if (!projectSnap.exists) {
+      return;
+    }
+
+    const projectData = projectSnap.data() || {};
+    await projectRef.set({
+      billingStatus: serviceOrderBillingStatus(
+        projectData.paymentRequirement,
+        toNumber(projectData.totalContractRevenue || projectData.jobValue || projectData.baseContractValue),
+        toNumber(projectData.financials && projectData.financials.totalPayments),
+        false
+      ),
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
   }
 );
 

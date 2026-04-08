@@ -115,6 +115,20 @@
         }
       },
       {
+        "source": "/api/staff/create-service-order",
+        "function": {
+          "functionId": "createServiceOrder",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/staff/create-service-checkout",
+        "function": {
+          "functionId": "createServiceCheckout",
+          "region": "us-central1"
+        }
+      },
+      {
         "source": "/api/staff/estimate-share",
         "function": {
           "functionId": "estimateShare",
@@ -146,6 +160,13 @@
         "source": "/api/public/agreement-document",
         "function": {
           "functionId": "publicAgreementDocument",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/stripe/webhook",
+        "function": {
+          "functionId": "stripeWebhook",
           "region": "us-central1"
         }
       },
