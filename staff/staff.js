@@ -6328,11 +6328,19 @@ function selectedReceiptDocument() {
 }
 
 function selectedExpenseVendor() {
+    if (!refs.expenseVendorSelect) {
+        return null;
+    }
+
     const vendorId = refs.expenseVendorSelect.value || "";
     return vendorId ? state.vendors.find((vendor) => vendor.id === vendorId) || null : null;
 }
 
 function renderExpenseVendorOptions(selectedVendorId = refs.expenseVendorSelect?.value || "") {
+    if (!refs.expenseVendorSelect) {
+        return;
+    }
+
     refs.expenseVendorSelect.innerHTML = [`<option value="">No vendor record</option>`].concat(
         sortByUpdatedDesc(state.vendors).map((vendor) => `
             <option value="${escapeHtml(vendor.id)}">${escapeHtml(`${vendor.name || "Unnamed vendor"} · ${(vendor.tradeIds || []).slice(0, 2).map((tradeId) => vendorTradeLabel(tradeId)).join(", ") || (vendor.tradeOtherText || "Trade not set")}`)}</option>
@@ -6768,6 +6776,33 @@ function focusJobTaskForm() {
         leadId: project.leadId || null
     });
 }
+
+function bindRefEvent(refKey, id, eventName, handler) {
+    const target = refs[refKey] || document.getElementById(id);
+    if (!target || typeof target.addEventListener !== "function") {
+        console.warn(`Skipped binding for ${refKey}. Missing #${id}.`);
+        return null;
+    }
+
+    refs[refKey] = target;
+    target.addEventListener(eventName, handler);
+    return target;
+}
+
+function bindRefCollection(refKey, selector, binder) {
+    const targets = Array.isArray(refs[refKey]) && refs[refKey].length
+        ? refs[refKey]
+        : Array.from(document.querySelectorAll(selector));
+
+    refs[refKey] = targets;
+    targets.forEach((target) => {
+        if (!target || typeof target.addEventListener !== "function") {
+            return;
+        }
+        binder(target);
+    });
+}
+
 function handleCommandAction(target) {
     const command = target.dataset.command;
     if (!command) return;
@@ -7248,40 +7283,40 @@ function bindUi() {
     refs.vendorDocumentSourceTypeInput.addEventListener("change", renderVendorDocumentSourceFields);
     refs.vendorDocumentCategoryInput.addEventListener("change", renderVendorDocumentAccessDefaults);
 
-    refs.jobSearchInput.addEventListener("input", (event) => {
+    bindRefEvent("jobSearchInput", "job-search-input", "input", (event) => {
         state.jobSearch = event.target.value || "";
         renderJobList();
     });
 
-    refs.jobStatusFilter.addEventListener("change", (event) => {
+    bindRefEvent("jobStatusFilter", "job-status-filter", "change", (event) => {
         state.jobStatus = event.target.value;
         renderJobList();
     });
 
-    refs.jobList.addEventListener("click", (event) => {
+    bindRefEvent("jobList", "job-list", "click", (event) => {
         const button = event.target.closest("[data-project-id]");
         if (!button) return;
         selectProject(button.dataset.projectId);
     });
 
-    refs.jobCoreForm.addEventListener("submit", (event) => {
+    bindRefEvent("jobCoreForm", "job-core-form", "submit", (event) => {
         saveProject(event).catch((error) => showToast(error.message, "error"));
     });
 
-    refs.jobTabButtons.forEach((button) => {
+    bindRefCollection("jobTabButtons", "[data-job-tab]", (button) => {
         button.addEventListener("click", () => {
             openJobTab(button.dataset.jobTab);
         });
     });
 
-    refs.jobOpenLeadButton.addEventListener("click", () => {
+    bindRefEvent("jobOpenLeadButton", "job-open-lead-button", "click", () => {
         const project = currentProject();
         if (!project?.leadId) return;
         selectLead(project.leadId);
         switchView("leads-view");
     });
 
-    refs.jobAddExpenseButton.addEventListener("click", () => {
+    bindRefEvent("jobAddExpenseButton", "job-add-expense-button", "click", () => {
         if (!currentProject()) {
             showToast("Select a job first.", "error");
             return;
@@ -7289,7 +7324,7 @@ function bindUi() {
         openJobTab("financials", refs.expenseAmount);
     });
 
-    refs.jobAddPaymentButton.addEventListener("click", () => {
+    bindRefEvent("jobAddPaymentButton", "job-add-payment-button", "click", () => {
         if (!currentProject()) {
             showToast("Select a job first.", "error");
             return;
@@ -7297,7 +7332,7 @@ function bindUi() {
         openJobTab("financials", refs.paymentAmount);
     });
 
-    refs.jobAddDocumentButton.addEventListener("click", () => {
+    bindRefEvent("jobAddDocumentButton", "job-add-document-button", "click", () => {
         if (!currentProject()) {
             showToast("Select a job first.", "error");
             return;
@@ -7305,7 +7340,7 @@ function bindUi() {
         openJobTab("documents", refs.jobDocumentTitle);
     });
 
-    refs.jobAddNoteButton.addEventListener("click", () => {
+    bindRefEvent("jobAddNoteButton", "job-add-note-button", "click", () => {
         if (!currentProject()) {
             showToast("Select a job first.", "error");
             return;
@@ -7313,38 +7348,38 @@ function bindUi() {
         openJobTab("history", refs.jobNoteBody);
     });
 
-    refs.jobTaskDrawerButton.addEventListener("click", focusJobTaskForm);
+    bindRefEvent("jobTaskDrawerButton", "job-task-drawer-button", "click", focusJobTaskForm);
 
-    refs.expenseForm.addEventListener("submit", (event) => {
+    bindRefEvent("expenseForm", "expense-form", "submit", (event) => {
         addExpense(event).catch((error) => showToast(error.message, "error"));
     });
 
-    refs.expenseVendorSelect.addEventListener("change", () => {
+    bindRefEvent("expenseVendorSelect", "expense-vendor-select", "change", () => {
         const vendor = selectedExpenseVendor();
         if (vendor) {
             refs.expenseVendor.value = vendor.name || "";
         }
     });
 
-    refs.paymentForm.addEventListener("submit", (event) => {
+    bindRefEvent("paymentForm", "payment-form", "submit", (event) => {
         addPayment(event).catch((error) => showToast(error.message, "error"));
     });
 
-    refs.changeOrderForm.addEventListener("submit", (event) => {
+    bindRefEvent("changeOrderForm", "change-order-form", "submit", (event) => {
         addChangeOrder(event).catch((error) => showToast(error.message, "error"));
     });
 
-    refs.jobNoteForm.addEventListener("submit", (event) => {
+    bindRefEvent("jobNoteForm", "job-note-form", "submit", (event) => {
         addJobNote(event).catch((error) => showToast(error.message, "error"));
     });
 
-    refs.jobDocumentForm.addEventListener("submit", (event) => {
+    bindRefEvent("jobDocumentForm", "job-document-form", "submit", (event) => {
         saveJobDocument(event).catch((error) => showToast(error.message, "error"));
     });
 
-    refs.jobDocumentSourceType.addEventListener("change", renderJobDocumentSourceFields);
+    bindRefEvent("jobDocumentSourceType", "job-document-source-type", "change", renderJobDocumentSourceFields);
 
-    refs.jobReopenUnlockButton.addEventListener("click", () => {
+    bindRefEvent("jobReopenUnlockButton", "job-reopen-unlock-button", "click", () => {
         reopenAndUnlockCommission().catch((error) => showToast(error.message, "error"));
     });
 
