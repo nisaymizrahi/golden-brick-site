@@ -184,6 +184,17 @@ const VENDOR_TRADE_OPTIONS = [
     { id: "supplier", label: "Supplier" }
 ];
 
+const DEFAULT_ESTIMATE_STANDARD_TERMS = [
+    "This estimate is based on standard contractor-stock materials and finishes unless otherwise stated in writing.",
+    "Pricing remains subject to final scope confirmation, field measurements, access conditions, and finish selections.",
+    "Golden Brick Construction is not responsible for unforeseen concealed, latent, or site conditions discovered after work begins. Any resulting scope, schedule, or pricing adjustments must be documented in writing before additional work proceeds."
+].join("\n");
+
+const LEGACY_ESTIMATE_TEMPLATE_TERMS = [
+    "Pricing is a planning estimate until site conditions, access, finish selections, and final scope are confirmed.",
+    "Pricing is a planning estimate until scope, access, existing conditions, and finish selections are confirmed on site."
+];
+
 const EMPTY_TEMPLATE = {
     id: "estimate-default",
     name: "Investor Estimate Default",
@@ -191,7 +202,7 @@ const EMPTY_TEMPLATE = {
     greeting: "Hi {{clientName}},",
     intro: "Thanks for speaking with Golden Brick Construction. Based on the information shared so far, here is a working estimate outline for your project.",
     outro: "Please review the draft and let us know what you would like us to tighten before the next step.",
-    terms: "Pricing is a planning estimate until site conditions, access, finish selections, and final scope are confirmed."
+    terms: DEFAULT_ESTIMATE_STANDARD_TERMS
 };
 
 const COMPANY_INFO = {
@@ -265,11 +276,15 @@ const refs = {
     taskResetButton: document.getElementById("task-reset-button"),
 
     leadMetrics: document.getElementById("lead-metrics"),
+    leadsView: document.getElementById("leads-view"),
     leadSearchInput: document.getElementById("lead-search-input"),
     leadStageFilter: document.getElementById("lead-stage-filter"),
+    leadLayoutToggle: document.getElementById("lead-layout-toggle"),
     leadLayoutButtons: Array.from(document.querySelectorAll("[data-lead-layout]")),
     leadNewButton: document.getElementById("lead-new-button"),
     leadPipelineSurface: document.getElementById("lead-pipeline-surface"),
+    leadBoardWrap: document.getElementById("lead-board-wrap"),
+    leadResultShell: document.getElementById("lead-result-shell"),
     leadWorkspacePanel: document.getElementById("lead-workspace-panel"),
     leadWorkspaceBackButton: document.getElementById("lead-workspace-back-button"),
     leadWorkspaceMeta: document.getElementById("lead-workspace-meta"),
@@ -306,6 +321,7 @@ const refs = {
     estimateSubject: document.getElementById("estimate-subject"),
     estimateBody: document.getElementById("estimate-body"),
     estimateAssumptions: document.getElementById("estimate-assumptions"),
+    estimateStandardTermsDisplay: document.getElementById("estimate-standard-terms-display"),
     estimateLines: document.getElementById("estimate-lines"),
     estimateSubtotal: document.getElementById("estimate-subtotal"),
     estimatePreview: document.getElementById("estimate-preview"),
@@ -397,6 +413,9 @@ const refs = {
     paymentMethod: document.getElementById("payment-method"),
     paymentNote: document.getElementById("payment-note"),
     paymentList: document.getElementById("payment-list"),
+    jobScopeSummary: document.getElementById("job-scope-summary"),
+    jobScopeList: document.getElementById("job-scope-list"),
+    jobScopeImportButton: document.getElementById("job-scope-import-button"),
     jobTeamFinancialSummary: document.getElementById("job-team-financial-summary"),
     jobCommissionStatus: document.getElementById("job-commission-status"),
     commissionBreakdown: document.getElementById("commission-breakdown"),
@@ -507,7 +526,7 @@ const refs = {
     templateOutro: document.getElementById("template-outro"),
     templateTerms: document.getElementById("template-terms"),
 
-    mobileExpenseFab: document.getElementById("mobile-expense-fab"),
+    mobileCreateFab: document.getElementById("mobile-create-fab"),
     mobileTabBar: document.getElementById("mobile-tab-bar"),
     mobileTabButtons: Array.from(document.querySelectorAll("[data-mobile-view]")),
     mobileMoreButton: document.getElementById("mobile-more-button"),
@@ -532,6 +551,8 @@ const refs = {
     drawerExpenseVendor: document.getElementById("drawer-expense-vendor"),
     drawerExpenseNote: document.getElementById("drawer-expense-note"),
     drawerLeadForm: document.getElementById("drawer-lead-form"),
+    drawerLeadCustomerSearch: document.getElementById("drawer-lead-customer-search"),
+    drawerLeadCustomerSelect: document.getElementById("drawer-lead-customer-select"),
     drawerLeadClientName: document.getElementById("drawer-lead-client-name"),
     drawerLeadClientPhone: document.getElementById("drawer-lead-client-phone"),
     drawerLeadClientEmail: document.getElementById("drawer-lead-client-email"),
@@ -601,6 +622,7 @@ const state = {
     projectExpenses: [],
     projectPayments: [],
     projectChangeOrders: [],
+    projectScopeItems: [],
     projectDocuments: [],
     projectNotes: [],
     projectActivities: [],
@@ -610,7 +632,7 @@ const state = {
     activeJobTab: "financials",
     activeView: "today-view",
     todayScope: "mine",
-    leadLayout: "list",
+    leadLayout: isMobileViewport() ? "list" : "board",
     leadSearch: "",
     leadStage: "all",
     customerSearch: "",
@@ -677,6 +699,11 @@ function defaultExpenseDrawerDraft(projectId = null) {
     };
 }
 
+function openLeadsListSurface() {
+    state.leadLayout = "list";
+    state.leadWorkspaceOpen = false;
+}
+
 function mobileViewHasDetail(viewId) {
     if (viewId === "tasks-view") return Boolean(currentTask());
     if (viewId === "customers-view") return Boolean(currentCustomer());
@@ -710,12 +737,13 @@ function syncMobileChrome() {
     if (refs.mobileTabBar) {
         refs.mobileTabBar.hidden = !(isMobile && state.profile);
     }
-    if (refs.mobileExpenseFab) {
-        refs.mobileExpenseFab.hidden = !(isMobile && state.profile && !state.drawer.type);
+    if (refs.mobileCreateFab) {
+        refs.mobileCreateFab.hidden = !(isMobile && state.profile && !state.drawer.type);
     }
 
     if (refs.workspaceCommandBar && state.profile) {
         refs.workspaceCommandBar.hidden = hideCommandBar;
+        refs.workspaceCommandBar.classList.toggle("is-mobile-summary", isMobile && !hideCommandBar);
     }
 
     refs.mobileTabButtons.forEach((button) => {
@@ -740,6 +768,7 @@ function clearMobileDetailForView(viewId) {
         state.projectExpenses = [];
         state.projectPayments = [];
         state.projectChangeOrders = [];
+        state.projectScopeItems = [];
         state.projectDocuments = [];
         state.projectNotes = [];
         state.projectActivities = [];
@@ -924,7 +953,7 @@ function showAuthShell(message = "Only approved staff accounts can enter the por
     refs.authShell.hidden = false;
     refs.staffShell.hidden = true;
     refs.mobileTabBar.hidden = true;
-    refs.mobileExpenseFab.hidden = true;
+    refs.mobileCreateFab.hidden = true;
     syncMobileChrome();
 }
 
@@ -1478,6 +1507,7 @@ function defaultLeadDraft(customer = null) {
     return {
         customerId: customer?.id || null,
         customerName: customer?.name || "",
+        customerSearch: customer?.name || "",
         clientName: customer?.name || "",
         clientEmail: customer?.primaryEmail || "",
         clientPhone: customer?.primaryPhone || "",
@@ -1663,6 +1693,16 @@ function openExpenseDrawer({ projectId = state.selectedProjectId || null } = {})
     queueFocus(projectId ? refs.drawerExpenseAmount : refs.drawerExpenseProjectSearch);
 }
 
+function openMobileCreateDrawer() {
+    state.drawer = resetDrawerState({
+        type: "mobile-create",
+        context: {},
+        restoreFocus: rememberedFocusElement()
+    });
+    renderActiveDrawer();
+    queueFocus(refs.drawerMenuList?.querySelector("[data-drawer-action]"));
+}
+
 function openMobileMoreDrawer() {
     state.drawer = resetDrawerState({
         type: "mobile-more",
@@ -1694,11 +1734,105 @@ function hideDrawerPanels() {
 }
 
 function renderDrawerMenu() {
+    renderDrawerActionMenu({
+        kicker: "Navigation",
+        title: "More sections",
+        subtitle: "Jump to the rest of the CRM without wrestling with the desktop sidebar.",
+        items: [
+            { label: "Leads", view: "leads-view" },
+            { label: "Customers", view: "customers-view" },
+            { label: "Staff", view: "staff-view" }
+        ]
+    });
+}
+
+function renderDrawerCreateMenu() {
+    renderDrawerActionMenu({
+        kicker: "Quick add",
+        title: "Create something",
+        subtitle: "Start the most common updates from one clean mobile menu.",
+        items: [
+            { label: "Add expense", action: "expense" },
+            { label: "Add lead", action: "lead" },
+            { label: "Add task", action: "task" },
+            { label: "Add customer", action: "customer" },
+            { label: "Add vendor", action: "vendor" }
+        ]
+    });
+}
+
+function renderDrawerActionMenu({ kicker, title, subtitle, items = [] }) {
     hideDrawerPanels();
     refs.drawerMenuPanel.hidden = false;
-    refs.drawerKicker.textContent = "Navigation";
-    refs.drawerTitle.textContent = "More sections";
-    refs.drawerSubtitle.textContent = "Jump to the rest of the CRM without wrestling with the desktop sidebar.";
+    refs.drawerKicker.textContent = kicker;
+    refs.drawerTitle.textContent = title;
+    refs.drawerSubtitle.textContent = subtitle;
+    refs.drawerMenuList.innerHTML = items.map((item) => {
+        const attrs = item.view
+            ? `data-drawer-view="${escapeHtml(item.view)}"`
+            : `data-drawer-action="${escapeHtml(item.action)}"`;
+        return `<button type="button" class="drawer-menu-button" ${attrs}>${escapeHtml(item.label)}</button>`;
+    }).join("");
+}
+
+function collectDrawerLeadDraftFromInputs() {
+    return {
+        ...(state.drawer.leadDraft || defaultLeadDraft()),
+        customerSearch: refs.drawerLeadCustomerSearch?.value || state.drawer.leadDraft?.customerSearch || "",
+        clientName: refs.drawerLeadClientName?.value ?? state.drawer.leadDraft?.clientName ?? "",
+        clientPhone: refs.drawerLeadClientPhone?.value ?? state.drawer.leadDraft?.clientPhone ?? "",
+        clientEmail: refs.drawerLeadClientEmail?.value ?? state.drawer.leadDraft?.clientEmail ?? "",
+        projectAddress: refs.drawerLeadProjectAddress?.value ?? state.drawer.leadDraft?.projectAddress ?? "",
+        projectType: refs.drawerLeadProjectType?.value ?? state.drawer.leadDraft?.projectType ?? "",
+        notes: refs.drawerLeadNotes?.value ?? state.drawer.leadDraft?.notes ?? "",
+        assignedToUid: refs.drawerLeadAssignee?.value || state.drawer.leadDraft?.assignedToUid || ""
+    };
+}
+
+function renderDrawerLeadCustomerOptions() {
+    const leadDraft = state.drawer.leadDraft || defaultLeadDraft();
+    const search = safeString(refs.drawerLeadCustomerSearch?.value || leadDraft.customerSearch).toLowerCase();
+    const selectedCustomerId = leadDraft.customerId || "";
+    const customers = sortByUpdatedDesc(state.customers).filter((customer) => {
+        if (!search) return true;
+        const blob = [
+            customer.name,
+            customer.primaryEmail,
+            customer.primaryPhone,
+            customer.primaryAddress
+        ].join(" ").toLowerCase();
+        return blob.includes(search);
+    });
+
+    refs.drawerLeadCustomerSelect.innerHTML = [`<option value="">Create / auto-match customer</option>`].concat(
+        customers.map((customer) => `
+            <option value="${escapeHtml(customer.id)}">
+                ${escapeHtml(`${customer.name || "Unnamed customer"} · ${customer.primaryPhone || customer.primaryEmail || customer.primaryAddress || "No contact info"}`)}
+            </option>
+        `)
+    ).join("");
+
+    refs.drawerLeadCustomerSelect.value = selectedCustomerId || "";
+}
+
+function applyDrawerLeadCustomerSelection(customerId) {
+    const currentDraft = collectDrawerLeadDraftFromInputs();
+    const customer = customerId ? state.customers.find((item) => item.id === customerId) : null;
+
+    state.drawer.leadDraft = {
+        ...currentDraft,
+        customerId: customer?.id || null,
+        customerName: customer?.name || "",
+        customerSearch: refs.drawerLeadCustomerSearch.value || customer?.name || "",
+        clientName: customer ? (customer.name || currentDraft.clientName) : currentDraft.clientName,
+        clientEmail: customer ? (customer.primaryEmail || currentDraft.clientEmail) : currentDraft.clientEmail,
+        clientPhone: customer ? (customer.primaryPhone || currentDraft.clientPhone) : currentDraft.clientPhone,
+        projectAddress: customer
+            ? (currentDraft.projectAddress || customer.primaryAddress || "")
+            : currentDraft.projectAddress
+    };
+
+    renderDrawerLead();
 }
 
 function renderDrawerExpenseProjectOptions() {
@@ -1785,6 +1919,8 @@ function renderDrawerLead() {
     refs.drawerKicker.textContent = "Quick add";
     refs.drawerTitle.textContent = "New lead";
     refs.drawerSubtitle.textContent = "Capture the lead fast, then open the full lead workspace for estimate, tasks, planning, notes, and the won-job flow.";
+    refs.drawerLeadCustomerSearch.value = leadDraft?.customerSearch || "";
+    renderDrawerLeadCustomerOptions();
     refs.drawerLeadClientName.value = leadDraft?.clientName || "";
     refs.drawerLeadClientPhone.value = leadDraft?.clientPhone || "";
     refs.drawerLeadClientEmail.value = leadDraft?.clientEmail || "";
@@ -1799,7 +1935,7 @@ function renderDrawerLead() {
     const linkedCustomer = leadDraft?.customerId ? state.customers.find((item) => item.id === leadDraft.customerId) : null;
     refs.drawerLeadContext.innerHTML = linkedCustomer
         ? `<div><strong>Linked customer:</strong> ${escapeHtml(linkedCustomer.name || "Customer")}</div><div>${escapeHtml(linkedCustomer.primaryPhone || linkedCustomer.primaryEmail || linkedCustomer.primaryAddress || "Existing customer record will stay attached.")}</div>`
-        : `This lead will look for an exact customer match by phone or email. If there is no exact match, the CRM will create a new customer automatically.`;
+        : `Pick an existing customer above for repeat business, or leave it empty and the CRM will still auto-match by phone or email after save.`;
 }
 
 function renderDrawerCustomer() {
@@ -1926,6 +2062,11 @@ function renderActiveDrawer() {
         return;
     }
 
+    if (drawerType === "mobile-create") {
+        renderDrawerCreateMenu();
+        return;
+    }
+
     if (drawerType === "mobile-more") {
         renderDrawerMenu();
         return;
@@ -1952,6 +2093,8 @@ function renderActiveDrawer() {
 function switchView(viewId) {
     if (viewId !== "leads-view") {
         state.leadWorkspaceOpen = false;
+    } else if (isMobileViewport() && !state.leadWorkspaceOpen) {
+        state.leadLayout = "list";
     }
 
     state.activeView = viewId;
@@ -2260,6 +2403,7 @@ function renderWorkspaceCommandBar() {
         return;
     }
 
+    const isMobile = isMobileViewport();
     const openLeadCount = state.leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status)).length;
     const unassignedLeadCount = state.leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status) && !lead.assignedToUid).length;
     const commandTaskSource = state.activeView === "today-view" ? taskScopeSet() : state.tasks;
@@ -2292,17 +2436,21 @@ function renderWorkspaceCommandBar() {
     const actionButtons = [];
     const summaryChips = [];
 
-    if (isAdmin()) {
+    if (isAdmin() && !isMobile) {
         actionButtons.push(buildCommandAction("New lead", "primary-button", { "data-command": "start-lead-draft" }));
         actionButtons.push(buildCommandAction("New customer", "ghost-button", { "data-command": "start-customer-draft" }));
         actionButtons.push(buildCommandAction("New vendor", "ghost-button", { "data-command": "start-vendor-draft" }));
     }
 
-    actionButtons.push(buildCommandAction("New task", isAdmin() ? "secondary-button" : "primary-button", { "data-command": "start-task-draft" }));
+    if (!isMobile) {
+        actionButtons.push(buildCommandAction("New task", isAdmin() ? "secondary-button" : "primary-button", { "data-command": "start-task-draft" }));
+    }
 
     if (state.activeView === "today-view") {
-        actionButtons.push(buildCommandAction("Open leads", "ghost-button", { "data-command": "open-view", "data-target-view": "leads-view" }));
-        actionButtons.push(buildCommandAction("Open jobs", "ghost-button", { "data-command": "open-view", "data-target-view": "jobs-view" }));
+        if (!isMobile) {
+            actionButtons.push(buildCommandAction("Open leads", "ghost-button", { "data-command": "open-view", "data-target-view": "leads-view" }));
+            actionButtons.push(buildCommandAction("Open jobs", "ghost-button", { "data-command": "open-view", "data-target-view": "jobs-view" }));
+        }
         summaryChips.push(buildCommandChip("Overdue tasks", overdueCount));
         summaryChips.push(buildCommandChip("Fresh leads", openLeadsForToday().length));
         summaryChips.push(buildCommandChip("Estimate review", estimateReviewLeads().length));
@@ -2310,17 +2458,17 @@ function renderWorkspaceCommandBar() {
     }
 
     if (state.activeView === "tasks-view") {
-        if (selectedTask?.leadId) {
+        if (!isMobile && selectedTask?.leadId) {
             actionButtons.push(buildCommandAction("Open lead", "ghost-button", {
                 "data-open-lead": selectedTask.leadId,
                 "data-open-view": "leads-view"
             }));
-        } else if (selectedTask?.customerId) {
+        } else if (!isMobile && selectedTask?.customerId) {
             actionButtons.push(buildCommandAction("Open customer", "ghost-button", {
                 "data-open-customer": selectedTask.customerId,
                 "data-open-view": "customers-view"
             }));
-        } else if (selectedTask?.projectId) {
+        } else if (!isMobile && selectedTask?.projectId) {
             actionButtons.push(buildCommandAction("Open job", "ghost-button", {
                 "data-open-project": selectedTask.projectId,
                 "data-open-view": "jobs-view"
@@ -2334,7 +2482,7 @@ function renderWorkspaceCommandBar() {
     }
 
     if (state.activeView === "leads-view") {
-        if (selectedLead?.id) {
+        if (!isMobile && selectedLead?.id) {
             actionButtons.push(buildCommandAction("Open estimate", "ghost-button", { "data-command": "lead-open-estimate" }));
             actionButtons.push(buildCommandAction("Lead task", "ghost-button", { "data-command": "lead-create-task" }));
 
@@ -2361,24 +2509,24 @@ function renderWorkspaceCommandBar() {
     }
 
     if (state.activeView === "customers-view") {
-        if (selectedCustomer?.id && isAdmin()) {
+        if (!isMobile && selectedCustomer?.id && isAdmin()) {
             actionButtons.push(buildCommandAction("Create lead for customer", "secondary-button", { "data-command": "customer-create-lead" }));
         }
-        if (selectedCustomer?.id) {
+        if (!isMobile && selectedCustomer?.id) {
             actionButtons.push(buildCommandAction("Customer task", "ghost-button", { "data-command": "customer-create-task" }));
         }
 
         const currentEstimateLead = selectedCustomer ? customerRollup(selectedCustomer).currentEstimateLead : null;
         const latestCustomerProject = selectedCustomer ? latestByUpdated(customerRollup(selectedCustomer).projects) : null;
 
-        if (currentEstimateLead) {
+        if (!isMobile && currentEstimateLead) {
             actionButtons.push(buildCommandAction("Open current lead", "ghost-button", {
                 "data-open-lead": currentEstimateLead.id,
                 "data-open-view": "leads-view"
             }));
         }
 
-        if (latestCustomerProject) {
+        if (!isMobile && latestCustomerProject) {
             actionButtons.push(buildCommandAction("Open latest job", "ghost-button", {
                 "data-open-project": latestCustomerProject.id,
                 "data-open-view": "jobs-view"
@@ -2392,21 +2540,21 @@ function renderWorkspaceCommandBar() {
     }
 
     if (state.activeView === "jobs-view") {
-        if (selectedProject?.leadId) {
+        if (!isMobile && selectedProject?.leadId) {
             actionButtons.push(buildCommandAction("Open lead", "ghost-button", {
                 "data-open-lead": selectedProject.leadId,
                 "data-open-view": "leads-view"
             }));
         }
 
-        if (selectedProject?.customerId) {
+        if (!isMobile && selectedProject?.customerId) {
             actionButtons.push(buildCommandAction("Open customer", "ghost-button", {
                 "data-open-customer": selectedProject.customerId,
                 "data-open-view": "customers-view"
             }));
         }
 
-        if (selectedProject?.id) {
+        if (!isMobile && selectedProject?.id) {
             actionButtons.push(buildCommandAction("Job task", "ghost-button", { "data-command": "job-create-task" }));
         }
 
@@ -2421,12 +2569,12 @@ function renderWorkspaceCommandBar() {
     }
 
     if (state.activeView === "vendors-view") {
-        if (selectedVendor?.id && isAdmin()) {
+        if (!isMobile && selectedVendor?.id && isAdmin()) {
             actionButtons.push(buildCommandAction("Add payable", "secondary-button", { "data-command": "vendor-add-bill" }));
             actionButtons.push(buildCommandAction("Add document", "ghost-button", { "data-command": "vendor-add-document" }));
         }
 
-        if (selectedVendor?.id && vendorRollup(selectedVendor).projects[0]) {
+        if (!isMobile && selectedVendor?.id && vendorRollup(selectedVendor).projects[0]) {
             actionButtons.push(buildCommandAction("Open latest job", "ghost-button", {
                 "data-open-project": vendorRollup(selectedVendor).projects[0].id,
                 "data-open-view": "jobs-view"
@@ -2992,6 +3140,22 @@ function markLeadBoardDragState(leadId, laneStatus = null) {
 function renderLeadListShell() {
     renderLeadBoard();
     renderLeadList();
+
+    const shouldUseMobileLayout = isMobileViewport() && !state.leadWorkspaceOpen;
+    const activeLeadLayout = state.leadLayout === "board" ? "board" : "list";
+
+    if (refs.leadLayoutToggle) {
+        refs.leadLayoutToggle.hidden = !shouldUseMobileLayout;
+    }
+
+    refs.leadLayoutButtons.forEach((button) => {
+        button.classList.toggle("is-active", button.dataset.leadLayout === activeLeadLayout);
+    });
+
+    if (refs.leadPipelineSurface) {
+        refs.leadPipelineSurface.classList.toggle("is-mobile-list-layout", shouldUseMobileLayout && activeLeadLayout === "list");
+        refs.leadPipelineSurface.classList.toggle("is-mobile-board-layout", shouldUseMobileLayout && activeLeadLayout === "board");
+    }
 }
 
 function renderLeadWorkspaceSurface() {
@@ -3154,10 +3318,51 @@ function estimateOverviewParagraphs(estimateDraft, template = state.template || 
         .filter(Boolean);
 }
 
-function estimateAssumptionList(estimateDraft, template = state.template || EMPTY_TEMPLATE) {
-    return Array.isArray(estimateDraft.assumptions) && estimateDraft.assumptions.length
-        ? estimateDraft.assumptions
-        : (safeString(template.terms) ? [safeString(template.terms)] : []);
+function normaliseEstimateCompareValue(value) {
+    return safeString(value)
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+}
+
+function splitEstimateMultilineText(value) {
+    return safeString(value)
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+
+function estimateTemplateTermsText(template = state.template || EMPTY_TEMPLATE) {
+    const storedTerms = safeString(template?.terms);
+    const storedKey = normaliseEstimateCompareValue(storedTerms);
+    const legacyKeys = new Set(LEGACY_ESTIMATE_TEMPLATE_TERMS.map(normaliseEstimateCompareValue));
+
+    if (!storedTerms || legacyKeys.has(storedKey)) {
+        return EMPTY_TEMPLATE.terms;
+    }
+
+    return storedTerms;
+}
+
+function estimateStandardTerms(template = state.template || EMPTY_TEMPLATE) {
+    return splitEstimateMultilineText(estimateTemplateTermsText(template));
+}
+
+function estimateProjectAssumptionList(estimateDraft, template = state.template || EMPTY_TEMPLATE) {
+    const standardKeys = new Set([
+        ...estimateStandardTerms(template),
+        ...LEGACY_ESTIMATE_TEMPLATE_TERMS
+    ].map(normaliseEstimateCompareValue));
+
+    return (Array.isArray(estimateDraft.assumptions) ? estimateDraft.assumptions : [])
+        .flatMap((item) => splitEstimateMultilineText(item))
+        .filter((item) => !standardKeys.has(normaliseEstimateCompareValue(item)));
+}
+
+function estimateStandardTermsMarkup(template = state.template || EMPTY_TEMPLATE) {
+    return estimateStandardTerms(template)
+        .map((item) => `<div class="estimate-standard-term">${escapeHtml(item)}</div>`)
+        .join("");
 }
 
 function sanitiseDownloadName(value) {
@@ -3270,7 +3475,7 @@ function buildTemplateEstimateDraft(lead) {
             "",
             "This is a planning estimate based on the information currently available. We can tighten the pricing further after a site review, finish confirmation, and final scope check."
         ].join("\n"),
-        assumptions: [safeString(template.terms || EMPTY_TEMPLATE.terms)].filter(Boolean),
+        assumptions: [],
         lineItems,
         subtotal: Number(subtotal.toFixed(2))
     };
@@ -3281,7 +3486,8 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
     const leadName = safeString(lead?.clientName) || "Client";
     const title = safeString(estimateDraft.subject) || defaultEstimateTitle(lead);
     const overviewBlocks = estimateOverviewParagraphs(estimateDraft, template);
-    const assumptions = estimateAssumptionList(estimateDraft, template);
+    const standardTerms = estimateStandardTerms(template);
+    const projectAssumptions = estimateProjectAssumptionList(estimateDraft, template);
     const lineItems = Array.isArray(estimateDraft.lineItems) ? estimateDraft.lineItems : [];
     const rows = lineItems.length
         ? lineItems.map((item) => `
@@ -3311,7 +3517,7 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
                     <div class="estimate-company-lockup">
                         <div class="estimate-eyebrow">${escapeHtml(COMPANY_INFO.name)}</div>
                         <h3>${escapeHtml(title)}</h3>
-                        <p class="estimate-subtitle">Investor-ready renovation proposal prepared for quick client review, browser print, and PDF export.</p>
+                        <p class="estimate-subtitle">Investor-professional renovation proposal prepared for clear client review and polished PDF delivery.</p>
                         <p class="estimate-greeting">${escapeHtml((template.greeting || EMPTY_TEMPLATE.greeting).replace("{{clientName}}", leadName))}</p>
                     </div>
                 </div>
@@ -3359,43 +3565,68 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
             <section class="estimate-section">
                 <div class="estimate-section-heading">
                     <h4>Overview / Scope</h4>
-                    <p>Use this summary to align the client on the planned scope and pricing posture before final execution details.</p>
+                    <p>Use this summary to align the client on the current scope, pricing posture, and proposed next step before final field verification.</p>
                 </div>
-                <div class="estimate-copy-block">
-                    ${overviewBlocks.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
+                <div class="estimate-section-shell">
+                    <div class="estimate-copy-block">
+                        ${overviewBlocks.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
+                    </div>
                 </div>
             </section>
 
             <section class="estimate-section">
                 <div class="estimate-section-heading">
                     <h4>Line items</h4>
-                    <p>Each line item rolls into the current working estimate total.</p>
+                    <p>Each scope line rolls into the current working estimate total for this project.</p>
                 </div>
-                <table class="estimate-table">
-                    <thead>
-                        <tr>
-                            <th>Scope</th>
-                            <th>Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rows}</tbody>
-                    <tfoot>
-                        <tr class="estimate-total-row">
-                            <td>Estimated Total</td>
-                            <td>${escapeHtml(formatCurrency(estimateDraft.subtotal || 0))}</td>
-                        </tr>
-                    </tfoot>
-                </table>
+                <div class="estimate-section-shell">
+                    <table class="estimate-table">
+                        <thead>
+                            <tr>
+                                <th>Scope</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="estimate-section">
+                <div class="estimate-total-panel">
+                    <span>Estimated total</span>
+                    <strong>${escapeHtml(formatCurrency(estimateDraft.subtotal || 0))}</strong>
+                    <p>This working estimate reflects the current scope and will be refined further if final selections, field measurements, or access conditions shift.</p>
+                </div>
             </section>
 
             <section class="estimate-foot">
                 <div class="estimate-section">
                     <div class="estimate-section-heading">
-                        <h4>Assumptions / Exclusions</h4>
-                        <p>These assumptions keep the estimate clean until site conditions and final selections are confirmed.</p>
+                        <h4>Standard terms</h4>
+                        <p>These protections are always included in Golden Brick's client-facing estimate package.</p>
                     </div>
-                    <ul>${assumptions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+                    <div class="estimate-section-shell">
+                        <div class="estimate-standard-terms-list">
+                            ${standardTerms.map((item) => `<div class="estimate-standard-term">${escapeHtml(item)}</div>`).join("")}
+                        </div>
+                    </div>
                 </div>
+
+                <div class="estimate-section">
+                    <div class="estimate-section-heading">
+                        <h4>Project-specific assumptions / exclusions</h4>
+                        <p>Use this section for deal-specific exclusions, finish notes, access considerations, or scope clarifications.</p>
+                    </div>
+                    <div class="estimate-section-shell">
+                        ${projectAssumptions.length
+                            ? `<ul class="estimate-assumption-list">${projectAssumptions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+                            : `<div class="estimate-note-empty">No project-specific assumptions or exclusions have been added to this draft yet.</div>`}
+                    </div>
+                </div>
+            </section>
+
+            <section class="estimate-section">
                 <div class="estimate-next-step">
                     <div class="estimate-section-heading">
                         <h4>Next step</h4>
@@ -3409,7 +3640,7 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
                     <strong>${escapeHtml(COMPANY_INFO.name)}</strong>
                     <div>${escapeHtml(COMPANY_INFO.email)} · ${escapeHtml(COMPANY_INFO.phone)}</div>
                 </div>
-                <div>Prepared for browser print and Save as PDF delivery.</div>
+                <div>Prepared for client delivery as a Golden Brick PDF proposal.</div>
             </footer>
         </article>
     `;
@@ -3417,7 +3648,8 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
 
 function buildEstimatePlainText(lead, estimateDraft) {
     const template = state.template || EMPTY_TEMPLATE;
-    const assumptions = estimateAssumptionList(estimateDraft, template);
+    const standardTerms = estimateStandardTerms(template);
+    const projectAssumptions = estimateProjectAssumptionList(estimateDraft, template);
 
     return [
         COMPANY_INFO.name,
@@ -3426,12 +3658,15 @@ function buildEstimatePlainText(lead, estimateDraft) {
         "",
         safeString(estimateDraft.subject) || defaultEstimateTitle(lead),
         "",
-        (template.greeting || EMPTY_TEMPLATE.greeting).replace("{{clientName}}", safeString(lead?.clientName) || "Client"),
-        "",
-        safeString(estimateDraft.emailBody) || safeString(template.intro),
-        "",
+        `Prepared: ${formatDateOnly(new Date())}`,
+        `Client: ${safeString(lead?.clientName) || "Client"}`,
         "Project Address: " + (safeString(lead?.projectAddress) || "To be confirmed"),
         "Project Type: " + (safeString(lead?.projectType) || "General scope"),
+        "",
+        (template.greeting || EMPTY_TEMPLATE.greeting).replace("{{clientName}}", safeString(lead?.clientName) || "Client"),
+        "",
+        "Overview / Scope",
+        safeString(estimateDraft.emailBody) || safeString(template.intro),
         "",
         "Line Items",
         (estimateDraft.lineItems || []).map((item) => {
@@ -3443,10 +3678,16 @@ function buildEstimatePlainText(lead, estimateDraft) {
         "",
         "Estimated Total: " + formatCurrency(estimateDraft.subtotal || 0),
         "",
-        "Assumptions / Exclusions",
-        assumptions.length ? assumptions.map((item) => `- ${item}`).join("\n") : "- None listed",
+        "Standard Terms",
+        standardTerms.length ? standardTerms.map((item) => `- ${item}`).join("\n") : "- None listed",
         "",
-        safeString(template.outro || EMPTY_TEMPLATE.outro)
+        "Project-specific assumptions / exclusions",
+        projectAssumptions.length ? projectAssumptions.map((item) => `- ${item}`).join("\n") : "- None added",
+        "",
+        "Next step",
+        safeString(template.outro || EMPTY_TEMPLATE.outro),
+        "",
+        `${COMPANY_INFO.name} · ${COMPANY_INFO.email} · ${COMPANY_INFO.phone}`
     ].join("\n");
 }
 
@@ -3482,9 +3723,11 @@ function buildEstimateDocumentHtml(lead, estimateDraft) {
         .estimate-sheet {
             max-width: 960px;
             margin: 0 auto;
-            padding: 32px;
+            padding: 34px;
             background: var(--paper);
+            border: 1px solid var(--line);
             border-top: 4px solid var(--brand);
+            border-radius: 18px;
             box-shadow: 0 20px 40px rgba(24, 19, 15, 0.08);
         }
         .estimate-sheet-header {
@@ -3527,16 +3770,19 @@ function buildEstimateDocumentHtml(lead, estimateDraft) {
         .estimate-foot p,
         .estimate-foot li,
         .estimate-section-heading p,
-        .estimate-print-foot {
+        .estimate-print-foot,
+        .estimate-total-panel p {
             color: var(--muted);
             line-height: 1.7;
         }
         .estimate-company-card,
-        .estimate-copy-block,
-        .estimate-next-step {
-            padding: 18px;
+        .estimate-section-shell,
+        .estimate-next-step,
+        .estimate-total-panel {
+            padding: 20px;
             background: #faf6ef;
             border: 1px solid var(--line);
+            border-radius: 16px;
         }
         .estimate-contact-row,
         .estimate-project-card {
@@ -3565,13 +3811,22 @@ function buildEstimateDocumentHtml(lead, estimateDraft) {
             margin-bottom: 24px;
         }
         .estimate-project-card {
-            padding: 16px;
+            padding: 18px;
             background: #faf6ef;
             border: 1px solid var(--line);
+            border-radius: 14px;
+        }
+        .estimate-copy-block {
+            display: grid;
+            gap: 12px;
+        }
+        .estimate-copy-block p {
+            margin: 0;
         }
         .estimate-table {
             width: 100%;
             border-collapse: collapse;
+            background: rgba(255, 255, 255, 0.96);
         }
         .estimate-table th,
         .estimate-table td {
@@ -3591,15 +3846,23 @@ function buildEstimateDocumentHtml(lead, estimateDraft) {
             color: var(--muted);
             font-size: 14px;
         }
-        .estimate-table tfoot td {
-            border-bottom: 0;
-            padding-top: 16px;
-            font-size: 16px;
-            font-weight: 800;
-            color: var(--ink);
+        .estimate-total-panel {
+            display: grid;
+            gap: 8px;
+            background: linear-gradient(145deg, rgba(249, 243, 234, 0.98), rgba(241, 233, 221, 0.9));
         }
-        .estimate-table tfoot td:last-child {
+        .estimate-total-panel span {
             color: var(--brand-deep);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+        .estimate-total-panel strong {
+            color: var(--ink);
+            font-family: "Fraunces", Georgia, serif;
+            font-size: 38px;
+            line-height: 1;
         }
         .estimate-foot {
             display: grid;
@@ -3607,9 +3870,27 @@ function buildEstimateDocumentHtml(lead, estimateDraft) {
             gap: 24px;
             margin-top: 28px;
         }
+        .estimate-standard-terms-list,
+        .estimate-assumption-list,
         .estimate-foot ul {
             margin: 0;
             padding-left: 18px;
+            display: grid;
+            gap: 10px;
+        }
+        .estimate-standard-terms-list {
+            padding-left: 0;
+        }
+        .estimate-standard-term,
+        .estimate-note-empty {
+            padding: 14px 16px;
+            background: rgba(255, 253, 249, 0.95);
+            border: 1px solid var(--line);
+            color: var(--muted);
+            line-height: 1.65;
+        }
+        .estimate-note-empty {
+            border-style: dashed;
         }
         .estimate-print-foot {
             display: flex;
@@ -3619,6 +3900,7 @@ function buildEstimateDocumentHtml(lead, estimateDraft) {
             margin-top: 28px;
             padding-top: 18px;
             border-top: 1px solid var(--line);
+            font-size: 14px;
         }
         .estimate-print-foot strong {
             color: var(--ink);
@@ -3642,6 +3924,9 @@ function buildEstimateDocumentHtml(lead, estimateDraft) {
             .estimate-project-grid,
             .estimate-foot {
                 grid-template-columns: 1fr;
+            }
+            .estimate-sheet {
+                padding: 24px;
             }
             .estimate-print-foot {
                 display: grid;
@@ -3859,7 +4144,8 @@ function buildEstimatePdf(doc, lead, estimateDraft) {
     const leadName = safeString(lead?.clientName) || "Client";
     const preparedDate = formatDateOnly(new Date());
     const overviewBlocks = estimateOverviewParagraphs(estimateDraft);
-    const assumptions = estimateAssumptionList(estimateDraft);
+    const standardTerms = estimateStandardTerms();
+    const projectAssumptions = estimateProjectAssumptionList(estimateDraft);
     const lineItems = Array.isArray(estimateDraft.lineItems) && estimateDraft.lineItems.length
         ? estimateDraft.lineItems
         : [{
@@ -3897,7 +4183,7 @@ function buildEstimatePdf(doc, lead, estimateDraft) {
     doc.text(titleLines, cursor.left, cursor.y);
     cursor.y += (titleLines.length * 28);
 
-    drawEstimatePdfParagraph(doc, cursor, "Investor-ready renovation proposal prepared for quick client review and PDF delivery.", {
+    drawEstimatePdfParagraph(doc, cursor, "Investor-professional renovation proposal prepared for clear client review and polished PDF delivery.", {
         fontSize: 11,
         lineHeight: 15,
         color: ESTIMATE_PDF_THEME.muted,
@@ -3921,7 +4207,7 @@ function buildEstimatePdf(doc, lead, estimateDraft) {
         { label: "Prepared by", value: `${COMPANY_INFO.email} | ${COMPANY_INFO.phone}` }
     ]);
 
-    drawEstimatePdfSectionHeading(doc, cursor, "Overview / Scope", "Use this summary to align the client on the planned scope and pricing posture before final execution details.");
+    drawEstimatePdfSectionHeading(doc, cursor, "Overview / Scope", "Use this summary to align the client on the current scope, pricing posture, and proposed next step before final field verification.");
     overviewBlocks.forEach((paragraph) => {
         drawEstimatePdfParagraph(doc, cursor, paragraph, {
             fontSize: 11,
@@ -3933,8 +4219,14 @@ function buildEstimatePdf(doc, lead, estimateDraft) {
 
     drawEstimatePdfLineItems(doc, cursor, lineItems, estimateDraft.subtotal || 0);
 
-    drawEstimatePdfSectionHeading(doc, cursor, "Assumptions / Exclusions", "These assumptions keep the estimate clean until site conditions and final selections are confirmed.");
-    if (!assumptions.length) {
+    drawEstimatePdfSectionHeading(doc, cursor, "Standard terms", "These protections are always included in Golden Brick's client-facing estimate package.");
+    standardTerms.forEach((item) => {
+        drawEstimatePdfBulletItem(doc, cursor, item);
+    });
+    cursor.y += 4;
+
+    drawEstimatePdfSectionHeading(doc, cursor, "Project-specific assumptions / exclusions", "Use this section for project-specific exclusions, finish notes, access considerations, or scope clarifications.");
+    if (!projectAssumptions.length) {
         drawEstimatePdfParagraph(doc, cursor, "None listed.", {
             fontSize: 11,
             lineHeight: 16,
@@ -3942,7 +4234,7 @@ function buildEstimatePdf(doc, lead, estimateDraft) {
             gapAfter: 12
         });
     } else {
-        assumptions.forEach((item) => {
+        projectAssumptions.forEach((item) => {
             drawEstimatePdfBulletItem(doc, cursor, item);
         });
         cursor.y += 4;
@@ -4024,6 +4316,7 @@ function renderEstimatePanel() {
     refs.estimateSubject.readOnly = !isAdmin();
     refs.estimateBody.readOnly = !isAdmin();
     refs.estimateAssumptions.readOnly = !isAdmin();
+    refs.estimateStandardTermsDisplay.innerHTML = estimateStandardTermsMarkup();
     renderEstimateLines(Array.isArray(estimate.lineItems) ? estimate.lineItems : []);
     updateEstimatePreview();
 }
@@ -4633,6 +4926,185 @@ function renderPaymentList() {
     `, "No payments recorded yet.");
 }
 
+function estimateScopeItems(estimateData) {
+    return Array.isArray(estimateData?.lineItems)
+        ? estimateData.lineItems.filter((item) => safeString(item?.label) || safeString(item?.description) || toNumber(item?.amount))
+        : [];
+}
+
+function scopeItemTitle(item, index) {
+    return safeString(item?.title || item?.label) || `Scope item ${index + 1}`;
+}
+
+function canImportProjectScope(project) {
+    if (!isAdmin() || !project?.id || !project?.leadId || state.projectScopeItems.length) {
+        return false;
+    }
+
+    const linkedLead = state.leads.find((lead) => lead.id === project.leadId);
+    return Boolean(linkedLead?.hasEstimate);
+}
+
+function renderJobScopeSummary(project) {
+    const scopeItems = state.projectScopeItems;
+    const completedItems = scopeItems.filter((item) => item.completed);
+    const pendingItems = scopeItems.length - completedItems.length;
+    const totalScopeAmount = scopeItems.reduce((sum, item) => sum + toNumber(item.amount), 0);
+    const linkedLead = project?.leadId ? state.leads.find((lead) => lead.id === project.leadId) : null;
+    const showImport = canImportProjectScope(project);
+
+    refs.jobScopeImportButton.hidden = !showImport;
+
+    if (!scopeItems.length) {
+        if (showImport) {
+            refs.jobScopeSummary.innerHTML = `
+                <div><strong>Scope snapshot missing:</strong> This older job does not have renovation checklist items yet.</div>
+                <div>Import the linked estimate to create a field-friendly checklist without changing the client-facing proposal.</div>
+            `;
+            return;
+        }
+
+        refs.jobScopeSummary.innerHTML = linkedLead?.hasEstimate
+            ? "No scope items are saved on this job yet."
+            : "No estimate scope is available for this job yet.";
+        return;
+    }
+
+    refs.jobScopeSummary.innerHTML = `
+        <div><strong>Completed:</strong> ${escapeHtml(`${completedItems.length} of ${scopeItems.length}`)}</div>
+        <div><strong>Pending:</strong> ${escapeHtml(String(pendingItems))}</div>
+        <div><strong>Estimated scope value:</strong> ${escapeHtml(formatCurrency(totalScopeAmount))}</div>
+        <div><strong>Source estimate:</strong> ${escapeHtml(linkedLead?.estimateTitle || "Working estimate snapshot")}</div>
+    `;
+}
+
+function renderJobScopeList(project) {
+    const scopeItems = state.projectScopeItems;
+
+    if (!scopeItems.length) {
+        renderEmptyList(
+            refs.jobScopeList,
+            canImportProjectScope(project)
+                ? "Import the estimate items to start tracking renovation progress on this job."
+                : "No scope items are saved on this job yet."
+        );
+        return;
+    }
+
+    refs.jobScopeList.innerHTML = scopeItems.map((item, index) => `
+        <article class="scope-item-card">
+            <div class="scope-item-head">
+                <label class="scope-item-check">
+                    <input type="checkbox" data-scope-complete="${escapeHtml(item.id)}" ${item.completed ? "checked" : ""}>
+                    <span class="scope-item-title">${escapeHtml(scopeItemTitle(item, index))}</span>
+                </label>
+                <div class="scope-item-amount">${escapeHtml(formatCurrency(item.amount || 0))}</div>
+            </div>
+            <p class="scope-item-copy">${escapeHtml(item.description || "No description on the estimate line item.")}</p>
+            <div class="scope-item-meta">
+                ${escapeHtml(item.completed
+                    ? `Completed ${formatDateTime(item.completedAt || item.updatedAt)}`
+                    : "Open for field completion")}
+                · ${escapeHtml(`Estimate line ${toNumber(item.estimateIndex) + 1}`)}
+            </div>
+            <label class="scope-item-note-field">
+                <span>Field note</span>
+                <textarea data-scope-note="${escapeHtml(item.id)}" rows="3" placeholder="Add field notes, finish details, punch items, or update context.">${escapeHtml(item.note || "")}</textarea>
+            </label>
+            <div class="inline-actions">
+                <button type="button" class="ghost-button" data-scope-save="${escapeHtml(item.id)}">Save note</button>
+            </div>
+        </article>
+    `).join("");
+}
+
+async function importProjectScopeFromEstimate() {
+    const project = currentProject();
+    if (!project?.id || !project.leadId) {
+        showToast("This job needs a linked lead with an estimate first.", "error");
+        return;
+    }
+
+    if (!isAdmin()) {
+        showToast("Only admins can import estimate items.", "error");
+        return;
+    }
+
+    if (state.projectScopeItems.length) {
+        showToast("Scope items already exist on this job.", "error");
+        return;
+    }
+
+    const estimateSnap = await getDoc(doc(state.db, "estimates", project.leadId));
+    if (!estimateSnap.exists()) {
+        showToast("No estimate was found for this job's linked lead.", "error");
+        return;
+    }
+
+    const lineItems = estimateScopeItems(estimateSnap.data());
+    if (!lineItems.length) {
+        showToast("The linked estimate does not have any line items yet.", "error");
+        return;
+    }
+
+    const batch = writeBatch(state.db);
+    lineItems.forEach((item, index) => {
+        const scopeRef = doc(collection(state.db, "projects", project.id, "scopeItems"));
+        batch.set(scopeRef, {
+            id: scopeRef.id,
+            title: scopeItemTitle(item, index),
+            description: safeString(item.description),
+            amount: toNumber(item.amount),
+            estimateIndex: index,
+            completed: false,
+            completedAt: null,
+            note: "",
+            sourceLeadId: project.leadId,
+            createdByUid: state.profile.uid,
+            createdByName: state.profile.displayName,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+    });
+    await batch.commit();
+
+    await addProjectActivityEntry(
+        project.id,
+        "scope",
+        "Scope items imported",
+        `${lineItems.length} estimate line items were copied into the renovation scope tracker.`
+    );
+    showToast("Estimate items imported into the job scope tracker.");
+}
+
+async function toggleProjectScopeComplete(scopeItemId, completed) {
+    const project = currentProject();
+    if (!project?.id || !scopeItemId) return;
+
+    await updateDoc(doc(state.db, "projects", project.id, "scopeItems", scopeItemId), {
+        completed,
+        completedAt: completed ? new Date() : null,
+        updatedAt: serverTimestamp()
+    });
+
+    showToast(completed ? "Scope item marked complete." : "Scope item reopened.");
+}
+
+async function saveProjectScopeNote(scopeItemId) {
+    const project = currentProject();
+    if (!project?.id || !scopeItemId) return;
+
+    const noteField = refs.jobScopeList.querySelector(`[data-scope-note="${CSS.escape(scopeItemId)}"]`);
+    if (!noteField) return;
+
+    await updateDoc(doc(state.db, "projects", project.id, "scopeItems", scopeItemId), {
+        note: noteField.value.trim(),
+        updatedAt: serverTimestamp()
+    });
+
+    showToast("Scope note saved.");
+}
+
 function renderTeamFinancialSummary(project) {
     const financials = projectFinancials(project);
     const myBreakdown = Array.isArray(financials.workerBreakdown)
@@ -4773,6 +5245,8 @@ function renderJobDetail() {
         refs.jobRecordBadge.textContent = "No job selected";
         refs.jobRecordBadge.className = "status-pill neutral";
         refs.jobRecordContext.innerHTML = "";
+        refs.jobScopeSummary.innerHTML = "";
+        refs.jobScopeImportButton.hidden = true;
         refs.jobRecordEmpty.hidden = false;
         refs.jobRecordShell.hidden = true;
         return;
@@ -4805,6 +5279,8 @@ function renderJobDetail() {
     renderExpenseVendorOptions();
     renderExpenseList();
     renderPaymentList();
+    renderJobScopeSummary(project);
+    renderJobScopeList(project);
     renderTeamFinancialSummary(project);
     renderCommissionState(project);
     renderEntityTaskList(refs.jobTaskList, relatedTasksForEntity("projectId", project.id), "No tasks linked to this job yet.");
@@ -5232,7 +5708,7 @@ function renderTemplateForm() {
     refs.templateGreeting.value = state.template.greeting || EMPTY_TEMPLATE.greeting;
     refs.templateIntro.value = state.template.intro || EMPTY_TEMPLATE.intro;
     refs.templateOutro.value = state.template.outro || EMPTY_TEMPLATE.outro;
-    refs.templateTerms.value = state.template.terms || EMPTY_TEMPLATE.terms;
+    refs.templateTerms.value = estimateTemplateTermsText(state.template);
 }
 
 function renderStaffList() {
@@ -5353,6 +5829,9 @@ function closeLeadWorkspace() {
         state.leadDraft = null;
         state.leadActivities = [];
         state.estimate = null;
+    }
+    if (isMobileViewport()) {
+        state.leadLayout = "list";
     }
     state.leadWorkspaceOpen = false;
     renderAll();
@@ -5541,6 +6020,7 @@ function resetSelectionFromSnapshots() {
 
     if (state.selectedProjectId && !state.projects.some((project) => project.id === state.selectedProjectId)) {
         state.selectedProjectId = null;
+        state.projectScopeItems = [];
     }
 
     if (state.selectedCustomerId && !state.customers.some((customer) => customer.id === state.selectedCustomerId)) {
@@ -5708,6 +6188,7 @@ function subscribeProjectDetail() {
     state.projectExpenses = [];
     state.projectPayments = [];
     state.projectChangeOrders = [];
+    state.projectScopeItems = [];
     state.projectDocuments = [];
     state.projectNotes = [];
     state.projectActivities = [];
@@ -5750,6 +6231,22 @@ function subscribeProjectDetail() {
     }, (error) => {
         handleDetailSubscriptionError("Job change orders", error, () => {
             state.projectChangeOrders = [];
+            renderJobDetail();
+        });
+    }));
+
+    state.unsubs.projectDetail.push(onSnapshot(collection(state.db, "projects", state.selectedProjectId, "scopeItems"), (snapshot) => {
+        state.projectScopeItems = snapshot.docs
+            .map(normaliseFirestoreDoc)
+            .sort((left, right) => {
+                const indexDiff = toNumber(left.estimateIndex) - toNumber(right.estimateIndex);
+                if (indexDiff !== 0) return indexDiff;
+                return toMillis(left.createdAt) - toMillis(right.createdAt);
+            });
+        renderJobDetail();
+    }, (error) => {
+        handleDetailSubscriptionError("Job scope", error, () => {
+            state.projectScopeItems = [];
             renderJobDetail();
         });
     }));
@@ -5849,6 +6346,7 @@ async function bootstrapFirebase() {
                 state.projectExpenses = [];
                 state.projectPayments = [];
                 state.projectChangeOrders = [];
+                state.projectScopeItems = [];
                 state.projectDocuments = [];
                 state.projectNotes = [];
                 state.projectActivities = [];
@@ -5966,11 +6464,15 @@ async function saveLeadDrawer(event) {
     const draft = state.drawer.leadDraft || {};
     const assignee = activeStaffOptions().find((member) => member.uid === refs.drawerLeadAssignee.value) || preferredLeadAssignee();
     const leadRef = doc(collection(state.db, "leads"));
+    const selectedCustomerId = refs.drawerLeadCustomerSelect?.value || draft.customerId || null;
+    const selectedCustomer = selectedCustomerId
+        ? state.customers.find((customer) => customer.id === selectedCustomerId) || null
+        : null;
 
     const payload = {
         id: leadRef.id,
-        customerId: draft.customerId || null,
-        customerName: draft.customerName || "",
+        customerId: selectedCustomer?.id || null,
+        customerName: selectedCustomer?.name || "",
         clientName: refs.drawerLeadClientName.value.trim(),
         clientEmail: refs.drawerLeadClientEmail.value.trim(),
         clientPhone: refs.drawerLeadClientPhone.value.trim(),
@@ -5991,9 +6493,9 @@ async function saveLeadDrawer(event) {
         hasEstimate: false,
         estimateSubtotal: 0,
         estimateTitle: "",
-        customerMatchResult: draft.customerId ? "linked" : "",
+        customerMatchResult: selectedCustomer ? "linked" : "",
         customerReviewRequired: false,
-        customerMatchIds: draft.customerId ? [draft.customerId] : [],
+        customerMatchIds: selectedCustomer ? [selectedCustomer.id] : [],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
     };
@@ -7385,7 +7887,7 @@ async function saveTemplate(event) {
         greeting: refs.templateGreeting.value.trim(),
         intro: refs.templateIntro.value.trim(),
         outro: refs.templateOutro.value.trim(),
-        terms: refs.templateTerms.value.trim(),
+        terms: refs.templateTerms.value.trim() || EMPTY_TEMPLATE.terms,
         updatedAt: serverTimestamp(),
         createdAt: state.template?.createdAt || serverTimestamp()
     }, { merge: true });
@@ -7537,7 +8039,11 @@ function handleCommandAction(target) {
     }
 
     if (command === "open-view") {
-        switchView(target.dataset.targetView);
+        const targetView = target.dataset.targetView;
+        if (targetView === "leads-view" && isMobileViewport()) {
+            openLeadsListSurface();
+        }
+        switchView(targetView);
         return;
     }
 
@@ -7653,7 +8159,7 @@ function bindUi() {
                 closeDrawer();
             }
             if (button.dataset.view === "leads-view") {
-                state.leadWorkspaceOpen = false;
+                openLeadsListSurface();
             }
             switchView(button.dataset.view);
             renderAll();
@@ -7664,6 +8170,9 @@ function bindUi() {
         button.addEventListener("click", () => {
             if (state.drawer.type) {
                 closeDrawer();
+            }
+            if (button.dataset.mobileView === "leads-view") {
+                openLeadsListSurface();
             }
             switchView(button.dataset.mobileView);
             renderAll();
@@ -7678,8 +8187,12 @@ function bindUi() {
         openMobileMoreDrawer();
     });
 
-    refs.mobileExpenseFab.addEventListener("click", () => {
-        openExpenseDrawer();
+    refs.mobileCreateFab.addEventListener("click", () => {
+        if (state.drawer.type === "mobile-create") {
+            closeDrawer();
+            return;
+        }
+        openMobileCreateDrawer();
     });
 
     refs.taskMobileBackButton.addEventListener("click", () => {
@@ -7780,9 +8293,35 @@ function bindUi() {
     });
 
     refs.drawerMenuList.addEventListener("click", (event) => {
-        const button = event.target.closest("[data-drawer-view]");
+        const button = event.target.closest("[data-drawer-view], [data-drawer-action]");
         if (!button) return;
+
+        const drawerAction = button.dataset.drawerAction;
+        if (drawerAction === "expense") {
+            openExpenseDrawer();
+            return;
+        }
+        if (drawerAction === "lead") {
+            openLeadDrawer();
+            return;
+        }
+        if (drawerAction === "task") {
+            openTaskDrawer();
+            return;
+        }
+        if (drawerAction === "customer") {
+            openCustomerDrawer();
+            return;
+        }
+        if (drawerAction === "vendor") {
+            openVendorDrawer();
+            return;
+        }
+
         closeDrawer();
+        if (button.dataset.drawerView === "leads-view" && isMobileViewport()) {
+            openLeadsListSurface();
+        }
         switchView(button.dataset.drawerView);
         renderAll();
     });
@@ -7815,6 +8354,18 @@ function bindUi() {
 
     refs.drawerExpenseForm.addEventListener("submit", (event) => {
         saveExpenseDrawer(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.drawerLeadCustomerSearch.addEventListener("input", (event) => {
+        state.drawer.leadDraft = {
+            ...collectDrawerLeadDraftFromInputs(),
+            customerSearch: event.target.value || ""
+        };
+        renderDrawerLeadCustomerOptions();
+    });
+
+    refs.drawerLeadCustomerSelect.addEventListener("change", (event) => {
+        applyDrawerLeadCustomerSelection(event.target.value || "");
     });
 
     refs.leadSearchInput.addEventListener("input", (event) => {
@@ -8079,6 +8630,36 @@ function bindUi() {
     bindRefEvent("jobStatusFilter", "job-status-filter", "change", (event) => {
         state.jobStatus = event.target.value;
         renderJobList();
+    });
+
+    bindRefEvent("jobScopeImportButton", "job-scope-import-button", "click", () => {
+        importProjectScopeFromEstimate().catch((error) => showToast(error.message, "error"));
+    });
+
+    bindRefEvent("jobScopeList", "job-scope-list", "change", (event) => {
+        const checkbox = event.target.closest("[data-scope-complete]");
+        if (!checkbox) return;
+        toggleProjectScopeComplete(checkbox.dataset.scopeComplete, checkbox.checked)
+            .catch((error) => showToast(error.message, "error"));
+    });
+
+    bindRefEvent("jobScopeList", "job-scope-list", "click", (event) => {
+        const button = event.target.closest("[data-scope-save]");
+        if (!button) return;
+        saveProjectScopeNote(button.dataset.scopeSave)
+            .catch((error) => showToast(error.message, "error"));
+    });
+
+    bindRefEvent("jobScopeList", "job-scope-list", "keydown", (event) => {
+        if (!(event.metaKey || event.ctrlKey) || event.key !== "Enter") {
+            return;
+        }
+
+        const noteField = event.target.closest("[data-scope-note]");
+        if (!noteField) return;
+        event.preventDefault();
+        saveProjectScopeNote(noteField.dataset.scopeNote)
+            .catch((error) => showToast(error.message, "error"));
     });
 
     bindRefEvent("jobList", "job-list", "click", (event) => {

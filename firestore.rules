@@ -248,6 +248,12 @@ service cloud.firestore {
         allow create, update, delete: if isAdmin();
       }
 
+      match /scopeItems/{scopeItemId} {
+        allow read: if canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow create, update: if isAdmin() || canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow delete: if isAdmin();
+      }
+
       match /documents/{documentId} {
         allow read: if canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
         allow create, update: if isAdmin() || canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);

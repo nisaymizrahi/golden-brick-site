@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="stylesheet" href="/staff/staff.css?v=20260408-mobile-1">
+    <link rel="stylesheet" href="/staff/staff.css?v=20260408-mobile-2">
 </head>
 <body>
     <div class="staff-page">
@@ -305,16 +305,21 @@
                                         </div>
                                     </div>
                                     <div class="panel-body lead-pipeline-body">
+                                        <div class="segmented-control lead-layout-toggle" id="lead-layout-toggle" hidden>
+                                            <button type="button" class="segmented-button is-active" data-lead-layout="list">Results</button>
+                                            <button type="button" class="segmented-button" data-lead-layout="board">Board</button>
+                                        </div>
+
                                         <div class="lead-board-intro">
                                             <p>Drag opportunities across the pipeline to keep Golden Brick's investor work moving without losing the customer, estimate, and job context underneath.</p>
                                             <span>Drag to <strong>Closed Won</strong> to create the linked job record. Drag to <strong>Closed Lost</strong> to close the lead immediately.</span>
                                         </div>
 
-                                        <div class="pipeline-board-wrap">
+                                        <div class="pipeline-board-wrap" id="lead-board-wrap">
                                             <div class="pipeline-board" id="lead-board"></div>
                                         </div>
 
-                                        <div class="lead-result-shell">
+                                        <div class="lead-result-shell" id="lead-result-shell">
                                             <div class="subpanel-head">
                                                 <h3>Lead results</h3>
                                                 <p>Keep a compact searchable list under the pipeline when you need to jump directly to a specific record.</p>
@@ -473,7 +478,7 @@
                                         <form class="stack-form subpanel" id="estimate-form">
                                             <div class="subpanel-head">
                                                 <h3>Current estimate</h3>
-                                                <p>Build one polished working proposal per lead, then download it as a PDF for the client.</p>
+                                                <p>Build one polished working proposal per lead, with Golden Brick's standard terms always included before you download the client-facing PDF.</p>
                                             </div>
 
                                             <div class="inline-actions">
@@ -481,6 +486,7 @@
                                                 <button type="button" class="ghost-button" id="estimate-copy-button">Copy estimate</button>
                                                 <button type="button" class="secondary-button" id="estimate-print-button">Download PDF</button>
                                             </div>
+                                            <p class="estimate-editor-helper">Download PDF creates the client-ready proposal file with Golden Brick branding, standard terms, and your project-specific scope notes.</p>
 
                                             <label>
                                                 <span>Estimate title</span>
@@ -492,9 +498,17 @@
                                                 <textarea id="estimate-body" rows="7" placeholder="Scope, pricing posture, and next step."></textarea>
                                             </label>
 
+                                            <section class="estimate-standard-terms-panel" aria-labelledby="estimate-standard-terms-heading">
+                                                <div class="estimate-standard-terms-head">
+                                                    <span id="estimate-standard-terms-heading">Standard terms</span>
+                                                    <p>These protections are always included in the proposal preview, clipboard export, HTML fallback, and PDF download.</p>
+                                                </div>
+                                                <div class="estimate-standard-terms-display" id="estimate-standard-terms-display"></div>
+                                            </section>
+
                                             <label>
-                                                <span>Assumptions and exclusions</span>
-                                                <textarea id="estimate-assumptions" rows="5" placeholder="One line per assumption or exclusion."></textarea>
+                                                <span>Project-specific assumptions / exclusions</span>
+                                                <textarea id="estimate-assumptions" rows="5" placeholder="One line per project-specific assumption, exclusion, or selection note."></textarea>
                                             </label>
 
                                             <div class="line-items-panel">
@@ -513,7 +527,7 @@
                                         <section class="subpanel estimate-preview-panel">
                                             <div class="subpanel-head">
                                                 <h3>Proposal preview</h3>
-                                                <p>Review the branded client-facing proposal here before downloading it for the client.</p>
+                                                <p>Review the polished client-facing proposal here before downloading the PDF you plan to send to the client.</p>
                                             </div>
                                             <div class="estimate-preview" id="estimate-preview"></div>
                                         </section>
@@ -772,6 +786,7 @@
                                 <div class="tab-strip" aria-label="Job record tabs">
                                     <button type="button" class="tab-button" data-job-tab="overview">Overview</button>
                                     <button type="button" class="tab-button is-active" data-job-tab="financials">Financials</button>
+                                    <button type="button" class="tab-button" data-job-tab="scope">Scope</button>
                                     <button type="button" class="tab-button" data-job-tab="team">Team &amp; Commission</button>
                                     <button type="button" class="tab-button" data-job-tab="history">History</button>
                                     <button type="button" class="tab-button" data-job-tab="documents">Documents</button>
@@ -974,6 +989,27 @@
                                             <button type="submit" class="primary-button">Add expense</button>
                                         </form>
                                         <div class="stack-list" id="expense-list"></div>
+                                    </section>
+                                </div>
+
+                                <div class="tab-pane" id="job-tab-scope">
+                                    <section class="subpanel">
+                                        <div class="subpanel-head subpanel-head-split">
+                                            <div>
+                                                <h3>Renovation scope tracker</h3>
+                                                <p>Turn the estimate into an internal field checklist so the team can mark work complete and leave notes without changing the client proposal.</p>
+                                            </div>
+                                            <button type="button" class="secondary-button admin-only" id="job-scope-import-button" hidden>Import estimate items</button>
+                                        </div>
+                                        <div class="detail-summary" id="job-scope-summary"></div>
+                                    </section>
+
+                                    <section class="subpanel">
+                                        <div class="subpanel-head">
+                                            <h3>Scope items</h3>
+                                            <p>Each line item keeps the estimate amount, description, completion state, and a field note for quick mobile updates.</p>
+                                        </div>
+                                        <div class="stack-list scope-item-list" id="job-scope-list"></div>
                                     </section>
                                 </div>
 
@@ -1555,7 +1591,7 @@
                                     <form class="stack-form subpanel" id="template-form">
                                         <div class="subpanel-head">
                                             <h3>Estimate template</h3>
-                                            <p>This template controls the in-app estimate preview and print layout used by the CRM.</p>
+                                            <p>This template controls the in-app estimate preview and PDF layout used by the CRM. The Standard terms block below is always included in every estimate.</p>
                                         </div>
                                         <div class="form-grid two">
                                             <label>
@@ -1580,8 +1616,8 @@
                                             <textarea id="template-outro" rows="4"></textarea>
                                         </label>
                                         <label>
-                                            <span>Terms / assumption line</span>
-                                            <textarea id="template-terms" rows="3"></textarea>
+                                            <span>Standard terms (always included)</span>
+                                            <textarea id="template-terms" rows="5"></textarea>
                                         </label>
                                         <button type="submit" class="primary-button">Save template</button>
                                     </form>
@@ -1597,7 +1633,7 @@
             </main>
         </div>
 
-        <button type="button" class="mobile-expense-fab" id="mobile-expense-fab" aria-label="Add expense" hidden>+</button>
+        <button type="button" class="mobile-create-fab" id="mobile-create-fab" aria-label="Open quick create menu" hidden>+</button>
 
         <nav class="mobile-tab-bar" id="mobile-tab-bar" aria-label="Mobile staff navigation" hidden>
             <button type="button" class="mobile-tab-button is-active" data-mobile-view="today-view">
@@ -1699,6 +1735,22 @@
                     </form>
 
                     <form class="stack-form drawer-form" id="drawer-lead-form" hidden>
+                        <div class="subpanel-head">
+                            <h3>Link repeat client</h3>
+                            <p>Pick an existing customer first when this is repeat business. Leave it empty and the CRM will still auto-match by phone or email after save.</p>
+                        </div>
+
+                        <div class="form-grid two">
+                            <label>
+                                <span>Search existing customer</span>
+                                <input type="search" id="drawer-lead-customer-search" placeholder="Search customer by name, phone, email, or address">
+                            </label>
+                            <label>
+                                <span>Existing customer</span>
+                                <select id="drawer-lead-customer-select"></select>
+                            </label>
+                        </div>
+
                         <div class="form-grid two">
                             <label>
                                 <span>Client name</span>
@@ -1907,6 +1959,6 @@
         <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
     </div>
 
-    <script type="module" src="/staff/staff.js?v=20260408-mobile-1"></script>
+    <script type="module" src="/staff/staff.js?v=20260408-mobile-2"></script>
 </body>
 </html>

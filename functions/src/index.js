@@ -28,6 +28,17 @@ const LEAD_STATUSES = {
   closed_lost: "Closed Lost"
 };
 
+const DEFAULT_ESTIMATE_STANDARD_TERMS = [
+  "This estimate is based on standard contractor-stock materials and finishes unless otherwise stated in writing.",
+  "Pricing remains subject to final scope confirmation, field measurements, access conditions, and finish selections.",
+  "Golden Brick Construction is not responsible for unforeseen concealed, latent, or site conditions discovered after work begins. Any resulting scope, schedule, or pricing adjustments must be documented in writing before additional work proceeds."
+].join("\n");
+
+const LEGACY_ESTIMATE_TEMPLATE_TERMS = new Set([
+  "Pricing is a planning estimate until site conditions, access, finish selections, and final scope are confirmed.",
+  "Pricing is a planning estimate until scope, access, existing conditions, and finish selections are confirmed on site."
+]);
+
 function applyCors(response) {
   Object.entries(STAFF_HEADERS).forEach(([key, value]) => {
     response.setHeader(key, value);
@@ -286,9 +297,16 @@ function defaultEstimateTemplate() {
       "Thanks for speaking with Golden Brick Construction. Based on the details you shared, here is a working estimate outline for the project.",
     outro:
       "Please review the scope, note any revisions, and let us know if you want to move into the next planning step.",
-    terms:
-      "Pricing is a planning estimate until scope, access, existing conditions, and finish selections are confirmed on site."
+    terms: DEFAULT_ESTIMATE_STANDARD_TERMS
   };
+}
+
+function resolveEstimateTemplateTerms(template = {}) {
+  const terms = safeString(template.terms);
+  if (!terms || LEGACY_ESTIMATE_TEMPLATE_TERMS.has(terms)) {
+    return DEFAULT_ESTIMATE_STANDARD_TERMS;
+  }
+  return terms;
 }
 
 function normaliseStaffRole(value) {
@@ -433,7 +451,12 @@ async function ensureDefaultTemplate() {
 async function fetchTemplate() {
   await ensureDefaultTemplate();
   const templateSnap = await db.collection("emailTemplates").doc("estimate-default").get();
-  return templateSnap.data();
+  const data = templateSnap.data() || defaultEstimateTemplate();
+  return {
+    ...defaultEstimateTemplate(),
+    ...data,
+    terms: resolveEstimateTemplateTerms(data)
+  };
 }
 
 function fallbackEstimateDraft(lead, template) {
@@ -530,8 +553,48 @@ function fallbackEstimateDraft(lead, template) {
     ].join("\n"),
     lineItems,
     subtotal,
-    assumptions: [template.terms]
+    assumptions: []
   };
+}
+
+function normaliseEstimateScopeItems(estimateData = {}) {
+  if (!Array.isArray(estimateData.lineItems)) {
+    return [];
+  }
+
+  return estimateData.lineItems
+    .map((item, index) => ({
+      title: safeString(item.title || item.label) || `Scope item ${index + 1}`,
+      description: safeString(item.description),
+      amount: toNumber(item.amount),
+      estimateIndex: index
+    }))
+    .filter((item) => item.title || item.description || item.amount);
+}
+
+function queueProjectScopeSnapshot(batch, projectRef, leadId, estimateData = {}, actorProfile = {}) {
+  const scopeItems = normaliseEstimateScopeItems(estimateData);
+
+  scopeItems.forEach((item) => {
+    const scopeRef = projectRef.collection("scopeItems").doc();
+    batch.set(scopeRef, {
+      id: scopeRef.id,
+      title: item.title,
+      description: item.description,
+      amount: item.amount,
+      estimateIndex: item.estimateIndex,
+      completed: false,
+      completedAt: null,
+      note: "",
+      sourceLeadId: safeString(leadId),
+      createdByUid: safeString(actorProfile.uid || "system"),
+      createdByName: safeString(actorProfile.displayName || actorProfile.email || "Golden Brick System"),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+  });
+
+  return scopeItems.length;
 }
 
 async function addLeadActivity(leadId, data) {
@@ -1170,8 +1233,12 @@ exports.convertLeadToProject = onRequest(
         return;
       }
 
-      const refreshedLeadSnap = await leadRef.get();
+      const [refreshedLeadSnap, estimateSnap] = await Promise.all([
+        leadRef.get(),
+        db.collection("estimates").doc(leadId).get()
+      ]);
       const refreshedLead = refreshedLeadSnap.data();
+      const estimateData = estimateSnap.exists ? estimateSnap.data() : null;
       const leadOwnerUid = safeString(refreshedLead.assignedToUid || staff.profile.uid);
       const leadOwnerName = safeString(refreshedLead.assignedToName || staff.profile.displayName || staff.profile.email);
       const leadOwnerEmail = normaliseEmail(refreshedLead.assignedToEmail || staff.profile.email);
@@ -1196,6 +1263,7 @@ exports.convertLeadToProject = onRequest(
         [],
         []
       );
+      const scopeItemCount = queueProjectScopeSnapshot(batch, projectRef, leadId, estimateData, staff.profile);
 
       batch.set(projectRef, {
         id: leadId,
@@ -1248,7 +1316,9 @@ exports.convertLeadToProject = onRequest(
       await addProjectActivity(leadId, {
         activityType: "system",
         title: "Job created from won lead",
-        body: "The won lead was converted into the operational job record.",
+        body: scopeItemCount
+          ? `The won lead was converted into the operational job record and ${scopeItemCount} estimate items were copied into the renovation scope tracker.`
+          : "The won lead was converted into the operational job record.",
         actorName: staff.profile.displayName,
         actorUid: staff.profile.uid,
         actorRole: staff.profile.role
@@ -1258,7 +1328,8 @@ exports.convertLeadToProject = onRequest(
         ok: true,
         existing: false,
         projectId: leadId,
-        matchResult: customerLink.matchResult
+        matchResult: customerLink.matchResult,
+        scopeItemCount
       });
     } catch (error) {
       logger.error("Lead conversion failed.", error);
