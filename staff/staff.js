@@ -39,7 +39,7 @@ const VIEW_META = {
     },
     "leads-view": {
         title: "Leads",
-        subtitle: "Search the pipeline, open full lead records, draft estimates, and move opportunities toward won or lost."
+        subtitle: "Work the pipeline from a full board, then open each lead in a focused workspace for planning, estimates, tasks, and job handoff."
     },
     "customers-view": {
         title: "Customers",
@@ -48,6 +48,10 @@ const VIEW_META = {
     "jobs-view": {
         title: "Jobs",
         subtitle: "Operate won work from one record: staffing, expenses, payments, company share, and worker split."
+    },
+    "vendors-view": {
+        title: "Vendors",
+        subtitle: "Manage trade partners, what we owe them, and the agreements, insurance, and W-9 files that support the relationship."
     },
     "staff-view": {
         title: "Staff",
@@ -112,6 +116,74 @@ const PAYMENT_TYPE_META = {
     adjustment: "Adjustment"
 };
 
+const VENDOR_STATUS_META = {
+    active: "Active",
+    inactive: "Inactive",
+    on_hold: "On Hold",
+    do_not_pay: "Do Not Pay"
+};
+
+const VENDOR_INSURANCE_STATUS_META = {
+    compliant: "Compliant",
+    in_progress: "In Progress",
+    expired: "Expired",
+    non_compliant: "Non-Compliant",
+    undecided: "Undecided"
+};
+
+const VENDOR_PAYMENT_METHOD_META = {
+    ach: "ACH",
+    check: "Check",
+    wire: "Wire",
+    credit_card: "Credit Card",
+    cash: "Cash",
+    zelle: "Zelle",
+    other: "Other"
+};
+
+const VENDOR_BILL_STATUS_META = {
+    open: "Open",
+    scheduled: "Scheduled",
+    paid: "Paid",
+    void: "Void"
+};
+
+const VENDOR_DOCUMENT_CATEGORY_META = {
+    agreement: "Agreement",
+    w9: "W-9",
+    insurance: "Insurance",
+    license: "License",
+    invoice: "Invoice",
+    quote: "Quote",
+    other: "Other"
+};
+
+const VENDOR_DOCUMENT_ACCESS_META = {
+    staff: "Staff",
+    admin_only: "Admin Only"
+};
+
+const VENDOR_TRADE_OPTIONS = [
+    { id: "plumbing", label: "Plumbing" },
+    { id: "electrical", label: "Electrical" },
+    { id: "hvac", label: "HVAC" },
+    { id: "roofing", label: "Roofing" },
+    { id: "framing", label: "Framing" },
+    { id: "drywall", label: "Drywall" },
+    { id: "painting", label: "Painting" },
+    { id: "flooring", label: "Flooring" },
+    { id: "tile", label: "Tile" },
+    { id: "carpentry", label: "Carpentry" },
+    { id: "demolition", label: "Demolition" },
+    { id: "dumpster", label: "Dumpster" },
+    { id: "materials", label: "Materials" },
+    { id: "windows_doors", label: "Windows & Doors" },
+    { id: "masonry", label: "Masonry" },
+    { id: "permits", label: "Permits / Expediting" },
+    { id: "cleaning", label: "Cleaning / Turnover" },
+    { id: "supplier", label: "Supplier" }
+];
+
 const EMPTY_TEMPLATE = {
     id: "estimate-default",
     name: "Investor Estimate Default",
@@ -120,6 +192,12 @@ const EMPTY_TEMPLATE = {
     intro: "Thanks for speaking with Golden Brick Construction. Based on the information shared so far, here is a working estimate outline for your project.",
     outro: "Please review the draft and let us know what you would like us to tighten before the next step.",
     terms: "Pricing is a planning estimate until site conditions, access, finish selections, and final scope are confirmed."
+};
+
+const COMPANY_INFO = {
+    name: "Golden Brick Construction",
+    phone: "(267) 715-5557",
+    email: "info@goldenbrickc.com"
 };
 
 const refs = {
@@ -175,6 +253,10 @@ const refs = {
     leadStageFilter: document.getElementById("lead-stage-filter"),
     leadLayoutButtons: Array.from(document.querySelectorAll("[data-lead-layout]")),
     leadNewButton: document.getElementById("lead-new-button"),
+    leadPipelineSurface: document.getElementById("lead-pipeline-surface"),
+    leadWorkspacePanel: document.getElementById("lead-workspace-panel"),
+    leadWorkspaceBackButton: document.getElementById("lead-workspace-back-button"),
+    leadWorkspaceMeta: document.getElementById("lead-workspace-meta"),
     leadList: document.getElementById("lead-list"),
     leadBoard: document.getElementById("lead-board"),
     leadRecordTitle: document.getElementById("lead-record-title"),
@@ -194,6 +276,7 @@ const refs = {
     leadSourceDisplay: document.getElementById("lead-source-display"),
     leadEstimateDisplay: document.getElementById("lead-estimate-display"),
     leadNotesInput: document.getElementById("lead-notes-input"),
+    leadPlanningNotesInput: document.getElementById("lead-planning-notes-input"),
     leadMeta: document.getElementById("lead-meta"),
     leadCustomerMatch: document.getElementById("lead-customer-match"),
     leadRecordContext: document.getElementById("lead-record-context"),
@@ -284,6 +367,7 @@ const refs = {
     expenseAmount: document.getElementById("expense-amount"),
     expenseDate: document.getElementById("expense-date"),
     expenseCategory: document.getElementById("expense-category"),
+    expenseVendorSelect: document.getElementById("expense-vendor-select"),
     expenseVendor: document.getElementById("expense-vendor"),
     expenseReceiptSelect: document.getElementById("expense-receipt-select"),
     expenseNote: document.getElementById("expense-note"),
@@ -317,6 +401,74 @@ const refs = {
     jobDocumentFile: document.getElementById("job-document-file"),
     jobDocumentNote: document.getElementById("job-document-note"),
     jobDocumentList: document.getElementById("job-document-list"),
+
+    vendorMetrics: document.getElementById("vendor-metrics"),
+    vendorSearchInput: document.getElementById("vendor-search-input"),
+    vendorTradeFilter: document.getElementById("vendor-trade-filter"),
+    vendorStatusFilter: document.getElementById("vendor-status-filter"),
+    vendorBillFilter: document.getElementById("vendor-bill-filter"),
+    vendorNewButton: document.getElementById("vendor-new-button"),
+    vendorList: document.getElementById("vendor-list"),
+    vendorRecordTitle: document.getElementById("vendor-record-title"),
+    vendorRecordBadge: document.getElementById("vendor-record-badge"),
+    vendorRecordEmpty: document.getElementById("vendor-record-empty"),
+    vendorRecordShell: document.getElementById("vendor-record-shell"),
+    vendorAddBillButton: document.getElementById("vendor-add-bill-button"),
+    vendorAddDocumentButton: document.getElementById("vendor-add-document-button"),
+    vendorRecordContext: document.getElementById("vendor-record-context"),
+    vendorTabButtons: Array.from(document.querySelectorAll("[data-vendor-tab]")),
+    vendorForm: document.getElementById("vendor-form"),
+    vendorNameInput: document.getElementById("vendor-name-input"),
+    vendorLegalNameInput: document.getElementById("vendor-legal-name-input"),
+    vendorStatusInput: document.getElementById("vendor-status-input"),
+    vendorPaymentMethodInput: document.getElementById("vendor-payment-method-input"),
+    vendorTradeGrid: document.getElementById("vendor-trade-grid"),
+    vendorTradeOtherInput: document.getElementById("vendor-trade-other-input"),
+    vendorContactNameInput: document.getElementById("vendor-contact-name-input"),
+    vendorPhoneInput: document.getElementById("vendor-phone-input"),
+    vendorEmailInput: document.getElementById("vendor-email-input"),
+    vendorAddressInput: document.getElementById("vendor-address-input"),
+    vendorServiceAreaInput: document.getElementById("vendor-service-area-input"),
+    vendorDefaultTermsInput: document.getElementById("vendor-default-terms-input"),
+    vendorInsuranceStatusInput: document.getElementById("vendor-insurance-status-input"),
+    vendorInsuranceExpirationInput: document.getElementById("vendor-insurance-expiration-input"),
+    vendorLicenseExpirationInput: document.getElementById("vendor-license-expiration-input"),
+    vendorInsuranceNoteInput: document.getElementById("vendor-insurance-note-input"),
+    vendorNotesInput: document.getElementById("vendor-notes-input"),
+    vendorSummary: document.getElementById("vendor-summary"),
+    vendorJobList: document.getElementById("vendor-job-list"),
+    vendorBillForm: document.getElementById("vendor-bill-form"),
+    vendorBillAmountInput: document.getElementById("vendor-bill-amount-input"),
+    vendorBillNumberInput: document.getElementById("vendor-bill-number-input"),
+    vendorBillInvoiceDateInput: document.getElementById("vendor-bill-invoice-date-input"),
+    vendorBillDueDateInput: document.getElementById("vendor-bill-due-date-input"),
+    vendorBillStatusInput: document.getElementById("vendor-bill-status-input"),
+    vendorBillProjectInput: document.getElementById("vendor-bill-project-input"),
+    vendorBillCategoryInput: document.getElementById("vendor-bill-category-input"),
+    vendorBillPaymentMethodInput: document.getElementById("vendor-bill-payment-method-input"),
+    vendorBillPaymentReferenceInput: document.getElementById("vendor-bill-payment-reference-input"),
+    vendorBillSourceTypeInput: document.getElementById("vendor-bill-source-type-input"),
+    vendorBillUrlRow: document.getElementById("vendor-bill-url-row"),
+    vendorBillUrlInput: document.getElementById("vendor-bill-url-input"),
+    vendorBillFileRow: document.getElementById("vendor-bill-file-row"),
+    vendorBillFileInput: document.getElementById("vendor-bill-file-input"),
+    vendorBillNoteInput: document.getElementById("vendor-bill-note-input"),
+    vendorPayableSummary: document.getElementById("vendor-payable-summary"),
+    vendorBillList: document.getElementById("vendor-bill-list"),
+    vendorDocumentSummary: document.getElementById("vendor-document-summary"),
+    vendorDocumentForm: document.getElementById("vendor-document-form"),
+    vendorDocumentCategoryInput: document.getElementById("vendor-document-category-input"),
+    vendorDocumentAccessInput: document.getElementById("vendor-document-access-input"),
+    vendorDocumentSourceTypeInput: document.getElementById("vendor-document-source-type-input"),
+    vendorDocumentDateInput: document.getElementById("vendor-document-date-input"),
+    vendorDocumentExpirationInput: document.getElementById("vendor-document-expiration-input"),
+    vendorDocumentTitleInput: document.getElementById("vendor-document-title-input"),
+    vendorDocumentUrlRow: document.getElementById("vendor-document-url-row"),
+    vendorDocumentUrlInput: document.getElementById("vendor-document-url-input"),
+    vendorDocumentFileRow: document.getElementById("vendor-document-file-row"),
+    vendorDocumentFileInput: document.getElementById("vendor-document-file-input"),
+    vendorDocumentNoteInput: document.getElementById("vendor-document-note-input"),
+    vendorDocumentList: document.getElementById("vendor-document-list"),
 
     staffList: document.getElementById("staff-list"),
     staffAdminShell: document.getElementById("staff-admin-shell"),
@@ -358,6 +510,17 @@ const refs = {
     drawerCustomerPhone: document.getElementById("drawer-customer-phone"),
     drawerCustomerAddress: document.getElementById("drawer-customer-address"),
     drawerCustomerNotes: document.getElementById("drawer-customer-notes"),
+    drawerVendorForm: document.getElementById("drawer-vendor-form"),
+    drawerVendorName: document.getElementById("drawer-vendor-name"),
+    drawerVendorStatus: document.getElementById("drawer-vendor-status"),
+    drawerVendorTradeGrid: document.getElementById("drawer-vendor-trade-grid"),
+    drawerVendorTradeOther: document.getElementById("drawer-vendor-trade-other"),
+    drawerVendorContactName: document.getElementById("drawer-vendor-contact-name"),
+    drawerVendorPhone: document.getElementById("drawer-vendor-phone"),
+    drawerVendorEmail: document.getElementById("drawer-vendor-email"),
+    drawerVendorPaymentMethod: document.getElementById("drawer-vendor-payment-method"),
+    drawerVendorDefaultTerms: document.getElementById("drawer-vendor-default-terms"),
+    drawerVendorNotes: document.getElementById("drawer-vendor-notes"),
     drawerTaskForm: document.getElementById("drawer-task-form"),
     drawerTaskTitle: document.getElementById("drawer-task-title"),
     drawerTaskDue: document.getElementById("drawer-task-due"),
@@ -379,17 +542,25 @@ const state = {
     leads: [],
     projects: [],
     customers: [],
+    vendors: [],
+    vendorBills: [],
+    vendorDocuments: [],
     tasks: [],
     staffRoster: [],
     template: { ...EMPTY_TEMPLATE },
     selectedLeadId: null,
     selectedProjectId: null,
     selectedCustomerId: null,
+    selectedVendorId: null,
     selectedTaskId: null,
     selectedStaffKey: null,
     leadDraft: null,
     customerDraft: null,
+    vendorDraft: null,
     taskDraft: null,
+    leadWorkspaceOpen: false,
+    pendingLeadRouteId: "",
+    pendingLeadRouteTab: "overview",
     leadActivities: [],
     projectExpenses: [],
     projectPayments: [],
@@ -407,10 +578,15 @@ const state = {
     leadSearch: "",
     leadStage: "all",
     customerSearch: "",
+    vendorSearch: "",
+    vendorTrade: "all",
+    vendorStatus: "active_only",
+    vendorBillState: "all",
     jobSearch: "",
     jobStatus: "active",
     taskSearch: "",
     taskBucket: "open",
+    activeVendorTab: "overview",
     dragLeadId: null,
     dragLeadOverStatus: null,
     drawer: {
@@ -418,6 +594,7 @@ const state = {
         context: {},
         leadDraft: null,
         customerDraft: null,
+        vendorDraft: null,
         taskDraft: null
     },
     sessionResetting: false,
@@ -428,6 +605,11 @@ const state = {
         projectDetail: []
     }
 };
+
+const initialLeadRoute = readLeadRouteState();
+state.pendingLeadRouteId = initialLeadRoute.leadId;
+state.pendingLeadRouteTab = initialLeadRoute.leadTab;
+state.leadWorkspaceOpen = Boolean(initialLeadRoute.leadId);
 
 function isAdmin() {
     return state.profile?.role === "admin";
@@ -631,6 +813,50 @@ function normalisePhone(value) {
     return digits;
 }
 
+function readLeadRouteState() {
+    const url = new URL(window.location.href);
+    return {
+        leadId: safeString(url.searchParams.get("lead")),
+        leadTab: safeString(url.searchParams.get("leadTab")) || "overview"
+    };
+}
+
+function syncLeadRouteState() {
+    const url = new URL(window.location.href);
+
+    if (state.activeView === "leads-view" && state.leadWorkspaceOpen && state.selectedLeadId) {
+        url.searchParams.set("lead", state.selectedLeadId);
+        url.searchParams.set("leadTab", state.activeLeadTab || "overview");
+    } else {
+        url.searchParams.delete("lead");
+        url.searchParams.delete("leadTab");
+    }
+
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState({}, "", nextUrl);
+}
+
+function restoreLeadWorkspaceFromRoute() {
+    if (!state.pendingLeadRouteId) {
+        return false;
+    }
+
+    const lead = state.leads.find((item) => item.id === state.pendingLeadRouteId);
+    if (!lead) {
+        return false;
+    }
+
+    state.selectedLeadId = lead.id;
+    state.leadDraft = null;
+    state.activeLeadTab = state.pendingLeadRouteTab || "overview";
+    state.leadWorkspaceOpen = true;
+    switchView("leads-view");
+    state.pendingLeadRouteId = "";
+    state.pendingLeadRouteTab = "overview";
+    subscribeLeadDetail();
+    return true;
+}
+
 function setDrawerVisibility(isOpen) {
     refs.drawerBackdrop.hidden = !isOpen;
     refs.entityDrawer.hidden = !isOpen;
@@ -776,6 +1002,14 @@ function currentCustomer() {
     return state.customerDraft || currentCustomerDoc();
 }
 
+function currentVendorDoc() {
+    return state.vendors.find((vendor) => vendor.id === state.selectedVendorId) || null;
+}
+
+function currentVendor() {
+    return state.vendorDraft || currentVendorDoc();
+}
+
 function currentTaskDoc() {
     return state.tasks.find((task) => task.id === state.selectedTaskId) || null;
 }
@@ -827,6 +1061,127 @@ function relatedTasksForEntity(entityKey, entityId) {
 function projectForLead(lead) {
     if (!lead) return null;
     return state.projects.find((project) => project.leadId === lead.id || project.id === lead.wonProjectId || project.id === lead.id) || null;
+}
+
+function vendorTradeLabel(tradeId) {
+    return VENDOR_TRADE_OPTIONS.find((option) => option.id === tradeId)?.label || tradeId;
+}
+
+function renderTradeCheckboxGrid(container, selectedTradeIds = []) {
+    if (!container) return;
+
+    const selected = new Set((selectedTradeIds || []).map((value) => safeString(value)));
+    container.innerHTML = VENDOR_TRADE_OPTIONS.map((trade) => `
+        <label class="checkbox-chip">
+            <input type="checkbox" data-trade-id="${escapeHtml(trade.id)}" ${selected.has(trade.id) ? "checked" : ""}>
+            <span>${escapeHtml(trade.label)}</span>
+        </label>
+    `).join("");
+}
+
+function selectedTradeIdsFromGrid(container) {
+    if (!container) return [];
+
+    return Array.from(container.querySelectorAll("input[type='checkbox'][data-trade-id]:checked"))
+        .map((input) => input.dataset.tradeId)
+        .filter(Boolean);
+}
+
+function vendorBillsForVendor(vendorId) {
+    return [...state.vendorBills.filter((bill) => safeString(bill.vendorId) === safeString(vendorId))]
+        .sort((left, right) => {
+            const leftDue = toMillis(left.dueDate || left.invoiceDate || left.createdAt) || Number.MAX_SAFE_INTEGER;
+            const rightDue = toMillis(right.dueDate || right.invoiceDate || right.createdAt) || Number.MAX_SAFE_INTEGER;
+            return leftDue - rightDue;
+        });
+}
+
+function vendorDocumentsForVendor(vendorId) {
+    return sortByUpdatedDesc(state.vendorDocuments.filter((item) => safeString(item.vendorId) === safeString(vendorId)));
+}
+
+function vendorBillIsOverdue(bill) {
+    if (!bill) return false;
+    const status = safeString(bill.status || "open");
+    if (status === "paid" || status === "void") return false;
+    const dueMillis = toMillis(bill.dueDate);
+    return dueMillis > 0 && dueMillis < Date.now() && !isSameDay(bill.dueDate, new Date());
+}
+
+function vendorBillIsDueThisWeek(bill) {
+    if (!bill) return false;
+    const status = safeString(bill.status || "open");
+    if (status === "paid" || status === "void") return false;
+    const dueMillis = toMillis(bill.dueDate);
+    if (!dueMillis) return false;
+    const dueDate = new Date(dueMillis);
+    const today = new Date();
+    const weekAhead = new Date();
+    weekAhead.setDate(today.getDate() + 7);
+    return dueDate >= new Date(today.getFullYear(), today.getMonth(), today.getDate())
+        && dueDate <= weekAhead;
+}
+
+function vendorBillMatchesFilter(bill, filterValue) {
+    if (filterValue === "all") return true;
+    if (filterValue === "overdue") return vendorBillIsOverdue(bill);
+    if (filterValue === "due_this_week") return vendorBillIsDueThisWeek(bill);
+    if (filterValue === "no_open_bills") return false;
+    return safeString(bill.status || "open") === filterValue;
+}
+
+function vendorRollup(vendor) {
+    if (!vendor) {
+        return {
+            bills: [],
+            documents: [],
+            openBills: [],
+            overdueBills: [],
+            dueThisWeekBills: [],
+            scheduledBills: [],
+            paidBills: [],
+            projectIds: [],
+            projects: [],
+            totalOpenAmount: 0,
+            totalPaidAmount: 0,
+            nextDueBill: null
+        };
+    }
+
+    const bills = vendorBillsForVendor(vendor.id);
+    const documents = vendorDocumentsForVendor(vendor.id);
+    const openBills = bills.filter((bill) => {
+        const status = safeString(bill.status || "open");
+        return status === "open" || status === "scheduled";
+    });
+    const overdueBills = bills.filter((bill) => vendorBillIsOverdue(bill));
+    const dueThisWeekBills = bills.filter((bill) => vendorBillIsDueThisWeek(bill));
+    const scheduledBills = bills.filter((bill) => safeString(bill.status) === "scheduled");
+    const paidBills = bills.filter((bill) => safeString(bill.status) === "paid");
+    const projectIds = uniqueValues(bills.map((bill) => bill.projectId));
+    const projects = projectIds
+        .map((projectId) => state.projects.find((project) => project.id === projectId))
+        .filter(Boolean);
+    const totalOpenAmount = openBills.reduce((sum, bill) => sum + toNumber(bill.amount), 0);
+    const totalPaidAmount = paidBills.reduce((sum, bill) => sum + toNumber(bill.amount), 0);
+    const nextDueBill = [...openBills]
+        .filter((bill) => toMillis(bill.dueDate) > 0)
+        .sort((left, right) => toMillis(left.dueDate) - toMillis(right.dueDate))[0] || null;
+
+    return {
+        bills,
+        documents,
+        openBills,
+        overdueBills,
+        dueThisWeekBills,
+        scheduledBills,
+        paidBills,
+        projectIds,
+        projects,
+        totalOpenAmount,
+        totalPaidAmount,
+        nextDueBill
+    };
 }
 
 function customerRollup(customer) {
@@ -979,6 +1334,7 @@ function defaultLeadDraft(customer = null) {
         projectAddress: customer?.primaryAddress || "",
         projectType: "",
         notes: "",
+        planningNotes: "",
         sourceForm: "manual_entry",
         sourcePage: "Staff CRM",
         sourcePath: "/staff",
@@ -1007,6 +1363,30 @@ function defaultCustomerDraft() {
     };
 }
 
+function defaultVendorDraft() {
+    return {
+        name: "",
+        legalName: "",
+        status: "active",
+        tradeIds: [],
+        tradeOtherText: "",
+        primaryContactName: "",
+        primaryPhone: "",
+        primaryEmail: "",
+        address: "",
+        serviceArea: "",
+        preferredPaymentMethod: "",
+        defaultTerms: "",
+        insuranceStatus: "undecided",
+        insuranceExpirationDate: null,
+        licenseExpirationDate: null,
+        insuranceNote: "",
+        notes: "",
+        createdAt: null,
+        updatedAt: null
+    };
+}
+
 function defaultTaskDraft(linked = {}) {
     return {
         title: "",
@@ -1029,6 +1409,7 @@ function closeDrawer() {
         context: {},
         leadDraft: null,
         customerDraft: null,
+        vendorDraft: null,
         taskDraft: null
     };
     setDrawerVisibility(false);
@@ -1045,6 +1426,7 @@ function openLeadDrawer({ customerId = null } = {}) {
             customerName: customer?.name || ""
         },
         customerDraft: null,
+        vendorDraft: null,
         taskDraft: null
     };
     renderActiveDrawer();
@@ -1064,10 +1446,39 @@ function openCustomerDrawer(seed = {}) {
             primaryAddress: seed.primaryAddress || "",
             notes: seed.notes || ""
         },
+        vendorDraft: null,
         taskDraft: null
     };
     renderActiveDrawer();
     queueFocus(refs.drawerCustomerName);
+}
+
+function openVendorDrawer(seed = {}) {
+    state.drawer = {
+        type: "vendor",
+        context: {},
+        leadDraft: null,
+        customerDraft: null,
+        vendorDraft: {
+            ...defaultVendorDraft(),
+            name: seed.name || "",
+            legalName: seed.legalName || "",
+            status: seed.status || "active",
+            tradeIds: Array.isArray(seed.tradeIds) ? seed.tradeIds : [],
+            tradeOtherText: seed.tradeOtherText || "",
+            primaryContactName: seed.primaryContactName || "",
+            primaryPhone: seed.primaryPhone || "",
+            primaryEmail: seed.primaryEmail || "",
+            address: seed.address || "",
+            serviceArea: seed.serviceArea || "",
+            preferredPaymentMethod: seed.preferredPaymentMethod || "",
+            defaultTerms: seed.defaultTerms || "",
+            notes: seed.notes || ""
+        },
+        taskDraft: null
+    };
+    renderActiveDrawer();
+    queueFocus(refs.drawerVendorName);
 }
 
 function openTaskDrawer(linked = {}) {
@@ -1078,6 +1489,7 @@ function openTaskDrawer(linked = {}) {
         context: { ...linked, preferredType },
         leadDraft: null,
         customerDraft: null,
+        vendorDraft: null,
         taskDraft: defaultTaskDraft(linked)
     };
     renderActiveDrawer();
@@ -1099,10 +1511,11 @@ function renderDrawerLead() {
     const leadDraft = state.drawer.leadDraft;
     refs.drawerLeadForm.hidden = false;
     refs.drawerCustomerForm.hidden = true;
+    refs.drawerVendorForm.hidden = true;
     refs.drawerTaskForm.hidden = true;
     refs.drawerKicker.textContent = "Quick add";
     refs.drawerTitle.textContent = "New lead";
-    refs.drawerSubtitle.textContent = "Capture the lead fast, then open the full record underneath the board for estimate, tasks, notes, and the won-job flow.";
+    refs.drawerSubtitle.textContent = "Capture the lead fast, then open the full lead workspace for estimate, tasks, planning, notes, and the won-job flow.";
     refs.drawerLeadClientName.value = leadDraft?.clientName || "";
     refs.drawerLeadClientPhone.value = leadDraft?.clientPhone || "";
     refs.drawerLeadClientEmail.value = leadDraft?.clientEmail || "";
@@ -1124,6 +1537,7 @@ function renderDrawerCustomer() {
     const customerDraft = state.drawer.customerDraft;
     refs.drawerLeadForm.hidden = true;
     refs.drawerCustomerForm.hidden = false;
+    refs.drawerVendorForm.hidden = true;
     refs.drawerTaskForm.hidden = true;
     refs.drawerKicker.textContent = "Quick add";
     refs.drawerTitle.textContent = "New customer";
@@ -1133,6 +1547,27 @@ function renderDrawerCustomer() {
     refs.drawerCustomerPhone.value = customerDraft?.primaryPhone || "";
     refs.drawerCustomerAddress.value = customerDraft?.primaryAddress || "";
     refs.drawerCustomerNotes.value = customerDraft?.notes || "";
+}
+
+function renderDrawerVendor() {
+    const vendorDraft = state.drawer.vendorDraft;
+    refs.drawerLeadForm.hidden = true;
+    refs.drawerCustomerForm.hidden = true;
+    refs.drawerVendorForm.hidden = false;
+    refs.drawerTaskForm.hidden = true;
+    refs.drawerKicker.textContent = "Quick add";
+    refs.drawerTitle.textContent = "New vendor";
+    refs.drawerSubtitle.textContent = "Create a clean vendor record for trade categorization, payables, and document tracking without leaving the workspace.";
+    refs.drawerVendorName.value = vendorDraft?.name || "";
+    refs.drawerVendorStatus.value = vendorDraft?.status || "active";
+    refs.drawerVendorTradeOther.value = vendorDraft?.tradeOtherText || "";
+    refs.drawerVendorContactName.value = vendorDraft?.primaryContactName || "";
+    refs.drawerVendorPhone.value = vendorDraft?.primaryPhone || "";
+    refs.drawerVendorEmail.value = vendorDraft?.primaryEmail || "";
+    refs.drawerVendorPaymentMethod.value = vendorDraft?.preferredPaymentMethod || "";
+    refs.drawerVendorDefaultTerms.value = vendorDraft?.defaultTerms || "";
+    refs.drawerVendorNotes.value = vendorDraft?.notes || "";
+    renderTradeCheckboxGrid(refs.drawerVendorTradeGrid, vendorDraft?.tradeIds || []);
 }
 
 function renderDrawerTaskRecordOptions() {
@@ -1199,6 +1634,7 @@ function renderDrawerTask() {
     const taskDraft = state.drawer.taskDraft;
     refs.drawerLeadForm.hidden = true;
     refs.drawerCustomerForm.hidden = true;
+    refs.drawerVendorForm.hidden = true;
     refs.drawerTaskForm.hidden = false;
     refs.drawerKicker.textContent = "Quick add";
     refs.drawerTitle.textContent = "New task";
@@ -1232,10 +1668,19 @@ function renderActiveDrawer() {
         return;
     }
 
+    if (drawerType === "vendor") {
+        renderDrawerVendor();
+        return;
+    }
+
     renderDrawerTask();
 }
 
 function switchView(viewId) {
+    if (viewId !== "leads-view") {
+        state.leadWorkspaceOpen = false;
+    }
+
     state.activeView = viewId;
     const meta = VIEW_META[viewId];
 
@@ -1256,6 +1701,7 @@ function switchView(viewId) {
 
     renderWorkspaceTools();
     renderWorkspaceCommandBar();
+    syncLeadRouteState();
 }
 
 function renderWorkspaceTools() {
@@ -1330,7 +1776,8 @@ function filteredLeads() {
                 lead.clientPhone,
                 lead.clientEmail,
                 lead.customerName,
-                lead.notes
+                lead.notes,
+                lead.planningNotes
             ].join(" ").toLowerCase();
             return blob.includes(search);
         });
@@ -1477,11 +1924,13 @@ function renderSidebarSummary() {
     const openTaskCount = state.tasks.filter((task) => !taskIsCompleted(task)).length;
     const customerCount = state.customers.length;
     const activeProjectCount = state.projects.filter((project) => project.status !== "completed").length;
+    const activeVendorCount = state.vendors.filter((vendor) => safeString(vendor.status || "active") === "active").length;
 
     refs.sidebarSummary.innerHTML = `
         <div class="sidebar-stat"><span>Open leads</span><strong>${counts.new_lead + counts.follow_up + counts.estimate_sent}</strong></div>
         <div class="sidebar-stat"><span>Active jobs</span><strong>${activeProjectCount}</strong></div>
         <div class="sidebar-stat"><span>Customers</span><strong>${customerCount}</strong></div>
+        <div class="sidebar-stat"><span>Active vendors</span><strong>${activeVendorCount}</strong></div>
         <div class="sidebar-stat"><span>Open tasks</span><strong>${openTaskCount}</strong></div>
     `;
 }
@@ -1554,10 +2003,17 @@ function renderWorkspaceCommandBar() {
     const totalPaymentsReceived = state.projects.reduce((sum, project) => sum + toNumber(project.financials?.totalPayments), 0);
     const taskOpenCount = state.tasks.filter((task) => !taskIsCompleted(task)).length;
     const taskCompletedCount = state.tasks.filter((task) => taskIsCompleted(task)).length;
-    const selectedLead = currentLeadDoc();
+    const selectedLead = state.activeView === "leads-view" && state.leadWorkspaceOpen ? currentLead() : null;
     const selectedCustomer = currentCustomerDoc();
     const selectedProject = currentProject();
+    const selectedVendor = currentVendorDoc();
     const selectedTask = currentTaskDoc();
+    const activeVendorCount = state.vendors.filter((vendor) => safeString(vendor.status || "active") === "active").length;
+    const openVendorBillCount = state.vendorBills.filter((bill) => {
+        const status = safeString(bill.status || "open");
+        return status === "open" || status === "scheduled";
+    }).length;
+    const overdueVendorBillCount = state.vendorBills.filter((bill) => vendorBillIsOverdue(bill)).length;
 
     const actionButtons = [];
     const summaryChips = [];
@@ -1565,6 +2021,7 @@ function renderWorkspaceCommandBar() {
     if (isAdmin()) {
         actionButtons.push(buildCommandAction("New lead", "primary-button", { "data-command": "start-lead-draft" }));
         actionButtons.push(buildCommandAction("New customer", "ghost-button", { "data-command": "start-customer-draft" }));
+        actionButtons.push(buildCommandAction("New vendor", "ghost-button", { "data-command": "start-vendor-draft" }));
     }
 
     actionButtons.push(buildCommandAction("New task", isAdmin() ? "secondary-button" : "primary-button", { "data-command": "start-task-draft" }));
@@ -1687,6 +2144,25 @@ function renderWorkspaceCommandBar() {
         summaryChips.push(buildCommandChip("Completed", completedJobCount));
         summaryChips.push(buildCommandChip("Awaiting payment", jobsAwaitingPayment));
         summaryChips.push(buildCommandChip("Client paid", formatCurrency(totalPaymentsReceived)));
+    }
+
+    if (state.activeView === "vendors-view") {
+        if (selectedVendor?.id && isAdmin()) {
+            actionButtons.push(buildCommandAction("Add payable", "secondary-button", { "data-command": "vendor-add-bill" }));
+            actionButtons.push(buildCommandAction("Add document", "ghost-button", { "data-command": "vendor-add-document" }));
+        }
+
+        if (selectedVendor?.id && vendorRollup(selectedVendor).projects[0]) {
+            actionButtons.push(buildCommandAction("Open latest job", "ghost-button", {
+                "data-open-project": vendorRollup(selectedVendor).projects[0].id,
+                "data-open-view": "jobs-view"
+            }));
+        }
+
+        summaryChips.push(buildCommandChip("Active vendors", activeVendorCount));
+        summaryChips.push(buildCommandChip("Open bills", openVendorBillCount));
+        summaryChips.push(buildCommandChip("Overdue bills", overdueVendorBillCount));
+        summaryChips.push(buildCommandChip("Documents", state.vendorDocuments.length));
     }
 
     if (state.activeView === "staff-view") {
@@ -2164,7 +2640,7 @@ function renderLeadList() {
     }
 
     refs.leadList.innerHTML = leads.map((lead) => `
-        <button type="button" class="record-button ${lead.id === state.selectedLeadId && !state.leadDraft ? "is-selected" : ""}" data-lead-id="${escapeHtml(lead.id)}">
+        <button type="button" class="record-button ${lead.id === state.selectedLeadId && state.leadWorkspaceOpen && !state.leadDraft ? "is-selected" : ""}" data-lead-id="${escapeHtml(lead.id)}">
             <div class="record-topline">
                 <span class="mini-pill">${escapeHtml(STATUS_META[lead.status] || "Lead")}</span>
                 <span class="mini-pill">${escapeHtml(lead.assignedToName || "Unassigned")}</span>
@@ -2196,7 +2672,7 @@ function renderLeadBoard() {
                 ${laneLeads.length ? laneLeads.map((lead) => `
                     <button
                         type="button"
-                        class="record-button pipeline-card ${lead.id === state.selectedLeadId && !state.leadDraft ? "is-selected" : ""} ${state.dragLeadId === lead.id ? "is-dragging" : ""}"
+                        class="record-button pipeline-card ${lead.id === state.selectedLeadId && state.leadWorkspaceOpen && !state.leadDraft ? "is-selected" : ""} ${state.dragLeadId === lead.id ? "is-dragging" : ""}"
                         data-lead-id="${escapeHtml(lead.id)}"
                         data-draggable-lead="${escapeHtml(lead.id)}"
                         draggable="true"
@@ -2242,6 +2718,32 @@ function markLeadBoardDragState(leadId, laneStatus = null) {
 function renderLeadListShell() {
     renderLeadBoard();
     renderLeadList();
+}
+
+function renderLeadWorkspaceSurface() {
+    const showWorkspace = state.activeView === "leads-view" && state.leadWorkspaceOpen;
+    refs.leadMetrics.hidden = showWorkspace;
+    refs.leadPipelineSurface.hidden = showWorkspace;
+    refs.leadWorkspacePanel.hidden = !showWorkspace;
+}
+
+function renderLeadWorkspaceHeader(lead) {
+    if (!state.leadWorkspaceOpen) {
+        return;
+    }
+
+    if (!lead) {
+        refs.leadRecordTitle.textContent = "Lead workspace";
+        refs.leadWorkspaceMeta.textContent = "Open a lead from the board to work the record in a focused full-screen workspace.";
+        return;
+    }
+
+    refs.leadRecordTitle.textContent = lead.clientName || "Lead workspace";
+    refs.leadWorkspaceMeta.textContent = [
+        STATUS_META[lead.status] || "Lead",
+        lead.assignedToName || "Unassigned",
+        lead.projectAddress || "Address pending"
+    ].filter(Boolean).join(" · ");
 }
 
 function renderLeadOverviewSummary(lead) {
@@ -2498,27 +3000,75 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
                 <td>${escapeHtml(formatCurrency(0))}</td>
             </tr>
         `;
+    const preparedDate = formatDateOnly(new Date());
 
     return `
         <article class="estimate-sheet">
             <header class="estimate-sheet-header">
-                <div>
-                    <div class="estimate-eyebrow">Golden Brick Construction</div>
-                    <h3>${escapeHtml(title)}</h3>
-                    <p class="estimate-greeting">${escapeHtml((template.greeting || EMPTY_TEMPLATE.greeting).replace("{{clientName}}", leadName))}</p>
+                <div class="estimate-brand-bar">
+                    <div class="estimate-company-lockup">
+                        <div class="estimate-eyebrow">${escapeHtml(COMPANY_INFO.name)}</div>
+                        <h3>${escapeHtml(title)}</h3>
+                        <p class="estimate-subtitle">Investor-ready renovation proposal prepared for quick client review, browser print, and PDF export.</p>
+                        <p class="estimate-greeting">${escapeHtml((template.greeting || EMPTY_TEMPLATE.greeting).replace("{{clientName}}", leadName))}</p>
+                    </div>
                 </div>
-                <div class="estimate-meta">
-                    <div><span>Client</span><strong>${escapeHtml(leadName)}</strong></div>
-                    <div><span>Address</span><strong>${escapeHtml(lead?.projectAddress || "To be confirmed")}</strong></div>
-                    <div><span>Project type</span><strong>${escapeHtml(lead?.projectType || "General scope")}</strong></div>
+                <div class="estimate-company-card">
+                    <div class="estimate-contact-row">
+                        <span>Prepared by</span>
+                        <strong>${escapeHtml(COMPANY_INFO.name)}</strong>
+                    </div>
+                    <div class="estimate-contact-list">
+                        <div class="estimate-contact-row">
+                            <span>Email</span>
+                            <strong>${escapeHtml(COMPANY_INFO.email)}</strong>
+                        </div>
+                        <div class="estimate-contact-row">
+                            <span>Phone</span>
+                            <strong>${escapeHtml(COMPANY_INFO.phone)}</strong>
+                        </div>
+                        <div class="estimate-contact-row">
+                            <span>Date</span>
+                            <strong>${escapeHtml(preparedDate)}</strong>
+                        </div>
+                    </div>
                 </div>
             </header>
 
-            <section class="estimate-copy-block">
-                ${overviewBlocks.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
+            <section class="estimate-project-grid">
+                <article class="estimate-project-card">
+                    <span>Client</span>
+                    <strong>${escapeHtml(leadName)}</strong>
+                </article>
+                <article class="estimate-project-card">
+                    <span>Project address</span>
+                    <strong>${escapeHtml(lead?.projectAddress || "To be confirmed")}</strong>
+                </article>
+                <article class="estimate-project-card">
+                    <span>Project type</span>
+                    <strong>${escapeHtml(lead?.projectType || "General scope")}</strong>
+                </article>
+                <article class="estimate-project-card">
+                    <span>Estimated total</span>
+                    <strong>${escapeHtml(formatCurrency(estimateDraft.subtotal || 0))}</strong>
+                </article>
             </section>
 
-            <section>
+            <section class="estimate-section">
+                <div class="estimate-section-heading">
+                    <h4>Overview / Scope</h4>
+                    <p>Use this summary to align the client on the planned scope and pricing posture before final execution details.</p>
+                </div>
+                <div class="estimate-copy-block">
+                    ${overviewBlocks.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
+                </div>
+            </section>
+
+            <section class="estimate-section">
+                <div class="estimate-section-heading">
+                    <h4>Line items</h4>
+                    <p>Each line item rolls into the current working estimate total.</p>
+                </div>
                 <table class="estimate-table">
                     <thead>
                         <tr>
@@ -2528,7 +3078,7 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
                     </thead>
                     <tbody>${rows}</tbody>
                     <tfoot>
-                        <tr>
+                        <tr class="estimate-total-row">
                             <td>Estimated Total</td>
                             <td>${escapeHtml(formatCurrency(estimateDraft.subtotal || 0))}</td>
                         </tr>
@@ -2537,15 +3087,28 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
             </section>
 
             <section class="estimate-foot">
-                <div>
-                    <h4>Assumptions / Exclusions</h4>
+                <div class="estimate-section">
+                    <div class="estimate-section-heading">
+                        <h4>Assumptions / Exclusions</h4>
+                        <p>These assumptions keep the estimate clean until site conditions and final selections are confirmed.</p>
+                    </div>
                     <ul>${assumptions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
                 </div>
-                <div>
-                    <h4>Next Step</h4>
-                    <p>${escapeHtml(template.outro || EMPTY_TEMPLATE.outro)}</p>
+                <div class="estimate-next-step">
+                    <div class="estimate-section-heading">
+                        <h4>Next step</h4>
+                        <p>${escapeHtml(template.outro || EMPTY_TEMPLATE.outro)}</p>
+                    </div>
                 </div>
             </section>
+
+            <footer class="estimate-print-foot">
+                <div>
+                    <strong>${escapeHtml(COMPANY_INFO.name)}</strong>
+                    <div>${escapeHtml(COMPANY_INFO.email)} · ${escapeHtml(COMPANY_INFO.phone)}</div>
+                </div>
+                <div>Prepared for browser print and Save as PDF delivery.</div>
+            </footer>
         </article>
     `;
 }
@@ -2557,6 +3120,10 @@ function buildEstimatePlainText(lead, estimateDraft) {
         : (safeString(template.terms) ? [safeString(template.terms)] : []);
 
     return [
+        COMPANY_INFO.name,
+        `Email: ${COMPANY_INFO.email}`,
+        `Phone: ${COMPANY_INFO.phone}`,
+        "",
         safeString(estimateDraft.subject) || defaultEstimateTitle(lead),
         "",
         (template.greeting || EMPTY_TEMPLATE.greeting).replace("{{clientName}}", safeString(lead?.clientName) || "Client"),
@@ -2674,6 +3241,16 @@ function renderLeadTabState() {
     });
 }
 
+function openLeadTab(tab, focusTarget = null) {
+    state.activeLeadTab = tab;
+    renderLeadTabState();
+    syncLeadRouteState();
+
+    if (focusTarget) {
+        queueFocus(focusTarget);
+    }
+}
+
 function renderLeadJobSummary(lead) {
     const project = projectForLead(lead);
 
@@ -2693,13 +3270,14 @@ function renderLeadJobSummary(lead) {
 
 function renderLeadDetail() {
     const lead = currentLead();
+    renderLeadWorkspaceHeader(lead);
 
     if (!lead) {
-        refs.leadRecordTitle.textContent = "Select a lead";
         refs.leadRecordBadge.textContent = "No lead selected";
         refs.leadRecordBadge.className = "status-pill neutral";
         renderLeadCustomerMatch(null);
         refs.leadRecordContext.innerHTML = "";
+        refs.leadPlanningNotesInput.value = "";
         refs.leadRecordEmpty.hidden = false;
         refs.leadRecordShell.hidden = true;
         return;
@@ -2707,7 +3285,6 @@ function renderLeadDetail() {
 
     refs.leadRecordEmpty.hidden = true;
     refs.leadRecordShell.hidden = false;
-    refs.leadRecordTitle.textContent = lead.clientName || "New lead";
     refs.leadRecordBadge.textContent = lead.id ? (STATUS_META[lead.status] || "Lead") : "Draft";
     refs.leadRecordBadge.className = lead.id ? "status-pill" : "status-pill neutral";
     refs.leadClientName.value = lead.clientName || "";
@@ -2717,6 +3294,7 @@ function renderLeadDetail() {
     refs.leadProjectType.value = lead.projectType || "";
     renderLeadStageOptions(lead);
     refs.leadNotesInput.value = lead.notes || "";
+    refs.leadPlanningNotesInput.value = lead.planningNotes || "";
     refs.leadSourceDisplay.value = lead.sourcePage || lead.sourceForm || "Staff CRM";
     refs.leadEstimateDisplay.value = formatCurrency(lead.estimateSubtotal || state.estimate?.subtotal || 0);
     renderLeadAssigneeOptions(lead.assignedToUid || "");
@@ -3215,6 +3793,7 @@ function renderExpenseList() {
                 <p>${escapeHtml(expense.note || "")}</p>
                 <div class="simple-meta">
                     ${escapeHtml(formatDateOnly(expense.relatedDate || expense.createdAt))} · ${escapeHtml(expense.vendor || "No vendor")}
+                    ${expense.source === "vendor_bill" ? " · Mirrored vendor bill" : ""}
                     ${expense.receiptTitle ? ` · Receipt: ${escapeHtml(expense.receiptTitle)}` : ""}
                 </div>
                 ${href ? `<div class="simple-meta"><a href="${escapeHtml(href)}" target="_blank" rel="noreferrer">Open receipt</a></div>` : ""}
@@ -3404,6 +3983,7 @@ function renderJobDetail() {
     renderRevenueSummary(project);
     renderChangeOrderList();
     renderExpenseReceiptOptions();
+    renderExpenseVendorOptions();
     renderExpenseList();
     renderPaymentList();
     renderTeamFinancialSummary(project);
@@ -3431,6 +4011,399 @@ function renderJobDetail() {
     if (!refs.jobDocumentSourceType.value) {
         refs.jobDocumentSourceType.value = "upload";
         renderJobDocumentSourceFields();
+    }
+}
+
+function filteredVendors() {
+    const search = safeString(state.vendorSearch).toLowerCase();
+
+    return sortByUpdatedDesc(state.vendors.filter((vendor) => {
+        const status = safeString(vendor.status || "active");
+        const trades = Array.isArray(vendor.tradeIds) ? vendor.tradeIds : [];
+        const rollup = vendorRollup(vendor);
+        const searchBlob = [
+            vendor.name,
+            vendor.legalName,
+            vendor.primaryContactName,
+            vendor.primaryEmail,
+            vendor.primaryPhone,
+            vendor.address,
+            vendor.serviceArea,
+            vendor.notes,
+            vendor.tradeOtherText,
+            ...trades.map((tradeId) => vendorTradeLabel(tradeId))
+        ].join(" ").toLowerCase();
+
+        if (search && !searchBlob.includes(search)) {
+            return false;
+        }
+
+        if (state.vendorStatus === "active_only" && status !== "active") {
+            return false;
+        }
+
+        if (state.vendorStatus !== "all" && state.vendorStatus !== "active_only" && status !== state.vendorStatus) {
+            return false;
+        }
+
+        if (state.vendorTrade !== "all" && !trades.includes(state.vendorTrade)) {
+            return false;
+        }
+
+        if (state.vendorBillState === "no_open_bills") {
+            return rollup.openBills.length === 0;
+        }
+
+        if (state.vendorBillState !== "all") {
+            return rollup.bills.some((bill) => vendorBillMatchesFilter(bill, state.vendorBillState));
+        }
+
+        return true;
+    }));
+}
+
+function renderVendorTradeFilterOptions() {
+    const currentValue = refs.vendorTradeFilter.value || state.vendorTrade || "all";
+    refs.vendorTradeFilter.innerHTML = [`<option value="all">All trades</option>`].concat(
+        VENDOR_TRADE_OPTIONS.map((trade) => `
+            <option value="${escapeHtml(trade.id)}">${escapeHtml(trade.label)}</option>
+        `)
+    ).join("");
+    refs.vendorTradeFilter.value = VENDOR_TRADE_OPTIONS.some((trade) => trade.id === currentValue) ? currentValue : "all";
+}
+
+function renderVendorMetrics() {
+    renderVendorTradeFilterOptions();
+
+    const activeVendors = state.vendors.filter((vendor) => safeString(vendor.status || "active") === "active").length;
+    const openBills = state.vendorBills.filter((bill) => {
+        const status = safeString(bill.status || "open");
+        return status === "open" || status === "scheduled";
+    });
+    const overdueBills = state.vendorBills.filter((bill) => vendorBillIsOverdue(bill));
+    const dueThisWeek = state.vendorBills.filter((bill) => vendorBillIsDueThisWeek(bill));
+
+    renderMetricStrip(refs.vendorMetrics, [
+        { label: "Active vendors", value: activeVendors },
+        { label: "Open bills", value: openBills.length },
+        { label: "Overdue bills", value: overdueBills.length },
+        { label: "Due this week", value: dueThisWeek.length }
+    ]);
+}
+
+function renderVendorList() {
+    const vendors = filteredVendors();
+
+    if (!vendors.length) {
+        renderEmptyList(refs.vendorList, "No vendors match the current filters.");
+        return;
+    }
+
+    refs.vendorList.innerHTML = vendors.map((vendor) => {
+        const rollup = vendorRollup(vendor);
+        const trades = (vendor.tradeIds || []).slice(0, 2).map((tradeId) => vendorTradeLabel(tradeId));
+        const tradeSummary = trades.length ? trades.join(" · ") : (safeString(vendor.tradeOtherText) || "Trade not set");
+        return `
+            <button type="button" class="record-button ${vendor.id === state.selectedVendorId && !state.vendorDraft ? "is-selected" : ""}" data-vendor-id="${escapeHtml(vendor.id)}">
+                <div class="record-topline">
+                    <span class="mini-pill">${escapeHtml(VENDOR_STATUS_META[vendor.status] || "Active")}</span>
+                    <span class="mini-pill">${escapeHtml(`${rollup.openBills.length} open`)}</span>
+                </div>
+                <span class="record-title">${escapeHtml(vendor.name || "Unnamed vendor")}</span>
+                <p class="record-copy">${escapeHtml(tradeSummary)}</p>
+                <div class="record-meta">
+                    <div>${escapeHtml(vendor.primaryContactName || vendor.primaryEmail || vendor.primaryPhone || "No contact set")}</div>
+                    <div>${escapeHtml(formatCurrency(rollup.totalOpenAmount))} open payables</div>
+                    <div>${escapeHtml(`${rollup.overdueBills.length} overdue`)}</div>
+                </div>
+            </button>
+        `;
+    }).join("");
+}
+
+function renderVendorRecordContext(vendor, rollup) {
+    if (!vendor) {
+        refs.vendorRecordContext.innerHTML = "";
+        return;
+    }
+
+    const trades = (vendor.tradeIds || []).map((tradeId) => vendorTradeLabel(tradeId));
+    const nextDueText = rollup.nextDueBill
+        ? `${formatCurrency(rollup.nextDueBill.amount || 0)} due ${formatDateOnly(rollup.nextDueBill.dueDate)}`
+        : "No upcoming open bill.";
+    const complianceText = [
+        VENDOR_INSURANCE_STATUS_META[vendor.insuranceStatus] || "Undecided",
+        vendor.insuranceExpirationDate ? `Insurance ${formatDateOnly(vendor.insuranceExpirationDate)}` : "",
+        vendor.licenseExpirationDate ? `License ${formatDateOnly(vendor.licenseExpirationDate)}` : ""
+    ].filter(Boolean).join(" · ");
+
+    refs.vendorRecordContext.innerHTML = [
+        buildContextCard({
+            label: "Primary contact",
+            title: vendor.primaryContactName || vendor.primaryEmail || vendor.primaryPhone || "Contact not set",
+            meta: [vendor.primaryEmail, vendor.primaryPhone, vendor.address].filter(Boolean).join(" · ") || "Add contact and address details for purchasing follow-through.",
+            muted: true
+        }),
+        buildContextCard({
+            label: "Trades",
+            title: trades.length ? trades.slice(0, 3).join(", ") : "Trades not set",
+            meta: safeString(vendor.tradeOtherText) || "Use trade tags to keep the vendor directory easy to search.",
+            muted: true
+        }),
+        buildContextCard({
+            label: "Next bill due",
+            title: rollup.nextDueBill ? (rollup.nextDueBill.billNumber || "Upcoming payable") : "No bill due",
+            meta: nextDueText,
+            muted: true
+        }),
+        buildContextCard({
+            label: "Compliance",
+            title: VENDOR_STATUS_META[vendor.status] || "Active",
+            meta: complianceText || "Track insurance, license, and W-9 files in the document center.",
+            muted: true
+        })
+    ].join("");
+}
+
+function renderVendorTabState() {
+    refs.vendorTabButtons.forEach((button) => {
+        button.classList.toggle("is-active", button.dataset.vendorTab === state.activeVendorTab);
+    });
+
+    Array.from(document.querySelectorAll("#vendor-record-shell .tab-pane")).forEach((pane) => {
+        pane.classList.toggle("is-active", pane.id === `vendor-tab-${state.activeVendorTab}`);
+    });
+}
+
+function openVendorTab(tab, focusTarget = null) {
+    state.activeVendorTab = tab;
+    renderVendorTabState();
+    queueFocus(focusTarget);
+}
+
+function renderVendorProjectOptions(selectedProjectId = "") {
+    const options = [`<option value="">No linked job</option>`].concat(
+        sortByUpdatedDesc(state.projects).map((project) => `
+            <option value="${escapeHtml(project.id)}">${escapeHtml(`${project.clientName || "Unnamed job"} · ${project.projectAddress || "Address pending"}`)}</option>
+        `)
+    );
+    refs.vendorBillProjectInput.innerHTML = options.join("");
+    refs.vendorBillProjectInput.value = selectedProjectId || "";
+}
+
+function renderVendorBillSourceFields() {
+    const sourceType = refs.vendorBillSourceTypeInput.value || "none";
+    refs.vendorBillUrlRow.hidden = sourceType !== "link";
+    refs.vendorBillFileRow.hidden = sourceType !== "upload";
+}
+
+function renderVendorDocumentSourceFields() {
+    const sourceType = refs.vendorDocumentSourceTypeInput.value || "upload";
+    refs.vendorDocumentUrlRow.hidden = sourceType !== "link";
+    refs.vendorDocumentFileRow.hidden = sourceType !== "upload";
+}
+
+function renderVendorDocumentAccessDefaults() {
+    if (refs.vendorDocumentCategoryInput.value === "w9") {
+        refs.vendorDocumentAccessInput.value = "admin_only";
+    }
+}
+
+function setVendorFormEditable(editable) {
+    [
+        refs.vendorNameInput,
+        refs.vendorLegalNameInput,
+        refs.vendorStatusInput,
+        refs.vendorPaymentMethodInput,
+        refs.vendorTradeOtherInput,
+        refs.vendorContactNameInput,
+        refs.vendorPhoneInput,
+        refs.vendorEmailInput,
+        refs.vendorAddressInput,
+        refs.vendorServiceAreaInput,
+        refs.vendorDefaultTermsInput,
+        refs.vendorInsuranceStatusInput,
+        refs.vendorInsuranceExpirationInput,
+        refs.vendorLicenseExpirationInput,
+        refs.vendorInsuranceNoteInput,
+        refs.vendorNotesInput
+    ].forEach((field) => {
+        if (!field) return;
+        if (field.tagName === "INPUT" || field.tagName === "TEXTAREA") {
+            field.readOnly = !editable;
+        } else {
+            field.disabled = !editable;
+        }
+    });
+
+    Array.from(refs.vendorTradeGrid.querySelectorAll("input[type='checkbox']")).forEach((input) => {
+        input.disabled = !editable;
+    });
+}
+
+function renderVendorSummary(vendor, rollup) {
+    refs.vendorSummary.innerHTML = [
+        { label: "Open bills", value: String(rollup.openBills.length) },
+        { label: "Overdue", value: String(rollup.overdueBills.length) },
+        { label: "Open amount", value: formatCurrency(rollup.totalOpenAmount) },
+        { label: "Paid to date", value: formatCurrency(rollup.totalPaidAmount) },
+        { label: "Documents", value: String(rollup.documents.length) },
+        { label: "Linked jobs", value: String(rollup.projects.length) }
+    ].map((item) => `
+        <article class="summary-card">
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.value)}</strong>
+        </article>
+    `).join("");
+
+    if (!rollup.projects.length) {
+        renderEmptyList(refs.vendorJobList, "No jobs are linked to this vendor yet.");
+        return;
+    }
+
+    refs.vendorJobList.innerHTML = rollup.projects.map((project) => stackCardButton({
+        title: project.clientName || "Job",
+        copy: project.projectAddress || "Address pending",
+        pill: project.status === "completed" ? "Completed" : "In Progress",
+        secondaryPill: formatCurrency(projectRevenueValue(project)),
+        dataAttrs: {
+            "data-open-project": project.id,
+            "data-open-view": "jobs-view"
+        },
+        meta: `<div>${escapeHtml(project.projectType || "Project")}</div><div>Paid ${escapeHtml(formatCurrency(project.financials?.totalPayments || 0))}</div>`
+    })).join("");
+}
+
+function renderVendorPayableSummary(vendor, rollup) {
+    refs.vendorPayableSummary.innerHTML = `
+        <div><strong>Open:</strong> ${escapeHtml(`${rollup.openBills.length} bills for ${formatCurrency(rollup.totalOpenAmount)}`)}</div>
+        <div><strong>Overdue:</strong> ${escapeHtml(String(rollup.overdueBills.length))}</div>
+        <div><strong>Due this week:</strong> ${escapeHtml(String(rollup.dueThisWeekBills.length))}</div>
+    `;
+}
+
+function renderVendorBillList(vendor, rollup) {
+    renderSimpleEntries(refs.vendorBillList, rollup.bills, (bill) => {
+        const linkedProject = bill.projectId ? state.projects.find((project) => project.id === bill.projectId) : null;
+        const invoiceHref = safeString(bill.invoiceFileUrl || bill.invoiceExternalUrl);
+        const actions = isAdmin()
+            ? `
+                <div class="inline-actions">
+                    ${bill.status !== "scheduled" ? `<button type="button" class="ghost-button" data-command="vendor-bill-status" data-bill-id="${escapeHtml(bill.id)}" data-bill-status="scheduled">Mark scheduled</button>` : ""}
+                    ${bill.status !== "paid" ? `<button type="button" class="secondary-button" data-command="vendor-bill-status" data-bill-id="${escapeHtml(bill.id)}" data-bill-status="paid">Mark paid</button>` : ""}
+                    ${bill.status !== "open" ? `<button type="button" class="ghost-button" data-command="vendor-bill-status" data-bill-id="${escapeHtml(bill.id)}" data-bill-status="open">Reopen</button>` : ""}
+                    ${bill.status !== "void" ? `<button type="button" class="ghost-button" data-command="vendor-bill-status" data-bill-id="${escapeHtml(bill.id)}" data-bill-status="void">Void</button>` : ""}
+                </div>
+            `
+            : "";
+        return `
+            <article class="simple-item">
+                <strong>${escapeHtml(bill.billNumber || "Vendor payable")} · ${escapeHtml(formatCurrency(bill.amount || 0))}</strong>
+                <p>${escapeHtml(bill.note || "")}</p>
+                <div class="simple-meta">
+                    ${escapeHtml(VENDOR_BILL_STATUS_META[bill.status] || "Open")} · Due ${escapeHtml(formatDateOnly(bill.dueDate || bill.invoiceDate || bill.createdAt))}
+                    ${linkedProject ? ` · Job: ${escapeHtml(linkedProject.projectAddress || linkedProject.clientName || linkedProject.id)}` : ""}
+                </div>
+                <div class="simple-meta">
+                    ${escapeHtml(bill.paymentMethod || vendor.preferredPaymentMethod ? `Method: ${VENDOR_PAYMENT_METHOD_META[bill.paymentMethod] || bill.paymentMethod || VENDOR_PAYMENT_METHOD_META[vendor.preferredPaymentMethod] || vendor.preferredPaymentMethod}` : "Method not set")}
+                    ${bill.paymentReference ? ` · Ref: ${escapeHtml(bill.paymentReference)}` : ""}
+                </div>
+                ${linkedProject ? `<div class="simple-meta"><button type="button" class="ghost-button" data-open-project="${escapeHtml(linkedProject.id)}" data-open-view="jobs-view">Open linked job</button></div>` : ""}
+                ${invoiceHref ? `<div class="simple-meta"><a href="${escapeHtml(invoiceHref)}" target="_blank" rel="noreferrer">Open invoice</a></div>` : ""}
+                ${actions}
+            </article>
+        `;
+    }, "No payables saved for this vendor yet.");
+}
+
+function renderVendorDocumentSummary(vendor, rollup) {
+    const categories = ["agreement", "insurance", "license", "w9"];
+    refs.vendorDocumentSummary.innerHTML = categories.map((category) => `
+        <article class="summary-card">
+            <span>${escapeHtml(VENDOR_DOCUMENT_CATEGORY_META[category])}</span>
+            <strong>${escapeHtml(String(rollup.documents.filter((item) => item.category === category).length))}</strong>
+        </article>
+    `).join("");
+}
+
+function renderVendorDocumentList(vendor, rollup) {
+    renderSimpleEntries(refs.vendorDocumentList, rollup.documents, (item) => {
+        const href = documentHref(item);
+        const expiryMeta = item.expirationDate ? ` · Expires ${formatDateOnly(item.expirationDate)}` : "";
+        return `
+            <article class="simple-item">
+                <strong>${escapeHtml(item.title || "Document")}</strong>
+                <p>${escapeHtml(item.note || "")}</p>
+                <div class="simple-meta">
+                    ${escapeHtml(VENDOR_DOCUMENT_CATEGORY_META[item.category] || "Document")} · ${escapeHtml(DOCUMENT_SOURCE_META[item.sourceType] || "Manual")}
+                    ${isAdmin() ? ` · ${escapeHtml(VENDOR_DOCUMENT_ACCESS_META[item.accessLevel] || "Staff")}` : ""}
+                    ${expiryMeta ? expiryMeta : ""}
+                </div>
+                ${href ? `<div class="simple-meta"><a href="${escapeHtml(href)}" target="_blank" rel="noreferrer">Open document</a></div>` : ""}
+            </article>
+        `;
+    }, "No vendor documents saved yet.");
+}
+
+function renderVendorDetail() {
+    const vendor = currentVendor();
+
+    if (!vendor) {
+        refs.vendorRecordTitle.textContent = "Select a vendor";
+        refs.vendorRecordBadge.textContent = "No vendor selected";
+        refs.vendorRecordBadge.className = "status-pill neutral";
+        refs.vendorRecordContext.innerHTML = "";
+        refs.vendorRecordEmpty.hidden = false;
+        refs.vendorRecordShell.hidden = true;
+        return;
+    }
+
+    const editable = isAdmin();
+    const rollup = vendorRollup(vendor);
+
+    refs.vendorRecordEmpty.hidden = true;
+    refs.vendorRecordShell.hidden = false;
+    refs.vendorRecordTitle.textContent = vendor.name || "New vendor";
+    refs.vendorRecordBadge.textContent = vendor.id ? (VENDOR_STATUS_META[vendor.status] || "Active") : "Draft";
+    refs.vendorRecordBadge.className = vendor.id ? "status-pill" : "status-pill neutral";
+    refs.vendorNameInput.value = vendor.name || "";
+    refs.vendorLegalNameInput.value = vendor.legalName || "";
+    refs.vendorStatusInput.value = vendor.status || "active";
+    refs.vendorPaymentMethodInput.value = vendor.preferredPaymentMethod || "";
+    refs.vendorTradeOtherInput.value = vendor.tradeOtherText || "";
+    refs.vendorContactNameInput.value = vendor.primaryContactName || "";
+    refs.vendorPhoneInput.value = vendor.primaryPhone || "";
+    refs.vendorEmailInput.value = vendor.primaryEmail || "";
+    refs.vendorAddressInput.value = vendor.address || "";
+    refs.vendorServiceAreaInput.value = vendor.serviceArea || "";
+    refs.vendorDefaultTermsInput.value = vendor.defaultTerms || "";
+    refs.vendorInsuranceStatusInput.value = vendor.insuranceStatus || "undecided";
+    refs.vendorInsuranceExpirationInput.value = formatDateOnlyInputValue(vendor.insuranceExpirationDate);
+    refs.vendorLicenseExpirationInput.value = formatDateOnlyInputValue(vendor.licenseExpirationDate);
+    refs.vendorInsuranceNoteInput.value = vendor.insuranceNote || "";
+    refs.vendorNotesInput.value = vendor.notes || "";
+    renderTradeCheckboxGrid(refs.vendorTradeGrid, vendor.tradeIds || []);
+    setVendorFormEditable(editable);
+    renderVendorRecordContext(vendor, rollup);
+    renderVendorSummary(vendor, rollup);
+    renderVendorProjectOptions("");
+    renderVendorPayableSummary(vendor, rollup);
+    renderVendorBillList(vendor, rollup);
+    renderVendorDocumentSummary(vendor, rollup);
+    renderVendorDocumentList(vendor, rollup);
+    renderVendorBillSourceFields();
+    renderVendorDocumentSourceFields();
+    renderVendorDocumentAccessDefaults();
+    renderVendorTabState();
+
+    if (!refs.vendorBillInvoiceDateInput.value) {
+        refs.vendorBillInvoiceDateInput.value = todayDateInputValue();
+    }
+    if (!refs.vendorBillDueDateInput.value) {
+        refs.vendorBillDueDateInput.value = todayDateInputValue();
+    }
+    if (!refs.vendorDocumentDateInput.value) {
+        refs.vendorDocumentDateInput.value = todayDateInputValue();
     }
 }
 
@@ -3494,6 +4467,7 @@ function renderAll() {
     renderTaskDetail();
     renderLeadMetrics();
     renderLeadListShell();
+    renderLeadWorkspaceSurface();
     renderLeadDetail();
     renderCustomerMetrics();
     renderCustomerList();
@@ -3501,6 +4475,9 @@ function renderAll() {
     renderJobMetrics();
     renderJobList();
     renderJobDetail();
+    renderVendorMetrics();
+    renderVendorList();
+    renderVendorDetail();
     renderTemplateForm();
     renderStaffList();
     if (state.drawer.type) {
@@ -3533,12 +4510,36 @@ async function apiPost(path, body) {
     return payload;
 }
 
-function selectLead(leadId) {
+function selectLead(leadId, { openWorkspace = true, preserveTab = false } = {}) {
     state.leadDraft = null;
     state.selectedLeadId = leadId;
-    state.activeLeadTab = "overview";
+    state.leadWorkspaceOpen = openWorkspace;
+    if (!preserveTab) {
+        state.activeLeadTab = "overview";
+    }
     subscribeLeadDetail();
     renderAll();
+    syncLeadRouteState();
+
+    if (openWorkspace) {
+        window.requestAnimationFrame(() => {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+    }
+}
+
+function closeLeadWorkspace() {
+    if (!state.selectedLeadId) {
+        state.leadDraft = null;
+        state.leadActivities = [];
+        state.estimate = null;
+    }
+    state.leadWorkspaceOpen = false;
+    renderAll();
+    syncLeadRouteState();
+    window.requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    });
 }
 
 function selectProject(projectId) {
@@ -3551,6 +4552,13 @@ function selectProject(projectId) {
 function selectCustomer(customerId) {
     state.customerDraft = null;
     state.selectedCustomerId = customerId;
+    renderAll();
+}
+
+function selectVendor(vendorId) {
+    state.vendorDraft = null;
+    state.selectedVendorId = vendorId;
+    state.activeVendorTab = "overview";
     renderAll();
 }
 
@@ -3567,6 +4575,7 @@ function startLeadDraft(customerId = null) {
     state.leadActivities = [];
     state.estimate = null;
     state.activeLeadTab = "overview";
+    state.leadWorkspaceOpen = true;
     switchView("leads-view");
     renderAll();
 }
@@ -3575,6 +4584,14 @@ function startCustomerDraft() {
     state.selectedCustomerId = null;
     state.customerDraft = defaultCustomerDraft();
     switchView("customers-view");
+    renderAll();
+}
+
+function startVendorDraft() {
+    state.selectedVendorId = null;
+    state.vendorDraft = defaultVendorDraft();
+    state.activeVendorTab = "overview";
+    switchView("vendors-view");
     renderAll();
 }
 
@@ -3678,6 +4695,8 @@ async function syncSession(user) {
 function resetSelectionFromSnapshots() {
     if (state.selectedLeadId && !state.leads.some((lead) => lead.id === state.selectedLeadId)) {
         state.selectedLeadId = null;
+        state.leadWorkspaceOpen = false;
+        syncLeadRouteState();
     }
 
     if (state.selectedProjectId && !state.projects.some((project) => project.id === state.selectedProjectId)) {
@@ -3686,6 +4705,10 @@ function resetSelectionFromSnapshots() {
 
     if (state.selectedCustomerId && !state.customers.some((customer) => customer.id === state.selectedCustomerId)) {
         state.selectedCustomerId = null;
+    }
+
+    if (state.selectedVendorId && !state.vendors.some((vendor) => vendor.id === state.selectedVendorId)) {
+        state.selectedVendorId = null;
     }
 
     if (state.selectedTaskId && !state.tasks.some((task) => task.id === state.selectedTaskId)) {
@@ -3709,6 +4732,7 @@ function subscribeBaseData() {
         if (!isAdmin()) {
             syncScopedProjects();
         }
+        restoreLeadWorkspaceFromRoute();
         resetSelectionFromSnapshots();
         subscribeLeadDetail();
         renderAll();
@@ -3743,6 +4767,32 @@ function subscribeBaseData() {
     } else {
         refreshScopedCustomers();
     }
+
+    state.unsubs.base.push(onSnapshot(collection(state.db, "vendors"), (snapshot) => {
+        state.vendors = snapshot.docs.map(normaliseFirestoreDoc);
+        resetSelectionFromSnapshots();
+        renderAll();
+    }, (error) => {
+        handleBaseSubscriptionError("Vendor data", error);
+    }));
+
+    state.unsubs.base.push(onSnapshot(collection(state.db, "vendorBills"), (snapshot) => {
+        state.vendorBills = snapshot.docs.map(normaliseFirestoreDoc);
+        renderAll();
+    }, (error) => {
+        handleBaseSubscriptionError("Vendor bill data", error);
+    }));
+
+    const vendorDocumentSource = isAdmin()
+        ? collection(state.db, "vendorDocuments")
+        : query(collection(state.db, "vendorDocuments"), where("accessLevel", "==", "staff"));
+
+    state.unsubs.base.push(onSnapshot(vendorDocumentSource, (snapshot) => {
+        state.vendorDocuments = snapshot.docs.map(normaliseFirestoreDoc);
+        renderAll();
+    }, (error) => {
+        handleBaseSubscriptionError("Vendor document data", error);
+    }));
 
     const taskSource = isAdmin()
         ? collection(state.db, "tasks")
@@ -4027,6 +5077,7 @@ function collectLeadFormState(baseLead = currentLead()) {
         projectAddress: refs.leadProjectAddress.value.trim(),
         projectType: refs.leadProjectType.value.trim(),
         notes: refs.leadNotesInput.value.trim(),
+        planningNotes: refs.leadPlanningNotesInput.value.trim(),
         status,
         statusLabel: STATUS_META[status],
         customerId,
@@ -4086,6 +5137,7 @@ async function saveLeadDrawer(event) {
         projectAddress: refs.drawerLeadProjectAddress.value.trim(),
         projectType: refs.drawerLeadProjectType.value.trim(),
         notes: refs.drawerLeadNotes.value.trim(),
+        planningNotes: "",
         sourceForm: "manual_entry",
         sourcePage: "Staff CRM",
         sourcePath: "/staff",
@@ -4164,6 +5216,50 @@ async function saveCustomerDrawer(event) {
     switchView("customers-view");
     selectCustomer(customerRef.id);
     showToast("Customer created.");
+}
+
+async function saveVendorDrawer(event) {
+    event.preventDefault();
+
+    if (!isAdmin()) {
+        showToast("Only admins can create vendors.", "error");
+        return;
+    }
+
+    const vendorRef = doc(collection(state.db, "vendors"));
+    const payload = {
+        id: vendorRef.id,
+        name: refs.drawerVendorName.value.trim(),
+        legalName: "",
+        status: refs.drawerVendorStatus.value || "active",
+        tradeIds: selectedTradeIdsFromGrid(refs.drawerVendorTradeGrid),
+        tradeOtherText: refs.drawerVendorTradeOther.value.trim(),
+        primaryContactName: refs.drawerVendorContactName.value.trim(),
+        primaryPhone: refs.drawerVendorPhone.value.trim(),
+        primaryEmail: refs.drawerVendorEmail.value.trim(),
+        address: "",
+        serviceArea: "",
+        preferredPaymentMethod: refs.drawerVendorPaymentMethod.value || "",
+        defaultTerms: refs.drawerVendorDefaultTerms.value.trim(),
+        insuranceStatus: "undecided",
+        insuranceExpirationDate: null,
+        licenseExpirationDate: null,
+        insuranceNote: "",
+        notes: refs.drawerVendorNotes.value.trim(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+    };
+
+    if (!payload.name) {
+        showToast("Vendor name is required.", "error");
+        return;
+    }
+
+    await setDoc(vendorRef, payload, { merge: true });
+    closeDrawer();
+    switchView("vendors-view");
+    selectVendor(vendorRef.id);
+    showToast("Vendor created.");
 }
 
 async function saveTaskDrawer(event) {
@@ -4357,7 +5453,9 @@ async function saveLead(event) {
         await syncLeadCustomerLink(leadRef.id, { quiet: true });
         state.leadDraft = null;
         state.selectedLeadId = leadRef.id;
+        state.leadWorkspaceOpen = true;
         subscribeLeadDetail();
+        syncLeadRouteState();
         showToast("Lead created.");
         return;
     }
@@ -4645,7 +5743,7 @@ async function createEstimateDraft() {
         showToast(error.message, "error");
     } finally {
         refs.estimateAiButton.disabled = false;
-        refs.estimateAiButton.textContent = "Create Draft";
+        refs.estimateAiButton.textContent = "Draft estimate";
     }
 }
 
@@ -4685,6 +5783,9 @@ function openEstimatePrintView() {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${escapeHtml(defaultEstimateTitle(lead))}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --paper: #ffffff;
@@ -4712,10 +5813,20 @@ function openEstimatePrintView() {
         }
         .estimate-sheet-header {
             display: grid;
-            grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.7fr);
+            grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
             gap: 24px;
             align-items: start;
             margin-bottom: 24px;
+        }
+        .estimate-brand-bar,
+        .estimate-company-lockup,
+        .estimate-company-card,
+        .estimate-contact-list,
+        .estimate-project-grid,
+        .estimate-section,
+        .estimate-section-heading {
+            display: grid;
+            gap: 12px;
         }
         .estimate-eyebrow {
             margin-bottom: 10px;
@@ -4727,37 +5838,60 @@ function openEstimatePrintView() {
         }
         .estimate-sheet h3 {
             margin: 0 0 10px;
+            font-family: "Fraunces", Georgia, serif;
             font-size: 30px;
             line-height: 1.1;
+        }
+        .estimate-subtitle {
+            margin: 0;
+            color: var(--muted);
         }
         .estimate-greeting,
         .estimate-copy-block p,
         .estimate-foot p,
-        .estimate-foot li {
+        .estimate-foot li,
+        .estimate-section-heading p,
+        .estimate-print-foot {
             color: var(--muted);
             line-height: 1.7;
         }
-        .estimate-meta {
-            display: grid;
-            gap: 12px;
+        .estimate-company-card,
+        .estimate-copy-block,
+        .estimate-next-step {
             padding: 18px;
             background: #faf6ef;
             border: 1px solid var(--line);
         }
-        .estimate-meta span,
+        .estimate-contact-row,
+        .estimate-project-card {
+            display: grid;
+            gap: 4px;
+        }
+        .estimate-contact-row span,
+        .estimate-project-card span,
         .estimate-table th,
-        .estimate-foot h4 {
+        .estimate-section-heading h4 {
             color: var(--brand-deep);
             font-size: 12px;
             font-weight: 800;
             letter-spacing: 0.14em;
             text-transform: uppercase;
         }
-        .estimate-meta strong {
+        .estimate-contact-row strong,
+        .estimate-project-card strong {
             display: block;
             margin-top: 6px;
             font-size: 15px;
             color: var(--ink);
+        }
+        .estimate-project-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            margin-bottom: 24px;
+        }
+        .estimate-project-card {
+            padding: 16px;
+            background: #faf6ef;
+            border: 1px solid var(--line);
         }
         .estimate-table {
             width: 100%;
@@ -4781,11 +5915,37 @@ function openEstimatePrintView() {
             color: var(--muted);
             font-size: 14px;
         }
+        .estimate-table tfoot td {
+            border-bottom: 0;
+            padding-top: 16px;
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--ink);
+        }
+        .estimate-table tfoot td:last-child {
+            color: var(--brand-deep);
+        }
         .estimate-foot {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 24px;
             margin-top: 28px;
+        }
+        .estimate-foot ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+        .estimate-print-foot {
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+            align-items: flex-end;
+            margin-top: 28px;
+            padding-top: 18px;
+            border-top: 1px solid var(--line);
+        }
+        .estimate-print-foot strong {
+            color: var(--ink);
         }
         @media print {
             body {
@@ -4798,12 +5958,28 @@ function openEstimatePrintView() {
                 margin: 0;
             }
         }
+        @media (max-width: 800px) {
+            body {
+                padding: 16px;
+            }
+            .estimate-sheet-header,
+            .estimate-project-grid,
+            .estimate-foot {
+                grid-template-columns: 1fr;
+            }
+            .estimate-print-foot {
+                display: grid;
+            }
+        }
     </style>
 </head>
 <body>${previewHtml}</body>
 </html>`);
     printWindow.document.close();
     printWindow.focus();
+    window.setTimeout(() => {
+        printWindow.print();
+    }, 250);
 }
 
 async function saveCustomer(event) {
@@ -4844,6 +6020,261 @@ async function saveCustomer(event) {
         await updateDoc(doc(state.db, "customers", existing.id), payload);
         showToast("Customer updated.");
     }
+}
+
+async function saveVendor(event) {
+    event.preventDefault();
+
+    if (!isAdmin()) return;
+
+    const existing = currentVendorDoc();
+    const payload = {
+        name: refs.vendorNameInput.value.trim(),
+        legalName: refs.vendorLegalNameInput.value.trim(),
+        status: refs.vendorStatusInput.value || "active",
+        tradeIds: selectedTradeIdsFromGrid(refs.vendorTradeGrid),
+        tradeOtherText: refs.vendorTradeOtherInput.value.trim(),
+        primaryContactName: refs.vendorContactNameInput.value.trim(),
+        primaryPhone: refs.vendorPhoneInput.value.trim(),
+        primaryEmail: refs.vendorEmailInput.value.trim(),
+        address: refs.vendorAddressInput.value.trim(),
+        serviceArea: refs.vendorServiceAreaInput.value.trim(),
+        preferredPaymentMethod: refs.vendorPaymentMethodInput.value || "",
+        defaultTerms: refs.vendorDefaultTermsInput.value.trim(),
+        insuranceStatus: refs.vendorInsuranceStatusInput.value || "undecided",
+        insuranceExpirationDate: parseDateOnlyInput(refs.vendorInsuranceExpirationInput.value),
+        licenseExpirationDate: parseDateOnlyInput(refs.vendorLicenseExpirationInput.value),
+        insuranceNote: refs.vendorInsuranceNoteInput.value.trim(),
+        notes: refs.vendorNotesInput.value.trim(),
+        updatedAt: serverTimestamp()
+    };
+
+    if (!payload.name) {
+        showToast("Vendor name is required.", "error");
+        return;
+    }
+
+    if (state.vendorDraft || !existing) {
+        const vendorRef = doc(collection(state.db, "vendors"));
+        await setDoc(vendorRef, {
+            id: vendorRef.id,
+            ...payload,
+            createdAt: serverTimestamp()
+        }, { merge: true });
+
+        state.vendorDraft = null;
+        state.selectedVendorId = vendorRef.id;
+        showToast("Vendor created.");
+    } else {
+        await updateDoc(doc(state.db, "vendors", existing.id), payload);
+        showToast("Vendor updated.");
+    }
+}
+
+async function createVendorDocumentRecord({
+    vendorId,
+    category = "other",
+    accessLevel = "staff",
+    sourceType = "manual",
+    title = "",
+    note = "",
+    relatedDate = new Date(),
+    expirationDate = null,
+    externalUrl = "",
+    file = null
+}) {
+    if (!vendorId) {
+        throw new Error("Select a vendor first.");
+    }
+
+    const documentRef = doc(collection(state.db, "vendorDocuments"));
+    let resolvedExternalUrl = "";
+    let fileUrl = "";
+    let filePath = "";
+    let fileName = "";
+
+    if (sourceType === "link") {
+        resolvedExternalUrl = safeString(externalUrl);
+        if (!resolvedExternalUrl) {
+            throw new Error("Add the external document link first.");
+        }
+    }
+
+    if (sourceType === "upload") {
+        if (!file) {
+            throw new Error("Choose a file to upload.");
+        }
+
+        fileName = file.name;
+        const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-");
+        const uploadRef = storageRef(state.storage, `vendors/${vendorId}/documents/${documentRef.id}/${safeFileName}`);
+        await uploadBytes(uploadRef, file);
+        fileUrl = await getDownloadURL(uploadRef);
+        filePath = uploadRef.fullPath;
+    }
+
+    const finalTitle = title.trim() || VENDOR_DOCUMENT_CATEGORY_META[category] || "Document";
+
+    await setDoc(documentRef, {
+        id: documentRef.id,
+        vendorId,
+        category,
+        accessLevel,
+        sourceType,
+        title: finalTitle,
+        note: note.trim(),
+        relatedDate,
+        expirationDate,
+        externalUrl: resolvedExternalUrl,
+        fileUrl,
+        filePath,
+        fileName,
+        createdByUid: state.profile.uid,
+        createdByName: state.profile.displayName,
+        createdByRole: state.profile.role,
+        createdAt: serverTimestamp()
+    }, { merge: true });
+
+    return {
+        id: documentRef.id,
+        title: finalTitle,
+        externalUrl: resolvedExternalUrl,
+        fileUrl
+    };
+}
+
+async function saveVendorBill(event) {
+    event.preventDefault();
+
+    const vendor = currentVendorDoc();
+    if (!vendor || !isAdmin()) return;
+
+    const amount = toNumber(refs.vendorBillAmountInput.value);
+    if (!amount) {
+        showToast("Enter a payable amount first.", "error");
+        return;
+    }
+
+    const status = refs.vendorBillStatusInput.value || "open";
+    const billNumber = refs.vendorBillNumberInput.value.trim();
+    const invoiceDate = parseDateOnlyInput(refs.vendorBillInvoiceDateInput.value) || new Date();
+    const dueDate = parseDateOnlyInput(refs.vendorBillDueDateInput.value) || invoiceDate;
+    const sourceType = refs.vendorBillSourceTypeInput.value || "none";
+    let invoiceDocument = null;
+
+    if (sourceType !== "none") {
+        invoiceDocument = await createVendorDocumentRecord({
+            vendorId: vendor.id,
+            category: "invoice",
+            accessLevel: "staff",
+            sourceType,
+            title: billNumber ? `${billNumber} invoice` : `${vendor.name || "Vendor"} invoice`,
+            note: refs.vendorBillNoteInput.value.trim(),
+            relatedDate: invoiceDate,
+            externalUrl: refs.vendorBillUrlInput.value,
+            file: refs.vendorBillFileInput.files?.[0] || null
+        });
+    }
+
+    await addDoc(collection(state.db, "vendorBills"), {
+        vendorId: vendor.id,
+        vendorName: vendor.name || "",
+        projectId: refs.vendorBillProjectInput.value || null,
+        billNumber,
+        invoiceDate,
+        dueDate,
+        amount,
+        status,
+        category: refs.vendorBillCategoryInput.value.trim() || "vendor_bill",
+        paymentMethod: refs.vendorBillPaymentMethodInput.value.trim(),
+        paymentReference: refs.vendorBillPaymentReferenceInput.value.trim(),
+        scheduledDate: status === "scheduled" ? new Date() : null,
+        paidDate: status === "paid" ? new Date() : null,
+        invoiceDocumentId: invoiceDocument?.id || null,
+        invoiceTitle: invoiceDocument?.title || "",
+        invoiceFileUrl: invoiceDocument?.fileUrl || "",
+        invoiceExternalUrl: invoiceDocument?.externalUrl || "",
+        linkedExpenseId: null,
+        note: refs.vendorBillNoteInput.value.trim(),
+        createdByUid: state.profile.uid,
+        createdByName: state.profile.displayName,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+    });
+
+    refs.vendorBillForm.reset();
+    refs.vendorBillStatusInput.value = "open";
+    refs.vendorBillSourceTypeInput.value = "none";
+    refs.vendorBillInvoiceDateInput.value = todayDateInputValue();
+    refs.vendorBillDueDateInput.value = todayDateInputValue();
+    renderVendorProjectOptions("");
+    renderVendorBillSourceFields();
+    showToast("Vendor payable saved.");
+}
+
+async function updateVendorBillStatus(billId, nextStatus) {
+    if (!isAdmin()) return;
+
+    const bill = state.vendorBills.find((item) => item.id === billId);
+    if (!bill) {
+        showToast("Vendor bill not found.", "error");
+        return;
+    }
+
+    const updates = {
+        status: nextStatus,
+        updatedAt: serverTimestamp()
+    };
+
+    if (nextStatus === "scheduled") {
+        updates.scheduledDate = new Date();
+        updates.paidDate = null;
+    } else if (nextStatus === "paid") {
+        updates.paidDate = new Date();
+    } else if (nextStatus === "open") {
+        updates.scheduledDate = null;
+        updates.paidDate = null;
+    } else if (nextStatus === "void") {
+        updates.scheduledDate = null;
+        updates.paidDate = null;
+    }
+
+    await updateDoc(doc(state.db, "vendorBills", billId), updates);
+    showToast(`Vendor bill marked ${VENDOR_BILL_STATUS_META[nextStatus] || nextStatus}.`);
+}
+
+async function saveVendorDocument(event) {
+    event.preventDefault();
+
+    const vendor = currentVendorDoc();
+    if (!vendor || !isAdmin()) return;
+
+    const category = refs.vendorDocumentCategoryInput.value || "other";
+    const accessLevel = category === "w9"
+        ? "admin_only"
+        : (refs.vendorDocumentAccessInput.value || "staff");
+
+    await createVendorDocumentRecord({
+        vendorId: vendor.id,
+        category,
+        accessLevel,
+        sourceType: refs.vendorDocumentSourceTypeInput.value || "upload",
+        title: refs.vendorDocumentTitleInput.value.trim(),
+        note: refs.vendorDocumentNoteInput.value.trim(),
+        relatedDate: parseDateOnlyInput(refs.vendorDocumentDateInput.value) || new Date(),
+        expirationDate: parseDateOnlyInput(refs.vendorDocumentExpirationInput.value),
+        externalUrl: refs.vendorDocumentUrlInput.value,
+        file: refs.vendorDocumentFileInput.files?.[0] || null
+    });
+
+    refs.vendorDocumentForm.reset();
+    refs.vendorDocumentCategoryInput.value = "agreement";
+    refs.vendorDocumentAccessInput.value = "staff";
+    refs.vendorDocumentSourceTypeInput.value = "upload";
+    refs.vendorDocumentDateInput.value = todayDateInputValue();
+    renderVendorDocumentSourceFields();
+    renderVendorDocumentAccessDefaults();
+    showToast("Vendor document saved.");
 }
 
 function todayDateInputValue() {
@@ -4894,6 +6325,20 @@ function collectAssignedWorkers(project) {
 function selectedReceiptDocument() {
     const receiptId = refs.expenseReceiptSelect.value || "";
     return receiptId ? state.projectDocuments.find((item) => item.id === receiptId) || null : null;
+}
+
+function selectedExpenseVendor() {
+    const vendorId = refs.expenseVendorSelect.value || "";
+    return vendorId ? state.vendors.find((vendor) => vendor.id === vendorId) || null : null;
+}
+
+function renderExpenseVendorOptions(selectedVendorId = refs.expenseVendorSelect?.value || "") {
+    refs.expenseVendorSelect.innerHTML = [`<option value="">No vendor record</option>`].concat(
+        sortByUpdatedDesc(state.vendors).map((vendor) => `
+            <option value="${escapeHtml(vendor.id)}">${escapeHtml(`${vendor.name || "Unnamed vendor"} · ${(vendor.tradeIds || []).slice(0, 2).map((tradeId) => vendorTradeLabel(tradeId)).join(", ") || (vendor.tradeOtherText || "Trade not set")}`)}</option>
+        `)
+    ).join("");
+    refs.expenseVendorSelect.value = selectedVendorId || "";
 }
 
 async function saveProject(event) {
@@ -4984,7 +6429,9 @@ async function addExpense(event) {
     }
 
     const category = refs.expenseCategory.value.trim() || "general";
-    const vendor = refs.expenseVendor.value.trim();
+    const selectedVendor = selectedExpenseVendor();
+    const customVendor = refs.expenseVendor.value.trim();
+    const vendor = selectedVendor?.name || customVendor;
     const note = refs.expenseNote.value.trim();
     const relatedDate = parseDateOnlyInput(refs.expenseDate.value) || new Date();
     const receiptDocument = selectedReceiptDocument();
@@ -4992,6 +6439,7 @@ async function addExpense(event) {
     await addDoc(collection(state.db, "projects", project.id, "expenses"), {
         amount,
         category,
+        vendorId: selectedVendor?.id || null,
         vendor,
         note,
         relatedDate,
@@ -5005,6 +6453,7 @@ async function addExpense(event) {
 
     refs.expenseForm.reset();
     refs.expenseDate.value = todayDateInputValue();
+    renderExpenseVendorOptions("");
     await addProjectActivityEntry(
         project.id,
         "expense",
@@ -5300,10 +6749,10 @@ function openLeadEstimatePanel() {
         return;
     }
 
-    state.activeLeadTab = "estimate";
+    state.leadWorkspaceOpen = true;
     switchView("leads-view");
-    renderLeadTabState();
-    queueFocus(refs.estimateSubject);
+    renderAll();
+    openLeadTab("estimate", refs.estimateSubject);
 }
 
 function focusJobTaskForm() {
@@ -5335,6 +6784,11 @@ function handleCommandAction(target) {
 
     if (command === "start-customer-draft") {
         openCustomerDrawer();
+        return;
+    }
+
+    if (command === "start-vendor-draft") {
+        openVendorDrawer();
         return;
     }
 
@@ -5373,6 +6827,31 @@ function handleCommandAction(target) {
         return;
     }
 
+    if (command === "vendor-add-bill") {
+        const vendor = currentVendorDoc();
+        if (!vendor?.id) {
+            showToast("Select a vendor first.", "error");
+            return;
+        }
+        openVendorTab("payables", refs.vendorBillAmountInput);
+        return;
+    }
+
+    if (command === "vendor-add-document") {
+        const vendor = currentVendorDoc();
+        if (!vendor?.id) {
+            showToast("Select a vendor first.", "error");
+            return;
+        }
+        openVendorTab("documents", refs.vendorDocumentTitleInput);
+        return;
+    }
+
+    if (command === "vendor-bill-status") {
+        updateVendorBillStatus(target.dataset.billId, target.dataset.billStatus).catch((error) => showToast(error.message, "error"));
+        return;
+    }
+
     if (command === "job-create-task") {
         focusJobTaskForm();
     }
@@ -5396,6 +6875,9 @@ function handleRecordOpen(target) {
     }
     if (target.dataset.openCustomer) {
         selectCustomer(target.dataset.openCustomer);
+    }
+    if (target.dataset.openVendor) {
+        selectVendor(target.dataset.openVendor);
     }
     if (viewId) {
         switchView(viewId);
@@ -5422,7 +6904,13 @@ function bindUi() {
     });
 
     refs.navButtons.forEach((button) => {
-        button.addEventListener("click", () => switchView(button.dataset.view));
+        button.addEventListener("click", () => {
+            if (button.dataset.view === "leads-view") {
+                state.leadWorkspaceOpen = false;
+            }
+            switchView(button.dataset.view);
+            renderAll();
+        });
     });
 
     Array.from(refs.todayScopeToggle.querySelectorAll("[data-today-scope]")).forEach((button) => {
@@ -5448,10 +6936,13 @@ function bindUi() {
         refs.leadJobSummary,
         refs.leadTaskList,
         refs.customerTaskList,
-        refs.jobTaskList
+        refs.jobTaskList,
+        refs.vendorRecordContext,
+        refs.vendorJobList,
+        refs.vendorBillList
     ].forEach((container) => {
         container.addEventListener("click", (event) => {
-            const button = event.target.closest("[data-command], [data-open-view], [data-task-id], [data-open-project], [data-open-lead], [data-open-customer]");
+            const button = event.target.closest("[data-command], [data-open-view], [data-task-id], [data-open-project], [data-open-lead], [data-open-customer], [data-open-vendor]");
             if (!button) return;
 
             if (button.dataset.taskId) {
@@ -5523,6 +7014,8 @@ function bindUi() {
     refs.leadNewButton.addEventListener("click", () => {
         openLeadDrawer();
     });
+
+    refs.leadWorkspaceBackButton.addEventListener("click", closeLeadWorkspace);
 
     refs.leadList.addEventListener("click", (event) => {
         const button = event.target.closest("[data-lead-id]");
@@ -5607,13 +7100,7 @@ function bindUi() {
 
     refs.leadTabButtons.forEach((button) => {
         button.addEventListener("click", () => {
-            state.activeLeadTab = button.dataset.leadTab;
-            refs.leadTabButtons.forEach((tabButton) => {
-                tabButton.classList.toggle("is-active", tabButton.dataset.leadTab === state.activeLeadTab);
-            });
-            Array.from(document.querySelectorAll("#lead-record-shell .tab-pane")).forEach((pane) => {
-                pane.classList.toggle("is-active", pane.id === `lead-tab-${state.activeLeadTab}`);
-            });
+            openLeadTab(button.dataset.leadTab);
         });
     });
 
@@ -5693,6 +7180,74 @@ function bindUi() {
         }
     });
 
+    refs.vendorSearchInput.addEventListener("input", (event) => {
+        state.vendorSearch = event.target.value || "";
+        renderVendorList();
+    });
+
+    refs.vendorTradeFilter.addEventListener("change", (event) => {
+        state.vendorTrade = event.target.value || "all";
+        renderVendorList();
+    });
+
+    refs.vendorStatusFilter.addEventListener("change", (event) => {
+        state.vendorStatus = event.target.value || "active_only";
+        renderVendorList();
+    });
+
+    refs.vendorBillFilter.addEventListener("change", (event) => {
+        state.vendorBillState = event.target.value || "all";
+        renderVendorList();
+    });
+
+    refs.vendorNewButton.addEventListener("click", () => {
+        openVendorDrawer();
+    });
+
+    refs.vendorList.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-vendor-id]");
+        if (!button) return;
+        selectVendor(button.dataset.vendorId);
+    });
+
+    refs.vendorForm.addEventListener("submit", (event) => {
+        saveVendor(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.vendorTabButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            openVendorTab(button.dataset.vendorTab);
+        });
+    });
+
+    refs.vendorAddBillButton.addEventListener("click", () => {
+        if (!currentVendorDoc()) {
+            showToast("Select a vendor first.", "error");
+            return;
+        }
+        openVendorTab("payables", refs.vendorBillAmountInput);
+    });
+
+    refs.vendorAddDocumentButton.addEventListener("click", () => {
+        if (!currentVendorDoc()) {
+            showToast("Select a vendor first.", "error");
+            return;
+        }
+        openVendorTab("documents", refs.vendorDocumentTitleInput);
+    });
+
+    refs.vendorBillForm.addEventListener("submit", (event) => {
+        saveVendorBill(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.vendorDocumentForm.addEventListener("submit", (event) => {
+        saveVendorDocument(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.vendorBillSourceTypeInput.addEventListener("change", renderVendorBillSourceFields);
+    refs.vendorDocumentSourceTypeInput.addEventListener("change", renderVendorDocumentSourceFields);
+    refs.vendorDocumentCategoryInput.addEventListener("change", renderVendorDocumentAccessDefaults);
+
     refs.jobSearchInput.addEventListener("input", (event) => {
         state.jobSearch = event.target.value || "";
         renderJobList();
@@ -5764,6 +7319,13 @@ function bindUi() {
         addExpense(event).catch((error) => showToast(error.message, "error"));
     });
 
+    refs.expenseVendorSelect.addEventListener("change", () => {
+        const vendor = selectedExpenseVendor();
+        if (vendor) {
+            refs.expenseVendor.value = vendor.name || "";
+        }
+    });
+
     refs.paymentForm.addEventListener("submit", (event) => {
         addPayment(event).catch((error) => showToast(error.message, "error"));
     });
@@ -5822,6 +7384,10 @@ function bindUi() {
 
     refs.drawerCustomerForm.addEventListener("submit", (event) => {
         saveCustomerDrawer(event).catch((error) => showToast(error.message, "error"));
+    });
+
+    refs.drawerVendorForm.addEventListener("submit", (event) => {
+        saveVendorDrawer(event).catch((error) => showToast(error.message, "error"));
     });
 
     refs.drawerTaskForm.addEventListener("submit", (event) => {

@@ -521,6 +521,11 @@ a {
     gap: 18px;
 }
 
+.lead-surface-stack {
+    display: grid;
+    gap: 18px;
+}
+
 .panel {
     background: rgba(255, 255, 255, 0.82);
     border: 1px solid var(--crm-line);
@@ -612,6 +617,28 @@ a {
 
 .form-grid.three {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+.checkbox-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.84);
+    border: 1px solid rgba(70, 53, 34, 0.12);
+    color: var(--crm-ink);
+    cursor: pointer;
+}
+
+.checkbox-chip input {
+    width: auto;
+    margin: 0;
 }
 
 .inline-actions,
@@ -825,12 +852,52 @@ a {
     min-height: 760px;
 }
 
+.lead-workspace-panel {
+    min-height: calc(100vh - 210px);
+}
+
 .lead-record-shell {
     gap: 16px;
 }
 
+.lead-workspace-topbar {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-start;
+    padding: 22px 22px 0;
+}
+
+.lead-workspace-heading {
+    display: grid;
+    gap: 14px;
+}
+
+.lead-workspace-heading > div {
+    display: grid;
+    gap: 8px;
+}
+
+.lead-workspace-topbar h2 {
+    margin: 0;
+    font-family: "Fraunces", serif;
+    font-size: clamp(2rem, 3vw, 3rem);
+    line-height: 0.98;
+}
+
+.lead-workspace-topbar p {
+    margin: 0;
+    max-width: 72ch;
+    color: var(--crm-copy);
+}
+
 .job-record-shell {
     gap: 20px;
+}
+
+.lead-overview-stack {
+    display: grid;
+    gap: 14px;
 }
 
 .lead-overview-layout {
@@ -840,6 +907,10 @@ a {
 .lead-overview-rail {
     display: grid;
     gap: 14px;
+}
+
+.lead-planning-panel textarea {
+    min-height: 220px;
 }
 
 .job-overview-rail {
@@ -970,6 +1041,14 @@ a {
     grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.vendor-document-summary {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.vendor-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .summary-card,
 .finance-card {
     padding: 18px;
@@ -1017,6 +1096,10 @@ a {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
+}
+
+.estimate-workspace {
+    align-items: start;
 }
 
 .subpanel {
@@ -1106,16 +1189,18 @@ a {
 }
 
 .estimate-preview {
-    padding: 10px;
-    background: linear-gradient(180deg, rgba(251, 247, 240, 0.98), rgba(243, 235, 224, 0.92));
+    padding: 16px;
+    background:
+        radial-gradient(circle at top right, rgba(197, 160, 89, 0.08), transparent 34%),
+        linear-gradient(180deg, rgba(251, 247, 240, 0.98), rgba(243, 235, 224, 0.92));
     border: 1px solid rgba(70, 53, 34, 0.08);
     overflow: auto;
 }
 
 .estimate-sheet {
     display: grid;
-    gap: 22px;
-    padding: 28px;
+    gap: 24px;
+    padding: 30px;
     background: #fffdf9;
     border-top: 4px solid var(--crm-brand);
     box-shadow: 0 18px 34px rgba(26, 21, 16, 0.06);
@@ -1123,9 +1208,27 @@ a {
 
 .estimate-sheet-header {
     display: grid;
-    grid-template-columns: minmax(0, 1.25fr) minmax(220px, 0.75fr);
+    grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
     gap: 18px;
     align-items: start;
+}
+
+.estimate-brand-bar {
+    display: grid;
+    gap: 14px;
+}
+
+.estimate-company-lockup {
+    display: grid;
+    gap: 8px;
+}
+
+.estimate-company-card {
+    display: grid;
+    gap: 14px;
+    padding: 18px;
+    background: rgba(245, 239, 230, 0.74);
+    border: 1px solid rgba(70, 53, 34, 0.08);
 }
 
 .estimate-eyebrow {
@@ -1144,12 +1247,85 @@ a {
     line-height: 1.04;
 }
 
+.estimate-subtitle {
+    margin: 0;
+    max-width: 58ch;
+    color: var(--crm-copy);
+}
+
 .estimate-greeting,
 .estimate-copy-block p,
 .estimate-foot p,
 .estimate-foot li,
 .estimate-table td span {
     color: var(--crm-copy);
+}
+
+.estimate-contact-list {
+    display: grid;
+    gap: 10px;
+}
+
+.estimate-contact-row {
+    display: grid;
+    gap: 4px;
+}
+
+.estimate-project-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.estimate-project-card {
+    display: grid;
+    gap: 6px;
+    padding: 16px;
+    background: rgba(250, 246, 239, 0.7);
+    border: 1px solid rgba(70, 53, 34, 0.08);
+}
+
+.estimate-project-card span {
+    color: var(--crm-copy-soft);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.estimate-project-card strong {
+    font-size: 0.98rem;
+    line-height: 1.35;
+}
+
+.estimate-section {
+    display: grid;
+    gap: 12px;
+}
+
+.estimate-section-heading {
+    display: grid;
+    gap: 8px;
+}
+
+.estimate-section-heading h4 {
+    margin: 0;
+    color: var(--crm-brand-deep);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.estimate-section-heading p {
+    margin: 0;
+    color: var(--crm-copy);
+}
+
+.estimate-copy-block {
+    padding: 18px;
+    background: rgba(255, 252, 247, 0.82);
+    border: 1px solid rgba(70, 53, 34, 0.08);
 }
 
 .estimate-copy-block,
@@ -1210,6 +1386,18 @@ a {
     line-height: 1.6;
 }
 
+.estimate-table tfoot td {
+    border-bottom: 0;
+    padding-top: 18px;
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--crm-ink);
+}
+
+.estimate-table tfoot td:last-child {
+    color: var(--crm-brand-deep);
+}
+
 .estimate-foot {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1225,6 +1413,28 @@ a {
     padding-left: 18px;
     display: grid;
     gap: 8px;
+}
+
+.estimate-next-step {
+    padding: 16px;
+    background: rgba(245, 239, 230, 0.5);
+    border: 1px solid rgba(70, 53, 34, 0.08);
+}
+
+.estimate-print-foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-end;
+    padding-top: 18px;
+    border-top: 1px solid rgba(70, 53, 34, 0.12);
+    color: var(--crm-copy);
+}
+
+.estimate-print-foot strong {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--crm-ink);
 }
 
 .finance-summary {
@@ -1385,8 +1595,14 @@ a {
         grid-template-columns: 1fr;
     }
 
+    .estimate-project-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .job-overview-summary,
-    .job-document-summary {
+    .job-document-summary,
+    .vendor-document-summary,
+    .vendor-summary-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
@@ -1433,6 +1649,7 @@ a {
     .form-grid.two,
     .form-grid.three,
     .estimate-sheet-header,
+    .estimate-project-grid,
     .estimate-foot,
     .lead-result-list {
         grid-template-columns: 1fr;
@@ -1474,13 +1691,16 @@ a {
 
     .finance-summary.finance-summary-compact,
     .job-overview-summary,
-    .job-document-summary {
+    .job-document-summary,
+    .vendor-document-summary,
+    .vendor-summary-grid {
         grid-template-columns: 1fr;
     }
 
     .subpanel-head-split,
     .lead-board-intro,
-    .drawer-head {
+    .drawer-head,
+    .lead-workspace-topbar {
         display: grid;
         grid-template-columns: 1fr;
     }
@@ -1511,6 +1731,11 @@ a {
     .panel-head,
     .panel-body,
     .record-shell {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .lead-workspace-topbar {
         padding-left: 16px;
         padding-right: 16px;
     }

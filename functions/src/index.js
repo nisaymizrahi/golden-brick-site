@@ -81,6 +81,14 @@ function normaliseChangeOrderStatus(value) {
   return "draft";
 }
 
+function normaliseVendorBillStatus(value) {
+  const status = safeString(value).toLowerCase();
+  if (status === "scheduled" || status === "paid" || status === "void") {
+    return status;
+  }
+  return "open";
+}
+
 function statusLabel(status) {
   return LEAD_STATUSES[status] || LEAD_STATUSES.new_lead;
 }
@@ -644,6 +652,87 @@ async function verifyLeadStaffAccess(leadId, profile = {}) {
   }
 
   return { leadRef, leadData };
+}
+
+function vendorBillShouldMirrorExpense(vendorBillData = {}) {
+  return safeString(vendorBillData.projectId) !== ""
+    && normaliseVendorBillStatus(vendorBillData.status) !== "void";
+}
+
+async function deleteMirroredVendorExpense(projectId, billId) {
+  if (!projectId || !billId) {
+    return;
+  }
+
+  await db.collection("projects").doc(projectId).collection("expenses").doc(billId).delete();
+}
+
+function buildMirroredVendorExpensePayload(vendorBillId, vendorBillData = {}, existingExpense = {}) {
+  return {
+    id: vendorBillId,
+    amount: toNumber(vendorBillData.amount),
+    category: safeString(vendorBillData.category || "vendor_bill"),
+    vendor: safeString(vendorBillData.vendorName || "Vendor"),
+    vendorId: safeString(vendorBillData.vendorId),
+    vendorBillId,
+    billNumber: safeString(vendorBillData.billNumber),
+    billStatus: normaliseVendorBillStatus(vendorBillData.status),
+    source: "vendor_bill",
+    note: safeString(vendorBillData.note),
+    relatedDate: vendorBillData.dueDate || vendorBillData.invoiceDate || existingExpense.relatedDate || FieldValue.serverTimestamp(),
+    receiptDocumentId: safeString(vendorBillData.invoiceDocumentId) || null,
+    receiptTitle: safeString(vendorBillData.invoiceTitle || vendorBillData.billNumber || "Vendor invoice"),
+    receiptUrl: safeString(vendorBillData.invoiceFileUrl || vendorBillData.invoiceExternalUrl),
+    createdByUid: safeString(vendorBillData.createdByUid || existingExpense.createdByUid || "system"),
+    createdByName: safeString(vendorBillData.createdByName || existingExpense.createdByName || "Golden Brick System"),
+    createdAt: existingExpense.createdAt || vendorBillData.createdAt || FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  };
+}
+
+async function syncVendorBillExpenseMirror(vendorBillId, beforeData = {}, afterData = {}) {
+  const beforeProjectId = safeString(beforeData.projectId);
+  const afterProjectId = safeString(afterData.projectId);
+  const shouldMirrorAfter = vendorBillShouldMirrorExpense(afterData);
+
+  if (beforeProjectId && (!shouldMirrorAfter || beforeProjectId !== afterProjectId)) {
+    await deleteMirroredVendorExpense(beforeProjectId, vendorBillId);
+  }
+
+  if (!shouldMirrorAfter) {
+    if (safeString(afterData.linkedExpenseId) !== "") {
+      await db.collection("vendorBills").doc(vendorBillId).set({
+        linkedExpenseId: null
+      }, { merge: true });
+    }
+    return;
+  }
+
+  const projectRef = db.collection("projects").doc(afterProjectId);
+  const projectSnap = await projectRef.get();
+
+  if (!projectSnap.exists) {
+    logger.warn("Vendor bill mirror skipped because the linked project does not exist.", {
+      vendorBillId,
+      projectId: afterProjectId
+    });
+    return;
+  }
+
+  const expenseRef = projectRef.collection("expenses").doc(vendorBillId);
+  const expenseSnap = await expenseRef.get();
+  const existingExpense = expenseSnap.exists ? expenseSnap.data() : {};
+
+  await expenseRef.set(
+    buildMirroredVendorExpensePayload(vendorBillId, afterData, existingExpense),
+    { merge: true }
+  );
+
+  if (safeString(afterData.linkedExpenseId) !== vendorBillId) {
+    await db.collection("vendorBills").doc(vendorBillId).set({
+      linkedExpenseId: vendorBillId
+    }, { merge: true });
+  }
 }
 
 async function syncProjectFinancials(projectId) {
@@ -1374,5 +1463,30 @@ exports.syncCustomerDataOnLeadWrite = onDocumentWritten(
     const customerIds = uniqueValues([beforeData.customerId, afterData.customerId]);
 
     await Promise.all(customerIds.map((customerId) => syncCustomerSummary(customerId)));
+  }
+);
+
+exports.syncVendorBillExpenseMirror = onDocumentWritten(
+  {
+    region: "us-central1",
+    document: "vendorBills/{vendorBillId}"
+  },
+  async (event) => {
+    const beforeData = event.data.before.exists ? event.data.before.data() : {};
+    const afterData = event.data.after.exists ? event.data.after.data() : {};
+
+    if (!event.data.after.exists) {
+      await deleteMirroredVendorExpense(
+        safeString(beforeData.projectId),
+        event.params.vendorBillId
+      );
+      return;
+    }
+
+    await syncVendorBillExpenseMirror(
+      event.params.vendorBillId,
+      beforeData,
+      afterData
+    );
   }
 );

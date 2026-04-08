@@ -35,8 +35,25 @@ service firebase.storage {
       );
     }
 
+    function vendorDocumentDocExists(documentId) {
+      return firestore.exists(/databases/(default)/documents/vendorDocuments/$(documentId));
+    }
+
+    function vendorDocumentData(documentId) {
+      return firestore.get(/databases/(default)/documents/vendorDocuments/$(documentId)).data;
+    }
+
     match /projects/{projectId}/{allPaths=**} {
       allow read, write: if canAccessProject(projectId);
+    }
+
+    match /vendors/{vendorId}/documents/{documentId}/{allPaths=**} {
+      allow read: if isAdmin() || (
+        isActiveStaff() &&
+        vendorDocumentDocExists(documentId) &&
+        vendorDocumentData(documentId).accessLevel != "admin_only"
+      );
+      allow write: if isAdmin();
     }
   }
 }

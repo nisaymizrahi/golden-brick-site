@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="stylesheet" href="/staff/staff.css?v=20260407-jobs-redesign-1">
+    <link rel="stylesheet" href="/staff/staff.css?v=20260407-vendors-1">
 </head>
 <body>
     <div class="staff-page">
@@ -62,6 +62,7 @@
                     <button type="button" class="nav-button" data-view="leads-view">Leads</button>
                     <button type="button" class="nav-button" data-view="customers-view">Customers</button>
                     <button type="button" class="nav-button" data-view="jobs-view">Jobs</button>
+                    <button type="button" class="nav-button" data-view="vendors-view">Vendors</button>
                     <button type="button" class="nav-button" data-view="staff-view">Staff</button>
                 </nav>
 
@@ -277,58 +278,66 @@
                 <section class="view" id="leads-view" hidden>
                     <div class="metrics-strip" id="lead-metrics"></div>
 
-                    <div class="lead-workspace">
-                        <section class="panel lead-pipeline-panel">
-                            <div class="panel-head">
-                                <div>
-                                    <span class="panel-kicker">Pipeline</span>
-                                    <h2>Leads</h2>
-                                </div>
-                                <div class="toolbar">
-                                    <input type="search" id="lead-search-input" placeholder="Search client, address, phone, email, or notes">
-                                    <select id="lead-stage-filter">
-                                        <option value="all">All stages</option>
-                                        <option value="new_lead">New Lead</option>
-                                        <option value="follow_up">Follow Up</option>
-                                        <option value="estimate_sent">Estimate Sent</option>
-                                        <option value="closed_won">Closed Won</option>
-                                        <option value="closed_lost">Closed Lost</option>
-                                        <option value="open">Open only</option>
-                                    </select>
-                                    <button type="button" class="secondary-button admin-only" id="lead-new-button">New lead</button>
-                                </div>
-                            </div>
-                            <div class="panel-body lead-pipeline-body">
-                                <div class="lead-board-intro">
-                                    <p>Drag opportunities across the pipeline to keep Golden Brick's investor work moving without losing the customer, estimate, and job context underneath.</p>
-                                    <span>Drag to <strong>Closed Won</strong> to create the linked job record. Drag to <strong>Closed Lost</strong> to close the lead immediately.</span>
-                                </div>
-
-                                <div class="pipeline-board-wrap">
-                                    <div class="pipeline-board" id="lead-board"></div>
-                                </div>
-
-                                <div class="lead-result-shell">
-                                    <div class="subpanel-head">
-                                        <h3>Lead results</h3>
-                                        <p>Keep a compact searchable list under the pipeline when you need to jump directly to a specific record.</p>
+                    <div class="lead-surface-stack">
+                        <div class="lead-pipeline-surface" id="lead-pipeline-surface">
+                            <div class="lead-workspace">
+                                <section class="panel lead-pipeline-panel">
+                                    <div class="panel-head">
+                                        <div>
+                                            <span class="panel-kicker">Pipeline</span>
+                                            <h2>Leads</h2>
+                                        </div>
+                                        <div class="toolbar">
+                                            <input type="search" id="lead-search-input" placeholder="Search client, address, phone, email, or notes">
+                                            <select id="lead-stage-filter">
+                                                <option value="all">All stages</option>
+                                                <option value="new_lead">New Lead</option>
+                                                <option value="follow_up">Follow Up</option>
+                                                <option value="estimate_sent">Estimate Sent</option>
+                                                <option value="closed_won">Closed Won</option>
+                                                <option value="closed_lost">Closed Lost</option>
+                                                <option value="open">Open only</option>
+                                            </select>
+                                            <button type="button" class="secondary-button admin-only" id="lead-new-button">New lead</button>
+                                        </div>
                                     </div>
-                                    <div class="record-list lead-result-list" id="lead-list"></div>
-                                </div>
-                            </div>
-                        </section>
+                                    <div class="panel-body lead-pipeline-body">
+                                        <div class="lead-board-intro">
+                                            <p>Drag opportunities across the pipeline to keep Golden Brick's investor work moving without losing the customer, estimate, and job context underneath.</p>
+                                            <span>Drag to <strong>Closed Won</strong> to create the linked job record. Drag to <strong>Closed Lost</strong> to close the lead immediately.</span>
+                                        </div>
 
-                        <section class="panel lead-record-panel">
-                            <div class="panel-head">
-                                <div>
-                                    <span class="panel-kicker">Lead record</span>
-                                    <h2 id="lead-record-title">Select a lead</h2>
+                                        <div class="pipeline-board-wrap">
+                                            <div class="pipeline-board" id="lead-board"></div>
+                                        </div>
+
+                                        <div class="lead-result-shell">
+                                            <div class="subpanel-head">
+                                                <h3>Lead results</h3>
+                                                <p>Keep a compact searchable list under the pipeline when you need to jump directly to a specific record.</p>
+                                            </div>
+                                            <div class="record-list lead-result-list" id="lead-list"></div>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+
+                        <section class="panel lead-workspace-panel" id="lead-workspace-panel" hidden>
+                            <div class="lead-workspace-topbar">
+                                <div class="lead-workspace-heading">
+                                    <button type="button" class="ghost-button" id="lead-workspace-back-button">Back to pipeline</button>
+                                    <div>
+                                        <span class="panel-kicker">Lead workspace</span>
+                                        <h2 id="lead-record-title">Select a lead</h2>
+                                        <p id="lead-workspace-meta">Keep every investor-facing detail, estimate, task, and job handoff in one focused workspace.</p>
+                                    </div>
                                 </div>
                                 <span class="status-pill neutral" id="lead-record-badge">No lead selected</span>
                             </div>
 
                             <div class="empty-state" id="lead-record-empty">
-                                Leads now open as full records so customer details, estimate work, notes, tasks, and the won job stay together.
+                                Open a lead from the board or results list to work the record in a focused lead workspace.
                             </div>
 
                             <div class="record-shell lead-record-shell" id="lead-record-shell" hidden>
@@ -353,108 +362,121 @@
                                 </div>
 
                                 <div class="tab-pane is-active" id="lead-tab-overview">
-                                    <div class="two-column-detail lead-overview-layout">
-                                        <form class="stack-form subpanel" id="lead-core-form">
-                                            <div class="subpanel-head">
-                                                <h3>Lead overview</h3>
-                                                <p>Keep the contact, scope, stage, customer link, and team owner in one clean working panel.</p>
-                                            </div>
-
-                                            <div class="form-grid three">
-                                                <label>
-                                                    <span>Client name</span>
-                                                    <input type="text" id="lead-client-name" required>
-                                                </label>
-                                                <label>
-                                                    <span>Client email</span>
-                                                    <input type="email" id="lead-client-email">
-                                                </label>
-                                                <label>
-                                                    <span>Client phone</span>
-                                                    <input type="text" id="lead-client-phone" required>
-                                                </label>
-                                            </div>
-
-                                            <div class="form-grid two">
-                                                <label>
-                                                    <span>Project address</span>
-                                                    <input type="text" id="lead-project-address">
-                                                </label>
-                                                <label>
-                                                    <span>Project type</span>
-                                                    <input type="text" id="lead-project-type" placeholder="Bathroom, kitchen, full rehab, investor turn">
-                                                </label>
-                                            </div>
-
-                                            <div class="form-grid three">
-                                                <label>
-                                                    <span>Stage</span>
-                                                    <select id="lead-stage-select">
-                                                        <option value="new_lead">New Lead</option>
-                                                        <option value="follow_up">Follow Up</option>
-                                                        <option value="estimate_sent">Estimate Sent</option>
-                                                        <option value="closed_lost">Closed Lost</option>
-                                                    </select>
-                                                </label>
-                                                <label>
-                                                    <span>Assigned staff</span>
-                                                    <select id="lead-assignee-select"></select>
-                                                </label>
-                                                <label>
-                                                    <span>Linked customer</span>
-                                                    <select id="lead-customer-select"></select>
-                                                </label>
-                                            </div>
-
-                                            <div class="form-grid two">
-                                                <label>
-                                                    <span>Lead source</span>
-                                                    <input type="text" id="lead-source-display" disabled>
-                                                </label>
-                                                <label>
-                                                    <span>Current estimate total</span>
-                                                    <input type="text" id="lead-estimate-display" disabled>
-                                                </label>
-                                            </div>
-
-                                            <label>
-                                                <span>Scope notes</span>
-                                                <textarea id="lead-notes-input" rows="5" placeholder="Scope, investment goals, timing, occupancy, access, pricing posture, and fit notes."></textarea>
-                                            </label>
-                                        </form>
-
-                                        <div class="lead-overview-rail">
-                                            <section class="subpanel">
+                                    <div class="lead-overview-stack">
+                                        <div class="two-column-detail lead-overview-layout">
+                                            <form class="stack-form subpanel" id="lead-core-form">
                                                 <div class="subpanel-head">
-                                                    <h3>Lead summary</h3>
-                                                    <p>Quick-read context for assignment, estimate value, job state, and customer memory.</p>
+                                                    <h3>Lead overview</h3>
+                                                    <p>Keep the contact, scope, stage, customer link, and team owner in one clean working panel.</p>
                                                 </div>
-                                                <div class="summary-grid lead-summary-grid" id="lead-overview-summary"></div>
-                                            </section>
 
-                                            <section class="subpanel">
-                                                <div class="subpanel-head">
-                                                    <h3>Record detail</h3>
-                                                    <p>Timing, source, and linked-customer metadata for the selected lead.</p>
+                                                <div class="form-grid three">
+                                                    <label>
+                                                        <span>Client name</span>
+                                                        <input type="text" id="lead-client-name" required>
+                                                    </label>
+                                                    <label>
+                                                        <span>Client email</span>
+                                                        <input type="email" id="lead-client-email">
+                                                    </label>
+                                                    <label>
+                                                        <span>Client phone</span>
+                                                        <input type="text" id="lead-client-phone" required>
+                                                    </label>
                                                 </div>
-                                                <div class="detail-summary" id="lead-meta"></div>
-                                            </section>
+
+                                                <div class="form-grid two">
+                                                    <label>
+                                                        <span>Project address</span>
+                                                        <input type="text" id="lead-project-address">
+                                                    </label>
+                                                    <label>
+                                                        <span>Project type</span>
+                                                        <input type="text" id="lead-project-type" placeholder="Bathroom, kitchen, full rehab, investor turn">
+                                                    </label>
+                                                </div>
+
+                                                <div class="form-grid three">
+                                                    <label>
+                                                        <span>Stage</span>
+                                                        <select id="lead-stage-select">
+                                                            <option value="new_lead">New Lead</option>
+                                                            <option value="follow_up">Follow Up</option>
+                                                            <option value="estimate_sent">Estimate Sent</option>
+                                                            <option value="closed_lost">Closed Lost</option>
+                                                        </select>
+                                                    </label>
+                                                    <label>
+                                                        <span>Assigned staff</span>
+                                                        <select id="lead-assignee-select"></select>
+                                                    </label>
+                                                    <label>
+                                                        <span>Linked customer</span>
+                                                        <select id="lead-customer-select"></select>
+                                                    </label>
+                                                </div>
+
+                                                <div class="form-grid two">
+                                                    <label>
+                                                        <span>Lead source</span>
+                                                        <input type="text" id="lead-source-display" disabled>
+                                                    </label>
+                                                    <label>
+                                                        <span>Current estimate total</span>
+                                                        <input type="text" id="lead-estimate-display" disabled>
+                                                    </label>
+                                                </div>
+
+                                                <label>
+                                                    <span>Scope notes</span>
+                                                    <textarea id="lead-notes-input" rows="5" placeholder="Scope, investment goals, timing, occupancy, access, pricing posture, and fit notes."></textarea>
+                                                </label>
+                                            </form>
+
+                                            <div class="lead-overview-rail">
+                                                <section class="subpanel">
+                                                    <div class="subpanel-head">
+                                                        <h3>Lead summary</h3>
+                                                        <p>Quick-read context for assignment, estimate value, job state, and customer memory.</p>
+                                                    </div>
+                                                    <div class="summary-grid lead-summary-grid" id="lead-overview-summary"></div>
+                                                </section>
+
+                                                <section class="subpanel">
+                                                    <div class="subpanel-head">
+                                                        <h3>Record detail</h3>
+                                                        <p>Timing, source, and linked-customer metadata for the selected lead.</p>
+                                                    </div>
+                                                    <div class="detail-summary" id="lead-meta"></div>
+                                                </section>
+                                            </div>
                                         </div>
+
+                                        <section class="subpanel lead-planning-panel">
+                                            <div class="subpanel-head">
+                                                <h3>General planning</h3>
+                                                <p>Keep internal strategy, pricing thoughts, risk notes, sequencing, and next-step planning separate from scope notes and the activity feed.</p>
+                                            </div>
+                                            <label>
+                                                <span>Planning notes</span>
+                                                <textarea id="lead-planning-notes-input" rows="8" placeholder="Internal plan for this lead: sequencing, pricing posture, deal considerations, scope risks, follow-up approach, and team notes."></textarea>
+                                            </label>
+                                        </section>
                                     </div>
                                 </div>
 
                                 <div class="tab-pane" id="lead-tab-estimate">
-                                    <div class="two-column-detail">
+                                    <div class="two-column-detail estimate-workspace">
                                         <form class="stack-form subpanel" id="estimate-form">
                                             <div class="subpanel-head">
                                                 <h3>Current estimate</h3>
-                                                <p>Keep one working estimate per lead. Create the draft, edit it by hand, then print or copy it for manual sending.</p>
+                                                <p>Build one polished working proposal per lead, then print or save it as a PDF for the client.</p>
                                             </div>
 
                                             <div class="inline-actions">
                                                 <button type="button" class="ghost-button admin-only" id="estimate-add-line-button">Add line item</button>
                                                 <button type="button" class="ghost-button" id="estimate-copy-button">Copy estimate</button>
-                                                <button type="button" class="secondary-button" id="estimate-print-button">Open print view</button>
+                                                <button type="button" class="secondary-button" id="estimate-print-button">Print / Save as PDF</button>
                                             </div>
 
                                             <label>
@@ -485,10 +507,10 @@
                                             </div>
                                         </form>
 
-                                        <section class="subpanel">
+                                        <section class="subpanel estimate-preview-panel">
                                             <div class="subpanel-head">
-                                                <h3>Print preview</h3>
-                                                <p>This is the proposal layout staff can review before printing or saving as PDF.</p>
+                                                <h3>Proposal preview</h3>
+                                                <p>Review the branded client-facing proposal here before printing or saving it to PDF.</p>
                                             </div>
                                             <div class="estimate-preview" id="estimate-preview"></div>
                                         </section>
@@ -922,9 +944,13 @@
                                                     <input type="text" id="expense-category" placeholder="Materials, labor, permit, dumpster">
                                                 </label>
                                             </div>
-                                            <div class="form-grid two">
+                                            <div class="form-grid three">
                                                 <label>
-                                                    <span>Vendor / payee</span>
+                                                    <span>Vendor record</span>
+                                                    <select id="expense-vendor-select"></select>
+                                                </label>
+                                                <label>
+                                                    <span>Custom vendor / payee</span>
                                                     <input type="text" id="expense-vendor" placeholder="Home Depot, ABC Supply, subcontractor name">
                                                 </label>
                                                 <label>
@@ -1058,6 +1084,394 @@
                                                 <p>Every agreement, receipt, invoice, permit, and manual document record tied to this job.</p>
                                             </div>
                                             <div class="stack-list" id="job-document-list"></div>
+                                        </section>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </section>
+
+                <section class="view" id="vendors-view" hidden>
+                    <div class="metrics-strip" id="vendor-metrics"></div>
+
+                    <div class="workspace-grid">
+                        <section class="panel list-panel">
+                            <div class="panel-head">
+                                <div>
+                                    <span class="panel-kicker">Directory</span>
+                                    <h2>Vendors</h2>
+                                </div>
+                                <div class="toolbar">
+                                    <input type="search" id="vendor-search-input" placeholder="Search vendor, trade, contact, email, or notes">
+                                    <select id="vendor-trade-filter">
+                                        <option value="all">All trades</option>
+                                    </select>
+                                    <select id="vendor-status-filter">
+                                        <option value="active_only">Active only</option>
+                                        <option value="all">All vendor statuses</option>
+                                        <option value="active">Active</option>
+                                        <option value="inactive">Inactive</option>
+                                        <option value="on_hold">On hold</option>
+                                        <option value="do_not_pay">Do not pay</option>
+                                    </select>
+                                    <select id="vendor-bill-filter">
+                                        <option value="all">All bill states</option>
+                                        <option value="open">Open bills</option>
+                                        <option value="overdue">Overdue bills</option>
+                                        <option value="due_this_week">Due this week</option>
+                                        <option value="scheduled">Scheduled bills</option>
+                                        <option value="paid">Paid bills</option>
+                                        <option value="void">Void bills</option>
+                                        <option value="no_open_bills">No open bills</option>
+                                    </select>
+                                    <button type="button" class="secondary-button admin-only" id="vendor-new-button">New vendor</button>
+                                </div>
+                            </div>
+                            <div class="panel-body">
+                                <div class="record-list" id="vendor-list"></div>
+                            </div>
+                        </section>
+
+                        <section class="panel record-panel">
+                            <div class="panel-head">
+                                <div>
+                                    <span class="panel-kicker">Vendor record</span>
+                                    <h2 id="vendor-record-title">Select a vendor</h2>
+                                </div>
+                                <span class="status-pill neutral" id="vendor-record-badge">No vendor selected</span>
+                            </div>
+
+                            <div class="empty-state" id="vendor-record-empty">
+                                Keep one clean vendor record for trades, payables, agreements, insurance, licenses, and W-9 tracking.
+                            </div>
+
+                            <div class="record-shell" id="vendor-record-shell" hidden>
+                                <div class="record-actions">
+                                    <button type="submit" form="vendor-form" class="primary-button admin-only">Save vendor</button>
+                                    <button type="button" class="secondary-button admin-only" id="vendor-add-bill-button">Add payable</button>
+                                    <button type="button" class="secondary-button admin-only" id="vendor-add-document-button">Add document</button>
+                                </div>
+
+                                <div class="record-context-strip" id="vendor-record-context"></div>
+
+                                <div class="tab-strip" aria-label="Vendor record tabs">
+                                    <button type="button" class="tab-button is-active" data-vendor-tab="overview">Overview</button>
+                                    <button type="button" class="tab-button" data-vendor-tab="payables">Payables</button>
+                                    <button type="button" class="tab-button" data-vendor-tab="documents">Documents</button>
+                                </div>
+
+                                <div class="tab-pane is-active" id="vendor-tab-overview">
+                                    <div class="two-column-detail">
+                                        <form class="stack-form subpanel" id="vendor-form">
+                                            <div class="subpanel-head">
+                                                <h3>Vendor overview</h3>
+                                                <p>Store the trade, contact, payment defaults, and compliance snapshot in one simple working record.</p>
+                                            </div>
+
+                                            <div class="form-grid two">
+                                                <label>
+                                                    <span>Vendor name</span>
+                                                    <input type="text" id="vendor-name-input" required>
+                                                </label>
+                                                <label>
+                                                    <span>Legal business name</span>
+                                                    <input type="text" id="vendor-legal-name-input" placeholder="Optional legal name if different">
+                                                </label>
+                                            </div>
+
+                                            <div class="form-grid two">
+                                                <label>
+                                                    <span>Status</span>
+                                                    <select id="vendor-status-input">
+                                                        <option value="active">Active</option>
+                                                        <option value="inactive">Inactive</option>
+                                                        <option value="on_hold">On hold</option>
+                                                        <option value="do_not_pay">Do not pay</option>
+                                                    </select>
+                                                </label>
+                                                <label>
+                                                    <span>Preferred payment method</span>
+                                                    <select id="vendor-payment-method-input">
+                                                        <option value="">Not set</option>
+                                                        <option value="ach">ACH</option>
+                                                        <option value="check">Check</option>
+                                                        <option value="wire">Wire</option>
+                                                        <option value="credit_card">Credit card</option>
+                                                        <option value="cash">Cash</option>
+                                                        <option value="zelle">Zelle</option>
+                                                        <option value="other">Other</option>
+                                                    </select>
+                                                </label>
+                                            </div>
+
+                                            <label>
+                                                <span>Trades</span>
+                                                <div class="checkbox-grid trade-checkbox-grid" id="vendor-trade-grid"></div>
+                                            </label>
+
+                                            <label>
+                                                <span>Other trade note</span>
+                                                <input type="text" id="vendor-trade-other-input" placeholder="Use if the trade is not covered above">
+                                            </label>
+
+                                            <div class="form-grid three">
+                                                <label>
+                                                    <span>Primary contact</span>
+                                                    <input type="text" id="vendor-contact-name-input" placeholder="Estimator, office manager, or owner">
+                                                </label>
+                                                <label>
+                                                    <span>Phone</span>
+                                                    <input type="text" id="vendor-phone-input">
+                                                </label>
+                                                <label>
+                                                    <span>Email</span>
+                                                    <input type="email" id="vendor-email-input">
+                                                </label>
+                                            </div>
+
+                                            <div class="form-grid two">
+                                                <label>
+                                                    <span>Address</span>
+                                                    <input type="text" id="vendor-address-input">
+                                                </label>
+                                                <label>
+                                                    <span>Service area</span>
+                                                    <input type="text" id="vendor-service-area-input" placeholder="Philadelphia, Bucks County, Main Line">
+                                                </label>
+                                            </div>
+
+                                            <div class="form-grid three">
+                                                <label>
+                                                    <span>Default terms</span>
+                                                    <input type="text" id="vendor-default-terms-input" placeholder="Net 15, Net 30, due on receipt">
+                                                </label>
+                                                <label>
+                                                    <span>Insurance status</span>
+                                                    <select id="vendor-insurance-status-input">
+                                                        <option value="undecided">Undecided</option>
+                                                        <option value="compliant">Compliant</option>
+                                                        <option value="in_progress">In progress</option>
+                                                        <option value="expired">Expired</option>
+                                                        <option value="non_compliant">Non-compliant</option>
+                                                    </select>
+                                                </label>
+                                                <label>
+                                                    <span>Insurance expiration</span>
+                                                    <input type="date" id="vendor-insurance-expiration-input">
+                                                </label>
+                                            </div>
+
+                                            <div class="form-grid two">
+                                                <label>
+                                                    <span>License expiration</span>
+                                                    <input type="date" id="vendor-license-expiration-input">
+                                                </label>
+                                                <label>
+                                                    <span>Insurance note</span>
+                                                    <input type="text" id="vendor-insurance-note-input" placeholder="Carrier, policy summary, or renewal note">
+                                                </label>
+                                            </div>
+
+                                            <label>
+                                                <span>Notes</span>
+                                                <textarea id="vendor-notes-input" rows="6" placeholder="Trade specialties, responsiveness, pricing posture, account details, and internal notes."></textarea>
+                                            </label>
+                                        </form>
+
+                                        <section class="subpanel">
+                                            <div class="subpanel-head">
+                                                <h3>Vendor summary</h3>
+                                                <p>See what matters first: trade coverage, money due, and whether compliance documents are current.</p>
+                                            </div>
+                                            <div class="summary-grid vendor-summary-grid" id="vendor-summary"></div>
+                                            <div class="stack-list" id="vendor-job-list"></div>
+                                        </section>
+                                    </div>
+                                </div>
+
+                                <div class="tab-pane" id="vendor-tab-payables">
+                                    <div class="two-column-detail">
+                                        <section class="subpanel">
+                                            <div class="subpanel-head">
+                                                <h3>Payables</h3>
+                                                <p>Track what Golden Brick owes this vendor, when it is due, and which job it belongs to.</p>
+                                            </div>
+
+                                            <form class="stack-form admin-only" id="vendor-bill-form">
+                                                <div class="form-grid two">
+                                                    <label>
+                                                        <span>Amount</span>
+                                                        <input type="number" id="vendor-bill-amount-input" min="0" step="0.01">
+                                                    </label>
+                                                    <label>
+                                                        <span>Vendor bill number</span>
+                                                        <input type="text" id="vendor-bill-number-input" placeholder="Invoice or bill number">
+                                                    </label>
+                                                </div>
+
+                                                <div class="form-grid three">
+                                                    <label>
+                                                        <span>Invoice date</span>
+                                                        <input type="date" id="vendor-bill-invoice-date-input">
+                                                    </label>
+                                                    <label>
+                                                        <span>Due date</span>
+                                                        <input type="date" id="vendor-bill-due-date-input">
+                                                    </label>
+                                                    <label>
+                                                        <span>Status</span>
+                                                        <select id="vendor-bill-status-input">
+                                                            <option value="open">Open</option>
+                                                            <option value="scheduled">Scheduled</option>
+                                                            <option value="paid">Paid</option>
+                                                            <option value="void">Void</option>
+                                                        </select>
+                                                    </label>
+                                                </div>
+
+                                                <div class="form-grid three">
+                                                    <label>
+                                                        <span>Linked job</span>
+                                                        <select id="vendor-bill-project-input"></select>
+                                                    </label>
+                                                    <label>
+                                                        <span>Category</span>
+                                                        <input type="text" id="vendor-bill-category-input" placeholder="Materials, labor, permit, rental">
+                                                    </label>
+                                                    <label>
+                                                        <span>Payment method</span>
+                                                        <input type="text" id="vendor-bill-payment-method-input" placeholder="ACH, check, wire, card">
+                                                    </label>
+                                                </div>
+
+                                                <div class="form-grid two">
+                                                    <label>
+                                                        <span>Payment reference</span>
+                                                        <input type="text" id="vendor-bill-payment-reference-input" placeholder="Check number, ACH ref, or internal note">
+                                                    </label>
+                                                    <label>
+                                                        <span>Invoice source</span>
+                                                        <select id="vendor-bill-source-type-input">
+                                                            <option value="none">No invoice saved</option>
+                                                            <option value="upload">Upload invoice</option>
+                                                            <option value="link">External link</option>
+                                                        </select>
+                                                    </label>
+                                                </div>
+
+                                                <label id="vendor-bill-url-row" hidden>
+                                                    <span>Invoice URL</span>
+                                                    <input type="url" id="vendor-bill-url-input" placeholder="https://drive.google.com/...">
+                                                </label>
+
+                                                <label id="vendor-bill-file-row" hidden>
+                                                    <span>Invoice file</span>
+                                                    <input type="file" id="vendor-bill-file-input" accept=".pdf,image/*">
+                                                </label>
+
+                                                <label>
+                                                    <span>Bill note</span>
+                                                    <textarea id="vendor-bill-note-input" rows="4" placeholder="What this bill covers, scheduling context, or payment follow-up."></textarea>
+                                                </label>
+
+                                                <button type="submit" class="primary-button">Save payable</button>
+                                            </form>
+                                        </section>
+
+                                        <section class="subpanel">
+                                            <div class="subpanel-head">
+                                                <h3>Bill queue</h3>
+                                                <p>Open, scheduled, paid, and overdue payables all stay on the vendor record with the linked job context.</p>
+                                            </div>
+                                            <div class="detail-summary" id="vendor-payable-summary"></div>
+                                            <div class="stack-list" id="vendor-bill-list"></div>
+                                        </section>
+                                    </div>
+                                </div>
+
+                                <div class="tab-pane" id="vendor-tab-documents">
+                                    <div class="two-column-detail">
+                                        <section class="subpanel">
+                                            <div class="subpanel-head">
+                                                <h3>Document center</h3>
+                                                <p>Keep agreements, W-9s, insurance, licenses, invoices, and general vendor files in one place.</p>
+                                            </div>
+
+                                            <div class="summary-grid vendor-document-summary" id="vendor-document-summary"></div>
+
+                                            <form class="stack-form admin-only" id="vendor-document-form">
+                                                <div class="form-grid three">
+                                                    <label>
+                                                        <span>Category</span>
+                                                        <select id="vendor-document-category-input">
+                                                            <option value="agreement">Agreement</option>
+                                                            <option value="w9">W-9</option>
+                                                            <option value="insurance">Insurance</option>
+                                                            <option value="license">License</option>
+                                                            <option value="invoice">Invoice</option>
+                                                            <option value="quote">Quote</option>
+                                                            <option value="other">Other</option>
+                                                        </select>
+                                                    </label>
+                                                    <label>
+                                                        <span>Access</span>
+                                                        <select id="vendor-document-access-input">
+                                                            <option value="staff">Staff</option>
+                                                            <option value="admin_only">Admin only</option>
+                                                        </select>
+                                                    </label>
+                                                    <label>
+                                                        <span>Source</span>
+                                                        <select id="vendor-document-source-type-input">
+                                                            <option value="upload">Upload file</option>
+                                                            <option value="link">External link</option>
+                                                            <option value="manual">Manual record</option>
+                                                        </select>
+                                                    </label>
+                                                </div>
+
+                                                <div class="form-grid two">
+                                                    <label>
+                                                        <span>Related date</span>
+                                                        <input type="date" id="vendor-document-date-input">
+                                                    </label>
+                                                    <label>
+                                                        <span>Expiration date</span>
+                                                        <input type="date" id="vendor-document-expiration-input">
+                                                    </label>
+                                                </div>
+
+                                                <label>
+                                                    <span>Title</span>
+                                                    <input type="text" id="vendor-document-title-input" placeholder="Master subcontract agreement, COI, license card, W-9">
+                                                </label>
+
+                                                <label id="vendor-document-url-row">
+                                                    <span>Document URL</span>
+                                                    <input type="url" id="vendor-document-url-input" placeholder="https://drive.google.com/...">
+                                                </label>
+
+                                                <label id="vendor-document-file-row">
+                                                    <span>File upload</span>
+                                                    <input type="file" id="vendor-document-file-input" accept=".pdf,image/*">
+                                                </label>
+
+                                                <label>
+                                                    <span>Note</span>
+                                                    <textarea id="vendor-document-note-input" rows="4" placeholder="What the file covers, renewal details, or any internal handling note."></textarea>
+                                                </label>
+
+                                                <button type="submit" class="primary-button">Save document</button>
+                                            </form>
+                                        </section>
+
+                                        <section class="subpanel">
+                                            <div class="subpanel-head">
+                                                <h3>Vendor documents</h3>
+                                                <p>Documents are filtered by your access level, so sensitive admin-only files stay protected.</p>
+                                            </div>
+                                            <div class="stack-list" id="vendor-document-list"></div>
                                         </section>
                                     </div>
                                 </div>
@@ -1266,6 +1680,79 @@
                         </div>
                     </form>
 
+                    <form class="stack-form drawer-form" id="drawer-vendor-form" hidden>
+                        <div class="form-grid two">
+                            <label>
+                                <span>Vendor name</span>
+                                <input type="text" id="drawer-vendor-name" required>
+                            </label>
+                            <label>
+                                <span>Status</span>
+                                <select id="drawer-vendor-status">
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="on_hold">On hold</option>
+                                    <option value="do_not_pay">Do not pay</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <label>
+                            <span>Trades</span>
+                            <div class="checkbox-grid trade-checkbox-grid" id="drawer-vendor-trade-grid"></div>
+                        </label>
+
+                        <label>
+                            <span>Other trade note</span>
+                            <input type="text" id="drawer-vendor-trade-other" placeholder="Optional trade note">
+                        </label>
+
+                        <div class="form-grid three">
+                            <label>
+                                <span>Primary contact</span>
+                                <input type="text" id="drawer-vendor-contact-name">
+                            </label>
+                            <label>
+                                <span>Phone</span>
+                                <input type="text" id="drawer-vendor-phone">
+                            </label>
+                            <label>
+                                <span>Email</span>
+                                <input type="email" id="drawer-vendor-email">
+                            </label>
+                        </div>
+
+                        <div class="form-grid two">
+                            <label>
+                                <span>Preferred payment method</span>
+                                <select id="drawer-vendor-payment-method">
+                                    <option value="">Not set</option>
+                                    <option value="ach">ACH</option>
+                                    <option value="check">Check</option>
+                                    <option value="wire">Wire</option>
+                                    <option value="credit_card">Credit card</option>
+                                    <option value="cash">Cash</option>
+                                    <option value="zelle">Zelle</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </label>
+                            <label>
+                                <span>Default terms</span>
+                                <input type="text" id="drawer-vendor-default-terms" placeholder="Net 15, Net 30, due on receipt">
+                            </label>
+                        </div>
+
+                        <label>
+                            <span>Notes</span>
+                            <textarea id="drawer-vendor-notes" rows="5" placeholder="Trade strengths, payment notes, responsiveness, or account context."></textarea>
+                        </label>
+
+                        <div class="inline-actions">
+                            <button type="submit" class="primary-button">Create vendor</button>
+                            <button type="button" class="ghost-button drawer-cancel-button">Cancel</button>
+                        </div>
+                    </form>
+
                     <form class="stack-form drawer-form" id="drawer-task-form" hidden>
                         <label>
                             <span>Task title</span>
@@ -1321,6 +1808,6 @@
         <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
     </div>
 
-    <script type="module" src="/staff/staff.js?v=20260407-jobs-redesign-1"></script>
+    <script type="module" src="/staff/staff.js?v=20260407-vendors-1"></script>
 </body>
 </html>
