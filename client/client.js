@@ -1,10 +1,12 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   GoogleAuthProvider,
+  browserSessionPersistence,
   createUserWithEmailAndPassword,
   getAuth,
   onAuthStateChanged,
   sendPasswordResetEmail,
+  setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
@@ -21,7 +23,7 @@ const APP_VIEWS = {
   estimates: {
     title: "Estimates",
     subtitle:
-      "Review active estimates first, then keep signed agreement history and older pricing records in one place.",
+      "Review active estimates and change orders first, then keep signed approval history and older records in one place.",
   },
   jobs: {
     title: "Jobs",
@@ -58,6 +60,17 @@ const DOCUMENT_FILTERS = [
   { key: "project", label: "Project docs" },
 ];
 
+const CLIENT_SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+const CLIENT_SESSION_STORAGE_KEY = "goldenBrickClientPortal:lastActivityAt";
+const CLIENT_SESSION_TIMEOUT_MESSAGE =
+  "For security, your client portal session ended after 30 minutes of inactivity. Please sign in again.";
+const CLIENT_SESSION_EVENTS = [
+  "pointerdown",
+  "keydown",
+  "mousedown",
+  "touchstart",
+];
+
 const state = {
   route: "login",
   authMode: "sign-in",
@@ -86,6 +99,15 @@ const state = {
     },
     documents: [],
     threads: [],
+  },
+  session: {
+    lastActivityAt: 0,
+    timeoutId: 0,
+    tracking: false,
+    expiring: false,
+    activityHandler: null,
+    visibilityHandler: null,
+    focusHandler: null,
   },
 };
 
@@ -236,8 +258,27 @@ function formatDateTime(value) {
 
 function formatAccessScope(scope) {
   return safeString(scope) === "read_only"
-    ? "Read-only billing and documents"
-    : "Client project portal";
+    ? "Read-only portal access"
+    : "Full client portal access";
+}
+
+function formatPortalRole(role, roleLabel = "") {
+  if (safeString(roleLabel)) {
+    return roleLabel;
+  }
+
+  const normalised = safeString(role).toLowerCase();
+  if (normalised === "partner") {
+    return "Partner";
+  }
+  if (normalised === "read_only") {
+    return "Read-only";
+  }
+  return "Primary";
+}
+
+function approvalLabel(item = {}) {
+  return safeString(item.type) === "change_order" ? "Change order" : "Estimate";
 }
 
 function capitalise(value) {
@@ -260,6 +301,173 @@ function summaryCard({ label, value, copy = "" }) {
             ${copy ? `<p>${escapeHtml(copy)}</p>` : ""}
         </article>
     `;
+}
+
+function readStoredSessionActivity() {
+  try {
+    const value = window.sessionStorage.getItem(CLIENT_SESSION_STORAGE_KEY);
+    return value ? toNumber(value) : 0;
+  } catch (_error) {
+    return 0;
+  }
+}
+
+function writeStoredSessionActivity(value) {
+  try {
+    window.sessionStorage.setItem(CLIENT_SESSION_STORAGE_KEY, String(value));
+  } catch (_error) {
+    // Ignore storage errors and keep session handling in-memory.
+  }
+}
+
+function clearStoredSessionActivity() {
+  try {
+    window.sessionStorage.removeItem(CLIENT_SESSION_STORAGE_KEY);
+  } catch (_error) {
+    // Ignore storage errors and keep session handling in-memory.
+  }
+}
+
+function clearPortalSessionTimer() {
+  if (state.session.timeoutId) {
+    window.clearTimeout(state.session.timeoutId);
+    state.session.timeoutId = 0;
+  }
+}
+
+function detachPortalSessionTracking() {
+  clearPortalSessionTimer();
+
+  if (state.session.activityHandler) {
+    CLIENT_SESSION_EVENTS.forEach((eventName) => {
+      window.removeEventListener(eventName, state.session.activityHandler);
+    });
+  }
+
+  if (state.session.visibilityHandler) {
+    document.removeEventListener(
+      "visibilitychange",
+      state.session.visibilityHandler,
+    );
+  }
+
+  if (state.session.focusHandler) {
+    window.removeEventListener("focus", state.session.focusHandler);
+  }
+
+  state.session.activityHandler = null;
+  state.session.visibilityHandler = null;
+  state.session.focusHandler = null;
+  state.session.tracking = false;
+}
+
+async function expirePortalSession(
+  message = CLIENT_SESSION_TIMEOUT_MESSAGE,
+  type = "error",
+) {
+  if (state.session.expiring) {
+    return;
+  }
+
+  state.session.expiring = true;
+  detachPortalSessionTracking();
+  clearStoredSessionActivity();
+  state.session.lastActivityAt = 0;
+  state.currentUser = null;
+  setPortalBanner("");
+  setAuthAlert(message, type);
+  setPath("login", { replace: true });
+
+  try {
+    if (state.auth?.currentUser) {
+      await signOut(state.auth);
+    }
+  } catch (error) {
+    console.warn("Client portal sign-out failed.", error);
+  } finally {
+    state.session.expiring = false;
+    renderAuthShell();
+  }
+}
+
+function schedulePortalSessionTimer(referenceAt = readStoredSessionActivity()) {
+  clearPortalSessionTimer();
+
+  if (!state.currentUser) {
+    return;
+  }
+
+  const lastActivityAt = referenceAt || Date.now();
+  const remaining = CLIENT_SESSION_TIMEOUT_MS - (Date.now() - lastActivityAt);
+
+  if (remaining <= 0) {
+    void expirePortalSession();
+    return;
+  }
+
+  state.session.timeoutId = window.setTimeout(() => {
+    void expirePortalSession();
+  }, remaining);
+}
+
+function recordPortalSessionActivity(timestamp = Date.now()) {
+  if (!state.currentUser) {
+    return;
+  }
+
+  state.session.lastActivityAt = timestamp;
+  writeStoredSessionActivity(timestamp);
+  schedulePortalSessionTimer(timestamp);
+}
+
+function enforcePortalSessionWindow() {
+  if (!state.currentUser) {
+    return;
+  }
+
+  const lastActivityAt =
+    readStoredSessionActivity() || state.session.lastActivityAt;
+
+  if (
+    lastActivityAt &&
+    Date.now() - lastActivityAt >= CLIENT_SESSION_TIMEOUT_MS
+  ) {
+    void expirePortalSession();
+    return;
+  }
+
+  schedulePortalSessionTimer(lastActivityAt || Date.now());
+}
+
+function attachPortalSessionTracking() {
+  if (state.session.tracking) {
+    return;
+  }
+
+  state.session.activityHandler = () => {
+    recordPortalSessionActivity();
+  };
+
+  state.session.visibilityHandler = () => {
+    if (document.visibilityState === "visible") {
+      enforcePortalSessionWindow();
+    }
+  };
+
+  state.session.focusHandler = () => {
+    enforcePortalSessionWindow();
+  };
+
+  CLIENT_SESSION_EVENTS.forEach((eventName) => {
+    window.addEventListener(eventName, state.session.activityHandler);
+  });
+  document.addEventListener(
+    "visibilitychange",
+    state.session.visibilityHandler,
+  );
+  window.addEventListener("focus", state.session.focusHandler);
+
+  state.session.tracking = true;
 }
 
 function statusPillMeta(status) {
@@ -669,7 +877,10 @@ function renderInvitePreview() {
     state.invite.contactName || "Portal contact";
   refs.inviteEmail.textContent = state.invite.email || "Not provided";
   refs.invitePhone.textContent = state.invite.phone || "Not provided";
-  refs.inviteScope.textContent = formatAccessScope(state.invite.accessScope);
+  refs.inviteScope.textContent = `${formatPortalRole(
+    state.invite.role,
+    state.invite.roleLabel,
+  )} · ${formatAccessScope(state.invite.accessScope)}`;
 
   if (!safeString(refs.emailInput.value)) {
     refs.emailInput.value = state.invite.email || "";
@@ -687,7 +898,7 @@ function renderAuthShell() {
     refs.authTitle.textContent =
       "Claim your Golden Brick client portal access.";
     refs.authCopy.textContent =
-      "Use the invited email address to finish setup. Once you claim access, you can come back anytime to review your projects, billing, documents, and message history.";
+      "Use the invited email address to finish setup. Once you claim access, you can come back anytime to review your projects, billing, documents, and message history. For security, inactive portal sessions sign out automatically after 30 minutes.";
     refs.authPanelKicker.textContent = "Invite claim";
     refs.authPanelTitle.textContent = "Finish setting up your portal login";
     refs.authPanelCopy.textContent =
@@ -701,7 +912,7 @@ function renderAuthShell() {
     refs.authTitle.textContent =
       "Sign in to review your Golden Brick project updates and billing.";
     refs.authCopy.textContent =
-      "This portal is invite-only. If Golden Brick has already approved your access, sign in with Google or the email/password you set up from your invite link.";
+      "This portal is invite-only. If Golden Brick has already approved your access, sign in with Google or the email/password you set up from your invite link. For security, inactive portal sessions sign out automatically after 30 minutes.";
     refs.authPanelKicker.textContent = "Customer login";
     refs.authPanelTitle.textContent = "Continue to your project hub";
     refs.authPanelCopy.textContent =
@@ -722,7 +933,7 @@ function renderSidebarAccount() {
         <span class="mini-label">Signed in</span>
         <strong>${escapeHtml(account.customerName || "Golden Brick customer")}</strong>
         <p>${escapeHtml(account.displayName || account.contactName || account.email || "Client")}</p>
-        <p>${escapeHtml(account.email || "No email")}</p>
+        <p>${escapeHtml(`${formatPortalRole(account.role, account.roleLabel)} · ${account.email || "No email"}`)}</p>
     `;
 }
 
@@ -1161,10 +1372,13 @@ function renderEstimateGroup(target, items, emptyCopy) {
     ? items
         .map((estimate) => {
           const status = statusPillMeta(estimate.status);
+          const label = approvalLabel(estimate);
+          const lowerLabel = label.toLowerCase();
           return recordLink({
-            kicker: estimate.projectType || "Estimate",
-            title: estimate.subject || "Project estimate",
+            kicker: estimate.projectType || label,
+            title: estimate.subject || `${label} record`,
             copy:
+              estimate.summary ||
               estimate.projectAddress ||
               "Property details will appear here when available.",
             meta: [
@@ -1182,10 +1396,13 @@ function renderEstimateGroup(target, items, emptyCopy) {
             actionHref: estimate.shareUrl,
             actionLabel:
               safeString(estimate.status) === "active"
-                ? "Review estimate"
-                : "Open estimate",
+                ? `Review ${lowerLabel}`
+                : `Open ${lowerLabel}`,
             actionSecondaryHref: estimate.agreementDownloadHref,
-            actionSecondaryLabel: "Download agreement",
+            actionSecondaryLabel:
+              safeString(estimate.type) === "change_order"
+                ? "Download signed change order"
+                : "Download signed agreement",
           });
         })
         .join("")
@@ -1207,17 +1424,17 @@ function renderEstimates() {
   renderEstimateGroup(
     refs.estimatesReviewList,
     review,
-    "No estimates are currently waiting for review.",
+    "No estimates or change orders are currently waiting for review.",
   );
   renderEstimateGroup(
     refs.estimatesSignedList,
     signed,
-    "No signed agreements are showing on this account yet.",
+    "No signed approvals are showing on this account yet.",
   );
   renderEstimateGroup(
     refs.estimatesPastList,
     past,
-    "No older estimate records are available in this portal yet.",
+    "No older estimate or change-order records are available in this portal yet.",
   );
 }
 
@@ -1601,20 +1818,25 @@ function renderThreads() {
 
   refs.messageList.scrollTop = refs.messageList.scrollHeight;
 
-  const readOnly =
-    safeString(state.portal.bootstrap?.account?.accessScope) === "read_only";
-  refs.messageBody.disabled = readOnly;
-  refs.messageSubmitButton.disabled = readOnly;
-  refs.messageSubmitButton.textContent = readOnly
-    ? "Read-only access"
-    : "Send message";
-  refs.messageBody.placeholder = readOnly
-    ? "This portal access is read-only for billing and documents."
-    : "Ask a question about the project, billing, documents, or next steps.";
+  const canMessage = state.portal.bootstrap?.account?.canMessage !== false;
+  refs.messageBody.disabled = !canMessage;
+  refs.messageSubmitButton.disabled = !canMessage;
+  refs.messageSubmitButton.textContent = canMessage
+    ? "Send message"
+    : "Messaging unavailable";
+  refs.messageBody.placeholder = canMessage
+    ? "Ask a question about the project, billing, documents, or next steps."
+    : "Messaging is not available for this portal contact.";
 }
 
 function renderAccount() {
   const account = state.portal.bootstrap?.account || {};
+  const contacts = Array.isArray(state.portal.bootstrap?.contacts)
+    ? state.portal.bootstrap.contacts
+    : [];
+  const fullAccessContacts = contacts.filter(
+    (contact) => safeString(contact.role) !== "read_only",
+  ).length;
   refs.accountSummaryGrid.innerHTML = [
     {
       label: "Customer account",
@@ -1630,8 +1852,21 @@ function renderAccount() {
       value: state.portal.bootstrap?.supportPhone || "(267) 715-5557",
     },
     {
+      label: "Portal role",
+      value: formatPortalRole(account.role, account.roleLabel),
+    },
+    {
+      label: "Signature access",
+      value: account.canSign ? "Can sign approvals" : "View only",
+    },
+    {
       label: "Properties in portal",
       value: String(toNumber(state.portal.jobs.length)),
+    },
+    {
+      label: "Approved contacts",
+      value: String(contacts.length || 1),
+      copy: `${fullAccessContacts || (account.canSign ? 1 : 0)} full-access contact${fullAccessContacts === 1 ? "" : "s"}`,
     },
     { label: "Sign-in method", value: accountProviderLabel() },
   ]
@@ -1647,7 +1882,7 @@ function renderAccount() {
   refs.accountAccessList.innerHTML = [
     {
       title: "Estimates and signed agreements",
-      copy: "Review current estimates first, then keep signed agreement history tied to the right property.",
+      copy: "Review current estimates and change orders first, then keep signed approval history tied to the right property.",
     },
     {
       title: "Project timeline and updates",
@@ -1657,13 +1892,28 @@ function renderAccount() {
       title: "Billing, documents, and messages",
       copy: "Keep invoices, payments received, shared files, and support conversations in one organized portal.",
     },
+    ...contacts.map((contact) => ({
+      kicker: "Approved contact",
+      title: contact.name || contact.email || "Portal contact",
+      copy: `${formatPortalRole(contact.role, contact.roleLabel)} · ${
+        contact.canSign ? "Can sign approvals" : "View access only"
+      } · ${contact.lastLoginAt ? `Last login ${formatDateTime(contact.lastLoginAt)}` : "Invite-based access"}`,
+      meta: `${contact.email || "No email"}${contact.phone ? ` · ${contact.phone}` : ""}`,
+    })),
   ]
     .map((item) =>
-      recordLink({
-        kicker: "Portal guide",
-        title: item.title,
-        copy: item.copy,
-      }),
+      item.kicker
+        ? recordLink({
+            kicker: item.kicker,
+            title: item.title,
+            copy: item.copy,
+            meta: item.meta ? `<span>${escapeHtml(item.meta)}</span>` : "",
+          })
+        : recordLink({
+            kicker: "Portal guide",
+            title: item.title,
+            copy: item.copy,
+          }),
     )
     .join("");
 }
@@ -1884,6 +2134,7 @@ async function showPortalFromCurrentUser() {
     if (state.route !== "app") {
       setPath("app", { replace: true });
     }
+    recordPortalSessionActivity();
     renderPortalShell();
     if (state.selectedView === "messages") {
       await markThreadReadIfNeeded(state.selectedThreadId);
@@ -2042,10 +2293,8 @@ async function handlePortalMessage(event) {
     return;
   }
 
-  const readOnly =
-    safeString(state.portal.bootstrap?.account?.accessScope) === "read_only";
-  if (readOnly) {
-    showToast("This portal access is read-only.", "error");
+  if (state.portal.bootstrap?.account?.canMessage === false) {
+    showToast("Messaging is not available for this portal contact.", "error");
     return;
   }
 
@@ -2159,9 +2408,8 @@ function bindEvents() {
 
   refs.signOutButton.addEventListener("click", async () => {
     setPortalBanner("");
-    await signOut(state.auth);
-    setPath("login", { replace: true });
-    renderAuthShell();
+    setAuthAlert("");
+    await expirePortalSession("", "success");
   });
 
   window.addEventListener("popstate", () => {
@@ -2201,16 +2449,34 @@ async function bootstrap() {
   const config = await requestJson("/__/firebase/init.json");
   state.app = initializeApp(config);
   state.auth = getAuth(state.app);
+  await setPersistence(state.auth, browserSessionPersistence);
   state.provider = new GoogleAuthProvider();
   state.provider.setCustomParameters({ prompt: "select_account" });
 
   onAuthStateChanged(state.auth, async (user) => {
     state.currentUser = user;
     if (!user) {
+      detachPortalSessionTracking();
+      clearStoredSessionActivity();
+      state.session.lastActivityAt = 0;
+      if (state.route === "app") {
+        setPath("login", { replace: true });
+      }
       renderAuthShell();
       return;
     }
 
+    const lastActivityAt = readStoredSessionActivity();
+    if (
+      lastActivityAt &&
+      Date.now() - lastActivityAt >= CLIENT_SESSION_TIMEOUT_MS
+    ) {
+      await expirePortalSession();
+      return;
+    }
+
+    attachPortalSessionTracking();
+    recordPortalSessionActivity();
     await showPortalFromCurrentUser();
   });
 }
