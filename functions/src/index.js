@@ -18,12 +18,13 @@ const Timestamp = admin.firestore.Timestamp;
 
 const CRM_ADMIN_EMAILS = defineString("CRM_ADMIN_EMAILS", { default: "" });
 const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
-const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET");
+const STRIPE_DISABLED_MESSAGE =
+  "Online Stripe checkout is temporarily unavailable. Please contact Golden Brick directly for payment coordination.";
 
 const STAFF_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 const LEAD_STATUSES = {
@@ -31,31 +32,31 @@ const LEAD_STATUSES = {
   follow_up: "Follow Up",
   estimate_sent: "Estimate Sent",
   closed_won: "Closed Won",
-  closed_lost: "Closed Lost"
+  closed_lost: "Closed Lost",
 };
 
 const DEFAULT_ESTIMATE_STANDARD_TERMS = [
   "This estimate is based on standard contractor-stock materials and finishes unless otherwise stated in writing.",
   "Pricing remains subject to final scope confirmation, field measurements, access conditions, and finish selections.",
-  "Golden Brick Construction is not responsible for unforeseen concealed, latent, or site conditions discovered after work begins. Any resulting scope, schedule, or pricing adjustments must be documented in writing before additional work proceeds."
+  "Golden Brick Construction is not responsible for unforeseen concealed, latent, or site conditions discovered after work begins. Any resulting scope, schedule, or pricing adjustments must be documented in writing before additional work proceeds.",
 ].join("\n");
 
 const LEGACY_ESTIMATE_TEMPLATE_TERMS = new Set([
   "Pricing is a planning estimate until site conditions, access, finish selections, and final scope are confirmed.",
-  "Pricing is a planning estimate until scope, access, existing conditions, and finish selections are confirmed on site."
+  "Pricing is a planning estimate until scope, access, existing conditions, and finish selections are confirmed on site.",
 ]);
 
 const DEFAULT_AGREEMENT_TITLE = "Client authorization and agreement";
 
 const DEFAULT_AGREEMENT_INTRO = [
   "If you would like Golden Brick Construction to move forward from this estimate into the next planning and production step, please review and sign the agreement terms below.",
-  "Your signature locks the estimate snapshot shown on this page into the project file so Golden Brick and the client are aligned on the approved scope and commercial terms at the time of acceptance."
+  "Your signature locks the estimate snapshot shown on this page into the project file so Golden Brick and the client are aligned on the approved scope and commercial terms at the time of acceptance.",
 ].join("\n");
 
 const DEFAULT_AGREEMENT_TERMS = [
   "By signing below, you confirm that Golden Brick Construction may move forward based on the estimate scope and pricing snapshot shown on this page, subject to final field verification and any written revisions agreed by both parties.",
   "Any requested scope, material, pricing, or schedule changes after signature must be documented in writing and may require a revised estimate or change order before additional work proceeds.",
-  "Scheduling, procurement, and start-date coordination remain subject to site access, deposit and payment coordination, municipal approvals, final measurements, and confirmed finish selections where applicable."
+  "Scheduling, procurement, and start-date coordination remain subject to site access, deposit and payment coordination, municipal approvals, final measurements, and confirmed finish selections where applicable.",
 ].join("\n");
 
 const DEFAULT_SERVICE_TEMPLATES = [
@@ -67,14 +68,17 @@ const DEFAULT_SERVICE_TEMPLATES = [
     defaultInvoiceLines: [
       {
         label: "Property purchase estimate review",
-        description: "Golden Brick reviews the property, outlines likely renovation needs, and provides a fast investor-ready estimate opinion before purchase.",
-        amount: 100
-      }
+        description:
+          "Golden Brick reviews the property, outlines likely renovation needs, and provides a fast investor-ready estimate opinion before purchase.",
+        amount: 100,
+      },
     ],
-    defaultSummary: "Golden Brick reviews the property and provides a focused estimate opinion before acquisition so you can pressure-test scope, timing, and risk.",
-    defaultPlanningNotes: "Confirm property address, gather any listing photos or inspection notes, and send the client one concise take with the biggest renovation risks called out.",
+    defaultSummary:
+      "Golden Brick reviews the property and provides a focused estimate opinion before acquisition so you can pressure-test scope, timing, and risk.",
+    defaultPlanningNotes:
+      "Confirm property address, gather any listing photos or inspection notes, and send the client one concise take with the biggest renovation risks called out.",
     defaultPaymentRequirement: "upfront_required",
-    active: true
+    active: true,
   },
   {
     id: "repair-scope-deal-analysis",
@@ -84,20 +88,24 @@ const DEFAULT_SERVICE_TEMPLATES = [
     defaultInvoiceLines: [
       {
         label: "Repair scope and recommendations",
-        description: "Golden Brick defines the likely repair path based on the client's goals and outlines the most sensible scope options.",
-        amount: 150
+        description:
+          "Golden Brick defines the likely repair path based on the client's goals and outlines the most sensible scope options.",
+        amount: 150,
       },
       {
         label: "Deal analysis and estimate options",
-        description: "We prepare working budget ranges, tradeoff options, and investor-friendly deal numbers to support the decision.",
-        amount: 100
-      }
+        description:
+          "We prepare working budget ranges, tradeoff options, and investor-friendly deal numbers to support the decision.",
+        amount: 100,
+      },
     ],
-    defaultSummary: "Golden Brick builds the repair scope around the client's goals, adds our recommendations, and returns practical pricing options plus deal-analysis numbers.",
-    defaultPlanningNotes: "Collect the client's decision criteria, confirm whether this is wholesale, flip, or rental hold, and frame at least two realistic scope paths before delivering pricing.",
+    defaultSummary:
+      "Golden Brick builds the repair scope around the client's goals, adds our recommendations, and returns practical pricing options plus deal-analysis numbers.",
+    defaultPlanningNotes:
+      "Collect the client's decision criteria, confirm whether this is wholesale, flip, or rental hold, and frame at least two realistic scope paths before delivering pricing.",
     defaultPaymentRequirement: "upfront_required",
-    active: true
-  }
+    active: true,
+  },
 ];
 
 function applyCors(response) {
@@ -167,11 +175,7 @@ function statusLabel(status) {
 
 function uniqueValues(values) {
   return Array.from(
-    new Set(
-      (values || [])
-        .map((value) => safeString(value))
-        .filter(Boolean)
-    )
+    new Set((values || []).map((value) => safeString(value)).filter(Boolean)),
   );
 }
 
@@ -194,7 +198,10 @@ function latestByUpdated(items) {
   if (!items.length) return null;
 
   return [...items].sort((left, right) => {
-    return normaliseMillis(right.updatedAt || right.createdAt) - normaliseMillis(left.updatedAt || left.createdAt);
+    return (
+      normaliseMillis(right.updatedAt || right.createdAt) -
+      normaliseMillis(left.updatedAt || left.createdAt)
+    );
   })[0];
 }
 
@@ -210,30 +217,58 @@ async function findMatchingCustomers(leadData = {}) {
   const matches = customerSnap.docs
     .map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }))
     .filter((customer) => {
-      const customerEmail = normaliseEmail(customer.searchEmail || customer.primaryEmail);
-      const customerPhone = normalisePhone(customer.searchPhone || customer.primaryPhone);
-      return (normalisedLeadEmail && customerEmail === normalisedLeadEmail)
-        || (normalisedLeadPhone && customerPhone === normalisedLeadPhone);
+      const customerEmail = normaliseEmail(
+        customer.searchEmail || customer.primaryEmail,
+      );
+      const customerPhone = normalisePhone(
+        customer.searchPhone || customer.primaryPhone,
+      );
+      return (
+        (normalisedLeadEmail && customerEmail === normalisedLeadEmail) ||
+        (normalisedLeadPhone && customerPhone === normalisedLeadPhone)
+      );
     });
 
   return matches.sort((left, right) => {
-    return normaliseMillis(right.updatedAt || right.createdAt) - normaliseMillis(left.updatedAt || left.createdAt);
+    return (
+      normaliseMillis(right.updatedAt || right.createdAt) -
+      normaliseMillis(left.updatedAt || left.createdAt)
+    );
   });
 }
 
 function buildCustomerPayloadFromLead(leadData = {}, existingCustomer = {}) {
   return {
-    name: safeString(existingCustomer.name || leadData.customerName || leadData.clientName || "Unnamed customer"),
-    primaryEmail: safeString(existingCustomer.primaryEmail || leadData.clientEmail),
-    primaryPhone: safeString(existingCustomer.primaryPhone || leadData.clientPhone),
-    primaryAddress: safeString(existingCustomer.primaryAddress || leadData.projectAddress),
+    name: safeString(
+      existingCustomer.name ||
+        leadData.customerName ||
+        leadData.clientName ||
+        "Unnamed customer",
+    ),
+    primaryEmail: safeString(
+      existingCustomer.primaryEmail || leadData.clientEmail,
+    ),
+    primaryPhone: safeString(
+      existingCustomer.primaryPhone || leadData.clientPhone,
+    ),
+    primaryAddress: safeString(
+      existingCustomer.primaryAddress || leadData.projectAddress,
+    ),
     notes: safeString(existingCustomer.notes),
-    searchEmail: normaliseEmail(existingCustomer.searchEmail || existingCustomer.primaryEmail || leadData.clientEmail),
-    searchPhone: normalisePhone(existingCustomer.searchPhone || existingCustomer.primaryPhone || leadData.clientPhone),
+    searchEmail: normaliseEmail(
+      existingCustomer.searchEmail ||
+        existingCustomer.primaryEmail ||
+        leadData.clientEmail,
+    ),
+    searchPhone: normalisePhone(
+      existingCustomer.searchPhone ||
+        existingCustomer.primaryPhone ||
+        leadData.clientPhone,
+    ),
     allowedStaffUids: uniqueValues([
       ...(existingCustomer.allowedStaffUids || []),
-      safeString(leadData.assignedToUid)
-    ])
+      safeString(leadData.assignedToUid),
+    ]),
   };
 }
 
@@ -242,16 +277,19 @@ async function ensureCustomerDocument(customerRef, leadData = {}) {
   const existingCustomer = customerSnap.exists ? customerSnap.data() : {};
   const payload = buildCustomerPayloadFromLead(leadData, existingCustomer);
 
-  await customerRef.set({
-    id: customerRef.id,
-    ...payload,
-    createdAt: existingCustomer.createdAt || FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp()
-  }, { merge: true });
+  await customerRef.set(
+    {
+      id: customerRef.id,
+      ...payload,
+      createdAt: existingCustomer.createdAt || FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
 
   return {
     id: customerRef.id,
-    name: payload.name
+    name: payload.name,
   };
 }
 
@@ -259,23 +297,26 @@ async function ensureLeadCustomerLink(leadRef, leadData = {}) {
   if (leadData.customerId) {
     const linkedCustomer = await ensureCustomerDocument(
       db.collection("customers").doc(leadData.customerId),
-      leadData
+      leadData,
     );
 
-    await leadRef.set({
-      customerId: linkedCustomer.id,
-      customerName: linkedCustomer.name,
-      customerMatchResult: "linked",
-      customerReviewRequired: false,
-      customerMatchIds: [linkedCustomer.id]
-    }, { merge: true });
+    await leadRef.set(
+      {
+        customerId: linkedCustomer.id,
+        customerName: linkedCustomer.name,
+        customerMatchResult: "linked",
+        customerReviewRequired: false,
+        customerMatchIds: [linkedCustomer.id],
+      },
+      { merge: true },
+    );
 
     return {
       customerId: linkedCustomer.id,
       customerName: linkedCustomer.name,
       matchResult: "linked",
       reviewRequired: false,
-      customerMatchIds: [linkedCustomer.id]
+      customerMatchIds: [linkedCustomer.id],
     };
   }
 
@@ -284,20 +325,23 @@ async function ensureLeadCustomerLink(leadRef, leadData = {}) {
   if (matches.length > 1) {
     const customerMatchIds = matches.map((customer) => customer.id);
 
-    await leadRef.set({
-      customerId: null,
-      customerName: "",
-      customerMatchResult: "review_required",
-      customerReviewRequired: true,
-      customerMatchIds
-    }, { merge: true });
+    await leadRef.set(
+      {
+        customerId: null,
+        customerName: "",
+        customerMatchResult: "review_required",
+        customerReviewRequired: true,
+        customerMatchIds,
+      },
+      { merge: true },
+    );
 
     return {
       customerId: null,
       customerName: "",
       matchResult: "review_required",
       reviewRequired: true,
-      customerMatchIds
+      customerMatchIds,
     };
   }
 
@@ -307,44 +351,50 @@ async function ensureLeadCustomerLink(leadRef, leadData = {}) {
       {
         ...leadData,
         customerId: matches[0].id,
-        customerName: matches[0].name || leadData.clientName
-      }
+        customerName: matches[0].name || leadData.clientName,
+      },
     );
 
-    await leadRef.set({
-      customerId: linkedCustomer.id,
-      customerName: linkedCustomer.name,
-      customerMatchResult: "linked",
-      customerReviewRequired: false,
-      customerMatchIds: [linkedCustomer.id]
-    }, { merge: true });
+    await leadRef.set(
+      {
+        customerId: linkedCustomer.id,
+        customerName: linkedCustomer.name,
+        customerMatchResult: "linked",
+        customerReviewRequired: false,
+        customerMatchIds: [linkedCustomer.id],
+      },
+      { merge: true },
+    );
 
     return {
       customerId: linkedCustomer.id,
       customerName: linkedCustomer.name,
       matchResult: "linked",
       reviewRequired: false,
-      customerMatchIds: [linkedCustomer.id]
+      customerMatchIds: [linkedCustomer.id],
     };
   }
 
   const customerRef = db.collection("customers").doc();
   const createdCustomer = await ensureCustomerDocument(customerRef, leadData);
 
-  await leadRef.set({
-    customerId: createdCustomer.id,
-    customerName: createdCustomer.name,
-    customerMatchResult: "created",
-    customerReviewRequired: false,
-    customerMatchIds: [createdCustomer.id]
-  }, { merge: true });
+  await leadRef.set(
+    {
+      customerId: createdCustomer.id,
+      customerName: createdCustomer.name,
+      customerMatchResult: "created",
+      customerReviewRequired: false,
+      customerMatchIds: [createdCustomer.id],
+    },
+    { merge: true },
+  );
 
   return {
     customerId: createdCustomer.id,
     customerName: createdCustomer.name,
     matchResult: "created",
     reviewRequired: false,
-    customerMatchIds: [createdCustomer.id]
+    customerMatchIds: [createdCustomer.id],
   };
 }
 
@@ -352,21 +402,23 @@ async function ensureServiceOrderCustomer(orderData = {}) {
   if (safeString(orderData.customerId)) {
     const linkedCustomer = await ensureCustomerDocument(
       db.collection("customers").doc(orderData.customerId),
-      orderData
+      orderData,
     );
     return {
       customerId: linkedCustomer.id,
       customerName: linkedCustomer.name,
       matchResult: "linked",
       reviewRequired: false,
-      customerMatchIds: [linkedCustomer.id]
+      customerMatchIds: [linkedCustomer.id],
     };
   }
 
   const matches = await findMatchingCustomers(orderData);
 
   if (matches.length > 1) {
-    const error = new Error("Multiple customer matches were found. Pick the customer first, then create the service order.");
+    const error = new Error(
+      "Multiple customer matches were found. Pick the customer first, then create the service order.",
+    );
     error.status = 409;
     error.matchResult = "review_required";
     error.customerMatchIds = matches.map((customer) => customer.id);
@@ -379,15 +431,15 @@ async function ensureServiceOrderCustomer(orderData = {}) {
       {
         ...orderData,
         customerId: matches[0].id,
-        customerName: matches[0].name || orderData.clientName
-      }
+        customerName: matches[0].name || orderData.clientName,
+      },
     );
     return {
       customerId: linkedCustomer.id,
       customerName: linkedCustomer.name,
       matchResult: "linked",
       reviewRequired: false,
-      customerMatchIds: [linkedCustomer.id]
+      customerMatchIds: [linkedCustomer.id],
     };
   }
 
@@ -398,7 +450,7 @@ async function ensureServiceOrderCustomer(orderData = {}) {
     customerName: createdCustomer.name,
     matchResult: "created",
     reviewRequired: false,
-    customerMatchIds: [createdCustomer.id]
+    customerMatchIds: [createdCustomer.id],
   };
 }
 
@@ -406,7 +458,8 @@ function defaultEstimateTemplate() {
   return {
     id: "estimate-default",
     name: "Investor Estimate Default",
-    subjectTemplate: "Golden Brick estimate for {{projectType}} at {{projectAddress}}",
+    subjectTemplate:
+      "Golden Brick estimate for {{projectType}} at {{projectAddress}}",
     greeting: "Hi {{clientName}},",
     intro:
       "Thanks for speaking with Golden Brick Construction. Based on the details you shared, here is a working estimate outline for the project.",
@@ -415,7 +468,7 @@ function defaultEstimateTemplate() {
     terms: DEFAULT_ESTIMATE_STANDARD_TERMS,
     agreementTitle: DEFAULT_AGREEMENT_TITLE,
     agreementIntro: DEFAULT_AGREEMENT_INTRO,
-    agreementTerms: DEFAULT_AGREEMENT_TERMS
+    agreementTerms: DEFAULT_AGREEMENT_TERMS,
   };
 }
 
@@ -440,63 +493,91 @@ function resolveAgreementTemplateTerms(template = {}) {
 }
 
 function defaultServiceTemplateSeed(template = {}) {
-  const starter = DEFAULT_SERVICE_TEMPLATES.find((item) => item.id === template.id) || DEFAULT_SERVICE_TEMPLATES[0];
+  const starter =
+    DEFAULT_SERVICE_TEMPLATES.find((item) => item.id === template.id) ||
+    DEFAULT_SERVICE_TEMPLATES[0];
   return {
     id: safeString(template.id || starter.id),
     internalName: safeString(template.internalName || starter.internalName),
     clientTitle: safeString(template.clientTitle || starter.clientTitle),
     defaultPrice: toNumber(template.defaultPrice || starter.defaultPrice),
-    defaultInvoiceLines: Array.isArray(template.defaultInvoiceLines) && template.defaultInvoiceLines.length
-      ? template.defaultInvoiceLines.map((line) => ({
-        label: safeString(line.label || line.title),
-        description: safeString(line.description || line.note),
-        amount: toNumber(line.amount)
-      }))
-      : starter.defaultInvoiceLines.map((line) => ({ ...line })),
-    defaultSummary: safeString(template.defaultSummary || starter.defaultSummary),
-    defaultPlanningNotes: safeString(template.defaultPlanningNotes || starter.defaultPlanningNotes),
-    defaultPaymentRequirement: safeString(template.defaultPaymentRequirement || starter.defaultPaymentRequirement) || "upfront_required",
-    active: template.active !== false
+    defaultInvoiceLines:
+      Array.isArray(template.defaultInvoiceLines) &&
+      template.defaultInvoiceLines.length
+        ? template.defaultInvoiceLines.map((line) => ({
+            label: safeString(line.label || line.title),
+            description: safeString(line.description || line.note),
+            amount: toNumber(line.amount),
+          }))
+        : starter.defaultInvoiceLines.map((line) => ({ ...line })),
+    defaultSummary: safeString(
+      template.defaultSummary || starter.defaultSummary,
+    ),
+    defaultPlanningNotes: safeString(
+      template.defaultPlanningNotes || starter.defaultPlanningNotes,
+    ),
+    defaultPaymentRequirement:
+      safeString(
+        template.defaultPaymentRequirement || starter.defaultPaymentRequirement,
+      ) || "upfront_required",
+    active: template.active !== false,
   };
 }
 
 function normaliseServiceTemplateDoc(template = {}) {
   return {
     ...defaultServiceTemplateSeed(template),
-    defaultPrice: toNumber(template.defaultPrice ?? defaultServiceTemplateSeed(template).defaultPrice),
-    defaultInvoiceLines: Array.isArray(template.defaultInvoiceLines) && template.defaultInvoiceLines.length
-      ? template.defaultInvoiceLines
-        .map((line) => ({
-          label: safeString(line.label || line.title),
-          description: safeString(line.description || line.note),
-          amount: toNumber(line.amount)
-        }))
-        .filter((line) => line.label || line.description || line.amount)
-      : defaultServiceTemplateSeed(template).defaultInvoiceLines
+    defaultPrice: toNumber(
+      template.defaultPrice ??
+        defaultServiceTemplateSeed(template).defaultPrice,
+    ),
+    defaultInvoiceLines:
+      Array.isArray(template.defaultInvoiceLines) &&
+      template.defaultInvoiceLines.length
+        ? template.defaultInvoiceLines
+            .map((line) => ({
+              label: safeString(line.label || line.title),
+              description: safeString(line.description || line.note),
+              amount: toNumber(line.amount),
+            }))
+            .filter((line) => line.label || line.description || line.amount)
+        : defaultServiceTemplateSeed(template).defaultInvoiceLines,
   };
 }
 
-function serviceTemplateLineItemsForAmount(template = {}, overrideAmount = null) {
-  const baseLines = Array.isArray(template.defaultInvoiceLines) && template.defaultInvoiceLines.length
-    ? template.defaultInvoiceLines.map((line) => ({
-      label: safeString(line.label || line.title),
-      description: safeString(line.description || line.note),
-      amount: toNumber(line.amount)
-    }))
-    : [
-      {
-        label: safeString(template.clientTitle || template.internalName || "Service"),
-        description: safeString(template.defaultSummary || "Golden Brick professional service."),
-        amount: toNumber(template.defaultPrice)
-      }
-    ];
+function serviceTemplateLineItemsForAmount(
+  template = {},
+  overrideAmount = null,
+) {
+  const baseLines =
+    Array.isArray(template.defaultInvoiceLines) &&
+    template.defaultInvoiceLines.length
+      ? template.defaultInvoiceLines.map((line) => ({
+          label: safeString(line.label || line.title),
+          description: safeString(line.description || line.note),
+          amount: toNumber(line.amount),
+        }))
+      : [
+          {
+            label: safeString(
+              template.clientTitle || template.internalName || "Service",
+            ),
+            description: safeString(
+              template.defaultSummary || "Golden Brick professional service.",
+            ),
+            amount: toNumber(template.defaultPrice),
+          },
+        ];
 
   const targetAmount = toNumber(
     overrideAmount !== null && overrideAmount !== ""
       ? overrideAmount
-      : template.defaultPrice
+      : template.defaultPrice,
   );
-  const baseTotal = baseLines.reduce((sum, line) => sum + toNumber(line.amount), 0);
+  const baseTotal = baseLines.reduce(
+    (sum, line) => sum + toNumber(line.amount),
+    0,
+  );
 
   if (!targetAmount) {
     return baseLines;
@@ -511,10 +592,11 @@ function serviceTemplateLineItemsForAmount(template = {}, overrideAmount = null)
   if (Math.abs(delta) >= 0.01) {
     baseLines.push({
       label: delta > 0 ? "Pricing adjustment" : "Included discount",
-      description: delta > 0
-        ? "Adjustment to align the order with the confirmed client price."
-        : "Discount applied to align the order with the confirmed client price.",
-      amount: delta
+      description:
+        delta > 0
+          ? "Adjustment to align the order with the confirmed client price."
+          : "Discount applied to align the order with the confirmed client price.",
+      amount: delta,
     });
   }
 
@@ -530,23 +612,31 @@ function buildInvoiceFingerprint(invoiceData = {}) {
     notes: safeString(invoiceData.notes),
     customFields: Array.isArray(invoiceData.customFields)
       ? invoiceData.customFields.map((field) => ({
-        label: safeString(field.label),
-        value: safeString(field.value)
-      }))
+          label: safeString(field.label),
+          value: safeString(field.value),
+        }))
       : [],
     lineItems: Array.isArray(invoiceData.lineItems)
       ? invoiceData.lineItems.map((item) => ({
-        label: safeString(item.label),
-        description: safeString(item.description),
-        amount: toNumber(item.amount)
-      }))
+          label: safeString(item.label),
+          description: safeString(item.description),
+          amount: toNumber(item.amount),
+        }))
       : [],
-    subtotal: Number(toNumber(invoiceData.subtotal).toFixed(2))
+    subtotal: Number(toNumber(invoiceData.subtotal).toFixed(2)),
   });
 }
 
-function serviceOrderBillingStatus(paymentRequirement, totalRevenue = 0, totalPayments = 0, hasReadyLink = false) {
-  if (toNumber(totalRevenue) > 0 && toNumber(totalPayments) >= toNumber(totalRevenue) - 0.01) {
+function serviceOrderBillingStatus(
+  paymentRequirement,
+  totalRevenue = 0,
+  totalPayments = 0,
+  hasReadyLink = false,
+) {
+  if (
+    toNumber(totalRevenue) > 0 &&
+    toNumber(totalPayments) >= toNumber(totalRevenue) - 0.01
+  ) {
     return "paid";
   }
 
@@ -572,7 +662,7 @@ function createStripeClient() {
   }
 
   return new Stripe(secretKey, {
-    apiVersion: "2026-02-25.clover"
+    apiVersion: "2026-02-25.clover",
   });
 }
 
@@ -588,11 +678,15 @@ async function ensureDefaultServiceTemplates() {
     }
 
     writes += 1;
-    batch.set(templateRef, {
-      ...normaliseServiceTemplateDoc(template),
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp()
-    }, { merge: true });
+    batch.set(
+      templateRef,
+      {
+        ...normaliseServiceTemplateDoc(template),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
   }
 
   if (writes) {
@@ -610,15 +704,20 @@ async function fetchServiceTemplate(templateId) {
     throw error;
   }
 
-  const templateSnap = await db.collection("serviceTemplates").doc(serviceTemplateId).get();
+  const templateSnap = await db
+    .collection("serviceTemplates")
+    .doc(serviceTemplateId)
+    .get();
   if (templateSnap.exists) {
     return normaliseServiceTemplateDoc({
       id: templateSnap.id,
-      ...templateSnap.data()
+      ...templateSnap.data(),
     });
   }
 
-  const fallbackTemplate = DEFAULT_SERVICE_TEMPLATES.find((item) => item.id === serviceTemplateId);
+  const fallbackTemplate = DEFAULT_SERVICE_TEMPLATES.find(
+    (item) => item.id === serviceTemplateId,
+  );
   if (fallbackTemplate) {
     return normaliseServiceTemplateDoc(fallbackTemplate);
   }
@@ -636,12 +735,17 @@ function buildStaffProfile(decoded, allowedData = {}) {
   return {
     uid: safeString(decoded.uid),
     email: safeString(decoded.email).toLowerCase(),
-    displayName: safeString(decoded.name || decoded.email || allowedData.displayName || allowedData.email),
+    displayName: safeString(
+      decoded.name ||
+        decoded.email ||
+        allowedData.displayName ||
+        allowedData.email,
+    ),
     role: normaliseStaffRole(allowedData.role),
     active: true,
     defaultLeadAssignee: Boolean(allowedData.defaultLeadAssignee),
     lastLoginAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp()
+    updatedAt: FieldValue.serverTimestamp(),
   };
 }
 
@@ -652,7 +756,7 @@ function serialiseStaffProfile(profile = {}) {
     displayName: safeString(profile.displayName || profile.email),
     role: normaliseStaffRole(profile.role),
     active: profile.active !== false,
-    defaultLeadAssignee: Boolean(profile.defaultLeadAssignee)
+    defaultLeadAssignee: Boolean(profile.defaultLeadAssignee),
   };
 }
 
@@ -663,7 +767,7 @@ async function fetchStaffSummariesByUid(uids = []) {
   }
 
   const userSnaps = await Promise.all(
-    cleanUids.map((uid) => db.collection("users").doc(uid).get())
+    cleanUids.map((uid) => db.collection("users").doc(uid).get()),
   );
 
   return userSnaps
@@ -673,18 +777,24 @@ async function fetchStaffSummariesByUid(uids = []) {
       uid: safeString(profile.uid),
       email: normaliseEmail(profile.email),
       displayName: safeString(profile.displayName || profile.email),
-      role: normaliseStaffRole(profile.role)
+      role: normaliseStaffRole(profile.role),
     }));
 }
 
-function buildAssignedWorkers(staffProfiles = [], ownerUid = "", fallbackProfile = null) {
+function buildAssignedWorkers(
+  staffProfiles = [],
+  ownerUid = "",
+  fallbackProfile = null,
+) {
   const orderedUids = uniqueValues([
     ownerUid,
-    ...staffProfiles.map((profile) => safeString(profile.uid))
+    ...staffProfiles.map((profile) => safeString(profile.uid)),
   ]);
   const orderedProfiles = orderedUids
     .map((uid) => {
-      const existing = staffProfiles.find((profile) => safeString(profile.uid) === uid);
+      const existing = staffProfiles.find(
+        (profile) => safeString(profile.uid) === uid,
+      );
       if (existing) {
         return existing;
       }
@@ -693,8 +803,10 @@ function buildAssignedWorkers(staffProfiles = [], ownerUid = "", fallbackProfile
         return {
           uid,
           email: normaliseEmail(fallbackProfile.email),
-          displayName: safeString(fallbackProfile.displayName || fallbackProfile.email),
-          role: normaliseStaffRole(fallbackProfile.role)
+          displayName: safeString(
+            fallbackProfile.displayName || fallbackProfile.email,
+          ),
+          role: normaliseStaffRole(fallbackProfile.role),
         };
       }
 
@@ -710,16 +822,19 @@ function buildAssignedWorkers(staffProfiles = [], ownerUid = "", fallbackProfile
   let remaining = 100;
 
   return orderedProfiles.map((profile, index) => {
-    const percent = index === orderedProfiles.length - 1
-      ? Number(remaining.toFixed(2))
-      : equalSplit;
+    const percent =
+      index === orderedProfiles.length - 1
+        ? Number(remaining.toFixed(2))
+        : equalSplit;
     remaining -= percent;
 
     return {
       uid: safeString(profile.uid),
-      name: safeString(profile.displayName || profile.email || "Assigned worker"),
+      name: safeString(
+        profile.displayName || profile.email || "Assigned worker",
+      ),
       email: normaliseEmail(profile.email),
-      percent
+      percent,
     };
   });
 }
@@ -730,7 +845,7 @@ function normaliseAssignedWorkers(assignedWorkers = []) {
       uid: safeString(worker.uid),
       name: safeString(worker.name),
       email: safeString(worker.email).toLowerCase(),
-      percent: toNumber(worker.percent)
+      percent: toNumber(worker.percent),
     }))
     .filter((worker) => worker.uid || worker.email || worker.name);
 }
@@ -738,7 +853,7 @@ function normaliseAssignedWorkers(assignedWorkers = []) {
 function buildProjectAccessUids(projectData = {}) {
   return uniqueValues([
     safeString(projectData.assignedLeadOwnerUid),
-    ...((projectData.assignedWorkerIds || []).map((uid) => safeString(uid)))
+    ...(projectData.assignedWorkerIds || []).map((uid) => safeString(uid)),
   ]);
 }
 
@@ -756,25 +871,38 @@ function buildLockedCommissionSnapshot(summary = {}) {
     workerPool: toNumber(summary.workerPool),
     workerBreakdown: Array.isArray(summary.workerBreakdown)
       ? summary.workerBreakdown.map((worker) => ({
-        uid: safeString(worker.uid),
-        name: safeString(worker.name),
-        email: normaliseEmail(worker.email),
-        percent: toNumber(worker.percent),
-        amount: toNumber(worker.amount)
-      }))
+          uid: safeString(worker.uid),
+          name: safeString(worker.name),
+          email: normaliseEmail(worker.email),
+          percent: toNumber(worker.percent),
+          amount: toNumber(worker.amount),
+        }))
       : [],
-    lockedAt: FieldValue.serverTimestamp()
+    lockedAt: FieldValue.serverTimestamp(),
   };
 }
 
-function computeFinanceSummary(projectData, expenseDocs, paymentDocs, changeOrderDocs = []) {
-  const baseContractValue = toNumber(projectData.baseContractValue || projectData.jobValue || 0);
+function computeFinanceSummary(
+  projectData,
+  expenseDocs,
+  paymentDocs,
+  changeOrderDocs = [],
+) {
+  const baseContractValue = toNumber(
+    projectData.baseContractValue || projectData.jobValue || 0,
+  );
   const approvedChangeOrdersTotal = changeOrderDocs
     .filter((doc) => normaliseChangeOrderStatus(doc.status) === "approved")
     .reduce((sum, doc) => sum + toNumber(doc.amount), 0);
   const totalContractRevenue = baseContractValue + approvedChangeOrdersTotal;
-  const totalExpenses = expenseDocs.reduce((sum, doc) => sum + toNumber(doc.amount), 0);
-  const totalPayments = paymentDocs.reduce((sum, doc) => sum + toNumber(doc.amount), 0);
+  const totalExpenses = expenseDocs.reduce(
+    (sum, doc) => sum + toNumber(doc.amount),
+    0,
+  );
+  const totalPayments = paymentDocs.reduce(
+    (sum, doc) => sum + toNumber(doc.amount),
+    0,
+  );
   const rawProfit = totalContractRevenue - totalExpenses;
   const distributableProfit = Math.max(rawProfit, 0);
   const companyShare = distributableProfit * 0.5;
@@ -783,7 +911,10 @@ function computeFinanceSummary(projectData, expenseDocs, paymentDocs, changeOrde
   const balanceRemaining = totalContractRevenue - totalPayments;
 
   const assignedWorkers = normaliseAssignedWorkers(projectData.assignedWorkers);
-  const totalPercent = assignedWorkers.reduce((sum, worker) => sum + worker.percent, 0);
+  const totalPercent = assignedWorkers.reduce(
+    (sum, worker) => sum + worker.percent,
+    0,
+  );
   const workerBreakdown = assignedWorkers.map((worker, index) => {
     let effectivePercent = worker.percent;
 
@@ -800,7 +931,7 @@ function computeFinanceSummary(projectData, expenseDocs, paymentDocs, changeOrde
       name: worker.name || worker.email || "Assigned worker",
       email: worker.email,
       percent: Number(effectivePercent.toFixed(2)),
-      amount
+      amount,
     };
   });
 
@@ -818,7 +949,7 @@ function computeFinanceSummary(projectData, expenseDocs, paymentDocs, changeOrde
     companyShare: Number(companyShare.toFixed(2)),
     workerPool: Number(workerPool.toFixed(2)),
     workerBreakdown,
-    updatedAt: FieldValue.serverTimestamp()
+    updatedAt: FieldValue.serverTimestamp(),
   };
 }
 
@@ -830,14 +961,17 @@ async function ensureDefaultTemplate() {
     await templateRef.set({
       ...defaultEstimateTemplate(),
       createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp()
+      updatedAt: FieldValue.serverTimestamp(),
     });
   }
 }
 
 async function fetchTemplate() {
   await ensureDefaultTemplate();
-  const templateSnap = await db.collection("emailTemplates").doc("estimate-default").get();
+  const templateSnap = await db
+    .collection("emailTemplates")
+    .doc("estimate-default")
+    .get();
   const data = templateSnap.data() || defaultEstimateTemplate();
   return {
     ...defaultEstimateTemplate(),
@@ -845,7 +979,7 @@ async function fetchTemplate() {
     terms: resolveEstimateTemplateTerms(data),
     agreementTitle: resolveAgreementTemplateTitle(data),
     agreementIntro: resolveAgreementTemplateIntro(data),
-    agreementTerms: resolveAgreementTemplateTerms(data)
+    agreementTerms: resolveAgreementTemplateTerms(data),
   };
 }
 
@@ -857,93 +991,113 @@ function fallbackEstimateDraft(lead, template) {
     lineItems = [
       {
         label: "Demolition and site prep",
-        description: "Protect the property, demo existing bathroom finishes, and prepare the room for rebuild.",
-        amount: 2200
+        description:
+          "Protect the property, demo existing bathroom finishes, and prepare the room for rebuild.",
+        amount: 2200,
       },
       {
         label: "Rough plumbing and electrical coordination",
-        description: "Reset utility locations as needed and coordinate inspections for rough work.",
-        amount: 3600
+        description:
+          "Reset utility locations as needed and coordinate inspections for rough work.",
+        amount: 3600,
       },
       {
         label: "Tile, waterproofing, and finish installation",
-        description: "Install waterproofing, tile, trim, vanity, fixtures, and closeout details.",
-        amount: 8900
-      }
+        description:
+          "Install waterproofing, tile, trim, vanity, fixtures, and closeout details.",
+        amount: 8900,
+      },
     ];
   } else if (projectType.includes("kitchen")) {
     lineItems = [
       {
         label: "Demolition and protection",
-        description: "Protect occupied areas and prepare the kitchen for layout and rough work.",
-        amount: 3800
+        description:
+          "Protect occupied areas and prepare the kitchen for layout and rough work.",
+        amount: 3800,
       },
       {
         label: "Trade rough-ins and build-back",
-        description: "Coordinate electrical, plumbing, drywall, and prep for cabinetry and finishes.",
-        amount: 8600
+        description:
+          "Coordinate electrical, plumbing, drywall, and prep for cabinetry and finishes.",
+        amount: 8600,
       },
       {
         label: "Cabinet, finish, and closeout scope",
-        description: "Install cabinets, finishes, fixtures, trim, and final punch items.",
-        amount: 12400
-      }
+        description:
+          "Install cabinets, finishes, fixtures, trim, and final punch items.",
+        amount: 12400,
+      },
     ];
   } else if (projectType.includes("full")) {
     lineItems = [
       {
         label: "Scope planning and protection",
-        description: "Initial demolition planning, site protection, and sequencing setup for a larger renovation.",
-        amount: 6200
+        description:
+          "Initial demolition planning, site protection, and sequencing setup for a larger renovation.",
+        amount: 6200,
       },
       {
         label: "Core trade coordination",
-        description: "Structural, mechanical, electrical, and plumbing coordination during the main construction phase.",
-        amount: 18800
+        description:
+          "Structural, mechanical, electrical, and plumbing coordination during the main construction phase.",
+        amount: 18800,
       },
       {
         label: "Interior finish package and closeout",
-        description: "Drywall, trim, paint, finish carpentry, and final delivery across the renovated spaces.",
-        amount: 21400
-      }
+        description:
+          "Drywall, trim, paint, finish carpentry, and final delivery across the renovated spaces.",
+        amount: 21400,
+      },
     ];
   } else {
     lineItems = [
       {
         label: "Initial site prep and demolition",
-        description: "Protect the property and open the work area for construction.",
-        amount: 2500
+        description:
+          "Protect the property and open the work area for construction.",
+        amount: 2500,
       },
       {
         label: "Construction and coordination",
-        description: "Coordinate trade work, materials, and sequencing for the scope discussed.",
-        amount: 7600
+        description:
+          "Coordinate trade work, materials, and sequencing for the scope discussed.",
+        amount: 7600,
       },
       {
         label: "Finish installation and closeout",
-        description: "Install finish materials, punch items, and project closeout details.",
-        amount: 6800
-      }
+        description:
+          "Install finish materials, punch items, and project closeout details.",
+        amount: 6800,
+      },
     ];
   }
 
   const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
 
   return {
-    subject:
-      template.subjectTemplate
-        .replace("{{projectType}}", safeString(lead.projectType) || "your project")
-        .replace("{{projectAddress}}", safeString(lead.projectAddress) || "your property"),
+    subject: template.subjectTemplate
+      .replace(
+        "{{projectType}}",
+        safeString(lead.projectType) || "your project",
+      )
+      .replace(
+        "{{projectAddress}}",
+        safeString(lead.projectAddress) || "your property",
+      ),
     emailBody: [
-      template.greeting.replace("{{clientName}}", safeString(lead.clientName) || "there"),
+      template.greeting.replace(
+        "{{clientName}}",
+        safeString(lead.clientName) || "there",
+      ),
       "",
       template.intro,
       "",
-      "This is a planning estimate based on the information currently available. We can tighten the pricing further after a site review, finish confirmation, and final scope check."
+      "This is a planning estimate based on the information currently available. We can tighten the pricing further after a site review, finish confirmation, and final scope check.",
     ].join("\n"),
     lineItems,
     subtotal,
-    assumptions: []
+    assumptions: [],
   };
 }
 
@@ -957,31 +1111,45 @@ function normaliseEstimateScopeItems(estimateData = {}) {
       title: safeString(item.title || item.label) || `Scope item ${index + 1}`,
       description: safeString(item.description),
       amount: toNumber(item.amount),
-      estimateIndex: index
+      estimateIndex: index,
     }))
     .filter((item) => item.title || item.description || item.amount);
 }
 
-function queueProjectScopeSnapshot(batch, projectRef, leadId, estimateData = {}, actorProfile = {}) {
+function queueProjectScopeSnapshot(
+  batch,
+  projectRef,
+  leadId,
+  estimateData = {},
+  actorProfile = {},
+) {
   const scopeItems = normaliseEstimateScopeItems(estimateData);
 
   scopeItems.forEach((item) => {
     const scopeRef = projectRef.collection("scopeItems").doc();
-    batch.set(scopeRef, {
-      id: scopeRef.id,
-      title: item.title,
-      description: item.description,
-      amount: item.amount,
-      estimateIndex: item.estimateIndex,
-      completed: false,
-      completedAt: null,
-      note: "",
-      sourceLeadId: safeString(leadId),
-      createdByUid: safeString(actorProfile.uid || "system"),
-      createdByName: safeString(actorProfile.displayName || actorProfile.email || "Golden Brick System"),
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp()
-    }, { merge: true });
+    batch.set(
+      scopeRef,
+      {
+        id: scopeRef.id,
+        title: item.title,
+        description: item.description,
+        amount: item.amount,
+        estimateIndex: item.estimateIndex,
+        completed: false,
+        completedAt: null,
+        note: "",
+        sourceLeadId: safeString(leadId),
+        createdByUid: safeString(actorProfile.uid || "system"),
+        createdByName: safeString(
+          actorProfile.displayName ||
+            actorProfile.email ||
+            "Golden Brick System",
+        ),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
   });
 
   return scopeItems.length;
@@ -990,7 +1158,7 @@ function queueProjectScopeSnapshot(batch, projectRef, leadId, estimateData = {},
 function formatCurrency(value) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD"
+    currency: "USD",
   }).format(toNumber(value));
 }
 
@@ -1001,7 +1169,7 @@ function formatDateOnly(value) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
-    year: "numeric"
+    year: "numeric",
   }).format(new Date(millis));
 }
 
@@ -1014,7 +1182,7 @@ function formatDateTime(value) {
     day: "numeric",
     year: "numeric",
     hour: "numeric",
-    minute: "2-digit"
+    minute: "2-digit",
   }).format(new Date(millis));
 }
 
@@ -1034,75 +1202,120 @@ function estimateRecordDocumentId(leadId) {
   return `estimate-${safeString(leadId)}`;
 }
 
-function buildRecordDocumentLinksFromLeadRecord(leadId, leadData = {}, projectData = null) {
+function buildRecordDocumentLinksFromLeadRecord(
+  leadId,
+  leadData = {},
+  projectData = null,
+) {
   return {
     leadId: cleanNullableString(leadId),
-    customerId: cleanNullableString(leadData.customerId || projectData?.customerId),
-    projectId: cleanNullableString(projectData?.id || leadData.wonProjectId)
+    customerId: cleanNullableString(
+      leadData.customerId || projectData?.customerId,
+    ),
+    projectId: cleanNullableString(projectData?.id || leadData.wonProjectId),
   };
 }
 
-function buildRecordDocumentLinksFromProjectRecord(projectId, projectData = {}, leadData = null) {
+function buildRecordDocumentLinksFromProjectRecord(
+  projectId,
+  projectData = {},
+  leadData = null,
+) {
   return {
     projectId: cleanNullableString(projectId),
-    leadId: cleanNullableString(projectData.leadId || leadData?.id || projectId),
-    customerId: cleanNullableString(projectData.customerId || leadData?.customerId)
+    leadId: cleanNullableString(
+      projectData.leadId || leadData?.id || projectId,
+    ),
+    customerId: cleanNullableString(
+      projectData.customerId || leadData?.customerId,
+    ),
   };
 }
 
 function buildEstimateRecordDocumentTitle(leadData = {}, estimateData = {}) {
   return safeString(
-    estimateData.subject
-    || leadData.estimateTitle
-    || `Estimate for ${safeString(leadData.projectAddress || leadData.clientName || leadData.customerName || "project")}`
+    estimateData.subject ||
+      leadData.estimateTitle ||
+      `Estimate for ${safeString(leadData.projectAddress || leadData.clientName || leadData.customerName || "project")}`,
   );
 }
 
-async function upsertEstimateRecordDocument(leadId, estimateData = {}, leadData = null) {
+async function upsertEstimateRecordDocument(
+  leadId,
+  estimateData = {},
+  leadData = null,
+) {
   const recordId = estimateRecordDocumentId(leadId);
   const recordRef = db.collection("recordDocuments").doc(recordId);
   const [leadSnap, projectSnap, existingSnap] = await Promise.all([
     leadData ? Promise.resolve(null) : db.collection("leads").doc(leadId).get(),
     db.collection("projects").doc(leadId).get(),
-    recordRef.get()
+    recordRef.get(),
   ]);
 
-  const resolvedLeadData = leadData || (leadSnap?.exists ? leadSnap.data() : null);
+  const resolvedLeadData =
+    leadData || (leadSnap?.exists ? leadSnap.data() : null);
   if (!resolvedLeadData) {
     return;
   }
 
-  const projectData = projectSnap.exists ? { id: projectSnap.id, ...projectSnap.data() } : null;
-  const existingData = existingSnap.exists ? (existingSnap.data() || {}) : {};
-  const links = buildRecordDocumentLinksFromLeadRecord(leadId, resolvedLeadData, projectData);
-  const note = splitMultilineText(estimateData.emailBody || resolvedLeadData.estimateTitle || "")[0] || "";
+  const projectData = projectSnap.exists
+    ? { id: projectSnap.id, ...projectSnap.data() }
+    : null;
+  const existingData = existingSnap.exists ? existingSnap.data() || {} : {};
+  const links = buildRecordDocumentLinksFromLeadRecord(
+    leadId,
+    resolvedLeadData,
+    projectData,
+  );
+  const note =
+    splitMultilineText(
+      estimateData.emailBody || resolvedLeadData.estimateTitle || "",
+    )[0] || "";
 
-  await recordRef.set({
-    id: recordId,
-    documentKind: "estimate",
-    category: "estimate",
-    sourceType: "generated",
-    title: buildEstimateRecordDocumentTitle(resolvedLeadData, estimateData),
-    note,
-    relatedDate: estimateData.updatedAt
-      || estimateData.createdAt
-      || resolvedLeadData.estimateUpdatedAt
-      || existingData.relatedDate
-      || FieldValue.serverTimestamp(),
-    externalUrl: "",
-    fileUrl: "",
-    filePath: "",
-    fileName: "",
-    leadId: links.leadId,
-    customerId: links.customerId,
-    projectId: links.projectId,
-    estimateId: cleanNullableString(leadId),
-    createdByUid: safeString(estimateData.lastEditedByUid || existingData.createdByUid || "system"),
-    createdByName: safeString(estimateData.lastEditedByName || existingData.createdByName || "Golden Brick System"),
-    createdByRole: safeString(existingData.createdByRole || (estimateData.lastEditedByUid ? "staff" : "system")) || "system",
-    createdAt: existingData.createdAt || estimateData.createdAt || FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp()
-  }, { merge: true });
+  await recordRef.set(
+    {
+      id: recordId,
+      documentKind: "estimate",
+      category: "estimate",
+      sourceType: "generated",
+      title: buildEstimateRecordDocumentTitle(resolvedLeadData, estimateData),
+      note,
+      relatedDate:
+        estimateData.updatedAt ||
+        estimateData.createdAt ||
+        resolvedLeadData.estimateUpdatedAt ||
+        existingData.relatedDate ||
+        FieldValue.serverTimestamp(),
+      externalUrl: "",
+      fileUrl: "",
+      filePath: "",
+      fileName: "",
+      leadId: links.leadId,
+      customerId: links.customerId,
+      projectId: links.projectId,
+      estimateId: cleanNullableString(leadId),
+      createdByUid: safeString(
+        estimateData.lastEditedByUid || existingData.createdByUid || "system",
+      ),
+      createdByName: safeString(
+        estimateData.lastEditedByName ||
+          existingData.createdByName ||
+          "Golden Brick System",
+      ),
+      createdByRole:
+        safeString(
+          existingData.createdByRole ||
+            (estimateData.lastEditedByUid ? "staff" : "system"),
+        ) || "system",
+      createdAt:
+        existingData.createdAt ||
+        estimateData.createdAt ||
+        FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
 }
 
 async function deleteEstimateRecordDocument(leadId) {
@@ -1110,7 +1323,11 @@ async function deleteEstimateRecordDocument(leadId) {
     return;
   }
 
-  await db.collection("recordDocuments").doc(estimateRecordDocumentId(leadId)).delete().catch(() => {});
+  await db
+    .collection("recordDocuments")
+    .doc(estimateRecordDocumentId(leadId))
+    .delete()
+    .catch(() => {});
 }
 
 async function syncRecordDocumentLinksForLead(leadId, leadData = {}) {
@@ -1119,10 +1336,20 @@ async function syncRecordDocumentLinksForLead(leadId, leadData = {}) {
     return;
   }
 
-  const projectSnap = await db.collection("projects").doc(normalisedLeadId).get();
-  const projectData = projectSnap.exists ? { id: projectSnap.id, ...projectSnap.data() } : null;
-  const links = buildRecordDocumentLinksFromLeadRecord(normalisedLeadId, leadData, projectData);
-  const docsSnap = await db.collection("recordDocuments")
+  const projectSnap = await db
+    .collection("projects")
+    .doc(normalisedLeadId)
+    .get();
+  const projectData = projectSnap.exists
+    ? { id: projectSnap.id, ...projectSnap.data() }
+    : null;
+  const links = buildRecordDocumentLinksFromLeadRecord(
+    normalisedLeadId,
+    leadData,
+    projectData,
+  );
+  const docsSnap = await db
+    .collection("recordDocuments")
     .where("leadId", "==", normalisedLeadId)
     .get();
 
@@ -1147,10 +1374,14 @@ async function syncRecordDocumentLinksForLead(leadId, leadData = {}) {
 
     if (Object.keys(updates).length) {
       hasChanges = true;
-      batch.set(snapshot.ref, {
-        ...updates,
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
+      batch.set(
+        snapshot.ref,
+        {
+          ...updates,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
     }
   });
 
@@ -1166,10 +1397,17 @@ async function syncRecordDocumentLinksForProject(projectId, projectData = {}) {
   }
 
   const leadId = cleanNullableString(projectData.leadId || normalisedProjectId);
-  const leadSnap = leadId ? await db.collection("leads").doc(leadId).get() : null;
+  const leadSnap = leadId
+    ? await db.collection("leads").doc(leadId).get()
+    : null;
   const leadData = leadSnap?.exists ? leadSnap.data() : null;
-  const links = buildRecordDocumentLinksFromProjectRecord(normalisedProjectId, projectData, leadData);
-  const docsSnap = await db.collection("recordDocuments")
+  const links = buildRecordDocumentLinksFromProjectRecord(
+    normalisedProjectId,
+    projectData,
+    leadData,
+  );
+  const docsSnap = await db
+    .collection("recordDocuments")
     .where("projectId", "==", normalisedProjectId)
     .get();
 
@@ -1194,10 +1432,14 @@ async function syncRecordDocumentLinksForProject(projectId, projectData = {}) {
 
     if (Object.keys(updates).length) {
       hasChanges = true;
-      batch.set(snapshot.ref, {
-        ...updates,
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
+      batch.set(
+        snapshot.ref,
+        {
+          ...updates,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
     }
   });
 
@@ -1212,7 +1454,8 @@ async function migrateLegacyProjectDocuments(projectId, projectData = {}) {
     return 0;
   }
 
-  const legacySnap = await db.collection("projects")
+  const legacySnap = await db
+    .collection("projects")
     .doc(normalisedProjectId)
     .collection("documents")
     .get();
@@ -1229,33 +1472,60 @@ async function migrateLegacyProjectDocuments(projectId, projectData = {}) {
     const data = snapshot.data() || {};
     const recordRef = db.collection("recordDocuments").doc(snapshot.id);
     const recordSnap = await recordRef.get();
-    const existingData = recordSnap.exists ? (recordSnap.data() || {}) : {};
+    const existingData = recordSnap.exists ? recordSnap.data() || {} : {};
 
-    await recordRef.set({
-      id: snapshot.id,
-      documentKind: safeString(data.documentKind || "file") === "estimate" ? "estimate" : "file",
-      category: safeString(data.category || "other") || "other",
-      sourceType: safeString(data.sourceType || "manual") || "manual",
-      title: safeString(data.title || existingData.title || "Document"),
-      note: safeString(data.note),
-      relatedDate: data.relatedDate || data.createdAt || existingData.relatedDate || null,
-      externalUrl: safeString(data.externalUrl),
-      fileUrl: safeString(data.fileUrl),
-      filePath: safeString(data.filePath),
-      fileName: safeString(data.fileName),
-      leadId,
-      customerId,
-      projectId: normalisedProjectId,
-      estimateId: cleanNullableString(data.estimateId || existingData.estimateId),
-      agreementId: cleanNullableString(data.agreementId || existingData.agreementId),
-      legacyProjectId: normalisedProjectId,
-      legacyDocumentId: snapshot.id,
-      createdByUid: safeString(data.createdByUid || existingData.createdByUid),
-      createdByName: safeString(data.createdByName || existingData.createdByName),
-      createdByRole: safeString(data.createdByRole || existingData.createdByRole),
-      createdAt: existingData.createdAt || data.createdAt || FieldValue.serverTimestamp(),
-      updatedAt: existingData.updatedAt || data.updatedAt || data.createdAt || FieldValue.serverTimestamp()
-    }, { merge: true });
+    await recordRef.set(
+      {
+        id: snapshot.id,
+        documentKind:
+          safeString(data.documentKind || "file") === "estimate"
+            ? "estimate"
+            : "file",
+        category: safeString(data.category || "other") || "other",
+        sourceType: safeString(data.sourceType || "manual") || "manual",
+        title: safeString(data.title || existingData.title || "Document"),
+        note: safeString(data.note),
+        relatedDate:
+          data.relatedDate ||
+          data.createdAt ||
+          existingData.relatedDate ||
+          null,
+        externalUrl: safeString(data.externalUrl),
+        fileUrl: safeString(data.fileUrl),
+        filePath: safeString(data.filePath),
+        fileName: safeString(data.fileName),
+        leadId,
+        customerId,
+        projectId: normalisedProjectId,
+        estimateId: cleanNullableString(
+          data.estimateId || existingData.estimateId,
+        ),
+        agreementId: cleanNullableString(
+          data.agreementId || existingData.agreementId,
+        ),
+        legacyProjectId: normalisedProjectId,
+        legacyDocumentId: snapshot.id,
+        createdByUid: safeString(
+          data.createdByUid || existingData.createdByUid,
+        ),
+        createdByName: safeString(
+          data.createdByName || existingData.createdByName,
+        ),
+        createdByRole: safeString(
+          data.createdByRole || existingData.createdByRole,
+        ),
+        createdAt:
+          existingData.createdAt ||
+          data.createdAt ||
+          FieldValue.serverTimestamp(),
+        updatedAt:
+          existingData.updatedAt ||
+          data.updatedAt ||
+          data.createdAt ||
+          FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
 
     migratedCount += 1;
   }
@@ -1263,18 +1533,30 @@ async function migrateLegacyProjectDocuments(projectId, projectData = {}) {
   return migratedCount;
 }
 
-async function ensureProjectRecordDocumentMigration(projectId, projectData = {}) {
-  if (!safeString(projectId) || toNumber(projectData.recordDocumentsMigrationVersion) >= 1) {
+async function ensureProjectRecordDocumentMigration(
+  projectId,
+  projectData = {},
+) {
+  if (
+    !safeString(projectId) ||
+    toNumber(projectData.recordDocumentsMigrationVersion) >= 1
+  ) {
     return 0;
   }
 
-  const migratedCount = await migrateLegacyProjectDocuments(projectId, projectData);
+  const migratedCount = await migrateLegacyProjectDocuments(
+    projectId,
+    projectData,
+  );
 
-  await db.collection("projects").doc(projectId).set({
-    recordDocumentsMigrationVersion: 1,
-    recordDocumentsMigratedAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp()
-  }, { merge: true });
+  await db.collection("projects").doc(projectId).set(
+    {
+      recordDocumentsMigrationVersion: 1,
+      recordDocumentsMigratedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
 
   return migratedCount;
 }
@@ -1291,7 +1573,7 @@ async function deleteStoragePathIfPresent(filePath) {
     if (error?.code !== 404 && error?.statusCode !== 404) {
       logger.warn("Shared document storage cleanup failed.", {
         filePath: resolvedPath,
-        error: error?.message || String(error)
+        error: error?.message || String(error),
       });
     }
   }
@@ -1302,7 +1584,8 @@ async function clearProjectExpenseReceiptReferences(projectId, documentId) {
     return;
   }
 
-  const expenseSnap = await db.collection("projects")
+  const expenseSnap = await db
+    .collection("projects")
     .doc(projectId)
     .collection("expenses")
     .where("receiptDocumentId", "==", documentId)
@@ -1314,12 +1597,16 @@ async function clearProjectExpenseReceiptReferences(projectId, documentId) {
 
   const batch = db.batch();
   expenseSnap.docs.forEach((snapshot) => {
-    batch.set(snapshot.ref, {
-      receiptDocumentId: null,
-      receiptTitle: "",
-      receiptUrl: "",
-      updatedAt: FieldValue.serverTimestamp()
-    }, { merge: true });
+    batch.set(
+      snapshot.ref,
+      {
+        receiptDocumentId: null,
+        receiptTitle: "",
+        receiptUrl: "",
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
   });
   await batch.commit();
 }
@@ -1329,7 +1616,8 @@ async function clearVendorBillInvoiceReferences(documentId) {
     return;
   }
 
-  const billsSnap = await db.collection("vendorBills")
+  const billsSnap = await db
+    .collection("vendorBills")
     .where("invoiceDocumentId", "==", documentId)
     .get();
 
@@ -1339,47 +1627,60 @@ async function clearVendorBillInvoiceReferences(documentId) {
 
   const batch = db.batch();
   billsSnap.docs.forEach((snapshot) => {
-    batch.set(snapshot.ref, {
-      invoiceDocumentId: null,
-      invoiceTitle: "",
-      invoiceFileUrl: "",
-      invoiceExternalUrl: "",
-      updatedAt: FieldValue.serverTimestamp()
-    }, { merge: true });
+    batch.set(
+      snapshot.ref,
+      {
+        invoiceDocumentId: null,
+        invoiceTitle: "",
+        invoiceFileUrl: "",
+        invoiceExternalUrl: "",
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
   });
   await batch.commit();
 
-  await Promise.all(billsSnap.docs.map(async (snapshot) => {
-    const billData = snapshot.data() || {};
-    const projectId = safeString(billData.projectId);
-    if (!projectId) {
-      return;
-    }
+  await Promise.all(
+    billsSnap.docs.map(async (snapshot) => {
+      const billData = snapshot.data() || {};
+      const projectId = safeString(billData.projectId);
+      if (!projectId) {
+        return;
+      }
 
-    await db.collection("projects")
-      .doc(projectId)
-      .collection("expenses")
-      .doc(snapshot.id)
-      .set({
-        receiptDocumentId: null,
-        receiptTitle: "",
-        receiptUrl: "",
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
-  }));
+      await db
+        .collection("projects")
+        .doc(projectId)
+        .collection("expenses")
+        .doc(snapshot.id)
+        .set(
+          {
+            receiptDocumentId: null,
+            receiptTitle: "",
+            receiptUrl: "",
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+    }),
+  );
 }
 
 async function cleanupDeletedRecordDocument(documentId, documentData = {}) {
   await Promise.all([
     deleteStoragePathIfPresent(documentData.filePath),
-    clearProjectExpenseReceiptReferences(safeString(documentData.projectId), documentId)
+    clearProjectExpenseReceiptReferences(
+      safeString(documentData.projectId),
+      documentId,
+    ),
   ]);
 }
 
 async function cleanupDeletedVendorDocument(documentId, documentData = {}) {
   await Promise.all([
     deleteStoragePathIfPresent(documentData.filePath),
-    clearVendorBillInvoiceReferences(documentId)
+    clearVendorBillInvoiceReferences(documentId),
   ]);
 }
 
@@ -1393,9 +1694,11 @@ function createOpaqueId(byteCount = 24) {
 }
 
 function requestProtocol(request) {
-  return safeString(request.get("x-forwarded-proto") || request.protocol || "https")
-    .split(",")[0]
-    .trim() || "https";
+  return (
+    safeString(request.get("x-forwarded-proto") || request.protocol || "https")
+      .split(",")[0]
+      .trim() || "https"
+  );
 }
 
 function requestHost(request) {
@@ -1433,13 +1736,17 @@ function storageDownloadUrl(bucketName, filePath, token) {
 function requestAuditMetadata(request) {
   const forwardedFor = safeString(request.get("x-forwarded-for"));
   return {
-    ipAddress: forwardedFor ? forwardedFor.split(",")[0].trim() : safeString(request.ip),
-    userAgent: safeString(request.get("user-agent"))
+    ipAddress: forwardedFor
+      ? forwardedFor.split(",")[0].trim()
+      : safeString(request.ip),
+    userAgent: safeString(request.get("user-agent")),
   };
 }
 
 function parseSignatureDataUrl(dataUrl) {
-  const matches = safeString(dataUrl).match(/^data:(image\/png);base64,([A-Za-z0-9+/=]+)$/);
+  const matches = safeString(dataUrl).match(
+    /^data:(image\/png);base64,([A-Za-z0-9+/=]+)$/,
+  );
 
   if (!matches) {
     const error = new Error("A drawn signature is required.");
@@ -1449,17 +1756,19 @@ function parseSignatureDataUrl(dataUrl) {
 
   return {
     contentType: matches[1],
-    buffer: Buffer.from(matches[2], "base64")
+    buffer: Buffer.from(matches[2], "base64"),
   };
 }
 
 function normaliseEstimateSnapshot(estimateData = {}, template = {}) {
   const lineItems = Array.isArray(estimateData.lineItems)
-    ? estimateData.lineItems.map((item) => ({
-      label: safeString(item.label || item.title),
-      description: safeString(item.description || item.note),
-      amount: toNumber(item.amount)
-    })).filter((item) => item.label || item.description || item.amount)
+    ? estimateData.lineItems
+        .map((item) => ({
+          label: safeString(item.label || item.title),
+          description: safeString(item.description || item.note),
+          amount: toNumber(item.amount),
+        }))
+        .filter((item) => item.label || item.description || item.amount)
     : [];
 
   return {
@@ -1469,8 +1778,11 @@ function normaliseEstimateSnapshot(estimateData = {}, template = {}) {
       ? estimateData.assumptions.map((item) => safeString(item)).filter(Boolean)
       : [],
     lineItems,
-    subtotal: toNumber(estimateData.subtotal || lineItems.reduce((sum, item) => sum + toNumber(item.amount), 0)),
-    proposalTerms: resolveEstimateTemplateTerms(template)
+    subtotal: toNumber(
+      estimateData.subtotal ||
+        lineItems.reduce((sum, item) => sum + toNumber(item.amount), 0),
+    ),
+    proposalTerms: resolveEstimateTemplateTerms(template),
   };
 }
 
@@ -1478,7 +1790,7 @@ function normaliseAgreementSnapshot(template = {}) {
   return {
     title: resolveAgreementTemplateTitle(template),
     intro: resolveAgreementTemplateIntro(template),
-    terms: resolveAgreementTemplateTerms(template)
+    terms: resolveAgreementTemplateTerms(template),
   };
 }
 
@@ -1490,14 +1802,20 @@ function estimateSharePriority(shareData = {}) {
 }
 
 function pickCurrentEstimateShare(shares = []) {
-  return [...shares].sort((left, right) => {
-    const priorityDiff = estimateSharePriority(left) - estimateSharePriority(right);
-    if (priorityDiff !== 0) {
-      return priorityDiff;
-    }
+  return (
+    [...shares].sort((left, right) => {
+      const priorityDiff =
+        estimateSharePriority(left) - estimateSharePriority(right);
+      if (priorityDiff !== 0) {
+        return priorityDiff;
+      }
 
-    return normaliseMillis(right.updatedAt || right.createdAt) - normaliseMillis(left.updatedAt || left.createdAt);
-  })[0] || null;
+      return (
+        normaliseMillis(right.updatedAt || right.createdAt) -
+        normaliseMillis(left.updatedAt || left.createdAt)
+      );
+    })[0] || null
+  );
 }
 
 function serialiseEstimateShare(shareData = {}, request) {
@@ -1520,33 +1838,35 @@ function serialiseEstimateShare(shareData = {}, request) {
     revokedAt: serialiseDateValue(shareData.revokedAt),
     lastViewedAt: serialiseDateValue(shareData.lastViewedAt),
     signedAt: serialiseDateValue(shareData.signedAt),
-    shareUrl: buildEstimateShareUrl(request, shareData.id)
+    shareUrl: buildEstimateShareUrl(request, shareData.id),
   };
 }
 
 async function fetchLeadShares(leadId) {
-  const sharesSnap = await db.collection("estimateShares")
+  const sharesSnap = await db
+    .collection("estimateShares")
     .where("leadId", "==", leadId)
     .get();
 
   return sharesSnap.docs.map((snapshot) => ({
     id: snapshot.id,
-    ...snapshot.data()
+    ...snapshot.data(),
   }));
 }
 
-async function saveStorageFile(bucket, filePath, buffer, {
-  contentType,
-  downloadToken = null,
-  metadata = {}
-} = {}) {
+async function saveStorageFile(
+  bucket,
+  filePath,
+  buffer,
+  { contentType, downloadToken = null, metadata = {} } = {},
+) {
   const file = bucket.file(filePath);
   const mergedMetadata = {
     contentType,
     cacheControl: "private, max-age=0",
     metadata: {
-      ...metadata
-    }
+      ...metadata,
+    },
   };
 
   if (downloadToken) {
@@ -1556,10 +1876,12 @@ async function saveStorageFile(bucket, filePath, buffer, {
   await file.save(buffer, {
     resumable: false,
     validation: false,
-    metadata: mergedMetadata
+    metadata: mergedMetadata,
   });
 
-  return downloadToken ? storageDownloadUrl(bucket.name, filePath, downloadToken) : "";
+  return downloadToken
+    ? storageDownloadUrl(bucket.name, filePath, downloadToken)
+    : "";
 }
 
 function ensurePdfSpace(doc, minimumSpace = 140) {
@@ -1584,8 +1906,10 @@ function renderPdfParagraph(doc, text, options = {}) {
     .fontSize(fontSize)
     .fillColor(color)
     .text(text, {
-      width: options.width || (doc.page.width - doc.page.margins.left - doc.page.margins.right),
-      lineGap
+      width:
+        options.width ||
+        doc.page.width - doc.page.margins.left - doc.page.margins.right,
+      lineGap,
     });
 
   doc.moveDown(gapAfter / 12);
@@ -1599,25 +1923,17 @@ function renderPdfBulletList(doc, items = [], minimumSpace = 100) {
       .fontSize(11)
       .fillColor("#c5a059")
       .text("•", { continued: true });
-    doc
-      .font("Helvetica")
-      .fontSize(10)
-      .fillColor("#554c43")
-      .text(` ${item}`, {
-        lineGap: 4,
-        indent: 10
-      });
+    doc.font("Helvetica").fontSize(10).fillColor("#554c43").text(` ${item}`, {
+      lineGap: 4,
+      indent: 10,
+    });
     doc.moveDown(0.3);
   });
 }
 
 function renderPdfSectionHeading(doc, title, description = "") {
   ensurePdfSpace(doc, 80);
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(14)
-    .fillColor("#231d17")
-    .text(title);
+  doc.font("Helvetica-Bold").fontSize(14).fillColor("#231d17").text(title);
 
   if (description) {
     doc
@@ -1626,7 +1942,7 @@ function renderPdfSectionHeading(doc, title, description = "") {
       .fontSize(9)
       .fillColor("#7b6f61")
       .text(description, {
-        lineGap: 2
+        lineGap: 2,
       });
   }
 
@@ -1635,34 +1951,45 @@ function renderPdfSectionHeading(doc, title, description = "") {
 
 function renderAgreementLineItems(doc, lineItems = []) {
   if (!lineItems.length) {
-    renderPdfParagraph(doc, "No estimate line items were saved at the time of signature.", {
-      fontSize: 10,
-      color: "#7b6f61"
-    });
+    renderPdfParagraph(
+      doc,
+      "No estimate line items were saved at the time of signature.",
+      {
+        fontSize: 10,
+        color: "#7b6f61",
+      },
+    );
     return;
   }
 
   lineItems.forEach((item) => {
     ensurePdfSpace(doc, 80);
     const title = safeString(item.label) || "Line item";
-    const description = safeString(item.description) || "Scope details to be confirmed.";
+    const description =
+      safeString(item.description) || "Scope details to be confirmed.";
 
     doc
       .font("Helvetica-Bold")
       .fontSize(11)
       .fillColor("#231d17")
       .text(title, doc.page.margins.left, doc.y, {
-        width: doc.page.width - doc.page.margins.left - doc.page.margins.right - 110
+        width:
+          doc.page.width - doc.page.margins.left - doc.page.margins.right - 110,
       });
 
     doc
       .font("Helvetica-Bold")
       .fontSize(11)
       .fillColor("#231d17")
-      .text(formatCurrency(item.amount || 0), doc.page.width - doc.page.margins.right - 110, doc.y - 13, {
-        width: 110,
-        align: "right"
-      });
+      .text(
+        formatCurrency(item.amount || 0),
+        doc.page.width - doc.page.margins.right - 110,
+        doc.y - 13,
+        {
+          width: 110,
+          align: "right",
+        },
+      );
 
     doc
       .moveDown(0.1)
@@ -1670,7 +1997,7 @@ function renderAgreementLineItems(doc, lineItems = []) {
       .fontSize(10)
       .fillColor("#554c43")
       .text(description, {
-        lineGap: 3
+        lineGap: 3,
       });
 
     doc.moveDown(0.65);
@@ -1691,7 +2018,7 @@ function buildAgreementPdfBuffer({
   agreementSnapshot = {},
   signerName,
   signedAt,
-  signatureBuffer
+  signatureBuffer,
 }) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
@@ -1699,8 +2026,8 @@ function buildAgreementPdfBuffer({
       margin: 52,
       info: {
         Title: `Golden Brick signed agreement for ${safeString(leadData.projectAddress || leadData.clientName || "project")}`,
-        Author: "Golden Brick Construction"
-      }
+        Author: "Golden Brick Construction",
+      },
     });
 
     const chunks = [];
@@ -1721,31 +2048,51 @@ function buildAgreementPdfBuffer({
       .fillColor("#231d17")
       .text("Signed estimate agreement");
 
-    renderPdfParagraph(doc, "This PDF captures the exact estimate and agreement snapshot that the client accepted through the Golden Brick client portal.", {
-      fontSize: 10,
-      color: "#554c43",
-      gapAfter: 10
-    });
+    renderPdfParagraph(
+      doc,
+      "This PDF captures the exact estimate and agreement snapshot that the client accepted through the Golden Brick client portal.",
+      {
+        fontSize: 10,
+        color: "#554c43",
+        gapAfter: 10,
+      },
+    );
 
     const summaryRows = [
-      ["Client", safeString(leadData.clientName || projectData.clientName || projectData.customerName || "Client")],
-      ["Property", safeString(leadData.projectAddress || projectData.projectAddress || "To be confirmed")],
-      ["Project type", safeString(leadData.projectType || projectData.projectType || "Renovation scope")],
+      [
+        "Client",
+        safeString(
+          leadData.clientName ||
+            projectData.clientName ||
+            projectData.customerName ||
+            "Client",
+        ),
+      ],
+      [
+        "Property",
+        safeString(
+          leadData.projectAddress ||
+            projectData.projectAddress ||
+            "To be confirmed",
+        ),
+      ],
+      [
+        "Project type",
+        safeString(
+          leadData.projectType || projectData.projectType || "Renovation scope",
+        ),
+      ],
       ["Signed", formatDateTime(signedAt)],
       ["Signer", safeString(signerName)],
-      ["Estimate total", formatCurrency(estimateSnapshot.subtotal || 0)]
+      ["Estimate total", formatCurrency(estimateSnapshot.subtotal || 0)],
     ];
 
     summaryRows.forEach(([label, value]) => {
       ensurePdfSpace(doc, 26);
-      doc
-        .font("Helvetica-Bold")
-        .fontSize(10)
-        .fillColor("#7b6f61")
-        .text(label, {
-          continued: true,
-          width: 90
-        });
+      doc.font("Helvetica-Bold").fontSize(10).fillColor("#7b6f61").text(label, {
+        continued: true,
+        width: 90,
+      });
       doc
         .font("Helvetica")
         .fontSize(10)
@@ -1762,41 +2109,74 @@ function buildAgreementPdfBuffer({
       .stroke();
     doc.moveDown(0.8);
 
-    renderPdfSectionHeading(doc, safeString(estimateSnapshot.subject) || "Estimate overview", "The proposal language below is frozen as accepted by the client.");
+    renderPdfSectionHeading(
+      doc,
+      safeString(estimateSnapshot.subject) || "Estimate overview",
+      "The proposal language below is frozen as accepted by the client.",
+    );
     splitMultilineText(estimateSnapshot.emailBody).forEach((paragraph) => {
       renderPdfParagraph(doc, paragraph, {
         fontSize: 10,
         color: "#554c43",
-        gapAfter: 8
+        gapAfter: 8,
       });
     });
 
-    renderPdfSectionHeading(doc, "Estimate line items", "Each scope line and amount shown here reflects the accepted estimate snapshot.");
+    renderPdfSectionHeading(
+      doc,
+      "Estimate line items",
+      "Each scope line and amount shown here reflects the accepted estimate snapshot.",
+    );
     renderAgreementLineItems(doc, estimateSnapshot.lineItems);
 
-    renderPdfSectionHeading(doc, "Proposal terms", "These are the standard estimate terms included at the time of acceptance.");
-    renderPdfBulletList(doc, splitMultilineText(estimateSnapshot.proposalTerms));
+    renderPdfSectionHeading(
+      doc,
+      "Proposal terms",
+      "These are the standard estimate terms included at the time of acceptance.",
+    );
+    renderPdfBulletList(
+      doc,
+      splitMultilineText(estimateSnapshot.proposalTerms),
+    );
 
-    const assumptions = Array.isArray(estimateSnapshot.assumptions) ? estimateSnapshot.assumptions : [];
-    renderPdfSectionHeading(doc, "Project-specific assumptions and exclusions", "Any deal-specific assumptions recorded on the estimate are preserved here.");
+    const assumptions = Array.isArray(estimateSnapshot.assumptions)
+      ? estimateSnapshot.assumptions
+      : [];
+    renderPdfSectionHeading(
+      doc,
+      "Project-specific assumptions and exclusions",
+      "Any deal-specific assumptions recorded on the estimate are preserved here.",
+    );
     if (assumptions.length) {
       renderPdfBulletList(doc, assumptions);
     } else {
-      renderPdfParagraph(doc, "No project-specific assumptions or exclusions were saved at the time of signature.", {
-        fontSize: 10,
-        color: "#7b6f61"
-      });
+      renderPdfParagraph(
+        doc,
+        "No project-specific assumptions or exclusions were saved at the time of signature.",
+        {
+          fontSize: 10,
+          color: "#7b6f61",
+        },
+      );
     }
 
-    renderPdfSectionHeading(doc, agreementSnapshot.title || "Agreement terms", agreementSnapshot.intro || "");
+    renderPdfSectionHeading(
+      doc,
+      agreementSnapshot.title || "Agreement terms",
+      agreementSnapshot.intro || "",
+    );
     renderPdfBulletList(doc, splitMultilineText(agreementSnapshot.terms));
 
-    renderPdfSectionHeading(doc, "Client signature", "This block records the acceptance captured in the client portal.");
+    renderPdfSectionHeading(
+      doc,
+      "Client signature",
+      "This block records the acceptance captured in the client portal.",
+    );
     if (signatureBuffer?.length) {
       ensurePdfSpace(doc, 120);
       doc.image(signatureBuffer, {
         fit: [190, 70],
-        align: "left"
+        align: "left",
       });
       doc.moveDown(0.4);
     }
@@ -1805,25 +2185,33 @@ function buildAgreementPdfBuffer({
       font: "Helvetica-Bold",
       fontSize: 11,
       color: "#231d17",
-      gapAfter: 4
+      gapAfter: 4,
     });
     renderPdfParagraph(doc, `Signed at: ${formatDateTime(signedAt)}`, {
       fontSize: 10,
       color: "#554c43",
-      gapAfter: 4
+      gapAfter: 4,
     });
-    renderPdfParagraph(doc, "Golden Brick Construction | info@goldenbrickc.com | (267) 715-5557", {
-      fontSize: 9,
-      color: "#7b6f61",
-      gapAfter: 0
-    });
+    renderPdfParagraph(
+      doc,
+      "Golden Brick Construction | info@goldenbrickc.com | (267) 715-5557",
+      {
+        fontSize: 9,
+        color: "#7b6f61",
+        gapAfter: 0,
+      },
+    );
 
     doc.end();
   });
 }
 
 async function addLeadActivity(leadId, data) {
-  const activityRef = db.collection("leads").doc(leadId).collection("activities").doc();
+  const activityRef = db
+    .collection("leads")
+    .doc(leadId)
+    .collection("activities")
+    .doc();
 
   await activityRef.set({
     ...data,
@@ -1831,12 +2219,16 @@ async function addLeadActivity(leadId, data) {
     title: safeString(data.title),
     activityType: safeString(data.activityType) || "system",
     visibility: safeString(data.visibility) || "staff",
-    createdAt: FieldValue.serverTimestamp()
+    createdAt: FieldValue.serverTimestamp(),
   });
 }
 
 async function addProjectActivity(projectId, data) {
-  const activityRef = db.collection("projects").doc(projectId).collection("activities").doc();
+  const activityRef = db
+    .collection("projects")
+    .doc(projectId)
+    .collection("activities")
+    .doc();
 
   await activityRef.set({
     ...data,
@@ -1844,7 +2236,7 @@ async function addProjectActivity(projectId, data) {
     title: safeString(data.title),
     activityType: safeString(data.activityType) || "system",
     visibility: safeString(data.visibility) || "staff",
-    createdAt: FieldValue.serverTimestamp()
+    createdAt: FieldValue.serverTimestamp(),
   });
 }
 
@@ -1901,7 +2293,7 @@ async function verifyStaffRequest(request) {
   if (userSnap.exists && userSnap.data().active === true) {
     return {
       token: decoded,
-      profile: serialiseStaffProfile(userSnap.data())
+      profile: serialiseStaffProfile(userSnap.data()),
     };
   }
 
@@ -1909,14 +2301,19 @@ async function verifyStaffRequest(request) {
     throw new Error("User is not authorised for the staff portal.");
   }
 
-  const allowedSnap = await db.collection("allowedStaff").doc(sanitizeEmailKey(email)).get();
+  const allowedSnap = await db
+    .collection("allowedStaff")
+    .doc(sanitizeEmailKey(email))
+    .get();
   if (!allowedSnap.exists || allowedSnap.data().active !== true) {
     throw new Error("User is not authorised for the staff portal.");
   }
 
   return {
     token: decoded,
-    profile: serialiseStaffProfile(buildStaffProfile(decoded, allowedSnap.data()))
+    profile: serialiseStaffProfile(
+      buildStaffProfile(decoded, allowedSnap.data()),
+    ),
   };
 }
 
@@ -1931,7 +2328,9 @@ async function verifyLeadStaffAccess(leadId, profile = {}) {
   }
 
   const leadData = leadSnap.data();
-  const canAccess = profile.role === "admin" || safeString(leadData.assignedToUid) === safeString(profile.uid);
+  const canAccess =
+    profile.role === "admin" ||
+    safeString(leadData.assignedToUid) === safeString(profile.uid);
 
   if (!canAccess) {
     const error = new Error("You do not have access to this lead.");
@@ -1947,7 +2346,7 @@ async function ensureProjectForLead({
   leadRef,
   leadData,
   actorProfile = {},
-  allowAmbiguousCustomerCreate = false
+  allowAmbiguousCustomerCreate = false,
 }) {
   const projectRef = db.collection("projects").doc(leadId);
   const existingProjectSnap = await projectRef.get();
@@ -1956,25 +2355,33 @@ async function ensureProjectForLead({
   if (customerLink.matchResult === "review_required") {
     if (allowAmbiguousCustomerCreate) {
       const customerRef = db.collection("customers").doc();
-      const createdCustomer = await ensureCustomerDocument(customerRef, leadData);
-      await leadRef.set({
-        customerId: createdCustomer.id,
-        customerName: createdCustomer.name,
-        customerMatchResult: "created",
-        customerReviewRequired: false,
-        customerMatchIds: [createdCustomer.id],
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
+      const createdCustomer = await ensureCustomerDocument(
+        customerRef,
+        leadData,
+      );
+      await leadRef.set(
+        {
+          customerId: createdCustomer.id,
+          customerName: createdCustomer.name,
+          customerMatchResult: "created",
+          customerReviewRequired: false,
+          customerMatchIds: [createdCustomer.id],
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
 
       customerLink = {
         customerId: createdCustomer.id,
         customerName: createdCustomer.name,
         matchResult: "created",
         reviewRequired: false,
-        customerMatchIds: [createdCustomer.id]
+        customerMatchIds: [createdCustomer.id],
       };
     } else {
-      const error = new Error("Customer review is required before converting this lead.");
+      const error = new Error(
+        "Customer review is required before converting this lead.",
+      );
       error.status = 409;
       error.matchResult = customerLink.matchResult;
       error.customerMatchIds = customerLink.customerMatchIds;
@@ -1983,7 +2390,9 @@ async function ensureProjectForLead({
   }
 
   if (customerLink.matchResult === "review_required") {
-    const error = new Error("Customer review is required before converting this lead.");
+    const error = new Error(
+      "Customer review is required before converting this lead.",
+    );
     error.status = 409;
     error.matchResult = customerLink.matchResult;
     error.customerMatchIds = customerLink.customerMatchIds;
@@ -1991,28 +2400,31 @@ async function ensureProjectForLead({
   }
 
   if (existingProjectSnap.exists) {
-    await leadRef.set({
-      status: "closed_won",
-      statusLabel: statusLabel("closed_won"),
-      customerId: customerLink.customerId,
-      customerName: customerLink.customerName,
-      wonProjectId: leadId,
-      updatedAt: FieldValue.serverTimestamp()
-    }, { merge: true });
+    await leadRef.set(
+      {
+        status: "closed_won",
+        statusLabel: statusLabel("closed_won"),
+        customerId: customerLink.customerId,
+        customerName: customerLink.customerName,
+        wonProjectId: leadId,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
 
     const existingProjectData = {
       id: leadId,
-      ...(existingProjectSnap.data() || {})
+      ...(existingProjectSnap.data() || {}),
     };
 
     await Promise.all([
       syncRecordDocumentLinksForLead(leadId, {
         ...leadData,
         customerId: customerLink.customerId,
-        wonProjectId: leadId
+        wonProjectId: leadId,
       }),
       syncRecordDocumentLinksForProject(leadId, existingProjectData),
-      ensureProjectRecordDocumentMigration(leadId, existingProjectData)
+      ensureProjectRecordDocumentMigration(leadId, existingProjectData),
     ]);
 
     return {
@@ -2021,82 +2433,112 @@ async function ensureProjectForLead({
       scopeItemCount: 0,
       customerLink,
       projectRef,
-      projectData: existingProjectData
+      projectData: existingProjectData,
     };
   }
 
   const [refreshedLeadSnap, estimateSnap] = await Promise.all([
     leadRef.get(),
-    db.collection("estimates").doc(leadId).get()
+    db.collection("estimates").doc(leadId).get(),
   ]);
   const refreshedLead = refreshedLeadSnap.data() || leadData;
   const estimateData = estimateSnap.exists ? estimateSnap.data() : null;
-  const leadOwnerUid = safeString(refreshedLead.assignedToUid || actorProfile.uid);
-  const leadOwnerName = safeString(refreshedLead.assignedToName || actorProfile.displayName || actorProfile.email);
-  const leadOwnerEmail = normaliseEmail(refreshedLead.assignedToEmail || actorProfile.email);
-  const assignedWorkers = leadOwnerUid ? [{
-    uid: leadOwnerUid,
-    name: leadOwnerName,
-    email: leadOwnerEmail,
-    percent: 100
-  }] : [];
+  const leadOwnerUid = safeString(
+    refreshedLead.assignedToUid || actorProfile.uid,
+  );
+  const leadOwnerName = safeString(
+    refreshedLead.assignedToName ||
+      actorProfile.displayName ||
+      actorProfile.email,
+  );
+  const leadOwnerEmail = normaliseEmail(
+    refreshedLead.assignedToEmail || actorProfile.email,
+  );
+  const assignedWorkers = leadOwnerUid
+    ? [
+        {
+          uid: leadOwnerUid,
+          name: leadOwnerName,
+          email: leadOwnerEmail,
+          percent: 100,
+        },
+      ]
+    : [];
   const allowedStaffUids = uniqueValues([
     leadOwnerUid,
-    ...assignedWorkers.map((worker) => worker.uid)
+    ...assignedWorkers.map((worker) => worker.uid),
   ]);
   const batch = db.batch();
   const initialSummary = computeFinanceSummary(
     {
       baseContractValue: toNumber(refreshedLead.estimateSubtotal || 0),
-      assignedWorkers
+      assignedWorkers,
     },
     [],
     [],
-    []
+    [],
   );
-  const scopeItemCount = queueProjectScopeSnapshot(batch, projectRef, leadId, estimateData, actorProfile);
-
-  batch.set(projectRef, {
-    id: leadId,
+  const scopeItemCount = queueProjectScopeSnapshot(
+    batch,
+    projectRef,
     leadId,
-    customerId: customerLink.customerId,
-    customerName: customerLink.customerName,
-    clientName: safeString(refreshedLead.clientName),
-    clientEmail: normaliseEmail(refreshedLead.clientEmail),
-    clientPhone: safeString(refreshedLead.clientPhone),
-    projectAddress: safeString(refreshedLead.projectAddress),
-    projectType: safeString(refreshedLead.projectType),
-    status: "in_progress",
-    baseContractValue: initialSummary.baseContractValue,
-    approvedChangeOrdersTotal: initialSummary.approvedChangeOrdersTotal,
-    totalContractRevenue: initialSummary.totalContractRevenue,
-    cashPosition: initialSummary.cashPosition,
-    balanceRemaining: initialSummary.balanceRemaining,
-    jobValue: initialSummary.totalContractRevenue,
-    assignedLeadOwnerUid: leadOwnerUid || null,
-    assignedWorkers,
-    assignedWorkerIds: assignedWorkers.map((worker) => worker.uid).filter(Boolean),
-    allowedStaffUids,
-    phaseLabel: "Planning and construction",
-    nextStep: "Golden Brick will confirm the next planning or construction step directly in the client portal.",
-    sharedStatusNote: "Your project record is open and the team will keep updates, billing, and documents organized here.",
-    targetDate: null,
-    targetWindow: "",
-    commissionLocked: false,
-    lockedCommissionSnapshot: null,
-    financials: initialSummary,
-    createdAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp()
-  }, { merge: true });
+    estimateData,
+    actorProfile,
+  );
 
-  batch.set(leadRef, {
-    status: "closed_won",
-    statusLabel: statusLabel("closed_won"),
-    customerId: customerLink.customerId,
-    customerName: customerLink.customerName,
-    wonProjectId: leadId,
-    updatedAt: FieldValue.serverTimestamp()
-  }, { merge: true });
+  batch.set(
+    projectRef,
+    {
+      id: leadId,
+      leadId,
+      customerId: customerLink.customerId,
+      customerName: customerLink.customerName,
+      clientName: safeString(refreshedLead.clientName),
+      clientEmail: normaliseEmail(refreshedLead.clientEmail),
+      clientPhone: safeString(refreshedLead.clientPhone),
+      projectAddress: safeString(refreshedLead.projectAddress),
+      projectType: safeString(refreshedLead.projectType),
+      status: "in_progress",
+      baseContractValue: initialSummary.baseContractValue,
+      approvedChangeOrdersTotal: initialSummary.approvedChangeOrdersTotal,
+      totalContractRevenue: initialSummary.totalContractRevenue,
+      cashPosition: initialSummary.cashPosition,
+      balanceRemaining: initialSummary.balanceRemaining,
+      jobValue: initialSummary.totalContractRevenue,
+      assignedLeadOwnerUid: leadOwnerUid || null,
+      assignedWorkers,
+      assignedWorkerIds: assignedWorkers
+        .map((worker) => worker.uid)
+        .filter(Boolean),
+      allowedStaffUids,
+      phaseLabel: "Planning and construction",
+      nextStep:
+        "Golden Brick will confirm the next planning or construction step directly in the client portal.",
+      sharedStatusNote:
+        "Your project record is open and the team will keep updates, billing, and documents organized here.",
+      targetDate: null,
+      targetWindow: "",
+      commissionLocked: false,
+      lockedCommissionSnapshot: null,
+      financials: initialSummary,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  batch.set(
+    leadRef,
+    {
+      status: "closed_won",
+      statusLabel: statusLabel("closed_won"),
+      customerId: customerLink.customerId,
+      customerName: customerLink.customerName,
+      wonProjectId: leadId,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
 
   await batch.commit();
 
@@ -2111,17 +2553,17 @@ async function ensureProjectForLead({
     projectAddress: safeString(refreshedLead.projectAddress),
     projectType: safeString(refreshedLead.projectType),
     status: "in_progress",
-    financials: initialSummary
+    financials: initialSummary,
   };
 
   await Promise.all([
     syncRecordDocumentLinksForLead(leadId, {
       ...refreshedLead,
       customerId: customerLink.customerId,
-      wonProjectId: leadId
+      wonProjectId: leadId,
     }),
     syncRecordDocumentLinksForProject(leadId, createdProjectData),
-    ensureProjectRecordDocumentMigration(leadId, createdProjectData)
+    ensureProjectRecordDocumentMigration(leadId, createdProjectData),
   ]);
 
   return {
@@ -2130,7 +2572,7 @@ async function ensureProjectForLead({
     scopeItemCount,
     customerLink,
     projectRef,
-    projectData: createdProjectData
+    projectData: createdProjectData,
   };
 }
 
@@ -2140,7 +2582,7 @@ function buildPublicEstimatePayload({
   leadData,
   estimateSnapshot,
   agreementSnapshot,
-  signedAgreement = null
+  signedAgreement = null,
 }) {
   return {
     ok: true,
@@ -2151,26 +2593,32 @@ function buildPublicEstimatePayload({
       projectAddress: safeString(leadData.projectAddress),
       projectType: safeString(leadData.projectType),
       clientEmail: normaliseEmail(leadData.clientEmail),
-      clientPhone: safeString(leadData.clientPhone)
+      clientPhone: safeString(leadData.clientPhone),
     },
     estimate: {
       subject: safeString(estimateSnapshot.subject),
       emailBody: safeString(estimateSnapshot.emailBody),
-      lineItems: Array.isArray(estimateSnapshot.lineItems) ? estimateSnapshot.lineItems : [],
+      lineItems: Array.isArray(estimateSnapshot.lineItems)
+        ? estimateSnapshot.lineItems
+        : [],
       subtotal: toNumber(estimateSnapshot.subtotal),
-      assumptions: Array.isArray(estimateSnapshot.assumptions) ? estimateSnapshot.assumptions : [],
-      terms: splitMultilineText(estimateSnapshot.proposalTerms)
+      assumptions: Array.isArray(estimateSnapshot.assumptions)
+        ? estimateSnapshot.assumptions
+        : [],
+      terms: splitMultilineText(estimateSnapshot.proposalTerms),
     },
     agreement: {
       title: safeString(agreementSnapshot.title),
       intro: safeString(agreementSnapshot.intro),
-      terms: splitMultilineText(agreementSnapshot.terms)
+      terms: splitMultilineText(agreementSnapshot.terms),
     },
-    signature: signedAgreement ? {
-      signerName: safeString(signedAgreement.signerName),
-      signedAt: serialiseDateValue(signedAgreement.signedAt),
-      downloadHref: buildPublicAgreementDownloadHref(request, shareData.id)
-    } : null
+    signature: signedAgreement
+      ? {
+          signerName: safeString(signedAgreement.signerName),
+          signedAt: serialiseDateValue(signedAgreement.signedAt),
+          downloadHref: buildPublicAgreementDownloadHref(request, shareData.id),
+        }
+      : null,
   };
 }
 
@@ -2187,7 +2635,7 @@ async function fetchEstimateShareContext(token) {
 
   const shareData = {
     id: shareSnap.id,
-    ...shareSnap.data()
+    ...shareSnap.data(),
   };
 
   if (safeString(shareData.type || "estimate") !== "estimate") {
@@ -2198,13 +2646,15 @@ async function fetchEstimateShareContext(token) {
 
   return {
     shareRef,
-    shareData
+    shareData,
   };
 }
 
 function vendorBillShouldMirrorExpense(vendorBillData = {}) {
-  return safeString(vendorBillData.projectId) !== ""
-    && normaliseVendorBillStatus(vendorBillData.status) !== "void";
+  return (
+    safeString(vendorBillData.projectId) !== "" &&
+    normaliseVendorBillStatus(vendorBillData.status) !== "void"
+  );
 }
 
 async function deleteMirroredVendorExpense(projectId, billId) {
@@ -2212,10 +2662,19 @@ async function deleteMirroredVendorExpense(projectId, billId) {
     return;
   }
 
-  await db.collection("projects").doc(projectId).collection("expenses").doc(billId).delete();
+  await db
+    .collection("projects")
+    .doc(projectId)
+    .collection("expenses")
+    .doc(billId)
+    .delete();
 }
 
-function buildMirroredVendorExpensePayload(vendorBillId, vendorBillData = {}, existingExpense = {}) {
+function buildMirroredVendorExpensePayload(
+  vendorBillId,
+  vendorBillData = {},
+  existingExpense = {},
+) {
   return {
     id: vendorBillId,
     amount: toNumber(vendorBillData.amount),
@@ -2227,31 +2686,60 @@ function buildMirroredVendorExpensePayload(vendorBillId, vendorBillData = {}, ex
     billStatus: normaliseVendorBillStatus(vendorBillData.status),
     source: "vendor_bill",
     note: safeString(vendorBillData.note),
-    relatedDate: vendorBillData.dueDate || vendorBillData.invoiceDate || existingExpense.relatedDate || FieldValue.serverTimestamp(),
+    relatedDate:
+      vendorBillData.dueDate ||
+      vendorBillData.invoiceDate ||
+      existingExpense.relatedDate ||
+      FieldValue.serverTimestamp(),
     receiptDocumentId: safeString(vendorBillData.invoiceDocumentId) || null,
-    receiptTitle: safeString(vendorBillData.invoiceTitle || vendorBillData.billNumber || "Vendor invoice"),
-    receiptUrl: safeString(vendorBillData.invoiceFileUrl || vendorBillData.invoiceExternalUrl),
-    createdByUid: safeString(vendorBillData.createdByUid || existingExpense.createdByUid || "system"),
-    createdByName: safeString(vendorBillData.createdByName || existingExpense.createdByName || "Golden Brick System"),
-    createdAt: existingExpense.createdAt || vendorBillData.createdAt || FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp()
+    receiptTitle: safeString(
+      vendorBillData.invoiceTitle ||
+        vendorBillData.billNumber ||
+        "Vendor invoice",
+    ),
+    receiptUrl: safeString(
+      vendorBillData.invoiceFileUrl || vendorBillData.invoiceExternalUrl,
+    ),
+    createdByUid: safeString(
+      vendorBillData.createdByUid || existingExpense.createdByUid || "system",
+    ),
+    createdByName: safeString(
+      vendorBillData.createdByName ||
+        existingExpense.createdByName ||
+        "Golden Brick System",
+    ),
+    createdAt:
+      existingExpense.createdAt ||
+      vendorBillData.createdAt ||
+      FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   };
 }
 
-async function syncVendorBillExpenseMirror(vendorBillId, beforeData = {}, afterData = {}) {
+async function syncVendorBillExpenseMirror(
+  vendorBillId,
+  beforeData = {},
+  afterData = {},
+) {
   const beforeProjectId = safeString(beforeData.projectId);
   const afterProjectId = safeString(afterData.projectId);
   const shouldMirrorAfter = vendorBillShouldMirrorExpense(afterData);
 
-  if (beforeProjectId && (!shouldMirrorAfter || beforeProjectId !== afterProjectId)) {
+  if (
+    beforeProjectId &&
+    (!shouldMirrorAfter || beforeProjectId !== afterProjectId)
+  ) {
     await deleteMirroredVendorExpense(beforeProjectId, vendorBillId);
   }
 
   if (!shouldMirrorAfter) {
     if (safeString(afterData.linkedExpenseId) !== "") {
-      await db.collection("vendorBills").doc(vendorBillId).set({
-        linkedExpenseId: null
-      }, { merge: true });
+      await db.collection("vendorBills").doc(vendorBillId).set(
+        {
+          linkedExpenseId: null,
+        },
+        { merge: true },
+      );
     }
     return;
   }
@@ -2260,10 +2748,13 @@ async function syncVendorBillExpenseMirror(vendorBillId, beforeData = {}, afterD
   const projectSnap = await projectRef.get();
 
   if (!projectSnap.exists) {
-    logger.warn("Vendor bill mirror skipped because the linked project does not exist.", {
-      vendorBillId,
-      projectId: afterProjectId
-    });
+    logger.warn(
+      "Vendor bill mirror skipped because the linked project does not exist.",
+      {
+        vendorBillId,
+        projectId: afterProjectId,
+      },
+    );
     return;
   }
 
@@ -2273,13 +2764,16 @@ async function syncVendorBillExpenseMirror(vendorBillId, beforeData = {}, afterD
 
   await expenseRef.set(
     buildMirroredVendorExpensePayload(vendorBillId, afterData, existingExpense),
-    { merge: true }
+    { merge: true },
   );
 
   if (safeString(afterData.linkedExpenseId) !== vendorBillId) {
-    await db.collection("vendorBills").doc(vendorBillId).set({
-      linkedExpenseId: vendorBillId
-    }, { merge: true });
+    await db.collection("vendorBills").doc(vendorBillId).set(
+      {
+        linkedExpenseId: vendorBillId,
+      },
+      { merge: true },
+    );
   }
 }
 
@@ -2294,14 +2788,14 @@ async function syncProjectFinancials(projectId) {
   const [expensesSnap, paymentsSnap, changeOrdersSnap] = await Promise.all([
     projectRef.collection("expenses").get(),
     projectRef.collection("payments").get(),
-    projectRef.collection("changeOrders").get()
+    projectRef.collection("changeOrders").get(),
   ]);
 
   const summary = computeFinanceSummary(
     projectSnap.data(),
     expensesSnap.docs.map((snapshot) => snapshot.data()),
     paymentsSnap.docs.map((snapshot) => snapshot.data()),
-    changeOrdersSnap.docs.map((snapshot) => snapshot.data())
+    changeOrdersSnap.docs.map((snapshot) => snapshot.data()),
   );
   const projectData = projectSnap.data() || {};
   const updates = {
@@ -2312,10 +2806,11 @@ async function syncProjectFinancials(projectId) {
     balanceRemaining: summary.balanceRemaining,
     jobValue: summary.totalContractRevenue,
     financials: summary,
-    updatedAt: FieldValue.serverTimestamp()
+    updatedAt: FieldValue.serverTimestamp(),
   };
-  const shouldAutoLockCommission = projectData.commissionLocked !== true
-    && safeString(projectData.status) === "completed";
+  const shouldAutoLockCommission =
+    projectData.commissionLocked !== true &&
+    safeString(projectData.status) === "completed";
 
   if (shouldAutoLockCommission) {
     updates.commissionLocked = true;
@@ -2331,7 +2826,7 @@ async function syncProjectFinancials(projectId) {
       body: "The job was marked completed and the payout snapshot was locked.",
       actorName: "Golden Brick System",
       actorUid: "system",
-      actorRole: "system"
+      actorRole: "system",
     });
   }
 }
@@ -2348,17 +2843,29 @@ async function syncCustomerSummary(customerId) {
 
   const [leadSnap, projectSnap] = await Promise.all([
     db.collection("leads").where("customerId", "==", customerId).get(),
-    db.collection("projects").where("customerId", "==", customerId).get()
+    db.collection("projects").where("customerId", "==", customerId).get(),
   ]);
 
-  const leads = leadSnap.docs.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }));
-  const projects = projectSnap.docs.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }));
+  const leads = leadSnap.docs.map((snapshot) => ({
+    id: snapshot.id,
+    ...snapshot.data(),
+  }));
+  const projects = projectSnap.docs.map((snapshot) => ({
+    id: snapshot.id,
+    ...snapshot.data(),
+  }));
   const existing = customerSnap.data() || {};
   const latestLead = latestByUpdated(leads);
   const latestProject = latestByUpdated(projects);
-  const openLeads = leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status));
-  const wonLeadIds = leads.filter((lead) => lead.status === "closed_won").map((lead) => lead.id);
-  const lostLeadIds = leads.filter((lead) => lead.status === "closed_lost").map((lead) => lead.id);
+  const openLeads = leads.filter((lead) =>
+    ["new_lead", "follow_up", "estimate_sent"].includes(lead.status),
+  );
+  const wonLeadIds = leads
+    .filter((lead) => lead.status === "closed_won")
+    .map((lead) => lead.id);
+  const lostLeadIds = leads
+    .filter((lead) => lead.status === "closed_lost")
+    .map((lead) => lead.id);
   const leadIds = leads.map((lead) => lead.id);
   const jobIds = projects.map((project) => project.id);
   const allowedStaffUids = uniqueValues([
@@ -2366,41 +2873,87 @@ async function syncCustomerSummary(customerId) {
     ...projects.flatMap((project) => [
       project.assignedLeadOwnerUid,
       ...(project.assignedWorkerIds || []),
-      ...((project.allowedStaffUids || []))
-    ])
+      ...(project.allowedStaffUids || []),
+    ]),
   ]);
-  const estimateLead = latestByUpdated(openLeads.filter((lead) => Boolean(lead.hasEstimate)));
+  const estimateLead = latestByUpdated(
+    openLeads.filter((lead) => Boolean(lead.hasEstimate)),
+  );
   const totalWonSales = projects.reduce((sum, project) => {
-    return sum + toNumber(project.totalContractRevenue || project.jobValue || project.baseContractValue || 0);
+    return (
+      sum +
+      toNumber(
+        project.totalContractRevenue ||
+          project.jobValue ||
+          project.baseContractValue ||
+          0,
+      )
+    );
   }, 0);
-  const totalPaymentsReceived = projects.reduce((sum, project) => sum + toNumber(project.financials && project.financials.totalPayments), 0);
+  const totalPaymentsReceived = projects.reduce(
+    (sum, project) =>
+      sum + toNumber(project.financials && project.financials.totalPayments),
+    0,
+  );
 
-  await customerRef.set({
-    name: safeString(existing.name || latestLead?.clientName || latestProject?.clientName || "Unnamed customer"),
-    primaryEmail: safeString(existing.primaryEmail || latestLead?.clientEmail || latestProject?.clientEmail),
-    primaryPhone: safeString(existing.primaryPhone || latestLead?.clientPhone || latestProject?.clientPhone),
-    primaryAddress: safeString(existing.primaryAddress || latestLead?.projectAddress || latestProject?.projectAddress),
-    searchEmail: normaliseEmail(existing.searchEmail || existing.primaryEmail || latestLead?.clientEmail || latestProject?.clientEmail),
-    searchPhone: normalisePhone(existing.searchPhone || existing.primaryPhone || latestLead?.clientPhone || latestProject?.clientPhone),
-    leadIds,
-    jobIds,
-    openLeadIds: openLeads.map((lead) => lead.id),
-    wonLeadIds,
-    lostLeadIds,
-    openOpportunityCount: openLeads.length,
-    wonJobCount: projects.length,
-    lostLeadCount: lostLeadIds.length,
-    currentEstimateLeadId: estimateLead ? estimateLead.id : null,
-    totalWonSales: Number(totalWonSales.toFixed(2)),
-    totalPaymentsReceived: Number(totalPaymentsReceived.toFixed(2)),
-    allowedStaffUids,
-    updatedAt: FieldValue.serverTimestamp()
-  }, { merge: true });
+  await customerRef.set(
+    {
+      name: safeString(
+        existing.name ||
+          latestLead?.clientName ||
+          latestProject?.clientName ||
+          "Unnamed customer",
+      ),
+      primaryEmail: safeString(
+        existing.primaryEmail ||
+          latestLead?.clientEmail ||
+          latestProject?.clientEmail,
+      ),
+      primaryPhone: safeString(
+        existing.primaryPhone ||
+          latestLead?.clientPhone ||
+          latestProject?.clientPhone,
+      ),
+      primaryAddress: safeString(
+        existing.primaryAddress ||
+          latestLead?.projectAddress ||
+          latestProject?.projectAddress,
+      ),
+      searchEmail: normaliseEmail(
+        existing.searchEmail ||
+          existing.primaryEmail ||
+          latestLead?.clientEmail ||
+          latestProject?.clientEmail,
+      ),
+      searchPhone: normalisePhone(
+        existing.searchPhone ||
+          existing.primaryPhone ||
+          latestLead?.clientPhone ||
+          latestProject?.clientPhone,
+      ),
+      leadIds,
+      jobIds,
+      openLeadIds: openLeads.map((lead) => lead.id),
+      wonLeadIds,
+      lostLeadIds,
+      openOpportunityCount: openLeads.length,
+      wonJobCount: projects.length,
+      lostLeadCount: lostLeadIds.length,
+      currentEstimateLeadId: estimateLead ? estimateLead.id : null,
+      totalWonSales: Number(totalWonSales.toFixed(2)),
+      totalPaymentsReceived: Number(totalPaymentsReceived.toFixed(2)),
+      allowedStaffUids,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
 }
 
 function buildServiceOrderInvoiceNumber(projectId, issueDate = new Date()) {
   const projectKey = safeString(projectId).slice(-4).toUpperCase() || "JOB";
-  const datePart = new Intl.DateTimeFormat("en-CA").format(issueDate).replaceAll("-", "");
+  const datePart = new Intl.DateTimeFormat("en-CA")
+    .format(issueDate)
+    .replaceAll("-", "");
   return `GB-${datePart}-${projectKey}-SO1`;
 }
 
@@ -2408,7 +2961,7 @@ async function createServiceOrderArtifacts({
   payload = {},
   serviceTemplate,
   customerLink,
-  actorProfile = {}
+  actorProfile = {},
 }) {
   const createdAt = FieldValue.serverTimestamp();
   const projectRef = db.collection("projects").doc();
@@ -2418,37 +2971,45 @@ async function createServiceOrderArtifacts({
   const ownerUid = safeString(payload.assignedLeadOwnerUid || actorProfile.uid);
   const requestedWorkerUids = uniqueValues([
     ownerUid,
-    ...(Array.isArray(payload.assignedWorkerUids) ? payload.assignedWorkerUids : [])
+    ...(Array.isArray(payload.assignedWorkerUids)
+      ? payload.assignedWorkerUids
+      : []),
   ]);
   const staffProfiles = await fetchStaffSummariesByUid(requestedWorkerUids);
-  const assignedWorkers = buildAssignedWorkers(staffProfiles, ownerUid, actorProfile);
+  const assignedWorkers = buildAssignedWorkers(
+    staffProfiles,
+    ownerUid,
+    actorProfile,
+  );
   const allowedStaffUids = uniqueValues([
     ownerUid,
-    ...assignedWorkers.map((worker) => worker.uid)
+    ...assignedWorkers.map((worker) => worker.uid),
   ]);
   const lineItems = serviceTemplateLineItemsForAmount(
     serviceTemplate,
-    payload.priceOverride
+    payload.priceOverride,
   );
   const subtotal = Number(
-    lineItems.reduce((sum, item) => sum + toNumber(item.amount), 0).toFixed(2)
+    lineItems.reduce((sum, item) => sum + toNumber(item.amount), 0).toFixed(2),
   );
   const financials = computeFinanceSummary(
     {
       baseContractValue: subtotal,
-      assignedWorkers
+      assignedWorkers,
     },
     [],
     [],
-    []
+    [],
   );
   const paymentRequirement =
-    safeString(payload.paymentRequirement || serviceTemplate.defaultPaymentRequirement) || "upfront_required";
+    safeString(
+      payload.paymentRequirement || serviceTemplate.defaultPaymentRequirement,
+    ) || "upfront_required";
   const billingStatus = serviceOrderBillingStatus(
     paymentRequirement,
     financials.totalContractRevenue,
     0,
-    false
+    false,
   );
   const serviceTemplateSnapshot = {
     id: serviceTemplate.id,
@@ -2457,10 +3018,12 @@ async function createServiceOrderArtifacts({
     defaultPrice: toNumber(serviceTemplate.defaultPrice),
     defaultSummary: safeString(serviceTemplate.defaultSummary),
     defaultPlanningNotes: safeString(serviceTemplate.defaultPlanningNotes),
-    defaultPaymentRequirement: safeString(serviceTemplate.defaultPaymentRequirement),
+    defaultPaymentRequirement: safeString(
+      serviceTemplate.defaultPaymentRequirement,
+    ),
     defaultInvoiceLines: serviceTemplate.defaultInvoiceLines || [],
     resolvedLineItems: lineItems,
-    resolvedSubtotal: subtotal
+    resolvedSubtotal: subtotal,
   };
   const projectPayload = {
     id: projectRef.id,
@@ -2487,20 +3050,24 @@ async function createServiceOrderArtifacts({
     jobValue: financials.totalContractRevenue,
     assignedLeadOwnerUid: ownerUid || null,
     assignedWorkers,
-    assignedWorkerIds: assignedWorkers.map((worker) => worker.uid).filter(Boolean),
+    assignedWorkerIds: assignedWorkers
+      .map((worker) => worker.uid)
+      .filter(Boolean),
     allowedStaffUids,
     phaseLabel: "Service order",
-    nextStep: paymentRequirement === "upfront_required"
-      ? "Generate and send the payment link before starting delivery."
-      : "Delivery can begin now or once the client approves the scope.",
-    sharedStatusNote: paymentRequirement === "upfront_required"
-      ? "This service order is ready. Send the Stripe payment link from the invoice tab to collect payment."
-      : "This service order is open. The team can begin work and collect payment using the invoice tab when ready.",
+    nextStep:
+      paymentRequirement === "upfront_required"
+        ? "Generate and send the payment link before starting delivery."
+        : "Delivery can begin now or once the client approves the scope.",
+    sharedStatusNote:
+      paymentRequirement === "upfront_required"
+        ? "This service order is ready. Send the Stripe payment link from the invoice tab to collect payment."
+        : "This service order is open. The team can begin work and collect payment using the invoice tab when ready.",
     commissionLocked: false,
     lockedCommissionSnapshot: null,
     financials,
     createdAt,
-    updatedAt: createdAt
+    updatedAt: createdAt,
   };
   const invoiceRef = projectRef.collection("invoices").doc();
   const invoicePayload = {
@@ -2521,18 +3088,26 @@ async function createServiceOrderArtifacts({
     customFields: [
       {
         label: "Service",
-        value: safeString(serviceTemplate.clientTitle || serviceTemplate.internalName || "Service order")
+        value: safeString(
+          serviceTemplate.clientTitle ||
+            serviceTemplate.internalName ||
+            "Service order",
+        ),
       },
       {
         label: "Billing",
-        value: paymentRequirement === "upfront_required" ? "Upfront payment required" : "Can pay later"
-      }
+        value:
+          paymentRequirement === "upfront_required"
+            ? "Upfront payment required"
+            : "Can pay later",
+      },
     ],
     lineItems,
     subtotal,
-    notes: paymentRequirement === "upfront_required"
-      ? "Payment is required before delivery begins. Use the Golden Brick payment link when you are ready to collect."
-      : "This invoice can be sent now or after delivery, depending on the service arrangement.",
+    notes:
+      paymentRequirement === "upfront_required"
+        ? "Payment is required before delivery begins. Use the Golden Brick payment link when you are ready to collect."
+        : "This invoice can be sent now or after delivery, depending on the service arrangement.",
     paymentRequirement,
     paidAt: null,
     paymentMethod: "",
@@ -2550,24 +3125,32 @@ async function createServiceOrderArtifacts({
       customFields: [
         {
           label: "Service",
-          value: safeString(serviceTemplate.clientTitle || serviceTemplate.internalName || "Service order")
+          value: safeString(
+            serviceTemplate.clientTitle ||
+              serviceTemplate.internalName ||
+              "Service order",
+          ),
         },
         {
           label: "Billing",
-          value: paymentRequirement === "upfront_required" ? "Upfront payment required" : "Can pay later"
-        }
+          value:
+            paymentRequirement === "upfront_required"
+              ? "Upfront payment required"
+              : "Can pay later",
+        },
       ],
       lineItems,
       subtotal,
-      notes: paymentRequirement === "upfront_required"
-        ? "Payment is required before delivery begins. Use the Golden Brick payment link when you are ready to collect."
-        : "This invoice can be sent now or after delivery, depending on the service arrangement."
+      notes:
+        paymentRequirement === "upfront_required"
+          ? "Payment is required before delivery begins. Use the Golden Brick payment link when you are ready to collect."
+          : "This invoice can be sent now or after delivery, depending on the service arrangement.",
     }),
     stripeLinkCreatedAt: null,
     createdAt,
     updatedAt: createdAt,
     createdByUid: actorProfile.uid,
-    createdByName: actorProfile.displayName
+    createdByName: actorProfile.displayName,
   };
 
   const batch = db.batch();
@@ -2581,7 +3164,7 @@ async function createServiceOrderArtifacts({
     body: `${safeString(serviceTemplate.clientTitle || serviceTemplate.internalName || "Service order")} was opened with a draft invoice for ${formatCurrency(subtotal)}.`,
     actorName: actorProfile.displayName,
     actorUid: actorProfile.uid,
-    actorRole: actorProfile.role
+    actorRole: actorProfile.role,
   });
 
   return {
@@ -2590,7 +3173,7 @@ async function createServiceOrderArtifacts({
     projectPayload,
     invoicePayload,
     billingStatus,
-    subtotal
+    subtotal,
   };
 }
 
@@ -2605,7 +3188,7 @@ async function expireCheckoutSessionIfNeeded(stripe, sessionId) {
   } catch (error) {
     logger.warn("Stripe checkout session could not be expired.", {
       sessionId: checkoutSessionId,
-      error: error?.message || String(error)
+      error: error?.message || String(error),
     });
   }
 }
@@ -2614,7 +3197,6 @@ exports.createServiceOrder = onRequest(
   {
     region: "us-central1",
     cors: true,
-    invoker: "public"
   },
   async (request, response) => {
     applyCors(response);
@@ -2634,7 +3216,7 @@ exports.createServiceOrder = onRequest(
       if (staff.profile.role !== "admin") {
         respondJson(response, 403, {
           ok: false,
-          message: "Only admins can create service orders."
+          message: "Only admins can create service orders.",
         });
         return;
       }
@@ -2643,15 +3225,18 @@ exports.createServiceOrder = onRequest(
       if (!safeString(payload.clientName)) {
         respondJson(response, 400, {
           ok: false,
-          message: "Client name is required."
+          message: "Client name is required.",
         });
         return;
       }
 
-      if (!safeString(payload.clientPhone) && !safeString(payload.clientEmail)) {
+      if (
+        !safeString(payload.clientPhone) &&
+        !safeString(payload.clientEmail)
+      ) {
         respondJson(response, 400, {
           ok: false,
-          message: "Client phone or email is required."
+          message: "Client phone or email is required.",
         });
         return;
       }
@@ -2663,13 +3248,15 @@ exports.createServiceOrder = onRequest(
         clientEmail: safeString(payload.clientEmail),
         clientPhone: safeString(payload.clientPhone),
         projectAddress: safeString(payload.clientAddress),
-        assignedToUid: safeString(payload.assignedLeadOwnerUid || staff.profile.uid)
+        assignedToUid: safeString(
+          payload.assignedLeadOwnerUid || staff.profile.uid,
+        ),
       });
       const created = await createServiceOrderArtifacts({
         payload,
         serviceTemplate,
         customerLink,
-        actorProfile: staff.profile
+        actorProfile: staff.profile,
       });
 
       respondJson(response, 200, {
@@ -2679,7 +3266,7 @@ exports.createServiceOrder = onRequest(
         customerId: customerLink.customerId,
         customerName: customerLink.customerName,
         matchResult: customerLink.matchResult,
-        billingStatus: created.billingStatus
+        billingStatus: created.billingStatus,
       });
     } catch (error) {
       logger.error("Service order creation failed.", error);
@@ -2687,18 +3274,16 @@ exports.createServiceOrder = onRequest(
         ok: false,
         message: error.message || "Could not create the service order.",
         matchResult: error.matchResult || null,
-        customerMatchIds: error.customerMatchIds || []
+        customerMatchIds: error.customerMatchIds || [],
       });
     }
-  }
+  },
 );
 
 exports.createServiceCheckout = onRequest(
   {
     region: "us-central1",
     cors: true,
-    invoker: "public",
-    secrets: [STRIPE_SECRET_KEY]
   },
   async (request, response) => {
     applyCors(response);
@@ -2718,168 +3303,38 @@ exports.createServiceCheckout = onRequest(
       if (staff.profile.role !== "admin") {
         respondJson(response, 403, {
           ok: false,
-          message: "Only admins can generate payment links."
+          message: "Only admins can generate payment links.",
         });
         return;
       }
 
-      const payload = await parseRequestPayload(request);
-      const projectId = safeString(payload.projectId);
-      const invoiceId = safeString(payload.invoiceId);
-
-      if (!projectId || !invoiceId) {
-        respondJson(response, 400, {
-          ok: false,
-          message: "projectId and invoiceId are required."
-        });
-        return;
-      }
-
-      const projectRef = db.collection("projects").doc(projectId);
-      const invoiceRef = projectRef.collection("invoices").doc(invoiceId);
-      const [projectSnap, invoiceSnap] = await Promise.all([
-        projectRef.get(),
-        invoiceRef.get()
-      ]);
-
-      if (!projectSnap.exists || !invoiceSnap.exists) {
-        respondJson(response, 404, {
-          ok: false,
-          message: "Project invoice not found."
-        });
-        return;
-      }
-
-      const projectData = projectSnap.data() || {};
-      const invoiceData = invoiceSnap.data() || {};
-
-      if (safeString(invoiceData.status) === "paid") {
-        respondJson(response, 400, {
-          ok: false,
-          message: "This invoice is already paid."
-        });
-        return;
-      }
-
-      const stripe = createStripeClient();
-      if (safeString(invoiceData.stripeCheckoutSessionId)) {
-        await expireCheckoutSessionIfNeeded(stripe, invoiceData.stripeCheckoutSessionId);
-      }
-
-      const lineItems = (Array.isArray(invoiceData.lineItems) ? invoiceData.lineItems : [])
-        .filter((item) => safeString(item.label) || safeString(item.description) || toNumber(item.amount))
-        .map((item) => ({
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: safeString(item.label || "Golden Brick service"),
-              description: safeString(item.description)
-            },
-            unit_amount: Math.round(toNumber(item.amount) * 100)
-          },
-          quantity: 1
-        }));
-
-      const fallbackLineItem = {
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: safeString(invoiceData.title || "Golden Brick invoice"),
-            description: safeString(invoiceData.summary)
-          },
-          unit_amount: Math.round(toNumber(invoiceData.subtotal) * 100)
+      logger.warn(
+        "Stripe checkout requested while Stripe is temporarily disabled.",
+        {
+          requestedByUid: staff.profile.uid,
+          requestedByRole: staff.profile.role,
         },
-        quantity: 1
-      };
-
-      const baseUrl = requestBaseUrl(request) || "https://golden-brick-construction.web.app";
-      const customerEmail = normaliseEmail(projectData.clientEmail || invoiceData.clientEmail);
-      const invoiceAmount = toNumber(invoiceData.subtotal);
-      if (invoiceAmount <= 0) {
-        respondJson(response, 400, {
-          ok: false,
-          message: "Invoice total must be greater than zero before generating a payment link."
-        });
-        return;
-      }
-
-      const checkoutSession = await stripe.checkout.sessions.create({
-        mode: "payment",
-        submit_type: "pay",
-        ...(customerEmail ? { customer_email: customerEmail } : {}),
-        success_url: `${baseUrl}/staff/?view=jobs&projectId=${encodeURIComponent(projectId)}&invoiceId=${encodeURIComponent(invoiceId)}&checkout=success`,
-        cancel_url: `${baseUrl}/staff/?view=jobs&projectId=${encodeURIComponent(projectId)}&invoiceId=${encodeURIComponent(invoiceId)}&checkout=cancelled`,
-        line_items: lineItems.length ? lineItems : [fallbackLineItem],
-        metadata: {
-          projectId,
-          invoiceId,
-          customerId: safeString(projectData.customerId || invoiceData.customerId),
-          jobKind: safeString(projectData.jobKind || "standard"),
-          serviceTemplateId: safeString(projectData.serviceTemplateId)
-        }
-      });
-
-      const fingerprint = buildInvoiceFingerprint(invoiceData);
-      const billingStatus = serviceOrderBillingStatus(
-        projectData.paymentRequirement,
-        toNumber(projectData.totalContractRevenue || projectData.jobValue || projectData.baseContractValue),
-        toNumber(projectData.financials && projectData.financials.totalPayments),
-        true
       );
 
-      await Promise.all([
-        invoiceRef.set({
-          stripeCheckoutUrl: safeString(checkoutSession.url),
-          stripeCheckoutSessionId: safeString(checkoutSession.id),
-          stripePaymentStatus: "open",
-          stripeCheckoutFingerprint: fingerprint,
-          stripeLinkCreatedAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp()
-        }, { merge: true }),
-        projectRef.set({
-          billingStatus,
-          updatedAt: FieldValue.serverTimestamp()
-        }, { merge: true })
-      ]);
-
-      await addProjectActivity(projectId, {
-        activityType: "invoice",
-        title: "Stripe payment link created",
-        body: `${safeString(invoiceData.invoiceNumber || invoiceData.title || "Invoice")} now has a Stripe Checkout link ready to copy and send.`,
-        actorName: staff.profile.displayName,
-        actorUid: staff.profile.uid,
-        actorRole: staff.profile.role
-      });
-
-      respondJson(response, 200, {
-        ok: true,
-        checkoutUrl: safeString(checkoutSession.url),
-        invoice: {
-          ...invoiceData,
-          stripeCheckoutUrl: safeString(checkoutSession.url),
-          stripeCheckoutSessionId: safeString(checkoutSession.id),
-          stripePaymentStatus: "open",
-          stripeCheckoutFingerprint: fingerprint,
-          stripeLinkCreatedAt: new Date().toISOString()
-        },
-        billingStatus
+      respondJson(response, 503, {
+        ok: false,
+        disabled: true,
+        message: STRIPE_DISABLED_MESSAGE,
       });
     } catch (error) {
       logger.error("Stripe checkout generation failed.", error);
       respondJson(response, error.status || 500, {
         ok: false,
-        message: error.message || "Could not create the payment link."
+        message: error.message || "Could not create the payment link.",
       });
     }
-  }
+  },
 );
 
 exports.stripeWebhook = onRequest(
   {
     region: "us-central1",
     cors: false,
-    invoker: "public",
-    secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET]
   },
   async (request, response) => {
     if (request.method !== "POST") {
@@ -2887,106 +3342,19 @@ exports.stripeWebhook = onRequest(
       return;
     }
 
-    try {
-      const stripe = createStripeClient();
-      const signature = safeString(request.get("stripe-signature"));
-      const webhookSecret = safeString(STRIPE_WEBHOOK_SECRET.value());
-      const event = stripe.webhooks.constructEvent(
-        request.rawBody,
-        signature,
-        webhookSecret
-      );
-
-      if (event.type === "checkout.session.completed") {
-        const session = event.data.object;
-        const projectId = safeString(session.metadata && session.metadata.projectId);
-        const invoiceId = safeString(session.metadata && session.metadata.invoiceId);
-
-        if (projectId && invoiceId) {
-          const projectRef = db.collection("projects").doc(projectId);
-          const invoiceRef = projectRef.collection("invoices").doc(invoiceId);
-          const [projectSnap, invoiceSnap] = await Promise.all([
-            projectRef.get(),
-            invoiceRef.get()
-          ]);
-
-          if (projectSnap.exists && invoiceSnap.exists) {
-            const projectData = projectSnap.data() || {};
-            const invoiceData = invoiceSnap.data() || {};
-
-            if (!safeString(invoiceData.paymentRecordId)) {
-              const paymentAmount = Number(
-                (toNumber(session.amount_total) / 100).toFixed(2)
-              ) || toNumber(invoiceData.subtotal);
-              const paidAt = session.created
-                ? new Date(session.created * 1000)
-                : new Date();
-              const paymentRef = projectRef.collection("payments").doc();
-              const projectedTotalPayments =
-                toNumber(projectData.financials && projectData.financials.totalPayments) +
-                paymentAmount;
-              const billingStatus = serviceOrderBillingStatus(
-                projectData.paymentRequirement,
-                toNumber(projectData.totalContractRevenue || projectData.jobValue || projectData.baseContractValue),
-                projectedTotalPayments,
-                false
-              );
-
-              const batch = db.batch();
-              batch.set(paymentRef, {
-                id: paymentRef.id,
-                amount: paymentAmount,
-                paymentType: "progress",
-                method: "Stripe Checkout",
-                note: `Stripe Checkout payment received for ${safeString(invoiceData.invoiceNumber || "invoice")}.`,
-                relatedDate: paidAt,
-                invoiceId,
-                invoiceNumber: safeString(invoiceData.invoiceNumber),
-                createdByUid: "stripe-webhook",
-                createdByName: "Stripe Webhook",
-                createdAt: FieldValue.serverTimestamp()
-              }, { merge: true });
-              batch.set(invoiceRef, {
-                status: "paid",
-                paidAt,
-                paymentMethod: "Stripe Checkout",
-                paymentReference: safeString(session.payment_intent || session.id),
-                paymentNote: safeString(invoiceData.paymentNote || "Payment received through Stripe Checkout."),
-                paymentRecordId: paymentRef.id,
-                stripePaymentStatus: "paid",
-                updatedAt: FieldValue.serverTimestamp()
-              }, { merge: true });
-              batch.set(projectRef, {
-                billingStatus,
-                updatedAt: FieldValue.serverTimestamp()
-              }, { merge: true });
-              await batch.commit();
-
-              await addProjectActivity(projectId, {
-                activityType: "payment",
-                title: "Stripe payment received",
-                body: `${formatCurrency(paymentAmount)} was received through Stripe Checkout for ${safeString(invoiceData.invoiceNumber || "the invoice")}.`,
-                actorName: "Stripe Webhook",
-                actorUid: "stripe-webhook",
-                actorRole: "system"
-              });
-            }
-          }
-        }
-      }
-
-      response.json({ received: true });
-    } catch (error) {
-      logger.error("Stripe webhook failed.", error);
-      response.status(400).send(`Webhook Error: ${error.message}`);
-    }
-  }
+    logger.warn("Stripe webhook hit while Stripe is temporarily disabled.");
+    response.status(200).json({
+      received: false,
+      disabled: true,
+      message: STRIPE_DISABLED_MESSAGE,
+    });
+  },
 );
 
 exports.publicLeadIntake = onRequest(
   {
     region: "us-central1",
-    cors: true
+    cors: true,
   },
   async (request, response) => {
     applyCors(response);
@@ -3004,21 +3372,41 @@ exports.publicLeadIntake = onRequest(
     try {
       const payload = await parseRequestPayload(request);
 
-      const clientName = safeString(payload.clientName || payload.name || payload["entry.1938418565"]);
-      const clientEmail = safeString(payload.clientEmail || payload.email || payload["entry.2064255771"]).toLowerCase();
-      const clientPhone = safeString(payload.clientPhone || payload.phone || payload["entry.940072979"]);
-      const projectAddress = safeString(payload.projectAddress || payload.address || payload["entry.1570481540"]);
-      const notes = safeString(payload.notes || payload.projectNotes || payload["entry.1309691449"]);
-      const projectType = safeString(payload.projectType || payload.serviceType || payload.project_type);
+      const clientName = safeString(
+        payload.clientName || payload.name || payload["entry.1938418565"],
+      );
+      const clientEmail = safeString(
+        payload.clientEmail || payload.email || payload["entry.2064255771"],
+      ).toLowerCase();
+      const clientPhone = safeString(
+        payload.clientPhone || payload.phone || payload["entry.940072979"],
+      );
+      const projectAddress = safeString(
+        payload.projectAddress ||
+          payload.address ||
+          payload["entry.1570481540"],
+      );
+      const notes = safeString(
+        payload.notes || payload.projectNotes || payload["entry.1309691449"],
+      );
+      const projectType = safeString(
+        payload.projectType || payload.serviceType || payload.project_type,
+      );
       const sourcePage = safeString(payload.sourcePage || payload.pageTitle);
       const sourcePath = safeString(payload.sourcePath || payload.pagePath);
-      const formName = safeString(payload.formName || payload.sourceForm || "project_inquiry");
-      const consent = String(payload.consent || payload.contactConsent || "").toLowerCase() === "true" || String(payload.consent || "").toLowerCase() === "agreed";
+      const formName = safeString(
+        payload.formName || payload.sourceForm || "project_inquiry",
+      );
+      const consent =
+        String(
+          payload.consent || payload.contactConsent || "",
+        ).toLowerCase() === "true" ||
+        String(payload.consent || "").toLowerCase() === "agreed";
 
       if (!clientName || !clientPhone) {
         respondJson(response, 400, {
           ok: false,
-          message: "Name and phone are required."
+          message: "Name and phone are required.",
         });
         return;
       }
@@ -3044,8 +3432,12 @@ exports.publicLeadIntake = onRequest(
         statusLabel: statusLabel("new_lead"),
         inquiryChannel: "website",
         assignedToUid: assignee && assignee.uid ? assignee.uid : null,
-        assignedToName: assignee ? safeString(assignee.displayName || assignee.name) : "",
-        assignedToEmail: assignee ? safeString(assignee.email).toLowerCase() : "",
+        assignedToName: assignee
+          ? safeString(assignee.displayName || assignee.name)
+          : "",
+        assignedToEmail: assignee
+          ? safeString(assignee.email).toLowerCase()
+          : "",
         hasEstimate: false,
         estimateSubtotal: 0,
         estimateTitle: "",
@@ -3053,7 +3445,7 @@ exports.publicLeadIntake = onRequest(
         customerReviewRequired: false,
         customerMatchIds: [],
         createdAt,
-        updatedAt: createdAt
+        updatedAt: createdAt,
       };
 
       await leadRef.set(leadPayload);
@@ -3065,29 +3457,29 @@ exports.publicLeadIntake = onRequest(
         body: "Lead captured from " + (sourcePage || formName) + ".",
         actorName: "Website Intake",
         actorUid: "website",
-        actorRole: "system"
+        actorRole: "system",
       });
 
       respondJson(response, 200, {
         ok: true,
         leadId: leadRef.id,
         customerId: customerLink.customerId || null,
-        customerMatchResult: customerLink.matchResult
+        customerMatchResult: customerLink.matchResult,
       });
     } catch (error) {
       logger.error("Lead intake failed.", error);
       respondJson(response, 500, {
         ok: false,
-        message: "We could not submit the lead right now."
+        message: "We could not submit the lead right now.",
       });
     }
-  }
+  },
 );
 
 exports.syncStaffSession = onRequest(
   {
     region: "us-central1",
-    cors: true
+    cors: true,
   },
   async (request, response) => {
     applyCors(response);
@@ -3110,7 +3502,7 @@ exports.syncStaffSession = onRequest(
         respondJson(response, 401, {
           ok: false,
           authorised: false,
-          message: "Missing auth token."
+          message: "Missing auth token.",
         });
         return;
       }
@@ -3130,7 +3522,7 @@ exports.syncStaffSession = onRequest(
           active: true,
           defaultLeadAssignee: true,
           createdAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp()
+          updatedAt: FieldValue.serverTimestamp(),
         };
         await allowedRef.set(allowedData, { merge: true });
       }
@@ -3139,26 +3531,29 @@ exports.syncStaffSession = onRequest(
         respondJson(response, 403, {
           ok: false,
           authorised: false,
-          message: "This Google account is not approved for the staff portal."
+          message: "This Google account is not approved for the staff portal.",
         });
         return;
       }
 
       await Promise.all([
         ensureDefaultTemplate(),
-        ensureDefaultServiceTemplates()
+        ensureDefaultServiceTemplates(),
       ]);
 
       const profile = buildStaffProfile(decoded, allowedData);
 
       await Promise.all([
-        db.collection("users").doc(decoded.uid).set(
-          {
-            ...profile,
-            createdAt: allowedData.createdAt || FieldValue.serverTimestamp()
-          },
-          { merge: true }
-        ),
+        db
+          .collection("users")
+          .doc(decoded.uid)
+          .set(
+            {
+              ...profile,
+              createdAt: allowedData.createdAt || FieldValue.serverTimestamp(),
+            },
+            { merge: true },
+          ),
         allowedRef.set(
           {
             uid: decoded.uid,
@@ -3168,17 +3563,17 @@ exports.syncStaffSession = onRequest(
             active: true,
             defaultLeadAssignee: profile.defaultLeadAssignee,
             lastLoginAt: FieldValue.serverTimestamp(),
-            updatedAt: FieldValue.serverTimestamp()
+            updatedAt: FieldValue.serverTimestamp(),
           },
-          { merge: true }
-        )
+          { merge: true },
+        ),
       ]);
 
       let claimsSynced = true;
       try {
         await admin.auth().setCustomUserClaims(decoded.uid, {
           role: profile.role,
-          staff: true
+          staff: true,
         });
       } catch (error) {
         claimsSynced = false;
@@ -3190,23 +3585,23 @@ exports.syncStaffSession = onRequest(
         authorised: true,
         mode: "api",
         claimsSynced,
-        profile: serialiseStaffProfile(profile)
+        profile: serialiseStaffProfile(profile),
       });
     } catch (error) {
       logger.error("Staff session sync failed.", error);
       respondJson(response, 500, {
         ok: false,
         authorised: false,
-        message: "Could not verify this staff account."
+        message: "Could not verify this staff account.",
       });
     }
-  }
+  },
 );
 
 exports.syncLeadCustomerLink = onRequest(
   {
     region: "us-central1",
-    cors: true
+    cors: true,
   },
   async (request, response) => {
     applyCors(response);
@@ -3229,38 +3624,41 @@ exports.syncLeadCustomerLink = onRequest(
       if (!leadId) {
         respondJson(response, 400, {
           ok: false,
-          message: "leadId is required."
+          message: "leadId is required.",
         });
         return;
       }
 
-      const { leadRef, leadData } = await verifyLeadStaffAccess(leadId, staff.profile);
+      const { leadRef, leadData } = await verifyLeadStaffAccess(
+        leadId,
+        staff.profile,
+      );
       const customerLink = await ensureLeadCustomerLink(leadRef, leadData);
       await syncRecordDocumentLinksForLead(leadId, {
         ...leadData,
         customerId: customerLink.customerId || null,
         customerName: customerLink.customerName || "",
-        wonProjectId: leadData.wonProjectId || null
+        wonProjectId: leadData.wonProjectId || null,
       });
 
       respondJson(response, 200, {
         ok: true,
-        ...customerLink
+        ...customerLink,
       });
     } catch (error) {
       logger.error("Lead customer sync failed.", error);
       respondJson(response, error.status || 500, {
         ok: false,
-        message: error.message || "Could not sync the lead customer."
+        message: error.message || "Could not sync the lead customer.",
       });
     }
-  }
+  },
 );
 
 exports.estimateShare = onRequest(
   {
     region: "us-central1",
-    cors: true
+    cors: true,
   },
   async (request, response) => {
     applyCors(response);
@@ -3284,20 +3682,28 @@ exports.estimateShare = onRequest(
       if (!leadId) {
         respondJson(response, 400, {
           ok: false,
-          message: "leadId is required."
+          message: "leadId is required.",
         });
         return;
       }
 
-      const { leadRef, leadData } = await verifyLeadStaffAccess(leadId, staff.profile);
-      const existingProjectSnap = await db.collection("projects").doc(leadId).get();
+      const { leadRef, leadData } = await verifyLeadStaffAccess(
+        leadId,
+        staff.profile,
+      );
+      const existingProjectSnap = await db
+        .collection("projects")
+        .doc(leadId)
+        .get();
       const shares = await fetchLeadShares(leadId);
       const currentShare = pickCurrentEstimateShare(shares);
 
       if (action === "get") {
         respondJson(response, 200, {
           ok: true,
-          share: currentShare ? serialiseEstimateShare(currentShare, request) : null
+          share: currentShare
+            ? serialiseEstimateShare(currentShare, request)
+            : null,
         });
         return;
       }
@@ -3305,7 +3711,7 @@ exports.estimateShare = onRequest(
       if (staff.profile.role !== "admin") {
         respondJson(response, 403, {
           ok: false,
-          message: "Only admins can manage estimate share links."
+          message: "Only admins can manage estimate share links.",
         });
         return;
       }
@@ -3314,16 +3720,21 @@ exports.estimateShare = onRequest(
         if (!currentShare || currentShare.status !== "active") {
           respondJson(response, 200, {
             ok: true,
-            share: currentShare ? serialiseEstimateShare(currentShare, request) : null
+            share: currentShare
+              ? serialiseEstimateShare(currentShare, request)
+              : null,
           });
           return;
         }
 
-        await db.collection("estimateShares").doc(currentShare.id).set({
-          status: "revoked",
-          revokedAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp()
-        }, { merge: true });
+        await db.collection("estimateShares").doc(currentShare.id).set(
+          {
+            status: "revoked",
+            revokedAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
 
         await addLeadActivity(leadId, {
           activityType: "estimate_share",
@@ -3331,7 +3742,7 @@ exports.estimateShare = onRequest(
           body: "The active client estimate link was revoked from the staff portal.",
           actorName: staff.profile.displayName,
           actorUid: staff.profile.uid,
-          actorRole: staff.profile.role
+          actorRole: staff.profile.role,
         });
 
         if (existingProjectSnap.exists) {
@@ -3341,17 +3752,23 @@ exports.estimateShare = onRequest(
             body: "The client-facing estimate share link was revoked for this project.",
             actorName: staff.profile.displayName,
             actorUid: staff.profile.uid,
-            actorRole: staff.profile.role
+            actorRole: staff.profile.role,
           });
         }
 
-        const revokedSnap = await db.collection("estimateShares").doc(currentShare.id).get();
+        const revokedSnap = await db
+          .collection("estimateShares")
+          .doc(currentShare.id)
+          .get();
         respondJson(response, 200, {
           ok: true,
-          share: serialiseEstimateShare({
-            id: revokedSnap.id,
-            ...revokedSnap.data()
-          }, request)
+          share: serialiseEstimateShare(
+            {
+              id: revokedSnap.id,
+              ...revokedSnap.data(),
+            },
+            request,
+          ),
         });
         return;
       }
@@ -3359,7 +3776,7 @@ exports.estimateShare = onRequest(
       if (action !== "create") {
         respondJson(response, 400, {
           ok: false,
-          message: "Unsupported estimate share action."
+          message: "Unsupported estimate share action.",
         });
         return;
       }
@@ -3368,7 +3785,7 @@ exports.estimateShare = onRequest(
       if (!estimateSnap.exists) {
         respondJson(response, 400, {
           ok: false,
-          message: "Save the estimate before creating a share link."
+          message: "Save the estimate before creating a share link.",
         });
         return;
       }
@@ -3377,41 +3794,55 @@ exports.estimateShare = onRequest(
       shares
         .filter((share) => share.status === "active")
         .forEach((share) => {
-          batch.set(db.collection("estimateShares").doc(share.id), {
-            status: "revoked",
-            revokedAt: FieldValue.serverTimestamp(),
-            updatedAt: FieldValue.serverTimestamp()
-          }, { merge: true });
+          batch.set(
+            db.collection("estimateShares").doc(share.id),
+            {
+              status: "revoked",
+              revokedAt: FieldValue.serverTimestamp(),
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true },
+          );
         });
 
       const shareId = createOpaqueId();
       const shareRef = db.collection("estimateShares").doc(shareId);
-      const nextLeadStatus = ["new_lead", "follow_up"].includes(safeString(leadData.status))
+      const nextLeadStatus = ["new_lead", "follow_up"].includes(
+        safeString(leadData.status),
+      )
         ? "estimate_sent"
         : safeString(leadData.status || "estimate_sent");
 
-      batch.set(shareRef, {
-        id: shareId,
-        type: "estimate",
-        status: "active",
-        leadId,
-        customerId: safeString(leadData.customerId) || null,
-        projectId: existingProjectSnap.exists ? leadId : null,
-        createdByUid: staff.profile.uid,
-        createdByName: staff.profile.displayName,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-        revokedAt: null,
-        lastViewedAt: null,
-        signedAt: null,
-        agreementId: null
-      }, { merge: true });
+      batch.set(
+        shareRef,
+        {
+          id: shareId,
+          type: "estimate",
+          status: "active",
+          leadId,
+          customerId: safeString(leadData.customerId) || null,
+          projectId: existingProjectSnap.exists ? leadId : null,
+          createdByUid: staff.profile.uid,
+          createdByName: staff.profile.displayName,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+          revokedAt: null,
+          lastViewedAt: null,
+          signedAt: null,
+          agreementId: null,
+        },
+        { merge: true },
+      );
 
-      batch.set(leadRef, {
-        status: nextLeadStatus,
-        statusLabel: statusLabel(nextLeadStatus),
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
+      batch.set(
+        leadRef,
+        {
+          status: nextLeadStatus,
+          statusLabel: statusLabel(nextLeadStatus),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
 
       await batch.commit();
 
@@ -3421,7 +3852,7 @@ exports.estimateShare = onRequest(
         body: "A secure client estimate link was created from the staff portal.",
         actorName: staff.profile.displayName,
         actorUid: staff.profile.uid,
-        actorRole: staff.profile.role
+        actorRole: staff.profile.role,
       });
 
       if (existingProjectSnap.exists) {
@@ -3431,32 +3862,35 @@ exports.estimateShare = onRequest(
           body: "A secure client estimate link was created for this project.",
           actorName: staff.profile.displayName,
           actorUid: staff.profile.uid,
-          actorRole: staff.profile.role
+          actorRole: staff.profile.role,
         });
       }
 
       const createdSnap = await shareRef.get();
       respondJson(response, 200, {
         ok: true,
-        share: serialiseEstimateShare({
-          id: createdSnap.id,
-          ...createdSnap.data()
-        }, request)
+        share: serialiseEstimateShare(
+          {
+            id: createdSnap.id,
+            ...createdSnap.data(),
+          },
+          request,
+        ),
       });
     } catch (error) {
       logger.error("Estimate share request failed.", error);
       respondJson(response, error.status || 500, {
         ok: false,
-        message: error.message || "Could not manage the estimate share link."
+        message: error.message || "Could not manage the estimate share link.",
       });
     }
-  }
+  },
 );
 
 exports.convertLeadToProject = onRequest(
   {
     region: "us-central1",
-    cors: true
+    cors: true,
   },
   async (request, response) => {
     applyCors(response);
@@ -3479,17 +3913,20 @@ exports.convertLeadToProject = onRequest(
       if (!leadId) {
         respondJson(response, 400, {
           ok: false,
-          message: "leadId is required."
+          message: "leadId is required.",
         });
         return;
       }
 
-      const { leadRef, leadData } = await verifyLeadStaffAccess(leadId, staff.profile);
+      const { leadRef, leadData } = await verifyLeadStaffAccess(
+        leadId,
+        staff.profile,
+      );
       const result = await ensureProjectForLead({
         leadId,
         leadRef,
         leadData,
-        actorProfile: staff.profile
+        actorProfile: staff.profile,
       });
 
       if (!result.existing) {
@@ -3499,7 +3936,7 @@ exports.convertLeadToProject = onRequest(
           body: "Won job created and linked to the customer record.",
           actorName: staff.profile.displayName,
           actorUid: staff.profile.uid,
-          actorRole: staff.profile.role
+          actorRole: staff.profile.role,
         });
 
         await addProjectActivity(leadId, {
@@ -3510,7 +3947,7 @@ exports.convertLeadToProject = onRequest(
             : "The won lead was converted into the operational job record.",
           actorName: staff.profile.displayName,
           actorUid: staff.profile.uid,
-          actorRole: staff.profile.role
+          actorRole: staff.profile.role,
         });
       }
 
@@ -3519,7 +3956,7 @@ exports.convertLeadToProject = onRequest(
         existing: result.existing,
         projectId: leadId,
         matchResult: result.customerLink.matchResult,
-        scopeItemCount: result.scopeItemCount
+        scopeItemCount: result.scopeItemCount,
       });
     } catch (error) {
       logger.error("Lead conversion failed.", error);
@@ -3527,16 +3964,16 @@ exports.convertLeadToProject = onRequest(
         ok: false,
         message: error.message || "Could not convert the lead right now.",
         matchResult: error.matchResult || null,
-        customerMatchIds: error.customerMatchIds || []
+        customerMatchIds: error.customerMatchIds || [],
       });
     }
-  }
+  },
 );
 
 exports.publicEstimateView = onRequest(
   {
     region: "us-central1",
-    cors: true
+    cors: true,
   },
   async (request, response) => {
     applyCors(response);
@@ -3556,7 +3993,7 @@ exports.publicEstimateView = onRequest(
       if (!token) {
         respondJson(response, 400, {
           ok: false,
-          message: "token is required."
+          message: "token is required.",
         });
         return;
       }
@@ -3567,7 +4004,7 @@ exports.publicEstimateView = onRequest(
         respondJson(response, 410, {
           ok: false,
           status: "revoked",
-          message: "This estimate link has been revoked."
+          message: "This estimate link has been revoked.",
         });
         return;
       }
@@ -3578,7 +4015,10 @@ exports.publicEstimateView = onRequest(
       let signedAgreement = null;
 
       if (shareData.status === "signed" && safeString(shareData.agreementId)) {
-        const agreementSnap = await db.collection("agreements").doc(shareData.agreementId).get();
+        const agreementSnap = await db
+          .collection("agreements")
+          .doc(shareData.agreementId)
+          .get();
 
         if (!agreementSnap.exists) {
           const error = new Error("The signed agreement could not be found.");
@@ -3592,13 +4032,13 @@ exports.publicEstimateView = onRequest(
         agreementSnapshot = agreementData.agreementSnapshot || {};
         signedAgreement = {
           signerName: safeString(agreementData.signerName),
-          signedAt: agreementData.signedAt || null
+          signedAt: agreementData.signedAt || null,
         };
       } else {
         const [leadSnap, estimateSnap, template] = await Promise.all([
           db.collection("leads").doc(shareData.leadId).get(),
           db.collection("estimates").doc(shareData.leadId).get(),
-          fetchTemplate()
+          fetchTemplate(),
         ]);
 
         if (!leadSnap.exists || !estimateSnap.exists) {
@@ -3608,38 +4048,48 @@ exports.publicEstimateView = onRequest(
         }
 
         leadData = leadSnap.data() || {};
-        estimateSnapshot = normaliseEstimateSnapshot(estimateSnap.data() || {}, template);
+        estimateSnapshot = normaliseEstimateSnapshot(
+          estimateSnap.data() || {},
+          template,
+        );
         agreementSnapshot = normaliseAgreementSnapshot(template);
       }
 
-      await shareRef.set({
-        lastViewedAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
+      await shareRef.set(
+        {
+          lastViewedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
 
-      respondJson(response, 200, buildPublicEstimatePayload({
-        request,
-        shareData,
-        leadData,
-        estimateSnapshot,
-        agreementSnapshot,
-        signedAgreement
-      }));
+      respondJson(
+        response,
+        200,
+        buildPublicEstimatePayload({
+          request,
+          shareData,
+          leadData,
+          estimateSnapshot,
+          agreementSnapshot,
+          signedAgreement,
+        }),
+      );
     } catch (error) {
       logger.error("Public estimate view failed.", error);
       respondJson(response, error.status || 500, {
         ok: false,
         status: error.status === 410 ? "revoked" : "invalid",
-        message: error.message || "Could not load this estimate."
+        message: error.message || "Could not load this estimate.",
       });
     }
-  }
+  },
 );
 
 exports.publicEstimateSign = onRequest(
   {
     region: "us-central1",
-    cors: true
+    cors: true,
   },
   async (request, response) => {
     applyCors(response);
@@ -3658,14 +4108,15 @@ exports.publicEstimateSign = onRequest(
       const payload = await parseRequestPayload(request);
       const token = safeString(payload.token);
       const signerName = safeString(payload.signerName);
-      const accepted = payload.accepted === true
-        || safeString(payload.accepted).toLowerCase() === "true"
-        || safeString(payload.accepted).toLowerCase() === "on";
+      const accepted =
+        payload.accepted === true ||
+        safeString(payload.accepted).toLowerCase() === "true" ||
+        safeString(payload.accepted).toLowerCase() === "on";
 
       if (!token) {
         respondJson(response, 400, {
           ok: false,
-          message: "token is required."
+          message: "token is required.",
         });
         return;
       }
@@ -3676,22 +4127,29 @@ exports.publicEstimateSign = onRequest(
         respondJson(response, 410, {
           ok: false,
           status: "revoked",
-          message: "This estimate link has been revoked."
+          message: "This estimate link has been revoked.",
         });
         return;
       }
 
       if (shareData.status === "signed" && safeString(shareData.agreementId)) {
-        const agreementSnap = await db.collection("agreements").doc(shareData.agreementId).get();
-        const agreementData = agreementSnap.exists ? (agreementSnap.data() || {}) : {};
+        const agreementSnap = await db
+          .collection("agreements")
+          .doc(shareData.agreementId)
+          .get();
+        const agreementData = agreementSnap.exists
+          ? agreementSnap.data() || {}
+          : {};
 
         respondJson(response, 200, {
           ok: true,
           alreadySigned: true,
           status: "signed",
           agreementId: safeString(shareData.agreementId),
-          signedAt: serialiseDateValue(shareData.signedAt || agreementData.signedAt),
-          downloadHref: buildPublicAgreementDownloadHref(request, shareData.id)
+          signedAt: serialiseDateValue(
+            shareData.signedAt || agreementData.signedAt,
+          ),
+          downloadHref: buildPublicAgreementDownloadHref(request, shareData.id),
         });
         return;
       }
@@ -3699,7 +4157,7 @@ exports.publicEstimateSign = onRequest(
       if (!accepted) {
         respondJson(response, 400, {
           ok: false,
-          message: "You must agree to the terms before signing."
+          message: "You must agree to the terms before signing.",
         });
         return;
       }
@@ -3707,7 +4165,7 @@ exports.publicEstimateSign = onRequest(
       if (!signerName) {
         respondJson(response, 400, {
           ok: false,
-          message: "Your full legal name is required."
+          message: "Your full legal name is required.",
         });
         return;
       }
@@ -3716,13 +4174,13 @@ exports.publicEstimateSign = onRequest(
       const [leadSnap, estimateSnap, template] = await Promise.all([
         db.collection("leads").doc(shareData.leadId).get(),
         db.collection("estimates").doc(shareData.leadId).get(),
-        fetchTemplate()
+        fetchTemplate(),
       ]);
 
       if (!leadSnap.exists || !estimateSnap.exists) {
         respondJson(response, 404, {
           ok: false,
-          message: "This estimate is no longer available."
+          message: "This estimate is no longer available.",
         });
         return;
       }
@@ -3732,18 +4190,26 @@ exports.publicEstimateSign = onRequest(
         uid: "client-portal",
         email: "portal@goldenbrick.local",
         displayName: "Golden Brick Client Portal",
-        role: "system"
+        role: "system",
       };
       const projectResult = await ensureProjectForLead({
         leadId: shareData.leadId,
         leadRef: db.collection("leads").doc(shareData.leadId),
         leadData,
         actorProfile: portalActor,
-        allowAmbiguousCustomerCreate: true
+        allowAmbiguousCustomerCreate: true,
       });
-      const projectSnap = await db.collection("projects").doc(projectResult.projectId).get();
-      const projectData = projectSnap.exists ? (projectSnap.data() || {}) : (projectResult.projectData || {});
-      const estimateSnapshot = normaliseEstimateSnapshot(estimateSnap.data() || {}, template);
+      const projectSnap = await db
+        .collection("projects")
+        .doc(projectResult.projectId)
+        .get();
+      const projectData = projectSnap.exists
+        ? projectSnap.data() || {}
+        : projectResult.projectData || {};
+      const estimateSnapshot = normaliseEstimateSnapshot(
+        estimateSnap.data() || {},
+        template,
+      );
       const agreementSnapshot = normaliseAgreementSnapshot(template);
       const signedAt = new Date();
       const agreementRef = db.collection("agreements").doc();
@@ -3759,22 +4225,22 @@ exports.publicEstimateSign = onRequest(
         agreementSnapshot,
         signerName,
         signedAt,
-        signatureBuffer: signature.buffer
+        signatureBuffer: signature.buffer,
       });
       const pdfUrl = await saveStorageFile(bucket, pdfPath, pdfBuffer, {
         contentType: "application/pdf",
         downloadToken: pdfDownloadToken,
         metadata: {
           agreementId: agreementRef.id,
-          shareId: shareData.id
-        }
+          shareId: shareData.id,
+        },
       });
       await saveStorageFile(bucket, signaturePath, signature.buffer, {
         contentType: signature.contentType,
         metadata: {
           agreementId: agreementRef.id,
-          shareId: shareData.id
-        }
+          shareId: shareData.id,
+        },
       });
 
       const leadSnapshot = {
@@ -3782,75 +4248,91 @@ exports.publicEstimateSign = onRequest(
         projectAddress: safeString(leadData.projectAddress),
         projectType: safeString(leadData.projectType),
         clientEmail: normaliseEmail(leadData.clientEmail),
-        clientPhone: safeString(leadData.clientPhone)
+        clientPhone: safeString(leadData.clientPhone),
       };
       const audit = requestAuditMetadata(request);
       const batch = db.batch();
 
-      batch.set(agreementRef, {
-        id: agreementRef.id,
-        type: "estimate",
-        status: "signed",
-        leadId: shareData.leadId,
-        projectId: projectResult.projectId,
-        customerId: projectResult.customerLink.customerId,
-        customerName: projectResult.customerLink.customerName,
-        shareId: shareData.id,
-        leadSnapshot,
-        projectSnapshot: {
-          clientName: safeString(projectData.clientName || projectData.customerName),
-          projectAddress: safeString(projectData.projectAddress),
-          projectType: safeString(projectData.projectType)
+      batch.set(
+        agreementRef,
+        {
+          id: agreementRef.id,
+          type: "estimate",
+          status: "signed",
+          leadId: shareData.leadId,
+          projectId: projectResult.projectId,
+          customerId: projectResult.customerLink.customerId,
+          customerName: projectResult.customerLink.customerName,
+          shareId: shareData.id,
+          leadSnapshot,
+          projectSnapshot: {
+            clientName: safeString(
+              projectData.clientName || projectData.customerName,
+            ),
+            projectAddress: safeString(projectData.projectAddress),
+            projectType: safeString(projectData.projectType),
+          },
+          estimateSnapshot,
+          agreementSnapshot,
+          signerName,
+          signedAt,
+          signedIpAddress: audit.ipAddress,
+          signedUserAgent: audit.userAgent,
+          signaturePath,
+          signatureContentType: signature.contentType,
+          pdfPath,
+          pdfUrl,
+          pdfFileName: "signed-agreement.pdf",
+          jobDocumentId: recordDocumentRef.id,
+          recordDocumentId: recordDocumentRef.id,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
         },
-        estimateSnapshot,
-        agreementSnapshot,
-        signerName,
-        signedAt,
-        signedIpAddress: audit.ipAddress,
-        signedUserAgent: audit.userAgent,
-        signaturePath,
-        signatureContentType: signature.contentType,
-        pdfPath,
-        pdfUrl,
-        pdfFileName: "signed-agreement.pdf",
-        jobDocumentId: recordDocumentRef.id,
-        recordDocumentId: recordDocumentRef.id,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
+        { merge: true },
+      );
 
-      batch.set(recordDocumentRef, {
-        id: recordDocumentRef.id,
-        documentKind: "file",
-        category: "agreement",
-        sourceType: "upload",
-        title: `Signed agreement - ${formatDateOnly(signedAt)}`,
-        note: `Signed by ${signerName} through the client estimate link.`,
-        relatedDate: signedAt,
-        externalUrl: "",
-        fileUrl: pdfUrl,
-        filePath: pdfPath,
-        fileName: "signed-agreement.pdf",
-        leadId: cleanNullableString(shareData.leadId),
-        customerId: cleanNullableString(projectResult.customerLink.customerId),
-        projectId: cleanNullableString(projectResult.projectId),
-        agreementId: agreementRef.id,
-        createdByUid: portalActor.uid,
-        createdByName: portalActor.displayName,
-        createdByRole: portalActor.role,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
+      batch.set(
+        recordDocumentRef,
+        {
+          id: recordDocumentRef.id,
+          documentKind: "file",
+          category: "agreement",
+          sourceType: "upload",
+          title: `Signed agreement - ${formatDateOnly(signedAt)}`,
+          note: `Signed by ${signerName} through the client estimate link.`,
+          relatedDate: signedAt,
+          externalUrl: "",
+          fileUrl: pdfUrl,
+          filePath: pdfPath,
+          fileName: "signed-agreement.pdf",
+          leadId: cleanNullableString(shareData.leadId),
+          customerId: cleanNullableString(
+            projectResult.customerLink.customerId,
+          ),
+          projectId: cleanNullableString(projectResult.projectId),
+          agreementId: agreementRef.id,
+          createdByUid: portalActor.uid,
+          createdByName: portalActor.displayName,
+          createdByRole: portalActor.role,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
 
-      batch.set(shareRef, {
-        status: "signed",
-        signedAt,
-        agreementId: agreementRef.id,
-        projectId: projectResult.projectId,
-        customerId: projectResult.customerLink.customerId,
-        lastViewedAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
+      batch.set(
+        shareRef,
+        {
+          status: "signed",
+          signedAt,
+          agreementId: agreementRef.id,
+          projectId: projectResult.projectId,
+          customerId: projectResult.customerLink.customerId,
+          lastViewedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
 
       await batch.commit();
 
@@ -3861,7 +4343,7 @@ exports.publicEstimateSign = onRequest(
           body: "The client signature converted this estimate into the operational job record.",
           actorName: portalActor.displayName,
           actorUid: portalActor.uid,
-          actorRole: portalActor.role
+          actorRole: portalActor.role,
         });
 
         await addProjectActivity(projectResult.projectId, {
@@ -3872,7 +4354,7 @@ exports.publicEstimateSign = onRequest(
             : "The client signature created the job record.",
           actorName: portalActor.displayName,
           actorUid: portalActor.uid,
-          actorRole: portalActor.role
+          actorRole: portalActor.role,
         });
       }
 
@@ -3882,7 +4364,7 @@ exports.publicEstimateSign = onRequest(
         body: `${signerName} accepted the estimate and signed the agreement through the client link.`,
         actorName: portalActor.displayName,
         actorUid: portalActor.uid,
-        actorRole: portalActor.role
+        actorRole: portalActor.role,
       });
 
       await addProjectActivity(projectResult.projectId, {
@@ -3891,7 +4373,7 @@ exports.publicEstimateSign = onRequest(
         body: `${signerName} signed the estimate agreement through the client portal.`,
         actorName: portalActor.displayName,
         actorUid: portalActor.uid,
-        actorRole: portalActor.role
+        actorRole: portalActor.role,
       });
 
       await addProjectActivity(projectResult.projectId, {
@@ -3900,7 +4382,7 @@ exports.publicEstimateSign = onRequest(
         body: "The signed agreement PDF was stored in the job documents and archived in the agreements folder.",
         actorName: portalActor.displayName,
         actorUid: portalActor.uid,
-        actorRole: portalActor.role
+        actorRole: portalActor.role,
       });
 
       respondJson(response, 200, {
@@ -3909,22 +4391,22 @@ exports.publicEstimateSign = onRequest(
         agreementId: agreementRef.id,
         projectId: projectResult.projectId,
         signedAt: signedAt.toISOString(),
-        downloadHref: buildPublicAgreementDownloadHref(request, shareData.id)
+        downloadHref: buildPublicAgreementDownloadHref(request, shareData.id),
       });
     } catch (error) {
       logger.error("Public estimate sign failed.", error);
       respondJson(response, error.status || 500, {
         ok: false,
-        message: error.message || "Could not sign the agreement right now."
+        message: error.message || "Could not sign the agreement right now.",
       });
     }
-  }
+  },
 );
 
 exports.publicAgreementDocument = onRequest(
   {
     region: "us-central1",
-    cors: true
+    cors: true,
   },
   async (request, response) => {
     applyCors(response);
@@ -3952,7 +4434,10 @@ exports.publicAgreementDocument = onRequest(
         return;
       }
 
-      const agreementSnap = await db.collection("agreements").doc(shareData.agreementId).get();
+      const agreementSnap = await db
+        .collection("agreements")
+        .doc(shareData.agreementId)
+        .get();
       if (!agreementSnap.exists) {
         response.status(404).send("Agreement not available.");
         return;
@@ -3966,9 +4451,16 @@ exports.publicAgreementDocument = onRequest(
       }
 
       response.setHeader("Content-Type", "application/pdf");
-      response.setHeader("Content-Disposition", `inline; filename=\"${safeString(agreementData.pdfFileName) || "signed-agreement.pdf"}\"`);
+      response.setHeader(
+        "Content-Disposition",
+        `inline; filename=\"${safeString(agreementData.pdfFileName) || "signed-agreement.pdf"}\"`,
+      );
 
-      admin.storage().bucket().file(pdfPath).createReadStream()
+      admin
+        .storage()
+        .bucket()
+        .file(pdfPath)
+        .createReadStream()
         .on("error", (streamError) => {
           logger.error("Agreement PDF stream failed.", streamError);
           if (!response.headersSent) {
@@ -3980,9 +4472,11 @@ exports.publicAgreementDocument = onRequest(
         .pipe(response);
     } catch (error) {
       logger.error("Public agreement document request failed.", error);
-      response.status(error.status || 500).send(error.message || "Could not load the agreement.");
+      response
+        .status(error.status || 500)
+        .send(error.message || "Could not load the agreement.");
     }
-  }
+  },
 );
 
 exports.clientPortalApi = buildClientPortalApi({
@@ -3993,13 +4487,13 @@ exports.clientPortalApi = buildClientPortalApi({
   onRequest,
   verifyStaffRequest,
   buildEstimateShareUrl,
-  buildPublicAgreementDownloadHref
+  buildPublicAgreementDownloadHref,
 });
 
 exports.generateEstimateDraft = onRequest(
   {
     region: "us-central1",
-    cors: true
+    cors: true,
   },
   async (request, response) => {
     applyCors(response);
@@ -4020,7 +4514,7 @@ exports.generateEstimateDraft = onRequest(
       if (staff.profile.role !== "admin") {
         respondJson(response, 403, {
           ok: false,
-          message: "Only admins can draft estimates."
+          message: "Only admins can draft estimates.",
         });
         return;
       }
@@ -4031,20 +4525,20 @@ exports.generateEstimateDraft = onRequest(
       if (!leadId) {
         respondJson(response, 400, {
           ok: false,
-          message: "leadId is required."
+          message: "leadId is required.",
         });
         return;
       }
 
       const [leadSnap, template] = await Promise.all([
         db.collection("leads").doc(leadId).get(),
-        fetchTemplate()
+        fetchTemplate(),
       ]);
 
       if (!leadSnap.exists) {
         respondJson(response, 404, {
           ok: false,
-          message: "Lead not found."
+          message: "Lead not found.",
         });
         return;
       }
@@ -4053,8 +4547,13 @@ exports.generateEstimateDraft = onRequest(
       const draft = fallbackEstimateDraft(lead, template);
       const generatedBy = "template";
 
-      const existingEstimateSnap = await db.collection("estimates").doc(leadId).get();
-      const existingEstimate = existingEstimateSnap.exists ? existingEstimateSnap.data() : null;
+      const existingEstimateSnap = await db
+        .collection("estimates")
+        .doc(leadId)
+        .get();
+      const existingEstimate = existingEstimateSnap.exists
+        ? existingEstimateSnap.data()
+        : null;
       const estimatePayload = {
         id: leadId,
         leadId,
@@ -4066,51 +4565,60 @@ exports.generateEstimateDraft = onRequest(
         lineItems: draft.lineItems,
         subtotal: draft.subtotal,
         updatedAt: FieldValue.serverTimestamp(),
-        createdAt: existingEstimate && existingEstimate.createdAt ? existingEstimate.createdAt : FieldValue.serverTimestamp(),
+        createdAt:
+          existingEstimate && existingEstimate.createdAt
+            ? existingEstimate.createdAt
+            : FieldValue.serverTimestamp(),
         lastEditedByUid: staff.profile.uid,
-        lastEditedByName: staff.profile.displayName
+        lastEditedByName: staff.profile.displayName,
       };
 
       await Promise.all([
-        db.collection("estimates").doc(leadId).set(estimatePayload, { merge: true }),
-        db.collection("leads").doc(leadId).set({
-          hasEstimate: true,
-          estimateSubtotal: draft.subtotal,
-          estimateTitle: draft.subject,
-          estimateUpdatedAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp()
-        }, { merge: true }),
+        db
+          .collection("estimates")
+          .doc(leadId)
+          .set(estimatePayload, { merge: true }),
+        db.collection("leads").doc(leadId).set(
+          {
+            hasEstimate: true,
+            estimateSubtotal: draft.subtotal,
+            estimateTitle: draft.subject,
+            estimateUpdatedAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        ),
         addLeadActivity(leadId, {
           activityType: "estimate",
           title: "Estimate draft refreshed",
           body: "Estimate draft generated from the internal template.",
           actorName: staff.profile.displayName,
           actorUid: staff.profile.uid,
-          actorRole: staff.profile.role
-        })
+          actorRole: staff.profile.role,
+        }),
       ]);
 
       respondJson(response, 200, {
         ok: true,
         estimate: {
           ...estimatePayload,
-          updatedAt: new Date().toISOString()
-        }
+          updatedAt: new Date().toISOString(),
+        },
       });
     } catch (error) {
       logger.error("Estimate draft request failed.", error);
       respondJson(response, 500, {
         ok: false,
-        message: "Could not generate the estimate draft."
+        message: "Could not generate the estimate draft.",
       });
     }
-  }
+  },
 );
 
 exports.syncEstimateRecordDocumentOnWrite = onDocumentWritten(
   {
     region: "us-central1",
-    document: "estimates/{leadId}"
+    document: "estimates/{leadId}",
   },
   async (event) => {
     if (!event.data.after.exists) {
@@ -4120,15 +4628,15 @@ exports.syncEstimateRecordDocumentOnWrite = onDocumentWritten(
 
     await upsertEstimateRecordDocument(
       event.params.leadId,
-      event.data.after.data() || {}
+      event.data.after.data() || {},
     );
-  }
+  },
 );
 
 exports.cleanupRecordDocumentOnWrite = onDocumentWritten(
   {
     region: "us-central1",
-    document: "recordDocuments/{documentId}"
+    document: "recordDocuments/{documentId}",
   },
   async (event) => {
     if (event.data.after.exists) {
@@ -4137,13 +4645,13 @@ exports.cleanupRecordDocumentOnWrite = onDocumentWritten(
 
     const beforeData = event.data.before.exists ? event.data.before.data() : {};
     await cleanupDeletedRecordDocument(event.params.documentId, beforeData);
-  }
+  },
 );
 
 exports.cleanupVendorDocumentOnWrite = onDocumentWritten(
   {
     region: "us-central1",
-    document: "vendorDocuments/{documentId}"
+    document: "vendorDocuments/{documentId}",
   },
   async (event) => {
     if (event.data.after.exists) {
@@ -4152,44 +4660,44 @@ exports.cleanupVendorDocumentOnWrite = onDocumentWritten(
 
     const beforeData = event.data.before.exists ? event.data.before.data() : {};
     await cleanupDeletedVendorDocument(event.params.documentId, beforeData);
-  }
+  },
 );
 
 exports.syncProjectFinancialsOnExpenses = onDocumentWritten(
   {
     region: "us-central1",
-    document: "projects/{projectId}/expenses/{expenseId}"
+    document: "projects/{projectId}/expenses/{expenseId}",
   },
   async (event) => {
     await syncProjectFinancials(event.params.projectId);
-  }
+  },
 );
 
 exports.syncProjectFinancialsOnPayments = onDocumentWritten(
   {
     region: "us-central1",
-    document: "projects/{projectId}/payments/{paymentId}"
+    document: "projects/{projectId}/payments/{paymentId}",
   },
   async (event) => {
     await syncProjectFinancials(event.params.projectId);
-  }
+  },
 );
 
 exports.syncProjectFinancialsOnChangeOrders = onDocumentWritten(
   {
     region: "us-central1",
-    document: "projects/{projectId}/changeOrders/{changeOrderId}"
+    document: "projects/{projectId}/changeOrders/{changeOrderId}",
   },
   async (event) => {
     await syncProjectFinancials(event.params.projectId);
-  }
+  },
 );
 
 exports.syncServiceOrderInvoiceCheckoutState = onDocumentWritten(
   {
     region: "us-central1",
     document: "projects/{projectId}/invoices/{invoiceId}",
-    secrets: [STRIPE_SECRET_KEY]
+    secrets: [STRIPE_SECRET_KEY],
   },
   async (event) => {
     if (!event.data.before.exists || !event.data.after.exists) {
@@ -4204,13 +4712,16 @@ exports.syncServiceOrderInvoiceCheckoutState = onDocumentWritten(
       return;
     }
 
-    const beforeFingerprint = safeString(beforeData.stripeCheckoutFingerprint) || buildInvoiceFingerprint(beforeData);
-    const afterFingerprint = safeString(afterData.stripeCheckoutFingerprint) || buildInvoiceFingerprint(afterData);
-    const shouldExpire = safeString(afterData.status) !== "paid"
-      && (
-        safeString(afterData.stripePaymentStatus) === "stale"
-        || beforeFingerprint !== afterFingerprint
-      );
+    const beforeFingerprint =
+      safeString(beforeData.stripeCheckoutFingerprint) ||
+      buildInvoiceFingerprint(beforeData);
+    const afterFingerprint =
+      safeString(afterData.stripeCheckoutFingerprint) ||
+      buildInvoiceFingerprint(afterData);
+    const shouldExpire =
+      safeString(afterData.status) !== "paid" &&
+      (safeString(afterData.stripePaymentStatus) === "stale" ||
+        beforeFingerprint !== afterFingerprint);
 
     if (!shouldExpire) {
       return;
@@ -4222,7 +4733,7 @@ exports.syncServiceOrderInvoiceCheckoutState = onDocumentWritten(
     } catch (error) {
       logger.warn("Service order checkout invalidation skipped.", {
         invoiceId: event.params.invoiceId,
-        error: error?.message || String(error)
+        error: error?.message || String(error),
       });
     }
 
@@ -4233,26 +4744,37 @@ exports.syncServiceOrderInvoiceCheckoutState = onDocumentWritten(
     }
 
     const projectData = projectSnap.data() || {};
-    await projectRef.set({
-      billingStatus: serviceOrderBillingStatus(
-        projectData.paymentRequirement,
-        toNumber(projectData.totalContractRevenue || projectData.jobValue || projectData.baseContractValue),
-        toNumber(projectData.financials && projectData.financials.totalPayments),
-        false
-      ),
-      updatedAt: FieldValue.serverTimestamp()
-    }, { merge: true });
-  }
+    await projectRef.set(
+      {
+        billingStatus: serviceOrderBillingStatus(
+          projectData.paymentRequirement,
+          toNumber(
+            projectData.totalContractRevenue ||
+              projectData.jobValue ||
+              projectData.baseContractValue,
+          ),
+          toNumber(
+            projectData.financials && projectData.financials.totalPayments,
+          ),
+          false,
+        ),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  },
 );
 
 exports.syncProjectDerivedDataOnWrite = onDocumentWritten(
   {
     region: "us-central1",
-    document: "projects/{projectId}"
+    document: "projects/{projectId}",
   },
   async (event) => {
     if (!event.data.after.exists) {
-      const beforeData = event.data.before.exists ? event.data.before.data() : null;
+      const beforeData = event.data.before.exists
+        ? event.data.before.data()
+        : null;
       if (beforeData && beforeData.customerId) {
         await syncCustomerSummary(beforeData.customerId);
       }
@@ -4265,58 +4787,84 @@ exports.syncProjectDerivedDataOnWrite = onDocumentWritten(
     const afterWorkers = JSON.stringify(afterData.assignedWorkers || []);
     const desiredAccess = buildProjectAccessUids(afterData);
     const currentAccess = uniqueValues(afterData.allowedStaffUids || []);
-    const beforeRevenue = toNumber(beforeData.baseContractValue || beforeData.jobValue || 0);
-    const afterRevenue = toNumber(afterData.baseContractValue || afterData.jobValue || 0);
-    const statusChanged = safeString(beforeData.status) !== safeString(afterData.status);
-    const commissionLockChanged = Boolean(beforeData.commissionLocked) !== Boolean(afterData.commissionLocked);
+    const beforeRevenue = toNumber(
+      beforeData.baseContractValue || beforeData.jobValue || 0,
+    );
+    const afterRevenue = toNumber(
+      afterData.baseContractValue || afterData.jobValue || 0,
+    );
+    const statusChanged =
+      safeString(beforeData.status) !== safeString(afterData.status);
+    const commissionLockChanged =
+      Boolean(beforeData.commissionLocked) !==
+      Boolean(afterData.commissionLocked);
 
     if (JSON.stringify(desiredAccess) !== JSON.stringify(currentAccess)) {
-      await event.data.after.ref.set({
-        allowedStaffUids: desiredAccess,
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
+      await event.data.after.ref.set(
+        {
+          allowedStaffUids: desiredAccess,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
     }
 
-    if (!event.data.before.exists || beforeWorkers !== afterWorkers || beforeRevenue !== afterRevenue || statusChanged || commissionLockChanged) {
+    if (
+      !event.data.before.exists ||
+      beforeWorkers !== afterWorkers ||
+      beforeRevenue !== afterRevenue ||
+      statusChanged ||
+      commissionLockChanged
+    ) {
       await syncProjectFinancials(event.params.projectId);
     }
 
     await ensureProjectRecordDocumentMigration(event.params.projectId, {
       id: event.params.projectId,
-      ...afterData
+      ...afterData,
     });
     await syncRecordDocumentLinksForProject(event.params.projectId, {
       id: event.params.projectId,
-      ...afterData
+      ...afterData,
     });
 
-    const customerIds = uniqueValues([beforeData.customerId, afterData.customerId]);
-    await Promise.all(customerIds.map((customerId) => syncCustomerSummary(customerId)));
-  }
+    const customerIds = uniqueValues([
+      beforeData.customerId,
+      afterData.customerId,
+    ]);
+    await Promise.all(
+      customerIds.map((customerId) => syncCustomerSummary(customerId)),
+    );
+  },
 );
 
 exports.syncCustomerDataOnLeadWrite = onDocumentWritten(
   {
     region: "us-central1",
-    document: "leads/{leadId}"
+    document: "leads/{leadId}",
   },
   async (event) => {
     const beforeData = event.data.before.exists ? event.data.before.data() : {};
     const afterData = event.data.after.exists ? event.data.after.data() : {};
-    const customerIds = uniqueValues([beforeData.customerId, afterData.customerId]);
+    const customerIds = uniqueValues([
+      beforeData.customerId,
+      afterData.customerId,
+    ]);
 
     if (event.data.after.exists) {
       await syncRecordDocumentLinksForLead(event.params.leadId, afterData);
     }
 
-    await Promise.all(customerIds.map((customerId) => syncCustomerSummary(customerId)));
-  }
+    await Promise.all(
+      customerIds.map((customerId) => syncCustomerSummary(customerId)),
+    );
+  },
 );
 
 exports.syncVendorBillExpenseMirror = onDocumentWritten(
   {
     region: "us-central1",
-    document: "vendorBills/{vendorBillId}"
+    document: "vendorBills/{vendorBillId}",
   },
   async (event) => {
     const beforeData = event.data.before.exists ? event.data.before.data() : {};
@@ -4325,7 +4873,7 @@ exports.syncVendorBillExpenseMirror = onDocumentWritten(
     if (!event.data.after.exists) {
       await deleteMirroredVendorExpense(
         safeString(beforeData.projectId),
-        event.params.vendorBillId
+        event.params.vendorBillId,
       );
       return;
     }
@@ -4333,7 +4881,7 @@ exports.syncVendorBillExpenseMirror = onDocumentWritten(
     await syncVendorBillExpenseMirror(
       event.params.vendorBillId,
       beforeData,
-      afterData
+      afterData,
     );
-  }
+  },
 );
