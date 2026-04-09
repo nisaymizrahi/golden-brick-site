@@ -8,20 +8,20 @@ function buildClientPortalApi({
   onRequest,
   verifyStaffRequest,
   buildEstimateShareUrl,
-  buildPublicAgreementDownloadHref
+  buildPublicAgreementDownloadHref,
 }) {
   const COMPANY_INFO = {
     name: "Golden Brick Construction",
     phone: "(267) 715-5557",
     phoneHref: "tel:+12677155557",
     email: "info@goldenbrickc.com",
-    emailHref: "mailto:info@goldenbrickc.com"
+    emailHref: "mailto:info@goldenbrickc.com",
   };
 
   const PORTAL_HEADERS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   };
 
   function applyCors(response) {
@@ -100,9 +100,13 @@ function buildClientPortalApi({
   }
 
   function requestProtocol(request) {
-    return safeString(request.get("x-forwarded-proto") || request.protocol || "https")
-      .split(",")[0]
-      .trim() || "https";
+    return (
+      safeString(
+        request.get("x-forwarded-proto") || request.protocol || "https",
+      )
+        .split(",")[0]
+        .trim() || "https"
+    );
   }
 
   function requestHost(request) {
@@ -126,7 +130,7 @@ function buildClientPortalApi({
   function formatCurrency(value) {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD"
+      currency: "USD",
     }).format(toNumber(value));
   }
 
@@ -137,16 +141,21 @@ function buildClientPortalApi({
     return new Intl.DateTimeFormat("en-US", {
       month: "short",
       day: "numeric",
-      year: "numeric"
+      year: "numeric",
     }).format(new Date(millis));
   }
 
   function latestByUpdated(items = []) {
     if (!items.length) return null;
 
-    return [...items].sort((left, right) => {
-      return normaliseMillis(right.updatedAt || right.createdAt) - normaliseMillis(left.updatedAt || left.createdAt);
-    })[0] || null;
+    return (
+      [...items].sort((left, right) => {
+        return (
+          normaliseMillis(right.updatedAt || right.createdAt) -
+          normaliseMillis(left.updatedAt || left.createdAt)
+        );
+      })[0] || null
+    );
   }
 
   function clientUserRef(uid) {
@@ -223,7 +232,7 @@ function buildClientPortalApi({
       loginUrl: buildClientLoginUrl(request),
       hasAccount: Boolean(safeString(data.authUid)),
       createdAt: serialiseDateValue(data.createdAt),
-      updatedAt: serialiseDateValue(data.updatedAt)
+      updatedAt: serialiseDateValue(data.updatedAt),
     };
   }
 
@@ -234,11 +243,16 @@ function buildClientPortalApi({
       id,
       body: safeString(data.body),
       authorRole: safeString(data.authorRole || "client"),
-      authorName: safeString(data.authorName || (safeString(data.authorRole) === "staff" ? COMPANY_INFO.name : "Client")),
+      authorName: safeString(
+        data.authorName ||
+          (safeString(data.authorRole) === "staff"
+            ? COMPANY_INFO.name
+            : "Client"),
+      ),
       authorUid: safeString(data.authorUid),
       createdAt: serialiseDateValue(data.createdAt),
       readByClientAt: serialiseDateValue(data.readByClientAt),
-      readByStaffAt: serialiseDateValue(data.readByStaffAt)
+      readByStaffAt: serialiseDateValue(data.readByStaffAt),
     };
   }
 
@@ -249,7 +263,12 @@ function buildClientPortalApi({
       id,
       customerId: safeString(data.customerId),
       threadType: safeString(data.threadType || "general"),
-      title: safeString(data.title || (safeString(data.threadType) === "project" ? "Project updates" : "General updates")),
+      title: safeString(
+        data.title ||
+          (safeString(data.threadType) === "project"
+            ? "Project updates"
+            : "General updates"),
+      ),
       projectId: safeString(data.projectId),
       projectAddress: safeString(data.projectAddress),
       projectType: safeString(data.projectType),
@@ -260,32 +279,52 @@ function buildClientPortalApi({
       staffUnreadCount: toNumber(data.staffUnreadCount),
       createdAt: serialiseDateValue(data.createdAt),
       updatedAt: serialiseDateValue(data.updatedAt),
-      messages: messages.map(serialisePortalMessage)
+      messages: messages.map(serialisePortalMessage),
     };
   }
 
   function defaultPhaseLabel(projectData = {}) {
-    return safeString(projectData.phaseLabel)
-      || (safeString(projectData.status) === "completed" ? "Project completed" : "Planning and construction");
+    return (
+      safeString(projectData.phaseLabel) ||
+      (safeString(projectData.status) === "completed"
+        ? "Project completed"
+        : "Planning and construction")
+    );
   }
 
   function defaultNextStep(projectData = {}) {
-    return safeString(projectData.nextStep)
-      || (safeString(projectData.status) === "completed"
+    return (
+      safeString(projectData.nextStep) ||
+      (safeString(projectData.status) === "completed"
         ? "Golden Brick will coordinate any final closeout details from here."
-        : "Golden Brick will confirm the next planning or construction step directly in this portal.");
+        : "Golden Brick will confirm the next planning or construction step directly in this portal.")
+    );
   }
 
   function defaultSharedStatusNote(projectData = {}) {
-    return safeString(projectData.sharedStatusNote)
-      || "This portal is meant to keep your project updates, billing, and paperwork in one clean place.";
+    return (
+      safeString(projectData.sharedStatusNote) ||
+      "This portal is meant to keep your project updates, billing, and paperwork in one clean place."
+    );
   }
 
-  function buildClientJobPayload(projectData = {}, invoices = [], payments = []) {
-    const activeInvoices = invoices.filter((invoice) => safeString(invoice.status) !== "paid");
+  function buildClientJobPayload(
+    projectData = {},
+    invoices = [],
+    payments = [],
+  ) {
+    const activeInvoices = invoices.filter(
+      (invoice) => safeString(invoice.status) !== "paid",
+    );
     const latestInvoice = latestByUpdated(invoices);
     const latestPayment = latestByUpdated(payments);
-    const totalPaymentsReceived = payments.reduce((sum, payment) => sum + toNumber(payment.amount), 0);
+    const totalPaymentsReceived = payments.reduce(
+      (sum, payment) => sum + toNumber(payment.amount),
+      0,
+    );
+    const updatedAt = serialiseDateValue(
+      projectData.updatedAt || projectData.createdAt,
+    );
 
     return {
       id: safeString(projectData.id),
@@ -297,12 +336,15 @@ function buildClientPortalApi({
       sharedStatusNote: defaultSharedStatusNote(projectData),
       targetDate: serialiseDateValue(projectData.targetDate),
       targetWindow: safeString(projectData.targetWindow),
-      latestUpdateAt: serialiseDateValue(projectData.updatedAt || projectData.createdAt),
+      latestUpdateAt: updatedAt,
+      updatedAt,
       invoiceCount: invoices.length,
       openInvoiceCount: activeInvoices.length,
       totalPaymentsReceived,
       latestInvoiceDueAt: serialiseDateValue(latestInvoice?.dueDate),
-      latestPaymentAt: serialiseDateValue(latestPayment?.relatedDate || latestPayment?.createdAt)
+      latestPaymentAt: serialiseDateValue(
+        latestPayment?.relatedDate || latestPayment?.createdAt,
+      ),
     };
   }
 
@@ -310,7 +352,9 @@ function buildClientPortalApi({
     return {
       id: safeString(invoice.id),
       projectId: safeString(invoice.projectId || projectData.id),
-      projectAddress: safeString(invoice.projectAddress || projectData.projectAddress),
+      projectAddress: safeString(
+        invoice.projectAddress || projectData.projectAddress,
+      ),
       title: safeString(invoice.title || "Invoice"),
       invoiceNumber: safeString(invoice.invoiceNumber),
       status: safeString(invoice.status || "draft"),
@@ -323,7 +367,7 @@ function buildClientPortalApi({
       paymentReference: safeString(invoice.paymentReference),
       paymentNote: safeString(invoice.paymentNote),
       paidAt: serialiseDateValue(invoice.paidAt),
-      updatedAt: serialiseDateValue(invoice.updatedAt || invoice.createdAt)
+      updatedAt: serialiseDateValue(invoice.updatedAt || invoice.createdAt),
     };
   }
 
@@ -331,18 +375,119 @@ function buildClientPortalApi({
     return {
       id: safeString(payment.id),
       projectId: safeString(projectData.id || payment.projectId),
-      projectAddress: safeString(projectData.projectAddress || payment.projectAddress),
+      projectAddress: safeString(
+        projectData.projectAddress || payment.projectAddress,
+      ),
       amount: toNumber(payment.amount),
       paymentType: safeString(payment.paymentType || "payment"),
       method: safeString(payment.method),
       note: safeString(payment.note),
       relatedDate: serialiseDateValue(payment.relatedDate || payment.createdAt),
-      createdAt: serialiseDateValue(payment.createdAt)
+      createdAt: serialiseDateValue(payment.createdAt),
     };
   }
 
+  function buildClientBillingSnapshot(invoices = [], totalPaid = 0) {
+    const now = Date.now();
+    const openInvoices = invoices.filter(
+      (invoice) => safeString(invoice.status) !== "paid",
+    );
+    const dueNowInvoices = openInvoices.filter((invoice) => {
+      const dueMillis = normaliseMillis(invoice.dueDate);
+      return !dueMillis || dueMillis <= now;
+    });
+    const upcomingInvoices = openInvoices.filter((invoice) => {
+      const dueMillis = normaliseMillis(invoice.dueDate);
+      return dueMillis > now;
+    });
+
+    return {
+      dueNow: dueNowInvoices.reduce(
+        (sum, invoice) => sum + toNumber(invoice.subtotal),
+        0,
+      ),
+      upcoming: upcomingInvoices.reduce(
+        (sum, invoice) => sum + toNumber(invoice.subtotal),
+        0,
+      ),
+      paidToDate: toNumber(totalPaid),
+      dueCount: openInvoices.length,
+      overdueCount: openInvoices.filter((invoice) => {
+        const dueMillis = normaliseMillis(invoice.dueDate);
+        return dueMillis && dueMillis < now;
+      }).length,
+    };
+  }
+
+  function buildClientAttentionItems({
+    estimates = [],
+    jobs = [],
+    threads = [],
+    billingSummary = {},
+  }) {
+    const items = [];
+    const estimatesToReview = estimates.filter(
+      (entry) => safeString(entry.status) === "active",
+    ).length;
+    const unreadMessages = threads.reduce(
+      (sum, thread) => sum + toNumber(thread.clientUnreadCount),
+      0,
+    );
+
+    if (estimatesToReview > 0) {
+      items.push({
+        label: "Review estimate",
+        title: `${estimatesToReview} estimate${estimatesToReview === 1 ? "" : "s"} still need attention`,
+        copy: "Open the estimate section to review pricing, scope, or agreement status.",
+        view: "estimates",
+      });
+    }
+
+    if (toNumber(billingSummary.dueCount) > 0) {
+      const dueCount = toNumber(billingSummary.dueCount);
+      items.push({
+        label: "Billing",
+        title: `${dueCount} invoice${dueCount === 1 ? "" : "s"} still open`,
+        copy: "See what is due now, what is upcoming, and which property each invoice belongs to.",
+        view: "billing",
+      });
+    }
+
+    if (unreadMessages > 0) {
+      items.push({
+        label: "Messages",
+        title: `${unreadMessages} unread portal message${unreadMessages === 1 ? "" : "s"}`,
+        copy: "Open the message center to read the latest reply from Golden Brick.",
+        view: "messages",
+      });
+    }
+
+    if (!items.length && jobs.length > 0) {
+      items.push({
+        label: "Project update",
+        title: "Review your current phase and next step",
+        copy: "The dashboard and jobs view keep each property update, note, and target timing together.",
+        view: "jobs",
+      });
+    }
+
+    if (!items.length) {
+      items.push({
+        label: "Portal overview",
+        title: "Everything looks organized right now",
+        copy: "You can still review documents, billing, or message history anytime from the navigation.",
+        view: "documents",
+      });
+    }
+
+    return items.slice(0, 3);
+  }
+
   function isClientVisibleDocument(documentData = {}) {
-    return documentData.clientVisible === true || safeString(documentData.agreementId) !== "";
+    return (
+      documentData.clientVisible === true ||
+      safeString(documentData.agreementId) !== ""
+    );
   }
 
   function buildClientDocumentPayload(documentData = {}) {
@@ -351,26 +496,47 @@ function buildClientPortalApi({
       title: safeString(documentData.title || "Document"),
       category: safeString(documentData.category || "other"),
       note: safeString(documentData.note),
-      relatedDate: serialiseDateValue(documentData.relatedDate || documentData.createdAt),
+      relatedDate: serialiseDateValue(
+        documentData.relatedDate || documentData.createdAt,
+      ),
       projectId: safeString(documentData.projectId),
       projectAddress: safeString(documentData.projectAddress),
       href: safeString(documentData.fileUrl || documentData.externalUrl),
       fileName: safeString(documentData.fileName),
-      sourceType: safeString(documentData.sourceType || "manual")
+      sourceType: safeString(documentData.sourceType || "manual"),
     };
   }
 
   function pickCurrentEstimateShare(shares = []) {
-    return [...shares].sort((left, right) => {
-      const leftStatus = safeString(left.status);
-      const rightStatus = safeString(right.status);
-      const leftPriority = leftStatus === "active" ? 0 : leftStatus === "signed" ? 1 : leftStatus === "revoked" ? 2 : 3;
-      const rightPriority = rightStatus === "active" ? 0 : rightStatus === "signed" ? 1 : rightStatus === "revoked" ? 2 : 3;
-      if (leftPriority !== rightPriority) {
-        return leftPriority - rightPriority;
-      }
-      return normaliseMillis(right.updatedAt || right.createdAt) - normaliseMillis(left.updatedAt || left.createdAt);
-    })[0] || null;
+    return (
+      [...shares].sort((left, right) => {
+        const leftStatus = safeString(left.status);
+        const rightStatus = safeString(right.status);
+        const leftPriority =
+          leftStatus === "active"
+            ? 0
+            : leftStatus === "signed"
+              ? 1
+              : leftStatus === "revoked"
+                ? 2
+                : 3;
+        const rightPriority =
+          rightStatus === "active"
+            ? 0
+            : rightStatus === "signed"
+              ? 1
+              : rightStatus === "revoked"
+                ? 2
+                : 3;
+        if (leftPriority !== rightPriority) {
+          return leftPriority - rightPriority;
+        }
+        return (
+          normaliseMillis(right.updatedAt || right.createdAt) -
+          normaliseMillis(left.updatedAt || left.createdAt)
+        );
+      })[0] || null
+    );
   }
 
   async function verifyBearerToken(request) {
@@ -392,7 +558,9 @@ function buildClientPortalApi({
     const userSnap = await clientUserRef(decoded.uid).get();
 
     if (!userSnap.exists) {
-      const error = new Error("This account does not have client portal access yet.");
+      const error = new Error(
+        "This account does not have client portal access yet.",
+      );
       error.status = 403;
       throw error;
     }
@@ -405,7 +573,9 @@ function buildClientPortalApi({
     }
 
     if (normaliseEmail(userData.email) !== email) {
-      const error = new Error("This sign-in does not match the approved portal email.");
+      const error = new Error(
+        "This sign-in does not match the approved portal email.",
+      );
       error.status = 403;
       throw error;
     }
@@ -413,69 +583,90 @@ function buildClientPortalApi({
     const customerId = safeString(userData.customerId);
     const contactId = safeString(userData.contactId);
     if (!customerId || !contactId) {
-      const error = new Error("This client portal account is missing its customer link.");
+      const error = new Error(
+        "This client portal account is missing its customer link.",
+      );
       error.status = 403;
       throw error;
     }
 
     const [contactSnap, customerSnap] = await Promise.all([
       contactRef(customerId, contactId).get(),
-      customerRef(customerId).get()
+      customerRef(customerId).get(),
     ]);
 
     if (!contactSnap.exists || !customerSnap.exists) {
-      const error = new Error("The linked customer portal record could not be found.");
+      const error = new Error(
+        "The linked customer portal record could not be found.",
+      );
       error.status = 404;
       throw error;
     }
 
     const contactData = contactSnap.data() || {};
     if (contactData.disabledAt) {
-      const error = new Error("This contact has been disabled for the client portal.");
+      const error = new Error(
+        "This contact has been disabled for the client portal.",
+      );
       error.status = 403;
       throw error;
     }
 
-    if (safeString(contactData.authUid) && safeString(contactData.authUid) !== safeString(decoded.uid)) {
-      const error = new Error("This sign-in no longer matches the active client portal login for this contact.");
+    if (
+      safeString(contactData.authUid) &&
+      safeString(contactData.authUid) !== safeString(decoded.uid)
+    ) {
+      const error = new Error(
+        "This sign-in no longer matches the active client portal login for this contact.",
+      );
       error.status = 403;
       throw error;
     }
 
     if (normaliseEmail(contactData.email) !== email) {
-      const error = new Error("This sign-in does not match the invited client contact email.");
+      const error = new Error(
+        "This sign-in does not match the invited client contact email.",
+      );
       error.status = 403;
       throw error;
     }
 
     await Promise.all([
-      clientUserRef(decoded.uid).set({
-        lastLoginAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true }),
-      contactRef(customerId, contactId).set({
-        lastLoginAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true })
+      clientUserRef(decoded.uid).set(
+        {
+          lastLoginAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      ),
+      contactRef(customerId, contactId).set(
+        {
+          lastLoginAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      ),
     ]);
 
     return {
       decoded,
       clientUser: {
         uid: decoded.uid,
-        ...userData
+        ...userData,
       },
       customerId,
       contactId,
       contactRef: contactRef(customerId, contactId),
       contactData,
-      customerData: customerSnap.data() || {}
+      customerData: customerSnap.data() || {},
     };
   }
 
   async function ensurePortalThread(customerId, projectData = null) {
     const isProjectThread = Boolean(projectData?.id);
-    const nextThreadId = isProjectThread ? `project-${projectData.id}` : "general";
+    const nextThreadId = isProjectThread
+      ? `project-${projectData.id}`
+      : "general";
     const ref = threadRef(customerId, nextThreadId);
     const snapshot = await ref.get();
     const basePayload = {
@@ -483,25 +674,43 @@ function buildClientPortalApi({
       customerId,
       threadType: isProjectThread ? "project" : "general",
       projectId: isProjectThread ? safeString(projectData.id) : null,
-      projectAddress: isProjectThread ? safeString(projectData.projectAddress) : "",
+      projectAddress: isProjectThread
+        ? safeString(projectData.projectAddress)
+        : "",
       projectType: isProjectThread ? safeString(projectData.projectType) : "",
       title: isProjectThread
-        ? safeString(projectData.projectAddress || projectData.clientName || "Project updates")
+        ? safeString(
+            projectData.projectAddress ||
+              projectData.clientName ||
+              "Project updates",
+          )
         : "General project updates",
-      lastMessagePreview: snapshot.exists ? safeString(snapshot.data()?.lastMessagePreview) : "",
-      lastAuthorRole: snapshot.exists ? safeString(snapshot.data()?.lastAuthorRole) : "",
-      lastMessageAt: snapshot.exists ? (snapshot.data()?.lastMessageAt || null) : null,
-      clientUnreadCount: snapshot.exists ? toNumber(snapshot.data()?.clientUnreadCount) : 0,
-      staffUnreadCount: snapshot.exists ? toNumber(snapshot.data()?.staffUnreadCount) : 0,
-      createdAt: snapshot.exists ? (snapshot.data()?.createdAt || FieldValue.serverTimestamp()) : FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp()
+      lastMessagePreview: snapshot.exists
+        ? safeString(snapshot.data()?.lastMessagePreview)
+        : "",
+      lastAuthorRole: snapshot.exists
+        ? safeString(snapshot.data()?.lastAuthorRole)
+        : "",
+      lastMessageAt: snapshot.exists
+        ? snapshot.data()?.lastMessageAt || null
+        : null,
+      clientUnreadCount: snapshot.exists
+        ? toNumber(snapshot.data()?.clientUnreadCount)
+        : 0,
+      staffUnreadCount: snapshot.exists
+        ? toNumber(snapshot.data()?.staffUnreadCount)
+        : 0,
+      createdAt: snapshot.exists
+        ? snapshot.data()?.createdAt || FieldValue.serverTimestamp()
+        : FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     };
 
     await ref.set(basePayload, { merge: true });
     const refreshed = await ref.get();
     return {
       id: refreshed.id,
-      data: refreshed.data() || {}
+      data: refreshed.data() || {},
     };
   }
 
@@ -517,82 +726,105 @@ function buildClientPortalApi({
   }
 
   async function loadCustomerProjects(customerId) {
-    const projectsSnap = await db.collection("projects")
+    const projectsSnap = await db
+      .collection("projects")
       .where("customerId", "==", customerId)
       .get();
 
     return projectsSnap.docs.map((snapshot) => ({
       id: snapshot.id,
-      ...snapshot.data()
+      ...snapshot.data(),
     }));
   }
 
   async function loadCustomerLeads(customerId) {
-    const leadsSnap = await db.collection("leads")
+    const leadsSnap = await db
+      .collection("leads")
       .where("customerId", "==", customerId)
       .get();
 
     return leadsSnap.docs.map((snapshot) => ({
       id: snapshot.id,
-      ...snapshot.data()
+      ...snapshot.data(),
     }));
   }
 
   async function loadProjectInvoices(projectId) {
-    const invoicesSnap = await db.collection("projects")
+    const invoicesSnap = await db
+      .collection("projects")
       .doc(projectId)
       .collection("invoices")
       .get();
 
     return invoicesSnap.docs.map((snapshot) => ({
       id: snapshot.id,
-      ...snapshot.data()
+      ...snapshot.data(),
     }));
   }
 
   async function loadProjectPayments(projectId) {
-    const paymentsSnap = await db.collection("projects")
+    const paymentsSnap = await db
+      .collection("projects")
       .doc(projectId)
       .collection("payments")
       .get();
 
     return paymentsSnap.docs.map((snapshot) => ({
       id: snapshot.id,
-      ...snapshot.data()
+      ...snapshot.data(),
     }));
   }
 
   async function loadCustomerBilling(customerId) {
     const projects = await loadCustomerProjects(customerId);
-    const billingEntries = await Promise.all(projects.map(async (project) => {
-      const [invoices, payments] = await Promise.all([
-        loadProjectInvoices(project.id),
-        loadProjectPayments(project.id)
-      ]);
+    const billingEntries = await Promise.all(
+      projects.map(async (project) => {
+        const [invoices, payments] = await Promise.all([
+          loadProjectInvoices(project.id),
+          loadProjectPayments(project.id),
+        ]);
 
-      return {
-        project,
-        invoices,
-        payments
-      };
-    }));
+        return {
+          project,
+          invoices,
+          payments,
+        };
+      }),
+    );
 
-    const invoices = billingEntries.flatMap(({ project, invoices }) => {
-      return invoices.map((invoice) => buildClientInvoicePayload(invoice, project));
-    }).sort((left, right) => {
-      return normaliseMillis(right.updatedAt || right.issueDate) - normaliseMillis(left.updatedAt || left.issueDate);
-    });
+    const invoices = billingEntries
+      .flatMap(({ project, invoices }) => {
+        return invoices.map((invoice) =>
+          buildClientInvoicePayload(invoice, project),
+        );
+      })
+      .sort((left, right) => {
+        return (
+          normaliseMillis(right.updatedAt || right.issueDate) -
+          normaliseMillis(left.updatedAt || left.issueDate)
+        );
+      });
 
-    const payments = billingEntries.flatMap(({ project, payments }) => {
-      return payments.map((payment) => buildClientPaymentPayload(payment, project));
-    }).sort((left, right) => {
-      return normaliseMillis(right.relatedDate || right.createdAt) - normaliseMillis(left.relatedDate || left.createdAt);
-    });
+    const payments = billingEntries
+      .flatMap(({ project, payments }) => {
+        return payments.map((payment) =>
+          buildClientPaymentPayload(payment, project),
+        );
+      })
+      .sort((left, right) => {
+        return (
+          normaliseMillis(right.relatedDate || right.createdAt) -
+          normaliseMillis(left.relatedDate || left.createdAt)
+        );
+      });
 
     const totalDue = invoices
       .filter((invoice) => safeString(invoice.status) !== "paid")
       .reduce((sum, invoice) => sum + toNumber(invoice.subtotal), 0);
-    const totalPaid = payments.reduce((sum, payment) => sum + toNumber(payment.amount), 0);
+    const totalPaid = payments.reduce(
+      (sum, payment) => sum + toNumber(payment.amount),
+      0,
+    );
 
     return {
       projects,
@@ -600,10 +832,12 @@ function buildClientPortalApi({
       payments,
       summary: {
         invoiceCount: invoices.length,
-        invoicesDue: invoices.filter((invoice) => safeString(invoice.status) !== "paid").length,
+        invoicesDue: invoices.filter(
+          (invoice) => safeString(invoice.status) !== "paid",
+        ).length,
         totalDue,
-        totalPaid
-      }
+        totalPaid,
+      },
     };
   }
 
@@ -625,90 +859,112 @@ function buildClientPortalApi({
     });
 
     return {
-      jobs: billing.projects.map((project) => {
-        return buildClientJobPayload(
-          project,
-          invoiceMap.get(project.id) || [],
-          paymentMap.get(project.id) || []
-        );
-      }).sort((left, right) => {
-        return normaliseMillis(right.latestUpdateAt) - normaliseMillis(left.latestUpdateAt);
-      }),
-      billing
+      jobs: billing.projects
+        .map((project) => {
+          return buildClientJobPayload(
+            project,
+            invoiceMap.get(project.id) || [],
+            paymentMap.get(project.id) || [],
+          );
+        })
+        .sort((left, right) => {
+          return (
+            normaliseMillis(right.latestUpdateAt) -
+            normaliseMillis(left.latestUpdateAt)
+          );
+        }),
+      billing,
     };
   }
 
   async function loadCustomerDocuments(customerId) {
     const [projects, documentsSnap] = await Promise.all([
       loadCustomerProjects(customerId),
-      db.collection("recordDocuments")
+      db
+        .collection("recordDocuments")
         .where("customerId", "==", customerId)
-        .get()
+        .get(),
     ]);
 
-    const projectMap = new Map(projects.map((project) => [project.id, project]));
+    const projectMap = new Map(
+      projects.map((project) => [project.id, project]),
+    );
 
     return documentsSnap.docs
       .map((snapshot) => ({
         id: snapshot.id,
-        ...snapshot.data()
+        ...snapshot.data(),
       }))
       .filter(isClientVisibleDocument)
-      .map((documentData) => buildClientDocumentPayload({
-        ...documentData,
-        projectAddress: projectMap.get(safeString(documentData.projectId))?.projectAddress || ""
-      }))
+      .map((documentData) =>
+        buildClientDocumentPayload({
+          ...documentData,
+          projectAddress:
+            projectMap.get(safeString(documentData.projectId))
+              ?.projectAddress || "",
+        }),
+      )
       .filter((documentData) => safeString(documentData.href))
       .sort((left, right) => {
-        return normaliseMillis(right.relatedDate) - normaliseMillis(left.relatedDate);
+        return (
+          normaliseMillis(right.relatedDate) - normaliseMillis(left.relatedDate)
+        );
       });
   }
 
   async function loadCustomerEstimates(customerId, request) {
     const leads = await loadCustomerLeads(customerId);
-    const estimateEntries = await Promise.all(leads.map(async (lead) => {
-      const [estimateSnap, sharesSnap] = await Promise.all([
-        db.collection("estimates").doc(lead.id).get(),
-        db.collection("estimateShares").where("leadId", "==", lead.id).get()
-      ]);
+    const estimateEntries = await Promise.all(
+      leads.map(async (lead) => {
+        const [estimateSnap, sharesSnap] = await Promise.all([
+          db.collection("estimates").doc(lead.id).get(),
+          db.collection("estimateShares").where("leadId", "==", lead.id).get(),
+        ]);
 
-      if (!estimateSnap.exists) {
-        return null;
-      }
+        if (!estimateSnap.exists) {
+          return null;
+        }
 
-      const shares = sharesSnap.docs.map((snapshot) => ({
-        id: snapshot.id,
-        ...snapshot.data()
-      }));
-      const currentShare = pickCurrentEstimateShare(shares);
+        const shares = sharesSnap.docs.map((snapshot) => ({
+          id: snapshot.id,
+          ...snapshot.data(),
+        }));
+        const currentShare = pickCurrentEstimateShare(shares);
 
-      if (!currentShare || !["active", "signed"].includes(safeString(currentShare.status))) {
-        return null;
-      }
+        if (
+          !currentShare ||
+          !["active", "signed"].includes(safeString(currentShare.status))
+        ) {
+          return null;
+        }
 
-      const estimateData = estimateSnap.data() || {};
-      return {
-        leadId: lead.id,
-        projectId: safeString(currentShare.projectId || lead.wonProjectId),
-        projectAddress: safeString(lead.projectAddress),
-        projectType: safeString(lead.projectType),
-        subject: safeString(estimateData.subject || lead.estimateTitle || "Estimate"),
-        subtotal: toNumber(estimateData.subtotal || lead.estimateSubtotal),
-        status: safeString(currentShare.status),
-        shareUrl: buildEstimateShareUrl(request, currentShare.id),
-        agreementDownloadHref: safeString(currentShare.status) === "signed"
-          ? buildPublicAgreementDownloadHref(request, currentShare.id)
-          : "",
-        signedAt: serialiseDateValue(currentShare.signedAt),
-        updatedAt: serialiseDateValue(currentShare.updatedAt || currentShare.createdAt)
-      };
-    }));
+        const estimateData = estimateSnap.data() || {};
+        return {
+          leadId: lead.id,
+          projectId: safeString(currentShare.projectId || lead.wonProjectId),
+          projectAddress: safeString(lead.projectAddress),
+          projectType: safeString(lead.projectType),
+          subject: safeString(
+            estimateData.subject || lead.estimateTitle || "Estimate",
+          ),
+          subtotal: toNumber(estimateData.subtotal || lead.estimateSubtotal),
+          status: safeString(currentShare.status),
+          shareUrl: buildEstimateShareUrl(request, currentShare.id),
+          agreementDownloadHref:
+            safeString(currentShare.status) === "signed"
+              ? buildPublicAgreementDownloadHref(request, currentShare.id)
+              : "",
+          signedAt: serialiseDateValue(currentShare.signedAt),
+          updatedAt: serialiseDateValue(
+            currentShare.updatedAt || currentShare.createdAt,
+          ),
+        };
+      }),
+    );
 
-    return estimateEntries
-      .filter(Boolean)
-      .sort((left, right) => {
-        return normaliseMillis(right.updatedAt) - normaliseMillis(left.updatedAt);
-      });
+    return estimateEntries.filter(Boolean).sort((left, right) => {
+      return normaliseMillis(right.updatedAt) - normaliseMillis(left.updatedAt);
+    });
   }
 
   async function loadCustomerThreads(customerId, includeMessages = false) {
@@ -718,33 +974,47 @@ function buildClientPortalApi({
     const threadsSnap = await threadsCollection(customerId).get();
     const threads = threadsSnap.docs.map((snapshot) => ({
       id: snapshot.id,
-      data: snapshot.data() || {}
+      data: snapshot.data() || {},
     }));
 
     if (!includeMessages) {
       return threads
         .map((thread) => serialisePortalThread(thread))
         .sort((left, right) => {
-          return normaliseMillis(right.lastMessageAt || right.updatedAt) - normaliseMillis(left.lastMessageAt || left.updatedAt);
+          return (
+            normaliseMillis(right.lastMessageAt || right.updatedAt) -
+            normaliseMillis(left.lastMessageAt || left.updatedAt)
+          );
         });
     }
 
-    const withMessages = await Promise.all(threads.map(async (thread) => {
-      const messagesSnap = await messagesCollection(customerId, thread.id).get();
-      const messages = messagesSnap.docs
-        .map((snapshot) => ({
-          id: snapshot.id,
-          data: snapshot.data() || {}
-        }))
-        .sort((left, right) => {
-          return normaliseMillis(left.data.createdAt) - normaliseMillis(right.data.createdAt);
-        });
+    const withMessages = await Promise.all(
+      threads.map(async (thread) => {
+        const messagesSnap = await messagesCollection(
+          customerId,
+          thread.id,
+        ).get();
+        const messages = messagesSnap.docs
+          .map((snapshot) => ({
+            id: snapshot.id,
+            data: snapshot.data() || {},
+          }))
+          .sort((left, right) => {
+            return (
+              normaliseMillis(left.data.createdAt) -
+              normaliseMillis(right.data.createdAt)
+            );
+          });
 
-      return serialisePortalThread(thread, messages);
-    }));
+        return serialisePortalThread(thread, messages);
+      }),
+    );
 
     return withMessages.sort((left, right) => {
-      return normaliseMillis(right.lastMessageAt || right.updatedAt) - normaliseMillis(left.lastMessageAt || left.updatedAt);
+      return (
+        normaliseMillis(right.lastMessageAt || right.updatedAt) -
+        normaliseMillis(left.lastMessageAt || left.updatedAt)
+      );
     });
   }
 
@@ -774,7 +1044,9 @@ function buildClientPortalApi({
 
     const contactData = contactSnapshot.data() || {};
     if (contactData.disabledAt) {
-      const error = new Error("This contact has been disabled for the client portal.");
+      const error = new Error(
+        "This contact has been disabled for the client portal.",
+      );
       error.status = 403;
       throw error;
     }
@@ -787,7 +1059,9 @@ function buildClientPortalApi({
 
     const decodedEmail = normaliseEmail(decoded.email);
     if (!decodedEmail || decodedEmail !== normaliseEmail(contactData.email)) {
-      const error = new Error("Sign in with the same email address that was invited to the portal.");
+      const error = new Error(
+        "Sign in with the same email address that was invited to the portal.",
+      );
       error.status = 403;
       throw error;
     }
@@ -797,7 +1071,9 @@ function buildClientPortalApi({
       const existingData = existingUserSnap.data() || {};
       const existingCustomerId = safeString(existingData.customerId);
       if (existingCustomerId && existingCustomerId !== customerId) {
-        const error = new Error("This account is already linked to a different customer portal.");
+        const error = new Error(
+          "This account is already linked to a different customer portal.",
+        );
         error.status = 409;
         throw error;
       }
@@ -805,35 +1081,57 @@ function buildClientPortalApi({
 
     const batch = db.batch();
 
-    if (safeString(contactData.authUid) && safeString(contactData.authUid) !== safeString(decoded.uid)) {
-      batch.set(clientUserRef(contactData.authUid), {
-        status: "replaced",
-        replacedAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
+    if (
+      safeString(contactData.authUid) &&
+      safeString(contactData.authUid) !== safeString(decoded.uid)
+    ) {
+      batch.set(
+        clientUserRef(contactData.authUid),
+        {
+          status: "replaced",
+          replacedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
     }
 
-    batch.set(clientUserRef(decoded.uid), {
-      uid: decoded.uid,
-      customerId,
-      contactId,
-      email: decodedEmail,
-      displayName: safeString(decoded.name || payload.displayName || contactData.name || decoded.email),
-      status: "active",
-      lastLoginAt: FieldValue.serverTimestamp(),
-      createdAt: existingUserSnap.exists ? (existingUserSnap.data()?.createdAt || FieldValue.serverTimestamp()) : FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp()
-    }, { merge: true });
+    batch.set(
+      clientUserRef(decoded.uid),
+      {
+        uid: decoded.uid,
+        customerId,
+        contactId,
+        email: decodedEmail,
+        displayName: safeString(
+          decoded.name ||
+            payload.displayName ||
+            contactData.name ||
+            decoded.email,
+        ),
+        status: "active",
+        lastLoginAt: FieldValue.serverTimestamp(),
+        createdAt: existingUserSnap.exists
+          ? existingUserSnap.data()?.createdAt || FieldValue.serverTimestamp()
+          : FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
 
-    batch.set(contactRef(customerId, contactId), {
-      authUid: decoded.uid,
-      inviteStatus: "claimed",
-      inviteToken: "",
-      inviteUrl: "",
-      claimedAt: FieldValue.serverTimestamp(),
-      lastLoginAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp()
-    }, { merge: true });
+    batch.set(
+      contactRef(customerId, contactId),
+      {
+        authUid: decoded.uid,
+        inviteStatus: "claimed",
+        inviteToken: "",
+        inviteUrl: "",
+        claimedAt: FieldValue.serverTimestamp(),
+        lastLoginAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
 
     await batch.commit();
     await ensurePortalThread(customerId, null);
@@ -844,7 +1142,7 @@ function buildClientPortalApi({
       customerId,
       contactId,
       customerName: safeString(customerSnap.data()?.name),
-      loginUrl: buildClientLoginUrl(request)
+      loginUrl: buildClientLoginUrl(request),
     };
   }
 
@@ -866,7 +1164,7 @@ function buildClientPortalApi({
 
     const [contactSnapshot, customerSnapshot] = await Promise.all([
       contactRef(customerId, contactId).get(),
-      customerRef(customerId).get()
+      customerRef(customerId).get(),
     ]);
 
     if (!contactSnapshot.exists || !customerSnapshot.exists) {
@@ -877,7 +1175,9 @@ function buildClientPortalApi({
 
     const contactData = contactSnapshot.data() || {};
     if (contactData.disabledAt) {
-      const error = new Error("This contact has been disabled for the client portal.");
+      const error = new Error(
+        "This contact has been disabled for the client portal.",
+      );
       error.status = 403;
       throw error;
     }
@@ -895,12 +1195,14 @@ function buildClientPortalApi({
         customerId,
         contactId,
         customerName: safeString(customerSnapshot.data()?.name),
-        contactName: safeString(contactData.name || customerSnapshot.data()?.name || "Portal contact"),
+        contactName: safeString(
+          contactData.name || customerSnapshot.data()?.name || "Portal contact",
+        ),
         email: normaliseEmail(contactData.email),
         phone: safeString(contactData.phone),
         accessScope: safeString(contactData.accessScope || "customer"),
-        loginUrl: buildClientLoginUrl(request)
-      }
+        loginUrl: buildClientLoginUrl(request),
+      },
     };
   }
 
@@ -935,7 +1237,7 @@ function buildClientPortalApi({
         ? contactRef(customerId, requestedContactId)
         : customerRef(customerId).collection("contacts").doc();
       const snapshot = await ref.get();
-      const existing = snapshot.exists ? (snapshot.data() || {}) : {};
+      const existing = snapshot.exists ? snapshot.data() || {} : {};
       const email = normaliseEmail(payload.email || existing.email);
       const existingAuthUid = safeString(existing.authUid);
       const preserveClaim = Boolean(existingAuthUid) && action === "copy";
@@ -951,10 +1253,17 @@ function buildClientPortalApi({
       const nextPayload = {
         id: ref.id,
         customerId,
-        name: safeString(payload.name || existing.name || customerData.name || "Portal contact"),
+        name: safeString(
+          payload.name ||
+            existing.name ||
+            customerData.name ||
+            "Portal contact",
+        ),
         email,
         phone: safeString(payload.phone || existing.phone),
-        accessScope: safeString(payload.accessScope || existing.accessScope || "customer"),
+        accessScope: safeString(
+          payload.accessScope || existing.accessScope || "customer",
+        ),
         authUid: preserveClaim ? existingAuthUid : "",
         inviteStatus: preserveClaim ? "claimed" : "invited",
         inviteToken: preserveClaim ? safeString(existing.inviteToken) : token,
@@ -962,24 +1271,28 @@ function buildClientPortalApi({
           ? safeString(existing.inviteUrl || buildClientLoginUrl(request))
           : inviteUrl,
         lastInvitedAt: preserveClaim
-          ? (existing.lastInvitedAt || null)
+          ? existing.lastInvitedAt || null
           : FieldValue.serverTimestamp(),
-        claimedAt: preserveClaim ? (existing.claimedAt || null) : null,
-        lastLoginAt: preserveClaim ? (existing.lastLoginAt || null) : null,
+        claimedAt: preserveClaim ? existing.claimedAt || null : null,
+        lastLoginAt: preserveClaim ? existing.lastLoginAt || null : null,
         disabledAt: null,
         revokedAt: null,
         createdAt: existing.createdAt || FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp()
+        updatedAt: FieldValue.serverTimestamp(),
       };
 
       const batch = db.batch();
 
       if (existingAuthUid && !preserveClaim) {
-        batch.set(clientUserRef(existingAuthUid), {
-          status: "replaced",
-          replacedAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp()
-        }, { merge: true });
+        batch.set(
+          clientUserRef(existingAuthUid),
+          {
+            status: "replaced",
+            replacedAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
       }
 
       batch.set(ref, nextPayload, { merge: true });
@@ -990,10 +1303,13 @@ function buildClientPortalApi({
       return {
         ok: true,
         action,
-        contact: serialisePortalContact({
-          id: refreshed.id,
-          data: refreshed.data() || {}
-        }, request)
+        contact: serialisePortalContact(
+          {
+            id: refreshed.id,
+            data: refreshed.data() || {},
+          },
+          request,
+        ),
       };
     }
 
@@ -1015,52 +1331,78 @@ function buildClientPortalApi({
     const batch = db.batch();
 
     if (action === "revoke") {
-      batch.set(ref, {
-        inviteStatus: "revoked",
-        inviteToken: "",
-        inviteUrl: "",
-        revokedAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
+      batch.set(
+        ref,
+        {
+          inviteStatus: "revoked",
+          inviteToken: "",
+          inviteUrl: "",
+          revokedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
 
       if (safeString(existing.authUid)) {
-        batch.set(clientUserRef(existing.authUid), {
-          status: "revoked",
-          revokedAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp()
-        }, { merge: true });
+        batch.set(
+          clientUserRef(existing.authUid),
+          {
+            status: "revoked",
+            revokedAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
       }
     } else if (action === "disable") {
-      batch.set(ref, {
-        inviteStatus: "disabled",
-        inviteToken: "",
-        inviteUrl: "",
-        disabledAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
+      batch.set(
+        ref,
+        {
+          inviteStatus: "disabled",
+          inviteToken: "",
+          inviteUrl: "",
+          disabledAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
 
       if (safeString(existing.authUid)) {
-        batch.set(clientUserRef(existing.authUid), {
-          status: "disabled",
-          disabledAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp()
-        }, { merge: true });
+        batch.set(
+          clientUserRef(existing.authUid),
+          {
+            status: "disabled",
+            disabledAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
       }
     } else if (action === "enable") {
-      batch.set(ref, {
-        inviteStatus: safeString(existing.authUid) ? "claimed" : "not_invited",
-        disabledAt: null,
-        revokedAt: null,
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
-
-      if (safeString(existing.authUid)) {
-        batch.set(clientUserRef(existing.authUid), {
-          status: "active",
+      batch.set(
+        ref,
+        {
+          inviteStatus: safeString(existing.authUid)
+            ? "claimed"
+            : "not_invited",
           disabledAt: null,
           revokedAt: null,
-          updatedAt: FieldValue.serverTimestamp()
-        }, { merge: true });
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+      if (safeString(existing.authUid)) {
+        batch.set(
+          clientUserRef(existing.authUid),
+          {
+            status: "active",
+            disabledAt: null,
+            revokedAt: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
       }
     } else {
       const error = new Error("Unsupported invite action.");
@@ -1073,14 +1415,22 @@ function buildClientPortalApi({
     return {
       ok: true,
       action,
-      contact: serialisePortalContact({
-        id: refreshed.id,
-        data: refreshed.data() || {}
-      }, request)
+      contact: serialisePortalContact(
+        {
+          id: refreshed.id,
+          data: refreshed.data() || {},
+        },
+        request,
+      ),
     };
   }
 
-  async function addClientThreadMessage(customerId, threadId, clientProfile, payload) {
+  async function addClientThreadMessage(
+    customerId,
+    threadId,
+    clientProfile,
+    payload,
+  ) {
     const ref = threadRef(customerId, threadId);
     const snapshot = await ref.get();
     if (!snapshot.exists) {
@@ -1099,32 +1449,44 @@ function buildClientPortalApi({
     const messageRef = messagesCollection(customerId, threadId).doc();
     const batch = db.batch();
 
-    batch.set(messageRef, {
-      id: messageRef.id,
-      body,
-      authorRole: "client",
-      authorUid: safeString(clientProfile.clientUser.uid),
-      authorName: safeString(clientProfile.contactData.name || clientProfile.clientUser.displayName || "Client"),
-      readByClientAt: FieldValue.serverTimestamp(),
-      readByStaffAt: null,
-      createdAt: FieldValue.serverTimestamp()
-    }, { merge: true });
+    batch.set(
+      messageRef,
+      {
+        id: messageRef.id,
+        body,
+        authorRole: "client",
+        authorUid: safeString(clientProfile.clientUser.uid),
+        authorName: safeString(
+          clientProfile.contactData.name ||
+            clientProfile.clientUser.displayName ||
+            "Client",
+        ),
+        readByClientAt: FieldValue.serverTimestamp(),
+        readByStaffAt: null,
+        createdAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
 
-    batch.set(ref, {
-      lastMessageAt: FieldValue.serverTimestamp(),
-      lastMessagePreview: body.slice(0, 240),
-      lastAuthorRole: "client",
-      clientUnreadCount: 0,
-      staffUnreadCount: FieldValue.increment(1),
-      updatedAt: FieldValue.serverTimestamp()
-    }, { merge: true });
+    batch.set(
+      ref,
+      {
+        lastMessageAt: FieldValue.serverTimestamp(),
+        lastMessagePreview: body.slice(0, 240),
+        lastAuthorRole: "client",
+        clientUnreadCount: 0,
+        staffUnreadCount: FieldValue.increment(1),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
 
     await batch.commit();
 
     return {
       ok: true,
       threadId,
-      messageId: messageRef.id
+      messageId: messageRef.id,
     };
   }
 
@@ -1137,14 +1499,17 @@ function buildClientPortalApi({
       throw error;
     }
 
-    await ref.set({
-      clientUnreadCount: 0,
-      updatedAt: FieldValue.serverTimestamp()
-    }, { merge: true });
+    await ref.set(
+      {
+        clientUnreadCount: 0,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
 
     return {
       ok: true,
-      threadId
+      threadId,
     };
   }
 
@@ -1153,52 +1518,91 @@ function buildClientPortalApi({
       loadCustomerJobs(clientProfile.customerId),
       loadCustomerEstimates(clientProfile.customerId, request),
       loadCustomerDocuments(clientProfile.customerId),
-      loadCustomerThreads(clientProfile.customerId, false)
+      loadCustomerThreads(clientProfile.customerId, false),
     ]);
+    const activeJobs = jobsPayload.jobs.filter(
+      (job) => safeString(job.status) !== "completed",
+    );
+    const primaryProject = activeJobs[0] || jobsPayload.jobs[0] || null;
+    const billingSummary = buildClientBillingSnapshot(
+      jobsPayload.billing.invoices,
+      jobsPayload.billing.summary.totalPaid,
+    );
+    const unreadMessages = threads.reduce(
+      (sum, thread) => sum + toNumber(thread.clientUnreadCount),
+      0,
+    );
 
     const summary = {
-      estimatesToReview: estimates.filter((entry) => entry.status === "active").length,
-      activeJobs: jobsPayload.jobs.filter((job) => job.status !== "completed").length,
+      estimatesToReview: estimates.filter((entry) => entry.status === "active")
+        .length,
+      activeJobs: activeJobs.length,
       invoicesDue: jobsPayload.billing.summary.invoicesDue,
       totalDue: jobsPayload.billing.summary.totalDue,
       paymentsReceived: jobsPayload.billing.summary.totalPaid,
       recentDocuments: documents.length,
-      unreadMessages: threads.reduce((sum, thread) => sum + toNumber(thread.clientUnreadCount), 0)
+      unreadMessages,
     };
 
     return {
       ok: true,
+      customerDisplayName: safeString(
+        clientProfile.clientUser.displayName ||
+          clientProfile.contactData.name ||
+          clientProfile.customerData.name,
+      ),
+      supportPhone: COMPANY_INFO.phone,
+      activeProjectCount: activeJobs.length,
+      primaryProjectId: safeString(primaryProject?.id),
       account: {
-        displayName: safeString(clientProfile.clientUser.displayName || clientProfile.contactData.name || clientProfile.contactData.email),
+        displayName: safeString(
+          clientProfile.clientUser.displayName ||
+            clientProfile.contactData.name ||
+            clientProfile.contactData.email,
+        ),
         email: normaliseEmail(clientProfile.contactData.email),
         contactName: safeString(clientProfile.contactData.name),
         phone: safeString(clientProfile.contactData.phone),
-        accessScope: safeString(clientProfile.contactData.accessScope || "customer"),
+        accessScope: safeString(
+          clientProfile.contactData.accessScope || "customer",
+        ),
         customerName: safeString(clientProfile.customerData.name),
         customerEmail: safeString(clientProfile.customerData.primaryEmail),
         customerPhone: safeString(clientProfile.customerData.primaryPhone),
-        customerAddress: safeString(clientProfile.customerData.primaryAddress)
+        customerAddress: safeString(clientProfile.customerData.primaryAddress),
       },
       help: {
         name: COMPANY_INFO.name,
         phone: COMPANY_INFO.phone,
         phoneHref: COMPANY_INFO.phoneHref,
         email: COMPANY_INFO.email,
-        emailHref: COMPANY_INFO.emailHref
+        emailHref: COMPANY_INFO.emailHref,
       },
-      summary
+      summary,
+      attentionItems: buildClientAttentionItems({
+        estimates,
+        jobs: activeJobs,
+        threads,
+        billingSummary,
+      }),
+      billingSummary,
+      recentDocuments: documents.slice(0, 4),
+      recentThreads: threads.slice(0, 4),
     };
   }
 
   function routeSegments(request) {
-    const pathname = new URL(request.originalUrl, `${requestProtocol(request)}://${requestHost(request) || "localhost"}`).pathname;
+    const pathname = new URL(
+      request.originalUrl,
+      `${requestProtocol(request)}://${requestHost(request) || "localhost"}`,
+    ).pathname;
     return pathname.split("/").filter(Boolean).slice(2);
   }
 
   return onRequest(
     {
       region: "us-central1",
-      cors: true
+      cors: true,
     },
     async (request, response) => {
       applyCors(response);
@@ -1242,10 +1646,13 @@ function buildClientPortalApi({
         }
 
         if (request.method === "GET" && resource === "estimates") {
-          const estimates = await loadCustomerEstimates(clientProfile.customerId, request);
+          const estimates = await loadCustomerEstimates(
+            clientProfile.customerId,
+            request,
+          );
           respondJson(response, 200, {
             ok: true,
-            estimates
+            estimates,
           });
           return;
         }
@@ -1254,7 +1661,7 @@ function buildClientPortalApi({
           const jobsPayload = await loadCustomerJobs(clientProfile.customerId);
           respondJson(response, 200, {
             ok: true,
-            jobs: jobsPayload.jobs
+            jobs: jobsPayload.jobs,
           });
           return;
         }
@@ -1265,57 +1672,81 @@ function buildClientPortalApi({
             ok: true,
             summary: billing.summary,
             invoices: billing.invoices,
-            payments: billing.payments
+            payments: billing.payments,
           });
           return;
         }
 
         if (request.method === "GET" && resource === "documents") {
-          const documents = await loadCustomerDocuments(clientProfile.customerId);
+          const documents = await loadCustomerDocuments(
+            clientProfile.customerId,
+          );
           respondJson(response, 200, {
             ok: true,
-            documents
+            documents,
           });
           return;
         }
 
         if (request.method === "GET" && resource === "threads") {
-          const threads = await loadCustomerThreads(clientProfile.customerId, true);
+          const threads = await loadCustomerThreads(
+            clientProfile.customerId,
+            true,
+          );
           respondJson(response, 200, {
             ok: true,
-            threads
+            threads,
           });
           return;
         }
 
-        if (request.method === "POST" && resource === "threads" && resourceId && subresource === "messages") {
+        if (
+          request.method === "POST" &&
+          resource === "threads" &&
+          resourceId &&
+          subresource === "messages"
+        ) {
           const payload = parseRequestPayload(request);
-          const result = await addClientThreadMessage(clientProfile.customerId, resourceId, clientProfile, payload);
+          const result = await addClientThreadMessage(
+            clientProfile.customerId,
+            resourceId,
+            clientProfile,
+            payload,
+          );
           respondJson(response, 200, result);
           return;
         }
 
-        if (request.method === "POST" && resource === "threads" && resourceId && subresource === "read") {
-          const result = await markClientThreadRead(clientProfile.customerId, resourceId);
+        if (
+          request.method === "POST" &&
+          resource === "threads" &&
+          resourceId &&
+          subresource === "read"
+        ) {
+          const result = await markClientThreadRead(
+            clientProfile.customerId,
+            resourceId,
+          );
           respondJson(response, 200, result);
           return;
         }
 
         respondJson(response, 404, {
           ok: false,
-          message: "Client portal route not found."
+          message: "Client portal route not found.",
         });
       } catch (error) {
         logger.error("Client portal request failed.", error);
         respondJson(response, error.status || 500, {
           ok: false,
-          message: error.message || "Could not complete the client portal request."
+          message:
+            error.message || "Could not complete the client portal request.",
         });
       }
-    }
+    },
   );
 }
 
 module.exports = {
-  buildClientPortalApi
+  buildClientPortalApi,
 };
