@@ -75,6 +75,33 @@
             "value": "no-store, max-age=0"
           }
         ]
+      },
+      {
+        "source": "/estimate",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
+      },
+      {
+        "source": "/estimate/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
+      },
+      {
+        "source": "/estimate/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
       }
     ],
     "rewrites": [
@@ -145,21 +172,21 @@
       {
         "source": "/api/public/estimate-view",
         "function": {
-          "functionId": "publicEstimateView",
+          "functionId": "clientPortalApi",
           "region": "us-central1"
         }
       },
       {
         "source": "/api/public/estimate-sign",
         "function": {
-          "functionId": "publicEstimateSign",
+          "functionId": "clientPortalApi",
           "region": "us-central1"
         }
       },
       {
         "source": "/api/public/agreement-document",
         "function": {
-          "functionId": "publicAgreementDocument",
+          "functionId": "clientPortalApi",
           "region": "us-central1"
         }
       },

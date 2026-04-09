@@ -20,6 +20,7 @@ const CRM_ADMIN_EMAILS = defineString("CRM_ADMIN_EMAILS", { default: "" });
 const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
 const STRIPE_DISABLED_MESSAGE =
   "Online Stripe checkout is temporarily unavailable. Please contact Golden Brick directly for payment coordination.";
+const PENNSYLVANIA_LICENSE_NUMBER = "065157";
 
 const STAFF_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -35,29 +36,70 @@ const LEAD_STATUSES = {
   closed_lost: "Closed Lost",
 };
 
-const DEFAULT_ESTIMATE_STANDARD_TERMS = [
+const LEGACY_DEFAULT_ESTIMATE_STANDARD_TERMS = [
   "This estimate is based on standard contractor-stock materials and finishes unless otherwise stated in writing.",
   "Pricing remains subject to final scope confirmation, field measurements, access conditions, and finish selections.",
   "Golden Brick Construction is not responsible for unforeseen concealed, latent, or site conditions discovered after work begins. Any resulting scope, schedule, or pricing adjustments must be documented in writing before additional work proceeds.",
 ].join("\n");
 
+const DEFAULT_ESTIMATE_STANDARD_TERMS = [
+  "This estimate reflects the scope, quantities, access assumptions, and material quality level identified at the time it was prepared. Unless noted otherwise in writing, pricing assumes contractor-stock materials and standard installation conditions.",
+  "Final pricing, sequencing, and production details remain subject to site verification, accurate field measurements, finish selections, structural discoveries, code requirements, utility conditions, and any revisions approved in writing after this estimate was issued.",
+  "Unforeseen concealed, latent, or site conditions discovered after work begins are not included in this estimate. If those conditions affect scope, cost, sequencing, or duration, Golden Brick Construction will document the revision in writing before additional work proceeds.",
+  "Permits, inspections, engineering input, specialty vendor work, and trade coordination are included only when specifically called for by the approved scope or later documented through written revisions.",
+  "Any requested scope, material, or scheduling changes after estimate approval must be captured in writing and may require revised pricing or a formal change order before added work can begin.",
+].join("\n");
+
 const LEGACY_ESTIMATE_TEMPLATE_TERMS = new Set([
   "Pricing is a planning estimate until site conditions, access, finish selections, and final scope are confirmed.",
   "Pricing is a planning estimate until scope, access, existing conditions, and finish selections are confirmed on site.",
+  LEGACY_DEFAULT_ESTIMATE_STANDARD_TERMS,
 ]);
 
-const DEFAULT_AGREEMENT_TITLE = "Client authorization and agreement";
+const LEGACY_DEFAULT_AGREEMENT_TITLE = "Client authorization and agreement";
+const DEFAULT_AGREEMENT_TITLE = "Estimate approval and project authorization";
 
-const DEFAULT_AGREEMENT_INTRO = [
+const LEGACY_DEFAULT_AGREEMENT_INTRO = [
   "If you would like Golden Brick Construction to move forward from this estimate into the next planning and production step, please review and sign the agreement terms below.",
   "Your signature locks the estimate snapshot shown on this page into the project file so Golden Brick and the client are aligned on the approved scope and commercial terms at the time of acceptance.",
 ].join("\n");
 
-const DEFAULT_AGREEMENT_TERMS = [
+const DEFAULT_AGREEMENT_INTRO = [
+  "This page records the estimate snapshot Golden Brick Construction is asking you to approve. If the scope and pricing shown here match your direction, your signature authorizes Golden Brick to move this project into the next planning, scheduling, and coordination step.",
+  "Once signed, the proposal summary, line items, assumptions, and agreement terms shown here are archived into the project file so both sides have one shared approval record.",
+].join("\n");
+
+const LEGACY_DEFAULT_AGREEMENT_TERMS = [
   "By signing below, you confirm that Golden Brick Construction may move forward based on the estimate scope and pricing snapshot shown on this page, subject to final field verification and any written revisions agreed by both parties.",
   "Any requested scope, material, pricing, or schedule changes after signature must be documented in writing and may require a revised estimate or change order before additional work proceeds.",
   "Scheduling, procurement, and start-date coordination remain subject to site access, deposit and payment coordination, municipal approvals, final measurements, and confirmed finish selections where applicable.",
 ].join("\n");
+
+const DEFAULT_AGREEMENT_TERMS = [
+  "By signing below, you approve the estimate scope and pricing snapshot shown on this page and authorize Golden Brick Construction to move forward into the next pre-construction, scheduling, procurement, and production coordination step for this project.",
+  "This approval is tied to the scope, assumptions, and pricing shown on this page only. Any requested changes to scope, materials, quantities, schedule, or finish level after signature must be documented in writing and may require revised pricing, a revised estimate, or a formal change order before the changed work proceeds.",
+  "Any pricing tied to allowances, contractor-stock materials, existing-condition assumptions, or standard installation methods may change if site conditions, code requirements, measurements, owner selections, or requested upgrades differ from the assumptions used to prepare this estimate.",
+  "Golden Brick Construction is not responsible for concealed, latent, or previously unknown conditions discovered after work begins, including structural issues, moisture damage, outdated wiring, plumbing deficiencies, code deficiencies, or other conditions that were not visible at the time of estimating. If discovered, the project file will be updated in writing before additional affected work continues.",
+  "Target start dates, sequencing, inspections, and completion timing are planning targets only and remain subject to site access, material availability, lead times, utility conditions, municipal approvals, weather, timely client selections, and prior work completion.",
+  "Where permits, inspections, engineering input, or specialty vendor coordination are required for the approved scope, Golden Brick Construction will coordinate those next steps as applicable; however, municipal review timing, utility scheduling, and third-party delays remain outside the contractor's direct control.",
+  "The client agrees to provide reasonable site access, timely design or finish decisions, timely responses to scope clarifications, and any owner-supplied selections or information needed to keep the project moving. Delays in access, selections, or approvals may affect schedule and cost.",
+  "Deposits, milestone invoices, retainage, or other payment obligations, where applicable to this project, will follow the written payment schedule reflected in the project file, approved invoices, and any later signed revisions. Golden Brick Construction may pause procurement, scheduling, or active work if required payments or approvals are outstanding.",
+  "Special-order materials, custom fabricated items, non-stock finishes, and approved purchases made specifically for this project may be non-refundable once ordered or fabricated.",
+  `Golden Brick Construction is Pennsylvania licensed and insured, PA License #${PENNSYLVANIA_LICENSE_NUMBER}. Subcontractors, specialty trades, and vendor partners may be used where appropriate, but Golden Brick remains the coordinating contractor for the approved scope reflected here.`,
+  "This signed estimate, together with any later written revisions, schedules, payment milestones, change orders, selections, and required statutory notices, becomes part of the final project record maintained by Golden Brick Construction.",
+].join("\n");
+
+const LEGACY_AGREEMENT_TEMPLATE_TITLES = new Set([
+  LEGACY_DEFAULT_AGREEMENT_TITLE,
+]);
+
+const LEGACY_AGREEMENT_TEMPLATE_INTROS = new Set([
+  LEGACY_DEFAULT_AGREEMENT_INTRO,
+]);
+
+const LEGACY_AGREEMENT_TEMPLATE_TERMS = new Set([
+  LEGACY_DEFAULT_AGREEMENT_TERMS,
+]);
 
 const DEFAULT_SERVICE_TEMPLATES = [
   {
@@ -481,15 +523,27 @@ function resolveEstimateTemplateTerms(template = {}) {
 }
 
 function resolveAgreementTemplateTitle(template = {}) {
-  return safeString(template.agreementTitle) || DEFAULT_AGREEMENT_TITLE;
+  const title = safeString(template.agreementTitle);
+  if (!title || LEGACY_AGREEMENT_TEMPLATE_TITLES.has(title)) {
+    return DEFAULT_AGREEMENT_TITLE;
+  }
+  return title;
 }
 
 function resolveAgreementTemplateIntro(template = {}) {
-  return safeString(template.agreementIntro) || DEFAULT_AGREEMENT_INTRO;
+  const intro = safeString(template.agreementIntro);
+  if (!intro || LEGACY_AGREEMENT_TEMPLATE_INTROS.has(intro)) {
+    return DEFAULT_AGREEMENT_INTRO;
+  }
+  return intro;
 }
 
 function resolveAgreementTemplateTerms(template = {}) {
-  return safeString(template.agreementTerms) || DEFAULT_AGREEMENT_TERMS;
+  const terms = safeString(template.agreementTerms);
+  if (!terms || LEGACY_AGREEMENT_TEMPLATE_TERMS.has(terms)) {
+    return DEFAULT_AGREEMENT_TERMS;
+  }
+  return terms;
 }
 
 function defaultServiceTemplateSeed(template = {}) {
@@ -1726,7 +1780,7 @@ function buildEstimateShareUrl(request, shareId) {
 
 function buildPublicAgreementDownloadHref(request, token) {
   const baseUrl = requestBaseUrl(request);
-  return `${baseUrl}/api/public/agreement-document?token=${encodeURIComponent(token)}`;
+  return `${baseUrl}/api/client/public-agreement-document?token=${encodeURIComponent(token)}`;
 }
 
 function storageDownloadUrl(bucketName, filePath, token) {
@@ -2201,6 +2255,11 @@ function buildAgreementPdfBuffer({
         gapAfter: 0,
       },
     );
+    renderPdfParagraph(doc, `PA License #${PENNSYLVANIA_LICENSE_NUMBER}`, {
+      fontSize: 9,
+      color: "#7b6f61",
+      gapAfter: 0,
+    });
 
     doc.end();
   });
@@ -2612,6 +2671,12 @@ function buildPublicEstimatePayload({
       intro: safeString(agreementSnapshot.intro),
       terms: splitMultilineText(agreementSnapshot.terms),
     },
+    support: {
+      email: "info@goldenbrickc.com",
+      phone: "(267) 715-5557",
+      phoneHref: "+12677155557",
+      licenseNumber: PENNSYLVANIA_LICENSE_NUMBER,
+    },
     signature: signedAgreement
       ? {
           signerName: safeString(signedAgreement.signerName),
@@ -2619,6 +2684,403 @@ function buildPublicEstimatePayload({
           downloadHref: buildPublicAgreementDownloadHref(request, shareData.id),
         }
       : null,
+  };
+}
+
+async function loadPublicEstimatePayload(request, token) {
+  const shareToken = safeString(token);
+  if (!shareToken) {
+    const error = new Error("token is required.");
+    error.status = 400;
+    throw error;
+  }
+
+  const { shareRef, shareData } = await fetchEstimateShareContext(shareToken);
+
+  if (shareData.status === "revoked") {
+    const error = new Error("This estimate link has been revoked.");
+    error.status = 410;
+    error.clientStatus = "revoked";
+    throw error;
+  }
+
+  let leadData = {};
+  let estimateSnapshot = {};
+  let agreementSnapshot = {};
+  let signedAgreement = null;
+
+  if (shareData.status === "signed" && safeString(shareData.agreementId)) {
+    const agreementSnap = await db
+      .collection("agreements")
+      .doc(shareData.agreementId)
+      .get();
+
+    if (!agreementSnap.exists) {
+      const error = new Error("The signed agreement could not be found.");
+      error.status = 404;
+      throw error;
+    }
+
+    const agreementData = agreementSnap.data() || {};
+    leadData = agreementData.leadSnapshot || {};
+    estimateSnapshot = agreementData.estimateSnapshot || {};
+    agreementSnapshot = agreementData.agreementSnapshot || {};
+    signedAgreement = {
+      signerName: safeString(agreementData.signerName),
+      signedAt: agreementData.signedAt || null,
+    };
+  } else {
+    const [leadSnap, estimateSnap, template] = await Promise.all([
+      db.collection("leads").doc(shareData.leadId).get(),
+      db.collection("estimates").doc(shareData.leadId).get(),
+      fetchTemplate(),
+    ]);
+
+    if (!leadSnap.exists || !estimateSnap.exists) {
+      const error = new Error("This estimate link is no longer available.");
+      error.status = 404;
+      throw error;
+    }
+
+    leadData = leadSnap.data() || {};
+    estimateSnapshot = normaliseEstimateSnapshot(
+      estimateSnap.data() || {},
+      template,
+    );
+    agreementSnapshot = normaliseAgreementSnapshot(template);
+  }
+
+  await shareRef.set(
+    {
+      lastViewedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  return buildPublicEstimatePayload({
+    request,
+    shareData,
+    leadData,
+    estimateSnapshot,
+    agreementSnapshot,
+    signedAgreement,
+  });
+}
+
+async function signPublicEstimatePayload(request, payload = {}) {
+  const token = safeString(payload.token);
+  const signerName = safeString(payload.signerName);
+  const accepted =
+    payload.accepted === true ||
+    safeString(payload.accepted).toLowerCase() === "true" ||
+    safeString(payload.accepted).toLowerCase() === "on";
+
+  if (!token) {
+    const error = new Error("token is required.");
+    error.status = 400;
+    throw error;
+  }
+
+  const { shareRef, shareData } = await fetchEstimateShareContext(token);
+
+  if (shareData.status === "revoked") {
+    const error = new Error("This estimate link has been revoked.");
+    error.status = 410;
+    error.clientStatus = "revoked";
+    throw error;
+  }
+
+  if (shareData.status === "signed" && safeString(shareData.agreementId)) {
+    const agreementSnap = await db
+      .collection("agreements")
+      .doc(shareData.agreementId)
+      .get();
+    const agreementData = agreementSnap.exists
+      ? agreementSnap.data() || {}
+      : {};
+
+    return {
+      ok: true,
+      alreadySigned: true,
+      status: "signed",
+      agreementId: safeString(shareData.agreementId),
+      signedAt: serialiseDateValue(
+        shareData.signedAt || agreementData.signedAt,
+      ),
+      downloadHref: buildPublicAgreementDownloadHref(request, shareData.id),
+    };
+  }
+
+  if (!accepted) {
+    const error = new Error("You must agree to the terms before signing.");
+    error.status = 400;
+    throw error;
+  }
+
+  if (!signerName) {
+    const error = new Error("Your full legal name is required.");
+    error.status = 400;
+    throw error;
+  }
+
+  const signature = parseSignatureDataUrl(payload.signatureDataUrl);
+  const [leadSnap, estimateSnap, template] = await Promise.all([
+    db.collection("leads").doc(shareData.leadId).get(),
+    db.collection("estimates").doc(shareData.leadId).get(),
+    fetchTemplate(),
+  ]);
+
+  if (!leadSnap.exists || !estimateSnap.exists) {
+    const error = new Error("This estimate is no longer available.");
+    error.status = 404;
+    throw error;
+  }
+
+  const leadData = leadSnap.data() || {};
+  const portalActor = {
+    uid: "client-portal",
+    email: "portal@goldenbrick.local",
+    displayName: "Golden Brick Client Portal",
+    role: "system",
+  };
+  const projectResult = await ensureProjectForLead({
+    leadId: shareData.leadId,
+    leadRef: db.collection("leads").doc(shareData.leadId),
+    leadData,
+    actorProfile: portalActor,
+    allowAmbiguousCustomerCreate: true,
+  });
+  const projectSnap = await db
+    .collection("projects")
+    .doc(projectResult.projectId)
+    .get();
+  const projectData = projectSnap.exists
+    ? projectSnap.data() || {}
+    : projectResult.projectData || {};
+  const estimateSnapshot = normaliseEstimateSnapshot(
+    estimateSnap.data() || {},
+    template,
+  );
+  const agreementSnapshot = normaliseAgreementSnapshot(template);
+  const signedAt = new Date();
+  const agreementRef = db.collection("agreements").doc();
+  const recordDocumentRef = db.collection("recordDocuments").doc();
+  const bucket = admin.storage().bucket();
+  const signaturePath = `agreements/${agreementRef.id}/signature.png`;
+  const pdfPath = `agreements/${agreementRef.id}/signed-agreement.pdf`;
+  const pdfDownloadToken = createOpaqueId(18);
+  const pdfBuffer = await buildAgreementPdfBuffer({
+    leadData,
+    projectData,
+    estimateSnapshot,
+    agreementSnapshot,
+    signerName,
+    signedAt,
+    signatureBuffer: signature.buffer,
+  });
+  const pdfUrl = await saveStorageFile(bucket, pdfPath, pdfBuffer, {
+    contentType: "application/pdf",
+    downloadToken: pdfDownloadToken,
+    metadata: {
+      agreementId: agreementRef.id,
+      shareId: shareData.id,
+    },
+  });
+  await saveStorageFile(bucket, signaturePath, signature.buffer, {
+    contentType: signature.contentType,
+    metadata: {
+      agreementId: agreementRef.id,
+      shareId: shareData.id,
+    },
+  });
+
+  const leadSnapshot = {
+    clientName: safeString(leadData.clientName || leadData.customerName),
+    projectAddress: safeString(leadData.projectAddress),
+    projectType: safeString(leadData.projectType),
+    clientEmail: normaliseEmail(leadData.clientEmail),
+    clientPhone: safeString(leadData.clientPhone),
+  };
+  const audit = requestAuditMetadata(request);
+  const batch = db.batch();
+
+  batch.set(
+    agreementRef,
+    {
+      id: agreementRef.id,
+      type: "estimate",
+      status: "signed",
+      leadId: shareData.leadId,
+      projectId: projectResult.projectId,
+      customerId: projectResult.customerLink.customerId,
+      customerName: projectResult.customerLink.customerName,
+      shareId: shareData.id,
+      leadSnapshot,
+      projectSnapshot: {
+        clientName: safeString(
+          projectData.clientName || projectData.customerName,
+        ),
+        projectAddress: safeString(projectData.projectAddress),
+        projectType: safeString(projectData.projectType),
+      },
+      estimateSnapshot,
+      agreementSnapshot,
+      signerName,
+      signedAt,
+      signedIpAddress: audit.ipAddress,
+      signedUserAgent: audit.userAgent,
+      signaturePath,
+      signatureContentType: signature.contentType,
+      pdfPath,
+      pdfUrl,
+      pdfFileName: "signed-agreement.pdf",
+      jobDocumentId: recordDocumentRef.id,
+      recordDocumentId: recordDocumentRef.id,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  batch.set(
+    recordDocumentRef,
+    {
+      id: recordDocumentRef.id,
+      documentKind: "file",
+      category: "agreement",
+      sourceType: "upload",
+      title: `Signed agreement - ${formatDateOnly(signedAt)}`,
+      note: `Signed by ${signerName} through the client estimate link.`,
+      relatedDate: signedAt,
+      externalUrl: "",
+      fileUrl: pdfUrl,
+      filePath: pdfPath,
+      fileName: "signed-agreement.pdf",
+      leadId: cleanNullableString(shareData.leadId),
+      customerId: cleanNullableString(projectResult.customerLink.customerId),
+      projectId: cleanNullableString(projectResult.projectId),
+      agreementId: agreementRef.id,
+      createdByUid: portalActor.uid,
+      createdByName: portalActor.displayName,
+      createdByRole: portalActor.role,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  batch.set(
+    shareRef,
+    {
+      status: "signed",
+      signedAt,
+      agreementId: agreementRef.id,
+      projectId: projectResult.projectId,
+      customerId: projectResult.customerLink.customerId,
+      lastViewedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  await batch.commit();
+
+  if (!projectResult.existing) {
+    await addLeadActivity(shareData.leadId, {
+      activityType: "system",
+      title: "Lead converted to job",
+      body: "The client signature converted this estimate into the operational job record.",
+      actorName: portalActor.displayName,
+      actorUid: portalActor.uid,
+      actorRole: portalActor.role,
+    });
+
+    await addProjectActivity(projectResult.projectId, {
+      activityType: "system",
+      title: "Job created from client signature",
+      body: projectResult.scopeItemCount
+        ? `The client signature created the job record and copied ${projectResult.scopeItemCount} estimate items into the renovation scope tracker.`
+        : "The client signature created the job record.",
+      actorName: portalActor.displayName,
+      actorUid: portalActor.uid,
+      actorRole: portalActor.role,
+    });
+  }
+
+  await addLeadActivity(shareData.leadId, {
+    activityType: "agreement",
+    title: "Client signed estimate agreement",
+    body: `${signerName} accepted the estimate and signed the agreement through the client link.`,
+    actorName: portalActor.displayName,
+    actorUid: portalActor.uid,
+    actorRole: portalActor.role,
+  });
+
+  await addProjectActivity(projectResult.projectId, {
+    activityType: "agreement",
+    title: "Client agreement signed",
+    body: `${signerName} signed the estimate agreement through the client portal.`,
+    actorName: portalActor.displayName,
+    actorUid: portalActor.uid,
+    actorRole: portalActor.role,
+  });
+
+  await addProjectActivity(projectResult.projectId, {
+    activityType: "document",
+    title: "Signed agreement filed",
+    body: "The signed agreement PDF was stored in the job documents and archived in the agreements folder.",
+    actorName: portalActor.displayName,
+    actorUid: portalActor.uid,
+    actorRole: portalActor.role,
+  });
+
+  return {
+    ok: true,
+    status: "signed",
+    agreementId: agreementRef.id,
+    projectId: projectResult.projectId,
+    signedAt: signedAt.toISOString(),
+    downloadHref: buildPublicAgreementDownloadHref(request, shareData.id),
+  };
+}
+
+async function loadPublicAgreementDocumentData(token) {
+  const shareToken = safeString(token);
+  if (!shareToken) {
+    const error = new Error("token is required.");
+    error.status = 400;
+    throw error;
+  }
+
+  const { shareData } = await fetchEstimateShareContext(shareToken);
+  if (shareData.status !== "signed" || !safeString(shareData.agreementId)) {
+    const error = new Error("Agreement not available.");
+    error.status = 404;
+    throw error;
+  }
+
+  const agreementSnap = await db
+    .collection("agreements")
+    .doc(shareData.agreementId)
+    .get();
+  if (!agreementSnap.exists) {
+    const error = new Error("Agreement not available.");
+    error.status = 404;
+    throw error;
+  }
+
+  const agreementData = agreementSnap.data() || {};
+  const pdfPath = safeString(agreementData.pdfPath);
+  if (!pdfPath) {
+    const error = new Error("Agreement file missing.");
+    error.status = 404;
+    throw error;
+  }
+
+  return {
+    pdfPath,
+    fileName: safeString(agreementData.pdfFileName) || "signed-agreement.pdf",
   };
 }
 
@@ -3989,97 +4451,17 @@ exports.publicEstimateView = onRequest(
     }
 
     try {
-      const token = safeString(request.query.token);
-      if (!token) {
-        respondJson(response, 400, {
-          ok: false,
-          message: "token is required.",
-        });
-        return;
-      }
-
-      const { shareRef, shareData } = await fetchEstimateShareContext(token);
-
-      if (shareData.status === "revoked") {
-        respondJson(response, 410, {
-          ok: false,
-          status: "revoked",
-          message: "This estimate link has been revoked.",
-        });
-        return;
-      }
-
-      let leadData = {};
-      let estimateSnapshot = {};
-      let agreementSnapshot = {};
-      let signedAgreement = null;
-
-      if (shareData.status === "signed" && safeString(shareData.agreementId)) {
-        const agreementSnap = await db
-          .collection("agreements")
-          .doc(shareData.agreementId)
-          .get();
-
-        if (!agreementSnap.exists) {
-          const error = new Error("The signed agreement could not be found.");
-          error.status = 404;
-          throw error;
-        }
-
-        const agreementData = agreementSnap.data() || {};
-        leadData = agreementData.leadSnapshot || {};
-        estimateSnapshot = agreementData.estimateSnapshot || {};
-        agreementSnapshot = agreementData.agreementSnapshot || {};
-        signedAgreement = {
-          signerName: safeString(agreementData.signerName),
-          signedAt: agreementData.signedAt || null,
-        };
-      } else {
-        const [leadSnap, estimateSnap, template] = await Promise.all([
-          db.collection("leads").doc(shareData.leadId).get(),
-          db.collection("estimates").doc(shareData.leadId).get(),
-          fetchTemplate(),
-        ]);
-
-        if (!leadSnap.exists || !estimateSnap.exists) {
-          const error = new Error("This estimate link is no longer available.");
-          error.status = 404;
-          throw error;
-        }
-
-        leadData = leadSnap.data() || {};
-        estimateSnapshot = normaliseEstimateSnapshot(
-          estimateSnap.data() || {},
-          template,
-        );
-        agreementSnapshot = normaliseAgreementSnapshot(template);
-      }
-
-      await shareRef.set(
-        {
-          lastViewedAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true },
+      const payload = await loadPublicEstimatePayload(
+        request,
+        request.query.token,
       );
-
-      respondJson(
-        response,
-        200,
-        buildPublicEstimatePayload({
-          request,
-          shareData,
-          leadData,
-          estimateSnapshot,
-          agreementSnapshot,
-          signedAgreement,
-        }),
-      );
+      respondJson(response, 200, payload);
     } catch (error) {
       logger.error("Public estimate view failed.", error);
       respondJson(response, error.status || 500, {
         ok: false,
-        status: error.status === 410 ? "revoked" : "invalid",
+        status:
+          error.clientStatus || (error.status === 410 ? "revoked" : "invalid"),
         message: error.message || "Could not load this estimate.",
       });
     }
@@ -4106,297 +4488,13 @@ exports.publicEstimateSign = onRequest(
 
     try {
       const payload = await parseRequestPayload(request);
-      const token = safeString(payload.token);
-      const signerName = safeString(payload.signerName);
-      const accepted =
-        payload.accepted === true ||
-        safeString(payload.accepted).toLowerCase() === "true" ||
-        safeString(payload.accepted).toLowerCase() === "on";
-
-      if (!token) {
-        respondJson(response, 400, {
-          ok: false,
-          message: "token is required.",
-        });
-        return;
-      }
-
-      const { shareRef, shareData } = await fetchEstimateShareContext(token);
-
-      if (shareData.status === "revoked") {
-        respondJson(response, 410, {
-          ok: false,
-          status: "revoked",
-          message: "This estimate link has been revoked.",
-        });
-        return;
-      }
-
-      if (shareData.status === "signed" && safeString(shareData.agreementId)) {
-        const agreementSnap = await db
-          .collection("agreements")
-          .doc(shareData.agreementId)
-          .get();
-        const agreementData = agreementSnap.exists
-          ? agreementSnap.data() || {}
-          : {};
-
-        respondJson(response, 200, {
-          ok: true,
-          alreadySigned: true,
-          status: "signed",
-          agreementId: safeString(shareData.agreementId),
-          signedAt: serialiseDateValue(
-            shareData.signedAt || agreementData.signedAt,
-          ),
-          downloadHref: buildPublicAgreementDownloadHref(request, shareData.id),
-        });
-        return;
-      }
-
-      if (!accepted) {
-        respondJson(response, 400, {
-          ok: false,
-          message: "You must agree to the terms before signing.",
-        });
-        return;
-      }
-
-      if (!signerName) {
-        respondJson(response, 400, {
-          ok: false,
-          message: "Your full legal name is required.",
-        });
-        return;
-      }
-
-      const signature = parseSignatureDataUrl(payload.signatureDataUrl);
-      const [leadSnap, estimateSnap, template] = await Promise.all([
-        db.collection("leads").doc(shareData.leadId).get(),
-        db.collection("estimates").doc(shareData.leadId).get(),
-        fetchTemplate(),
-      ]);
-
-      if (!leadSnap.exists || !estimateSnap.exists) {
-        respondJson(response, 404, {
-          ok: false,
-          message: "This estimate is no longer available.",
-        });
-        return;
-      }
-
-      const leadData = leadSnap.data() || {};
-      const portalActor = {
-        uid: "client-portal",
-        email: "portal@goldenbrick.local",
-        displayName: "Golden Brick Client Portal",
-        role: "system",
-      };
-      const projectResult = await ensureProjectForLead({
-        leadId: shareData.leadId,
-        leadRef: db.collection("leads").doc(shareData.leadId),
-        leadData,
-        actorProfile: portalActor,
-        allowAmbiguousCustomerCreate: true,
-      });
-      const projectSnap = await db
-        .collection("projects")
-        .doc(projectResult.projectId)
-        .get();
-      const projectData = projectSnap.exists
-        ? projectSnap.data() || {}
-        : projectResult.projectData || {};
-      const estimateSnapshot = normaliseEstimateSnapshot(
-        estimateSnap.data() || {},
-        template,
-      );
-      const agreementSnapshot = normaliseAgreementSnapshot(template);
-      const signedAt = new Date();
-      const agreementRef = db.collection("agreements").doc();
-      const recordDocumentRef = db.collection("recordDocuments").doc();
-      const bucket = admin.storage().bucket();
-      const signaturePath = `agreements/${agreementRef.id}/signature.png`;
-      const pdfPath = `agreements/${agreementRef.id}/signed-agreement.pdf`;
-      const pdfDownloadToken = createOpaqueId(18);
-      const pdfBuffer = await buildAgreementPdfBuffer({
-        leadData,
-        projectData,
-        estimateSnapshot,
-        agreementSnapshot,
-        signerName,
-        signedAt,
-        signatureBuffer: signature.buffer,
-      });
-      const pdfUrl = await saveStorageFile(bucket, pdfPath, pdfBuffer, {
-        contentType: "application/pdf",
-        downloadToken: pdfDownloadToken,
-        metadata: {
-          agreementId: agreementRef.id,
-          shareId: shareData.id,
-        },
-      });
-      await saveStorageFile(bucket, signaturePath, signature.buffer, {
-        contentType: signature.contentType,
-        metadata: {
-          agreementId: agreementRef.id,
-          shareId: shareData.id,
-        },
-      });
-
-      const leadSnapshot = {
-        clientName: safeString(leadData.clientName || leadData.customerName),
-        projectAddress: safeString(leadData.projectAddress),
-        projectType: safeString(leadData.projectType),
-        clientEmail: normaliseEmail(leadData.clientEmail),
-        clientPhone: safeString(leadData.clientPhone),
-      };
-      const audit = requestAuditMetadata(request);
-      const batch = db.batch();
-
-      batch.set(
-        agreementRef,
-        {
-          id: agreementRef.id,
-          type: "estimate",
-          status: "signed",
-          leadId: shareData.leadId,
-          projectId: projectResult.projectId,
-          customerId: projectResult.customerLink.customerId,
-          customerName: projectResult.customerLink.customerName,
-          shareId: shareData.id,
-          leadSnapshot,
-          projectSnapshot: {
-            clientName: safeString(
-              projectData.clientName || projectData.customerName,
-            ),
-            projectAddress: safeString(projectData.projectAddress),
-            projectType: safeString(projectData.projectType),
-          },
-          estimateSnapshot,
-          agreementSnapshot,
-          signerName,
-          signedAt,
-          signedIpAddress: audit.ipAddress,
-          signedUserAgent: audit.userAgent,
-          signaturePath,
-          signatureContentType: signature.contentType,
-          pdfPath,
-          pdfUrl,
-          pdfFileName: "signed-agreement.pdf",
-          jobDocumentId: recordDocumentRef.id,
-          recordDocumentId: recordDocumentRef.id,
-          createdAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      );
-
-      batch.set(
-        recordDocumentRef,
-        {
-          id: recordDocumentRef.id,
-          documentKind: "file",
-          category: "agreement",
-          sourceType: "upload",
-          title: `Signed agreement - ${formatDateOnly(signedAt)}`,
-          note: `Signed by ${signerName} through the client estimate link.`,
-          relatedDate: signedAt,
-          externalUrl: "",
-          fileUrl: pdfUrl,
-          filePath: pdfPath,
-          fileName: "signed-agreement.pdf",
-          leadId: cleanNullableString(shareData.leadId),
-          customerId: cleanNullableString(
-            projectResult.customerLink.customerId,
-          ),
-          projectId: cleanNullableString(projectResult.projectId),
-          agreementId: agreementRef.id,
-          createdByUid: portalActor.uid,
-          createdByName: portalActor.displayName,
-          createdByRole: portalActor.role,
-          createdAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      );
-
-      batch.set(
-        shareRef,
-        {
-          status: "signed",
-          signedAt,
-          agreementId: agreementRef.id,
-          projectId: projectResult.projectId,
-          customerId: projectResult.customerLink.customerId,
-          lastViewedAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      );
-
-      await batch.commit();
-
-      if (!projectResult.existing) {
-        await addLeadActivity(shareData.leadId, {
-          activityType: "system",
-          title: "Lead converted to job",
-          body: "The client signature converted this estimate into the operational job record.",
-          actorName: portalActor.displayName,
-          actorUid: portalActor.uid,
-          actorRole: portalActor.role,
-        });
-
-        await addProjectActivity(projectResult.projectId, {
-          activityType: "system",
-          title: "Job created from client signature",
-          body: projectResult.scopeItemCount
-            ? `The client signature created the job record and copied ${projectResult.scopeItemCount} estimate items into the renovation scope tracker.`
-            : "The client signature created the job record.",
-          actorName: portalActor.displayName,
-          actorUid: portalActor.uid,
-          actorRole: portalActor.role,
-        });
-      }
-
-      await addLeadActivity(shareData.leadId, {
-        activityType: "agreement",
-        title: "Client signed estimate agreement",
-        body: `${signerName} accepted the estimate and signed the agreement through the client link.`,
-        actorName: portalActor.displayName,
-        actorUid: portalActor.uid,
-        actorRole: portalActor.role,
-      });
-
-      await addProjectActivity(projectResult.projectId, {
-        activityType: "agreement",
-        title: "Client agreement signed",
-        body: `${signerName} signed the estimate agreement through the client portal.`,
-        actorName: portalActor.displayName,
-        actorUid: portalActor.uid,
-        actorRole: portalActor.role,
-      });
-
-      await addProjectActivity(projectResult.projectId, {
-        activityType: "document",
-        title: "Signed agreement filed",
-        body: "The signed agreement PDF was stored in the job documents and archived in the agreements folder.",
-        actorName: portalActor.displayName,
-        actorUid: portalActor.uid,
-        actorRole: portalActor.role,
-      });
-
-      respondJson(response, 200, {
-        ok: true,
-        status: "signed",
-        agreementId: agreementRef.id,
-        projectId: projectResult.projectId,
-        signedAt: signedAt.toISOString(),
-        downloadHref: buildPublicAgreementDownloadHref(request, shareData.id),
-      });
+      const result = await signPublicEstimatePayload(request, payload);
+      respondJson(response, 200, result);
     } catch (error) {
       logger.error("Public estimate sign failed.", error);
       respondJson(response, error.status || 500, {
         ok: false,
+        status: error.clientStatus || "invalid",
         message: error.message || "Could not sign the agreement right now.",
       });
     }
@@ -4422,38 +4520,14 @@ exports.publicAgreementDocument = onRequest(
     }
 
     try {
-      const token = safeString(request.query.token);
-      if (!token) {
-        response.status(400).send("token is required.");
-        return;
-      }
-
-      const { shareData } = await fetchEstimateShareContext(token);
-      if (shareData.status !== "signed" || !safeString(shareData.agreementId)) {
-        response.status(404).send("Agreement not available.");
-        return;
-      }
-
-      const agreementSnap = await db
-        .collection("agreements")
-        .doc(shareData.agreementId)
-        .get();
-      if (!agreementSnap.exists) {
-        response.status(404).send("Agreement not available.");
-        return;
-      }
-
-      const agreementData = agreementSnap.data() || {};
-      const pdfPath = safeString(agreementData.pdfPath);
-      if (!pdfPath) {
-        response.status(404).send("Agreement file missing.");
-        return;
-      }
+      const { pdfPath, fileName } = await loadPublicAgreementDocumentData(
+        request.query.token,
+      );
 
       response.setHeader("Content-Type", "application/pdf");
       response.setHeader(
         "Content-Disposition",
-        `inline; filename=\"${safeString(agreementData.pdfFileName) || "signed-agreement.pdf"}\"`,
+        `inline; filename=\"${fileName}\"`,
       );
 
       admin
@@ -4488,6 +4562,9 @@ exports.clientPortalApi = buildClientPortalApi({
   verifyStaffRequest,
   buildEstimateShareUrl,
   buildPublicAgreementDownloadHref,
+  loadPublicEstimatePayload,
+  signPublicEstimatePayload,
+  loadPublicAgreementDocumentData,
 });
 
 exports.generateEstimateDraft = onRequest(

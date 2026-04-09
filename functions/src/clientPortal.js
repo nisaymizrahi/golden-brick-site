@@ -9,6 +9,9 @@ function buildClientPortalApi({
   verifyStaffRequest,
   buildEstimateShareUrl,
   buildPublicAgreementDownloadHref,
+  loadPublicEstimatePayload,
+  signPublicEstimatePayload,
+  loadPublicAgreementDocumentData,
 }) {
   const COMPANY_INFO = {
     name: "Golden Brick Construction",
@@ -1634,6 +1637,59 @@ function buildClientPortalApi({
         if (request.method === "GET" && resource === "invite-preview") {
           const result = await previewPortalInvite(request);
           respondJson(response, 200, result);
+          return;
+        }
+
+        if (
+          request.method === "GET" &&
+          ["public-estimate-view", "estimate-view"].includes(resource)
+        ) {
+          const payload = await loadPublicEstimatePayload(
+            request,
+            request.query?.token,
+          );
+          respondJson(response, 200, payload);
+          return;
+        }
+
+        if (
+          request.method === "POST" &&
+          ["public-estimate-sign", "estimate-sign"].includes(resource)
+        ) {
+          const payload = parseRequestPayload(request);
+          const result = await signPublicEstimatePayload(request, payload);
+          respondJson(response, 200, result);
+          return;
+        }
+
+        if (
+          request.method === "GET" &&
+          ["public-agreement-document", "agreement-document"].includes(resource)
+        ) {
+          const { pdfPath, fileName } = await loadPublicAgreementDocumentData(
+            request.query?.token,
+          );
+
+          response.setHeader("Content-Type", "application/pdf");
+          response.setHeader(
+            "Content-Disposition",
+            `inline; filename=\"${fileName}\"`,
+          );
+
+          admin
+            .storage()
+            .bucket()
+            .file(pdfPath)
+            .createReadStream()
+            .on("error", (streamError) => {
+              logger.error("Agreement PDF stream failed.", streamError);
+              if (!response.headersSent) {
+                response.status(500).send("Could not stream the agreement.");
+              } else {
+                response.end();
+              }
+            })
+            .pipe(response);
           return;
         }
 
