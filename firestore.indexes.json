@@ -27,27 +27,36 @@
           "order": "ASCENDING"
         }
       ]
-    },
+    }
+  ],
+  "fieldOverrides": [
     {
       "collectionGroup": "invoices",
-      "queryScope": "COLLECTION",
-      "fields": [
+      "fieldPath": "customerId",
+      "indexes": [
         {
-          "fieldPath": "customerId",
-          "order": "ASCENDING"
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        },
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION_GROUP"
         }
       ]
     },
     {
       "collectionGroup": "changeOrders",
-      "queryScope": "COLLECTION",
-      "fields": [
+      "fieldPath": "customerId",
+      "indexes": [
         {
-          "fieldPath": "customerId",
-          "order": "ASCENDING"
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        },
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION_GROUP"
         }
       ]
     }
-  ],
-  "fieldOverrides": []
+  ]
 }
