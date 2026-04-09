@@ -346,6 +346,13 @@ const refs = {
   workspaceTitle: document.getElementById("workspace-title"),
   workspaceSubtitle: document.getElementById("workspace-subtitle"),
   workspaceCommandBar: document.getElementById("workspace-command-bar"),
+  notificationButton: document.getElementById("notification-button"),
+  notificationCount: document.getElementById("notification-count"),
+  notificationPanel: document.getElementById("notification-panel"),
+  notificationList: document.getElementById("notification-list"),
+  notificationMarkReadButton: document.getElementById(
+    "notification-mark-read-button",
+  ),
   todayScopeToggle: document.getElementById("today-scope-toggle"),
   staffFocusShell: document.getElementById("staff-focus-shell"),
   staffFocusSelect: document.getElementById("staff-focus-select"),
@@ -444,6 +451,10 @@ const refs = {
   estimateShareRevokeButton: document.getElementById(
     "estimate-share-revoke-button",
   ),
+  leadEstimateClientSummary: document.getElementById(
+    "lead-estimate-client-summary",
+  ),
+  leadEstimateClientList: document.getElementById("lead-estimate-client-list"),
   estimateAddLineButton: document.getElementById("estimate-add-line-button"),
   estimateCopyButton: document.getElementById("estimate-copy-button"),
   estimatePrintButton: document.getElementById("estimate-print-button"),
@@ -524,14 +535,29 @@ const refs = {
   customerPortalContactPhone: document.getElementById(
     "customer-portal-contact-phone",
   ),
-  customerPortalContactScope: document.getElementById(
-    "customer-portal-contact-scope",
+  customerPortalContactRole: document.getElementById(
+    "customer-portal-contact-role",
   ),
   customerPortalContactResetButton: document.getElementById(
     "customer-portal-contact-reset-button",
   ),
   customerPortalContactList: document.getElementById(
     "customer-portal-contact-list",
+  ),
+  customerPortalPublishingSummary: document.getElementById(
+    "customer-portal-publishing-summary",
+  ),
+  customerPortalEstimateList: document.getElementById(
+    "customer-portal-estimate-list",
+  ),
+  customerPortalInvoiceList: document.getElementById(
+    "customer-portal-invoice-list",
+  ),
+  customerPortalChangeOrderList: document.getElementById(
+    "customer-portal-change-order-list",
+  ),
+  customerPortalDocumentList: document.getElementById(
+    "customer-portal-document-list",
   ),
   customerPortalMarkReadButton: document.getElementById(
     "customer-portal-mark-read-button",
@@ -1020,7 +1046,10 @@ const state = {
   leadWorkspaceOpen: false,
   pendingLeadRouteId: "",
   pendingLeadRouteTab: "overview",
+  pendingJobRouteId: "",
+  pendingJobRouteTab: "financials",
   leadActivities: [],
+  leadEstimateShares: [],
   projectExpenses: [],
   projectPayments: [],
   projectInvoices: [],
@@ -1030,6 +1059,9 @@ const state = {
   leadDocuments: [],
   customerDocuments: [],
   customerPortalContacts: [],
+  customerPortalEstimateShares: [],
+  customerPortalInvoices: [],
+  customerPortalChangeOrders: [],
   customerPortalThreads: [],
   customerPortalMessages: {},
   selectedCustomerPortalContactId: null,
@@ -1044,6 +1076,8 @@ const state = {
   portalQueueContacts: [],
   estimate: null,
   estimateShare: null,
+  notificationPanelOpen: false,
+  notificationReadMap: {},
   activeLeadTab: "overview",
   activeJobTab: "financials",
   activeView: "today-view",
@@ -1089,6 +1123,8 @@ const state = {
 const initialLeadRoute = readLeadRouteState();
 state.pendingLeadRouteId = initialLeadRoute.leadId;
 state.pendingLeadRouteTab = initialLeadRoute.leadTab;
+state.pendingJobRouteId = initialLeadRoute.jobId;
+state.pendingJobRouteTab = initialLeadRoute.jobTab;
 state.leadWorkspaceOpen = Boolean(initialLeadRoute.leadId);
 
 function isMobileViewport() {
@@ -1491,6 +1527,12 @@ function safeString(value) {
   return String(value || "").trim();
 }
 
+function capitalise(value) {
+  const text = safeString(value);
+  if (!text) return "";
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+}
+
 function sanitiseEmailKey(email) {
   return safeString(email).toLowerCase();
 }
@@ -1616,6 +1658,73 @@ function uniqueValues(values = []) {
   );
 }
 
+function notificationStorageKey() {
+  return `golden-brick-notifications:${safeString(state.profile?.uid || "guest")}`;
+}
+
+function loadNotificationReadMap() {
+  try {
+    const stored = window.localStorage.getItem(notificationStorageKey());
+    const parsed = stored ? JSON.parse(stored) : {};
+    state.notificationReadMap =
+      parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    state.notificationReadMap = {};
+  }
+}
+
+function persistNotificationReadMap() {
+  try {
+    window.localStorage.setItem(
+      notificationStorageKey(),
+      JSON.stringify(state.notificationReadMap || {}),
+    );
+  } catch (error) {
+    // Ignore storage failures so the CRM keeps working in restricted browsers.
+  }
+}
+
+function markNotificationsRead(notificationIds = []) {
+  const ids = uniqueValues(notificationIds);
+  if (!ids.length) {
+    return;
+  }
+
+  ids.forEach((notificationId) => {
+    state.notificationReadMap[notificationId] = new Date().toISOString();
+  });
+  persistNotificationReadMap();
+}
+
+function mergeLeadIntoState(leadId, patch = {}) {
+  const current = state.leads.find((lead) => lead.id === leadId) || null;
+  if (!current) {
+    return null;
+  }
+
+  const merged = { ...current, ...patch };
+  state.leads = state.leads.map((lead) => (lead.id === leadId ? merged : lead));
+  return merged;
+}
+
+function applyLeadEstimateStateLocally(leadId, estimate = null) {
+  if (!leadId || !estimate) {
+    return null;
+  }
+
+  return mergeLeadIntoState(leadId, {
+    hasEstimate: true,
+    estimateSubtotal: toNumber(estimate.subtotal),
+    estimateTitle: safeString(estimate.subject),
+    estimateUpdatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+function notificationReadAt(notificationId) {
+  return state.notificationReadMap[safeString(notificationId)] || "";
+}
+
 function clearUnsubs(list) {
   list.forEach((unsubscribe) => {
     if (typeof unsubscribe === "function") {
@@ -1703,10 +1812,12 @@ function readLeadRouteState() {
   return {
     leadId: safeString(url.searchParams.get("lead")),
     leadTab: safeString(url.searchParams.get("leadTab")) || "overview",
+    jobId: safeString(url.searchParams.get("job")),
+    jobTab: safeString(url.searchParams.get("jobTab")) || "financials",
   };
 }
 
-function syncLeadRouteState() {
+function syncLeadRouteState({ historyMode = "replace" } = {}) {
   const url = new URL(window.location.href);
 
   if (
@@ -1721,7 +1832,25 @@ function syncLeadRouteState() {
     url.searchParams.delete("leadTab");
   }
 
+  if (state.activeView === "jobs-view" && state.selectedProjectId) {
+    url.searchParams.set("job", state.selectedProjectId);
+    url.searchParams.set("jobTab", state.activeJobTab || "financials");
+  } else {
+    url.searchParams.delete("job");
+    url.searchParams.delete("jobTab");
+  }
+
   const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextUrl === currentUrl) {
+    return;
+  }
+
+  if (historyMode === "push") {
+    window.history.pushState({}, "", nextUrl);
+    return;
+  }
+
   window.history.replaceState({}, "", nextUrl);
 }
 
@@ -1739,10 +1868,33 @@ function restoreLeadWorkspaceFromRoute() {
   state.leadDraft = null;
   state.activeLeadTab = state.pendingLeadRouteTab || "overview";
   state.leadWorkspaceOpen = true;
-  switchView("leads-view");
+  switchView("leads-view", { historyMode: "replace" });
   state.pendingLeadRouteId = "";
   state.pendingLeadRouteTab = "overview";
   subscribeLeadDetail();
+  return true;
+}
+
+function restoreProjectWorkspaceFromRoute() {
+  if (!state.pendingJobRouteId) {
+    return false;
+  }
+
+  const project = state.projects.find(
+    (item) => item.id === state.pendingJobRouteId,
+  );
+  if (!project) {
+    return false;
+  }
+
+  state.selectedProjectId = project.id;
+  state.selectedProjectInvoiceId = null;
+  state.projectInvoiceDraft = null;
+  state.activeJobTab = state.pendingJobRouteTab || "financials";
+  switchView("jobs-view", { historyMode: "replace" });
+  state.pendingJobRouteId = "";
+  state.pendingJobRouteTab = "financials";
+  subscribeProjectDetail();
   return true;
 }
 
@@ -1860,6 +2012,37 @@ function handleBaseSubscriptionError(context, error) {
   setSyncStatus("Sync issue");
   setBanner(
     `${context} could not load right now. Please refresh and try again.`,
+    "error",
+  );
+}
+
+function handleServiceTemplateSubscriptionError(error) {
+  console.error("Service templates subscription failed.", error);
+
+  state.serviceTemplates = [];
+
+  if (
+    state.selectedServiceTemplateId &&
+    !serviceTemplateCatalog().some(
+      (template) => template.id === state.selectedServiceTemplateId,
+    )
+  ) {
+    state.selectedServiceTemplateId = activeServiceTemplates()[0]?.id || null;
+  }
+
+  renderAll();
+  setSyncStatus("Core data live");
+
+  if (isPermissionDeniedError(error)) {
+    setBanner(
+      "Service templates are temporarily using the built-in defaults while Firestore permissions finish syncing.",
+      "info",
+    );
+    return;
+  }
+
+  setBanner(
+    "Service templates could not load right now. The built-in defaults are still available.",
     "error",
   );
 }
@@ -2314,6 +2497,9 @@ function customerRollup(customer, options = {}) {
       projects: [],
       openLeads: [],
       lostLeads: [],
+      estimateLeads: [],
+      openEstimateLeads: [],
+      latestEstimateLead: null,
       totalWonSales: 0,
       totalPaymentsReceived: 0,
       currentEstimateLead: null,
@@ -2336,9 +2522,11 @@ function customerRollup(customer, options = {}) {
     ["new_lead", "follow_up", "estimate_sent"].includes(lead.status),
   );
   const lostLeads = leads.filter((lead) => lead.status === "closed_lost");
-  const currentEstimateLead = latestByUpdated(
-    openLeads.filter((lead) => Boolean(lead.hasEstimate)),
-  );
+  const estimateLeads = leads.filter((lead) => Boolean(lead.hasEstimate));
+  const openEstimateLeads = openLeads.filter((lead) => Boolean(lead.hasEstimate));
+  const latestEstimateLead = latestByUpdated(estimateLeads);
+  const currentEstimateLead =
+    latestByUpdated(openEstimateLeads) || latestEstimateLead;
   const totalWonSales = projects.reduce((sum, project) => {
     return (
       sum +
@@ -2359,6 +2547,9 @@ function customerRollup(customer, options = {}) {
     projects,
     openLeads,
     lostLeads,
+    estimateLeads,
+    openEstimateLeads,
+    latestEstimateLead,
     totalWonSales,
     totalPaymentsReceived,
     currentEstimateLead,
@@ -3077,6 +3268,7 @@ function syncScopedProjects() {
   const syncProjectState = () => {
     state.projects = sortByUpdatedDesc(Array.from(projectMap.values()));
     refreshScopedCustomers();
+    restoreProjectWorkspaceFromRoute();
     resetSelectionFromSnapshots();
     subscribeProjectDetail();
     renderAll();
@@ -4081,7 +4273,7 @@ function renderActiveDrawer() {
   renderDrawerTask();
 }
 
-function switchView(viewId) {
+function switchView(viewId, { historyMode = "push" } = {}) {
   if (viewId !== "leads-view") {
     state.leadWorkspaceOpen = false;
   } else if (isMobileViewport() && !state.leadWorkspaceOpen) {
@@ -4109,7 +4301,7 @@ function switchView(viewId) {
   renderWorkspaceTools();
   renderWorkspaceCommandBar();
   syncMobileChrome();
-  syncLeadRouteState();
+  syncLeadRouteState({ historyMode });
 }
 
 function renderStaffFocusOptions() {
@@ -4758,7 +4950,7 @@ function renderWorkspaceCommandBar() {
     }
 
     const currentEstimateLead = selectedCustomer
-      ? customerRollup(selectedCustomer).currentEstimateLead
+      ? customerRollup(selectedCustomer).latestEstimateLead
       : null;
     const latestCustomerProject = selectedCustomer
       ? latestByUpdated(customerRollup(selectedCustomer).projects)
@@ -4766,7 +4958,7 @@ function renderWorkspaceCommandBar() {
 
     if (!isMobile && currentEstimateLead) {
       actionButtons.push(
-        buildCommandAction("Open current lead", "ghost-button", {
+        buildCommandAction("Open estimate lead", "ghost-button", {
           "data-open-lead": currentEstimateLead.id,
           "data-open-view": "leads-view",
         }),
@@ -5932,6 +6124,13 @@ function estimateShareStatusMeta(share = state.estimateShare) {
     };
   }
 
+  if (status === "replaced") {
+    return {
+      label: "Replaced",
+      copy: "A newer published estimate replaced this unsigned client-facing version.",
+    };
+  }
+
   if (status === "revoked") {
     return {
       label: "Revoked",
@@ -5950,8 +6149,9 @@ function estimateSharePriority(share = {}) {
 
   if (status === "active") return 0;
   if (status === "signed") return 1;
-  if (status === "revoked") return 2;
-  return 3;
+  if (status === "replaced") return 2;
+  if (status === "revoked") return 3;
+  return 4;
 }
 
 function pickCurrentEstimateShare(shares = []) {
@@ -5984,20 +6184,7 @@ function hydrateEstimateShare(snapshot) {
 }
 
 async function fetchCurrentEstimateShare(leadId) {
-  if (!leadId) {
-    return null;
-  }
-
-  const sharesSnap = await getDocs(
-    query(
-      collection(state.db, "estimateShares"),
-      where("leadId", "==", leadId),
-    ),
-  );
-
-  return pickCurrentEstimateShare(
-    sharesSnap.docs.map((snapshot) => hydrateEstimateShare(snapshot)),
-  );
+  return pickCurrentEstimateShare(await fetchEstimateSharesForLead(leadId));
 }
 
 function sanitiseDownloadName(value) {
@@ -7106,6 +7293,9 @@ function updateEstimatePreview() {
 function renderEstimateSharePanel(lead = currentLead()) {
   const share = state.estimateShare;
   const statusMeta = estimateShareStatusMeta(share);
+  const linkAvailable = ["active", "signed"].includes(
+    safeString(share?.status || ""),
+  );
   const detailBits = [];
 
   if (share?.createdAt) {
@@ -7117,6 +7307,9 @@ function renderEstimateSharePanel(lead = currentLead()) {
   if (share?.signedAt) {
     detailBits.push(`Signed ${formatDateTime(share.signedAt)}`);
   }
+  if (share?.replacedAt) {
+    detailBits.push(`Replaced ${formatDateTime(share.replacedAt)}`);
+  }
   if (share?.revokedAt) {
     detailBits.push(`Revoked ${formatDateTime(share.revokedAt)}`);
   }
@@ -7125,8 +7318,8 @@ function renderEstimateSharePanel(lead = currentLead()) {
   refs.estimateShareMeta.textContent = detailBits.length
     ? `${statusMeta.copy} ${detailBits.join(" · ")}`
     : statusMeta.copy;
-  refs.estimateShareLinkInput.value = share?.shareUrl || "";
-  refs.estimateShareLinkInput.placeholder = share?.shareUrl
+  refs.estimateShareLinkInput.value = linkAvailable ? share?.shareUrl || "" : "";
+  refs.estimateShareLinkInput.placeholder = linkAvailable && share?.shareUrl
     ? ""
     : "No active link yet";
 
@@ -7134,7 +7327,7 @@ function renderEstimateSharePanel(lead = currentLead()) {
     lead?.id && (lead?.hasEstimate || state.estimate),
   );
   refs.estimateShareCreateButton.disabled = !isAdmin() || !canShareLead;
-  refs.estimateShareCopyButton.disabled = !share?.shareUrl;
+  refs.estimateShareCopyButton.disabled = !linkAvailable || !share?.shareUrl;
   refs.estimateShareRevokeButton.disabled =
     !isAdmin() || safeString(share?.status) !== "active";
   refs.estimateShareCreateButton.textContent =
@@ -7143,6 +7336,157 @@ function renderEstimateSharePanel(lead = currentLead()) {
       : share?.status === "signed"
         ? "Create new link"
         : "Create share link";
+}
+
+function renderLeadEstimateClientRecords(lead = currentLead()) {
+  if (!lead?.id) {
+    refs.leadEstimateClientSummary.innerHTML = "";
+    renderEmptyList(
+      refs.leadEstimateClientList,
+      "Select a lead to review what the client can see.",
+    );
+    return;
+  }
+
+  const shares = estimateSharesForLead(lead.id);
+  const activeShares = shares.filter(
+    (share) => safeString(share.status) === "active",
+  );
+  const signedShares = shares.filter(
+    (share) => safeString(share.status) === "signed",
+  );
+  const archivedShares = shares.filter((share) =>
+    ["replaced", "revoked"].includes(safeString(share.status)),
+  );
+
+  refs.leadEstimateClientSummary.innerHTML = [
+    {
+      label: "Internal draft",
+      value: state.estimate ? "Ready" : lead.hasEstimate ? "Saved" : "Missing",
+    },
+    { label: "Live approvals", value: String(activeShares.length) },
+    { label: "Signed", value: String(signedShares.length) },
+    { label: "Archived", value: String(archivedShares.length) },
+  ]
+    .map(
+      (item) => `
+        <article class="summary-card">
+          <span>${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+        </article>
+      `,
+    )
+    .join("");
+
+  const draftCard = (state.estimate || lead.hasEstimate)
+    ? `
+      <article class="simple-item">
+        <div class="record-topline">
+          <span class="mini-pill">Draft only</span>
+          <span class="mini-pill">${escapeHtml(formatCurrency(state.estimate?.subtotal || lead.estimateSubtotal || 0))}</span>
+        </div>
+        <strong>${escapeHtml(state.estimate?.subject || lead.estimateTitle || "Current estimate draft")}</strong>
+        <p>${escapeHtml(lead.projectAddress || "Address pending")}</p>
+        <div class="simple-meta">${escapeHtml(
+          state.estimate
+            ? "Saved internally. The client cannot see this version until you publish it."
+            : "This lead has an estimate saved, but the full draft has not loaded yet.",
+        )}</div>
+        <div class="inline-actions">
+          ${
+            isAdmin()
+              ? customerPortalActionButton({
+                  action: "publish-estimate",
+                  label: "Publish to portal",
+                  targetType: "estimate",
+                  targetId: lead.id,
+                  leadId: lead.id,
+                })
+              : ""
+          }
+          <button type="button" class="ghost-button" data-open-customer="${escapeHtml(lead.customerId || "")}" data-open-view="customers-view" ${lead.customerId ? "" : "disabled"}>Open customer</button>
+        </div>
+      </article>
+    `
+    : "";
+
+  const shareCards = shares.map((share) => {
+    const shareUrl = estimateShareUrl(share.id);
+    const agreementUrl = estimateShareAgreementUrl(share.id);
+    const isSigned = safeString(share.status) === "signed";
+    const isActive = safeString(share.status) === "active";
+
+    return `
+      <article class="simple-item">
+        <div class="record-topline">
+          <span class="mini-pill">${escapeHtml(isSigned ? "Signed record" : "Portal record")}</span>
+          <span class="mini-pill">${escapeHtml(estimateShareStatusLabel(share))}</span>
+        </div>
+        <strong>${escapeHtml(share.estimateSnapshot?.subject || share.title || lead.estimateTitle || "Estimate")}</strong>
+        <p>${escapeHtml(share.projectAddress || lead.projectAddress || "Address pending")}</p>
+        <div class="simple-meta">${escapeHtml(
+          isSigned
+            ? `Signed ${formatDateTime(share.signedAt || share.updatedAt)}`
+            : shareVisibleInPortal(share)
+              ? "Visible in the client portal and ready for signature."
+              : "Saved in portal history but not currently live to the client.",
+        )}</div>
+        <div class="inline-actions">
+          ${
+            isAdmin()
+              ? customerPortalActionButton({
+                  action: "publish-estimate",
+                  label: isActive ? "Replace" : "Publish new",
+                  targetType: "estimate",
+                  targetId: lead.id,
+                  leadId: lead.id,
+                })
+              : ""
+          }
+          ${
+            shareUrl
+              ? `<a class="ghost-button" href="${escapeHtml(shareUrl)}" target="_blank" rel="noreferrer">${escapeHtml(isActive ? "Open portal view" : "Open record")}</a>`
+              : ""
+          }
+          ${
+            isActive && isAdmin()
+              ? customerPortalActionButton({
+                  action: "revoke-estimate",
+                  label: "Unpublish",
+                  targetType: "estimate-share",
+                  targetId: share.id,
+                  leadId: lead.id,
+                })
+              : ""
+          }
+          ${
+            !isSigned && isAdmin()
+              ? customerPortalActionButton({
+                  action: "delete-estimate",
+                  label: "Delete",
+                  targetType: "estimate-share",
+                  targetId: share.id,
+                  leadId: lead.id,
+                })
+              : agreementUrl
+                ? `<a class="ghost-button" href="${escapeHtml(agreementUrl)}" target="_blank" rel="noreferrer">Signed PDF</a>`
+                : ""
+          }
+        </div>
+      </article>
+    `;
+  });
+
+  const cards = [draftCard, ...shareCards].filter(Boolean);
+  if (!cards.length) {
+    renderEmptyList(
+      refs.leadEstimateClientList,
+      "No estimate has been published or archived for this lead yet.",
+    );
+    return;
+  }
+
+  refs.leadEstimateClientList.innerHTML = cards.join("");
 }
 
 function renderEstimatePanel() {
@@ -7167,6 +7511,7 @@ function renderEstimatePanel() {
     Array.isArray(estimate.lineItems) ? estimate.lineItems : [],
   );
   renderEstimateSharePanel(lead);
+  renderLeadEstimateClientRecords(lead);
   updateEstimatePreview();
 }
 
@@ -9040,6 +9385,11 @@ function renderLeadDetail() {
     refs.leadRecordContext.innerHTML = "";
     refs.leadPlanningNotesInput.value = "";
     renderEstimateSharePanel(null);
+    refs.leadEstimateClientSummary.innerHTML = "";
+    renderEmptyList(
+      refs.leadEstimateClientList,
+      "Select a lead to review what the client can see.",
+    );
     refs.leadDocumentSummary.innerHTML = "";
     renderEmptyList(
       refs.leadDocumentList,
@@ -9153,6 +9503,108 @@ function renderCustomerMetrics() {
   ]);
 }
 
+function portalRoleLabel(role) {
+  const normalised = safeString(role);
+  if (normalised === "partner") return "Partner";
+  if (normalised === "read_only") return "Read-only";
+  return "Primary";
+}
+
+function invoiceVisibleInPortal(invoice = {}) {
+  if (invoice.clientVisibleOverride === true) return true;
+  if (invoice.clientVisibleOverride === false) return false;
+  const status = safeString(invoice.status).toLowerCase();
+  return status === "sent" || status === "paid";
+}
+
+function shareVisibleInPortal(share = {}) {
+  if (safeString(share.status) === "signed") return true;
+  if (share.portalVisible === false) return false;
+  return safeString(share.status) === "active";
+}
+
+function estimateShareStatusLabel(share = {}) {
+  const status = safeString(share.status || "draft");
+  if (status === "active") return "Needs signature";
+  if (status === "signed") return "Signed";
+  if (status === "replaced") return "Replaced";
+  if (status === "revoked") return "Removed";
+  return capitalise(status || "draft");
+}
+
+function publishedEstimateSharesForCustomer(customerId = state.selectedCustomerId) {
+  return state.customerPortalEstimateShares
+    .filter(
+      (share) =>
+        safeString(share.customerId) === safeString(customerId) &&
+        safeString(share.type || "estimate") === "estimate",
+    )
+    .sort(
+      (left, right) =>
+        toMillis(right.updatedAt || right.publishedAt || right.createdAt) -
+        toMillis(left.updatedAt || left.publishedAt || left.createdAt),
+    );
+}
+
+function publishedChangeOrdersForCustomer(customerId = state.selectedCustomerId) {
+  return state.customerPortalChangeOrders
+    .filter(
+      (entry) => safeString(entry.customerId) === safeString(customerId),
+    )
+    .sort(
+      (left, right) =>
+        toMillis(right.updatedAt || right.relatedDate || right.createdAt) -
+        toMillis(left.updatedAt || left.relatedDate || left.createdAt),
+    );
+}
+
+function portalInvoicesForCustomer(customerId = state.selectedCustomerId) {
+  return state.customerPortalInvoices
+    .filter(
+      (invoice) => safeString(invoice.customerId) === safeString(customerId),
+    )
+    .sort(
+      (left, right) =>
+        toMillis(right.updatedAt || right.issueDate || right.createdAt) -
+        toMillis(left.updatedAt || left.issueDate || left.createdAt),
+    );
+}
+
+function estimateSharesForLead(leadId = state.selectedLeadId) {
+  return sortByUpdatedDesc(
+    state.leadEstimateShares.filter(
+      (share) => safeString(share.leadId) === safeString(leadId),
+    ),
+  );
+}
+
+function estimateShareMapByLead(shares = []) {
+  const shareMap = new Map();
+  shares.forEach((share) => {
+    const leadId = safeString(share.leadId);
+    if (!leadId) {
+      return;
+    }
+    const existing = shareMap.get(leadId);
+    shareMap.set(
+      leadId,
+      pickCurrentEstimateShare([share, existing].filter(Boolean)),
+    );
+  });
+  return shareMap;
+}
+
+function customerPortalActionButton({
+  action,
+  label,
+  targetType,
+  targetId,
+  projectId = "",
+  leadId = "",
+}) {
+  return `<button type="button" class="ghost-button" data-customer-portal-action="${escapeHtml(action)}" data-target-type="${escapeHtml(targetType)}" data-target-id="${escapeHtml(targetId)}" data-project-id="${escapeHtml(projectId)}" data-lead-id="${escapeHtml(leadId)}">${escapeHtml(label)}</button>`;
+}
+
 function portalInviteStatusLabel(contact = {}) {
   if (contact.disabledAt) return "Disabled";
   if (
@@ -9179,19 +9631,19 @@ function portalThreadTitle(thread = {}) {
 }
 
 function setCustomerPortalPreviewLink(contact = null) {
-  const href = safeString(contact?.inviteUrl || "");
+  const href = safeString(contact?.loginUrl || contact?.inviteUrl || "");
   refs.customerPortalPreviewLink.hidden = !href;
   refs.customerPortalPreviewLink.href = href || "#";
   refs.customerPortalPreviewLink.textContent = safeString(contact?.authUid)
-    ? "Open login view"
-    : "Preview invite";
+    ? "Login as customer"
+    : "Preview customer portal";
 }
 
 function resetCustomerPortalContactForm() {
   state.selectedCustomerPortalContactId = null;
   refs.customerPortalContactForm?.reset();
-  if (refs.customerPortalContactScope) {
-    refs.customerPortalContactScope.value = "customer";
+  if (refs.customerPortalContactRole) {
+    refs.customerPortalContactRole.value = "primary";
   }
   setCustomerPortalPreviewLink(null);
 }
@@ -9237,7 +9689,7 @@ function selectCustomerPortalContact(contactId) {
   refs.customerPortalContactName.value = contact.name || "";
   refs.customerPortalContactEmail.value = contact.email || "";
   refs.customerPortalContactPhone.value = contact.phone || "";
-  refs.customerPortalContactScope.value = contact.accessScope || "customer";
+  refs.customerPortalContactRole.value = contact.role || "primary";
   setCustomerPortalPreviewLink(contact);
   renderCustomerPortalContactList(currentCustomer());
 }
@@ -9281,6 +9733,91 @@ async function ensureCustomerPortalThread(customerId, projectId = "") {
   return threadId;
 }
 
+async function postCustomerPortalThreadUpdate({
+  customerId,
+  projectId = "",
+  body = "",
+}) {
+  const messageBody = safeString(body);
+  if (!customerId || !messageBody) {
+    return;
+  }
+
+  const threadId = await ensureCustomerPortalThread(customerId, projectId);
+  const activeProject = currentProject();
+  const project =
+    (projectId &&
+      (state.projects.find(
+        (entry) => entry.id === projectId && entry.customerId === customerId,
+      ) ||
+        (activeProject?.id === projectId ? activeProject : null))) ||
+    null;
+  const thread = {
+    id: threadId,
+    threadType: project ? "project" : "general",
+    projectId: project?.id || null,
+    projectAddress: project?.projectAddress || "",
+    projectType: project?.projectType || "",
+    title: project?.projectAddress || "General project updates",
+  };
+  const messageRef = doc(
+    collection(
+      state.db,
+      "customers",
+      customerId,
+      "threads",
+      threadId,
+      "messages",
+    ),
+  );
+  const threadRef = doc(state.db, "customers", customerId, "threads", threadId);
+  const authorName =
+    state.profile?.displayName || state.profile?.email || "Golden Brick";
+
+  const batch = writeBatch(state.db);
+  batch.set(
+    messageRef,
+    {
+      id: messageRef.id,
+      body: messageBody,
+      authorRole: "staff",
+      authorUid: state.profile?.uid || "",
+      authorName,
+      readByClientAt: null,
+      readByStaffAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+  batch.set(
+    threadRef,
+    {
+      customerId,
+      threadType: thread.threadType,
+      projectId: thread.projectId,
+      projectAddress: thread.projectAddress,
+      projectType: thread.projectType,
+      title: portalThreadTitle(thread),
+      lastMessageAt: serverTimestamp(),
+      lastMessagePreview: messageBody.slice(0, 240),
+      lastAuthorRole: "staff",
+      clientUnreadCount: increment(1),
+      staffUnreadCount: 0,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+  await batch.commit();
+}
+
+async function postCustomerPortalThreadUpdateSafe(payload) {
+  try {
+    await postCustomerPortalThreadUpdate(payload);
+  } catch (error) {
+    console.error("Customer portal thread update failed.", error);
+  }
+}
+
 async function selectCustomerPortalThread(threadId, { markRead = false } = {}) {
   const customer = currentCustomerDoc();
   if (!customer?.id) {
@@ -9314,7 +9851,7 @@ async function runCustomerPortalInviteAction(action, contact) {
     name: contact?.name || "",
     email: contact?.email || "",
     phone: contact?.phone || "",
-    accessScope: contact?.accessScope || "customer",
+    role: contact?.role || "primary",
   };
 
   const response = await apiPost("/api/client/invite", payload);
@@ -9370,7 +9907,7 @@ async function saveCustomerPortalContact(event) {
     name: refs.customerPortalContactName.value.trim(),
     email: refs.customerPortalContactEmail.value.trim(),
     phone: refs.customerPortalContactPhone.value.trim(),
-    accessScope: refs.customerPortalContactScope.value || "customer",
+    role: refs.customerPortalContactRole.value || "primary",
     authUid: existing?.authUid || "",
     inviteUrl: existing?.inviteUrl || "",
   };
@@ -9581,13 +10118,19 @@ function renderCustomerPortalContactList(customer) {
                 <article class="simple-item portal-contact-card ${isSelected ? "is-selected" : ""}">
                     <div class="record-topline">
                         <span class="mini-pill">${escapeHtml(status)}</span>
-                        <span class="mini-pill">${escapeHtml(contact.accessScope || "customer")}</span>
+                        <span class="mini-pill">${escapeHtml(contact.roleLabel || portalRoleLabel(contact.role))}</span>
                     </div>
                     <strong>${escapeHtml(contact.name || contact.email || "Portal contact")}</strong>
                     <p>${escapeHtml(contact.email || "No email added")}</p>
                     <div class="simple-meta">
                         ${escapeHtml(contact.phone || "No phone")} ·
-                        ${escapeHtml(contact.lastInvitedAt ? `Last invite ${formatDateTime(contact.lastInvitedAt)}` : "No invite sent yet")}
+                        ${escapeHtml(
+                          contact.lastLoginAt
+                            ? `Last login ${formatDateTime(contact.lastLoginAt)}`
+                            : contact.lastInvitedAt
+                              ? `Last invite ${formatDateTime(contact.lastInvitedAt)}`
+                              : "No invite sent yet",
+                        )}
                     </div>
                     <div class="inline-actions portal-contact-actions">
                         <button type="button" class="ghost-button" data-portal-contact-action="edit" data-contact-id="${escapeHtml(contact.id)}">Edit</button>
@@ -9599,6 +10142,604 @@ function renderCustomerPortalContactList(customer) {
                     </div>
                 </article>
             `;
+    })
+    .join("");
+}
+
+function estimateShareAgreementUrl(shareId) {
+  return shareId
+    ? `${window.location.origin}/api/client/public-agreement-document?token=${encodeURIComponent(shareId)}`
+    : "";
+}
+
+function renderCustomerPortalPublishingPanel(customer, rollup) {
+  if (!customer?.id) {
+    refs.customerPortalPublishingSummary.innerHTML = "";
+    return;
+  }
+
+  const estimateShares = publishedEstimateSharesForCustomer(customer.id);
+  const estimateLeadIds = new Set(
+    estimateShares.map((share) => safeString(share.leadId)).filter(Boolean),
+  );
+  const draftEstimateLeads = rollup.openEstimateLeads.filter(
+    (lead) => lead.hasEstimate && !estimateLeadIds.has(safeString(lead.id)),
+  );
+  const invoices = portalInvoicesForCustomer(customer.id);
+  const changeOrders = publishedChangeOrdersForCustomer(customer.id);
+  const visibleDocuments = state.customerDocuments.filter(
+    (document) =>
+      document.clientVisible === true || safeString(document.agreementId),
+  );
+
+  refs.customerPortalPublishingSummary.innerHTML = [
+    {
+      label: "Approvals live",
+      value: String(
+        estimateShares.filter((share) => safeString(share.status) === "active")
+          .length +
+          changeOrders.filter((entry) => safeString(entry.portalStatus) === "published")
+            .length,
+      ),
+    },
+    {
+      label: "Signed records",
+      value: String(
+        estimateShares.filter((share) => safeString(share.status) === "signed")
+          .length +
+          changeOrders.filter((entry) => safeString(entry.portalStatus) === "signed")
+            .length,
+      ),
+    },
+    {
+      label: "Visible invoices",
+      value: String(invoices.filter(invoiceVisibleInPortal).length),
+    },
+    {
+      label: "Visible documents",
+      value: String(visibleDocuments.length),
+    },
+  ]
+    .map(
+      (item) => `
+        <article class="summary-card">
+          <span>${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+        </article>
+      `,
+    )
+    .join("");
+
+  refs.customerPortalEstimateList.innerHTML = [
+    ...draftEstimateLeads.map((lead) => {
+      return `
+        <article class="simple-item">
+          <div class="record-topline">
+            <span class="mini-pill">Draft only</span>
+            <span class="mini-pill">${escapeHtml(formatCurrency(lead.estimateSubtotal || 0))}</span>
+          </div>
+          <strong>${escapeHtml(lead.estimateTitle || lead.clientName || "Current estimate")}</strong>
+          <p>${escapeHtml(lead.projectAddress || "Address pending")}</p>
+          <div class="simple-meta">${escapeHtml("Not visible in the client portal yet.")}</div>
+          <div class="inline-actions">
+            ${customerPortalActionButton({
+              action: "publish-estimate",
+              label: "Publish",
+              targetType: "estimate",
+              targetId: lead.id,
+              leadId: lead.id,
+            })}
+            <button type="button" class="ghost-button" data-open-lead="${escapeHtml(lead.id)}" data-open-view="leads-view">Open lead</button>
+          </div>
+        </article>
+      `;
+    }),
+    ...estimateShares.map((share) => {
+      const shareUrl = estimateShareUrl(share.id);
+      const agreementUrl = estimateShareAgreementUrl(share.id);
+      const lead = state.leads.find((entry) => entry.id === share.leadId) || null;
+      const isSigned = safeString(share.status) === "signed";
+      const isActive = safeString(share.status) === "active";
+      const statusLabel = estimateShareStatusLabel(share);
+      return `
+        <article class="simple-item">
+          <div class="record-topline">
+            <span class="mini-pill">${escapeHtml(isSigned ? "Signed estimate" : "Estimate")}</span>
+            <span class="mini-pill">${escapeHtml(statusLabel)}</span>
+          </div>
+          <strong>${escapeHtml(share.estimateSnapshot?.subject || share.title || "Estimate")}</strong>
+          <p>${escapeHtml(share.projectAddress || lead?.projectAddress || "Address pending")}</p>
+          <div class="simple-meta">${escapeHtml(
+            isSigned
+              ? `Signed ${formatDateTime(share.signedAt)}`
+              : shareVisibleInPortal(share)
+                ? "Visible and signable in the client portal."
+                : "Not currently visible in the client portal.",
+          )}</div>
+          <div class="inline-actions">
+            ${customerPortalActionButton({
+              action: "publish-estimate",
+              label: isActive ? "Replace" : "Publish new",
+              targetType: "estimate",
+              targetId: share.leadId,
+              leadId: share.leadId,
+            })}
+            ${
+              shareUrl
+                ? `<a class="ghost-button" href="${escapeHtml(shareUrl)}" target="_blank" rel="noreferrer">${escapeHtml(isActive ? "Open portal" : "Open record")}</a>`
+                : ""
+            }
+            ${
+              isActive
+                ? customerPortalActionButton({
+                    action: "revoke-estimate",
+                    label: "Unpublish",
+                    targetType: "estimate-share",
+                    targetId: share.id,
+                    leadId: share.leadId,
+                  })
+                : ""
+            }
+            ${
+              !isSigned
+                ? customerPortalActionButton({
+                    action: "delete-estimate",
+                    label: "Delete",
+                    targetType: "estimate-share",
+                    targetId: share.id,
+                    leadId: share.leadId,
+                  })
+                : agreementUrl
+                  ? `<a class="ghost-button" href="${escapeHtml(agreementUrl)}" target="_blank" rel="noreferrer">Signed PDF</a>`
+                  : ""
+            }
+          </div>
+        </article>
+      `;
+    }),
+  ].join("") || `<div class="empty-note">No client-facing estimate records are active on this customer yet.</div>`;
+
+  refs.customerPortalInvoiceList.innerHTML =
+    invoices.length
+      ? invoices
+          .map((invoice) => {
+            const visible = invoiceVisibleInPortal(invoice);
+            return `
+              <article class="simple-item">
+                <div class="record-topline">
+                  <span class="mini-pill">${escapeHtml(invoice.invoiceNumber || "Invoice")}</span>
+                  <span class="mini-pill">${escapeHtml(visible ? "Visible" : "Hidden")}</span>
+                </div>
+                <strong>${escapeHtml(invoice.title || "Invoice")}</strong>
+                <p>${escapeHtml(invoice.projectAddress || invoice.summary || "Billing record")}</p>
+                <div class="simple-meta">${escapeHtml(
+                  `${formatCurrency(invoice.subtotal || 0)} · ${INVOICE_STATUS_META[invoice.status] || "Draft"}`,
+                )}</div>
+                <div class="inline-actions">
+                  ${customerPortalActionButton({
+                    action: visible ? "hide-invoice" : "show-invoice",
+                    label: visible ? "Hide" : "Show",
+                    targetType: "invoice",
+                    targetId: invoice.id,
+                    projectId: invoice.projectId,
+                  })}
+                  <button type="button" class="ghost-button" data-open-project="${escapeHtml(invoice.projectId)}" data-open-view="jobs-view">Open job</button>
+                </div>
+              </article>
+            `;
+          })
+          .join("")
+      : `<div class="empty-note">No invoices are tied to this customer yet.</div>`;
+
+  refs.customerPortalChangeOrderList.innerHTML =
+    changeOrders.length
+      ? changeOrders
+          .map((changeOrder) => {
+            const share =
+              state.customerPortalEstimateShares.find(
+                (entry) =>
+                  safeString(entry.id) === safeString(changeOrder.portalShareId) &&
+                  safeString(entry.type) === "change_order",
+              ) || null;
+            const shareUrl = share ? estimateShareUrl(share.id) : "";
+            const agreementUrl = share ? estimateShareAgreementUrl(share.id) : "";
+            const status =
+              safeString(changeOrder.portalStatus) ||
+              (safeString(changeOrder.status) === "approved" && safeString(changeOrder.agreementId)
+                ? "signed"
+                : "draft");
+            return `
+              <article class="simple-item">
+                <div class="record-topline">
+                  <span class="mini-pill">Change order</span>
+                  <span class="mini-pill">${escapeHtml(estimateShareStatusLabel({ status }))}</span>
+                </div>
+                <strong>${escapeHtml(changeOrder.title || "Change order")}</strong>
+                <p>${escapeHtml(changeOrder.projectAddress || "Project revision")}</p>
+                <div class="simple-meta">${escapeHtml(
+                  `${formatCurrency(changeOrder.amount || 0)} · ${changeOrder.note || "Written project revision"}`,
+                )}</div>
+                <div class="inline-actions">
+                  ${customerPortalActionButton({
+                    action: "publish-change-order",
+                    label: status === "published" ? "Republish" : "Publish",
+                    targetType: "change-order",
+                    targetId: changeOrder.id,
+                    projectId: changeOrder.projectId,
+                  })}
+                  ${
+                    shareUrl
+                      ? `<a class="ghost-button" href="${escapeHtml(shareUrl)}" target="_blank" rel="noreferrer">${escapeHtml(status === "signed" ? "Open record" : "Open portal")}</a>`
+                      : ""
+                  }
+                  ${
+                    status === "published"
+                      ? customerPortalActionButton({
+                          action: "revoke-change-order",
+                          label: "Unpublish",
+                          targetType: "change-order",
+                          targetId: changeOrder.id,
+                          projectId: changeOrder.projectId,
+                        })
+                      : ""
+                  }
+                  ${
+                    status !== "signed"
+                      ? customerPortalActionButton({
+                          action: "delete-change-order",
+                          label: "Delete",
+                          targetType: "change-order",
+                          targetId: changeOrder.id,
+                          projectId: changeOrder.projectId,
+                        })
+                      : agreementUrl
+                        ? `<a class="ghost-button" href="${escapeHtml(agreementUrl)}" target="_blank" rel="noreferrer">Signed PDF</a>`
+                        : ""
+                  }
+                </div>
+              </article>
+            `;
+          })
+          .join("")
+      : `<div class="empty-note">No change orders are tied to this customer yet.</div>`;
+
+  refs.customerPortalDocumentList.innerHTML =
+    state.customerDocuments.length
+      ? state.customerDocuments
+          .map((document) => {
+            const forcedVisible = Boolean(safeString(document.agreementId));
+            const visible = forcedVisible || document.clientVisible === true;
+            return `
+              <article class="simple-item">
+                <div class="record-topline">
+                  <span class="mini-pill">${escapeHtml(DOCUMENT_CATEGORY_META[document.category] || "Document")}</span>
+                  <span class="mini-pill">${escapeHtml(visible ? "Visible" : "Hidden")}</span>
+                </div>
+                <strong>${escapeHtml(document.title || "Document")}</strong>
+                <p>${escapeHtml(document.projectAddress || document.note || "Shared file")}</p>
+                <div class="simple-meta">${escapeHtml(
+                  forcedVisible
+                    ? "Signed portal record stays visible automatically."
+                    : visible
+                      ? "Visible in the client portal."
+                      : "Hidden from the client portal.",
+                )}</div>
+                <div class="inline-actions">
+                  ${
+                    forcedVisible
+                      ? `<span class="ghost-button" aria-disabled="true">Protected</span>`
+                      : customerPortalActionButton({
+                          action: visible ? "hide-document" : "show-document",
+                          label: visible ? "Hide" : "Show",
+                          targetType: "document",
+                          targetId: document.id,
+                        })
+                  }
+                  ${
+                    safeString(document.fileUrl || document.externalUrl)
+                      ? `<a class="ghost-button" href="${escapeHtml(document.fileUrl || document.externalUrl)}" target="_blank" rel="noreferrer">Open file</a>`
+                      : ""
+                  }
+                </div>
+              </article>
+            `;
+          })
+          .join("")
+      : `<div class="empty-note">No customer documents are available to manage yet.</div>`;
+}
+
+function notificationItemFromLead(
+  lead,
+  { idPrefix, pill, copy, secondaryPill = "", timestamp } = {},
+) {
+  return {
+    id: `${idPrefix}:${safeString(lead.id)}`,
+    title:
+      safeString(lead.clientName || lead.projectAddress || "Lead update") ||
+      "Lead update",
+    copy:
+      safeString(copy || lead.projectAddress || lead.projectType) ||
+      "Lead activity",
+    pill,
+    secondaryPill,
+    timestamp: toMillis(timestamp || lead.updatedAt || lead.createdAt),
+    dataAttrs: {
+      "data-open-lead": safeString(lead.id),
+      "data-open-view": "leads-view",
+    },
+  };
+}
+
+function notificationItemFromProject(
+  project,
+  { idPrefix, pill, copy, secondaryPill = "", timestamp } = {},
+) {
+  return {
+    id: `${idPrefix}:${safeString(project.id)}`,
+    title:
+      safeString(
+        project.projectAddress || project.clientName || project.customerName,
+      ) || "Job update",
+    copy:
+      safeString(copy || project.clientName || project.customerName) ||
+      "Job activity",
+    pill,
+    secondaryPill,
+    timestamp: toMillis(timestamp || project.updatedAt || project.createdAt),
+    dataAttrs: {
+      "data-open-project": safeString(project.id),
+      "data-open-view": "jobs-view",
+    },
+  };
+}
+
+function recentNotificationItems() {
+  const cutoff = Date.now() - 1000 * 60 * 60 * 24 * 14;
+  const items = [];
+
+  visibleLeads()
+    .filter((lead) => toMillis(lead.createdAt || lead.updatedAt) >= cutoff)
+    .forEach((lead) => {
+      items.push(
+        notificationItemFromLead(lead, {
+          idPrefix: "lead-created",
+          pill: "New lead",
+          copy:
+            lead.projectAddress ||
+            `${lead.projectType || "Project"} lead was added to the CRM.`,
+          secondaryPill: formatDateTime(lead.createdAt || lead.updatedAt),
+          timestamp: lead.createdAt || lead.updatedAt,
+        }),
+      );
+    });
+
+  visibleLeads()
+    .filter((lead) => {
+      const updatedAt = toMillis(lead.updatedAt);
+      const createdAt = toMillis(lead.createdAt);
+      return (
+        safeString(lead.assignedToUid) &&
+        updatedAt >= cutoff &&
+        updatedAt > createdAt + 60000
+      );
+    })
+    .forEach((lead) => {
+      items.push(
+        notificationItemFromLead(lead, {
+          idPrefix: "lead-assigned",
+          pill: "Assigned",
+          copy: `Assigned to ${lead.assignedToName || lead.assignedToEmail || "staff"}.`,
+          secondaryPill: formatDateTime(lead.updatedAt),
+          timestamp: lead.updatedAt,
+        }),
+      );
+    });
+
+  visibleProjects()
+    .filter((project) => toMillis(project.createdAt || project.updatedAt) >= cutoff)
+    .forEach((project) => {
+      items.push(
+        notificationItemFromProject(project, {
+          idPrefix: "job-created",
+          pill: "Job won",
+          copy:
+            project.clientName ||
+            project.customerName ||
+            "Lead converted into a live job.",
+          secondaryPill: formatDateTime(project.createdAt || project.updatedAt),
+          timestamp: project.createdAt || project.updatedAt,
+        }),
+      );
+    });
+
+  if (isAdmin()) {
+    state.portalQueueEstimateShares.forEach((share) => {
+      const lead =
+        state.leads.find((item) => item.id === share.leadId) || null;
+      const project = lead ? projectForLead(lead) : null;
+      const status = safeString(share.status);
+      const type = safeString(share.type || "estimate");
+      const timestamp =
+        share.signedAt || share.updatedAt || share.publishedAt || share.createdAt;
+
+      if (!["active", "signed"].includes(status)) {
+        return;
+      }
+
+      items.push({
+        id: `${type}:${safeString(share.id)}`,
+        title:
+          safeString(
+            share.estimateSnapshot?.subject ||
+              share.title ||
+              lead?.projectAddress ||
+              "Client approval",
+          ) || "Client approval",
+        copy:
+          status === "signed"
+            ? type === "change_order"
+              ? "Client signed the published change order."
+              : "Client signed the estimate agreement."
+            : type === "change_order"
+              ? "A published change order is awaiting signature."
+              : "A published estimate is awaiting signature.",
+        pill:
+          status === "signed"
+            ? "Client signed"
+            : type === "change_order"
+              ? "Change order"
+              : "Awaiting signature",
+        secondaryPill: formatDateTime(timestamp),
+        timestamp: toMillis(timestamp),
+        dataAttrs:
+          status === "signed" && project?.id
+            ? {
+                "data-open-project": safeString(project.id),
+                "data-open-view": "jobs-view",
+              }
+            : {
+                "data-open-lead": safeString(share.leadId),
+                "data-open-view": "leads-view",
+              },
+      });
+    });
+
+    state.portalQueueThreads
+      .filter((thread) => toNumber(thread.staffUnreadCount) > 0)
+      .forEach((thread) => {
+        items.push({
+          id: `thread:${safeString(thread.id)}`,
+          title: portalThreadTitle(thread),
+          copy: safeString(thread.lastMessagePreview || "Client reply waiting."),
+          pill: "Client reply",
+          secondaryPill: `${toNumber(thread.staffUnreadCount)} unread`,
+          timestamp: toMillis(
+            thread.lastMessageAt || thread.updatedAt || thread.createdAt,
+          ),
+          dataAttrs: {
+            "data-open-customer": safeString(thread.customerId),
+            "data-open-view": "customers-view",
+          },
+        });
+      });
+
+    state.portalQueueContacts
+      .filter((contact) => {
+        if (
+          contact.disabledAt ||
+          safeString(contact.inviteStatus) === "revoked"
+        ) {
+          return true;
+        }
+        return (
+          safeString(contact.inviteStatus) === "invited" &&
+          toMillis(contact.lastInvitedAt) >= cutoff
+        );
+      })
+      .forEach((contact) => {
+        items.push({
+          id: `contact:${safeString(contact.id)}`,
+          title: safeString(contact.name || contact.email || "Portal contact"),
+          copy: safeString(contact.email || "Customer portal access update."),
+          pill: "Portal access",
+          secondaryPill: portalInviteStatusLabel(contact),
+          timestamp: toMillis(
+            contact.updatedAt || contact.lastInvitedAt || contact.createdAt,
+          ),
+          dataAttrs: {
+            "data-open-customer": safeString(contact.customerId),
+            "data-open-view": "customers-view",
+          },
+        });
+      });
+  }
+
+  return items
+    .filter((item) => item.timestamp >= cutoff)
+    .sort((left, right) => right.timestamp - left.timestamp)
+    .filter(
+      (item, index, source) =>
+        source.findIndex((candidate) => candidate.id === item.id) === index,
+    )
+    .slice(0, 24);
+}
+
+function markAllNotificationsRead() {
+  const items = recentNotificationItems();
+  markNotificationsRead(items.map((item) => item.id));
+  renderNotificationCenter();
+}
+
+function toggleNotificationPanel(forceOpen = null) {
+  const nextOpen =
+    typeof forceOpen === "boolean" ? forceOpen : !state.notificationPanelOpen;
+  state.notificationPanelOpen = nextOpen;
+
+  if (nextOpen) {
+    markAllNotificationsRead();
+    return;
+  }
+
+  renderNotificationCenter();
+}
+
+function renderNotificationCenter() {
+  if (
+    !refs.notificationButton ||
+    !refs.notificationPanel ||
+    !refs.notificationList
+  ) {
+    return;
+  }
+
+  const items = recentNotificationItems();
+  const unreadCount = items.filter(
+    (item) => !safeString(notificationReadAt(item.id)),
+  ).length;
+
+  refs.notificationButton.hidden = !state.profile;
+  refs.notificationButton.setAttribute(
+    "aria-expanded",
+    String(state.notificationPanelOpen),
+  );
+  refs.notificationCount.textContent = String(unreadCount);
+  refs.notificationCount.hidden = unreadCount === 0;
+  refs.notificationMarkReadButton.disabled = !items.length || unreadCount === 0;
+  refs.notificationPanel.hidden = !state.notificationPanelOpen;
+
+  if (!state.notificationPanelOpen) {
+    return;
+  }
+
+  if (!items.length) {
+    renderEmptyList(refs.notificationList, "No live notifications right now.");
+    return;
+  }
+
+  refs.notificationList.innerHTML = items
+    .map((item) => {
+      const attributes = Object.entries({
+        ...item.dataAttrs,
+        "data-notification-id": item.id,
+      })
+        .map(([key, value]) => `${key}="${escapeHtml(value)}"`)
+        .join(" ");
+      const isUnread = !safeString(notificationReadAt(item.id));
+
+      return `
+        <button type="button" class="record-button" ${attributes}>
+          <div class="record-topline">
+            <span class="mini-pill">${escapeHtml(item.pill || "Update")}</span>
+            <span class="mini-pill">${escapeHtml(isUnread ? "New" : "Viewed")}</span>
+          </div>
+          <span class="record-title">${escapeHtml(item.title)}</span>
+          <p class="record-copy">${escapeHtml(item.copy)}</p>
+          <div class="record-meta">
+            <div>${escapeHtml(item.secondaryPill || "")}</div>
+            <div>${escapeHtml(formatDateTime(item.timestamp))}</div>
+          </div>
+        </button>
+      `;
     })
     .join("");
 }
@@ -9937,12 +11078,29 @@ function renderCustomerDetail() {
     refs.customerDocumentTargetSelect.innerHTML = `<option value="">Save the customer first</option>`;
     refs.customerDocumentTargetSelect.disabled = true;
     refs.customerPortalSummary.innerHTML = "";
+    refs.customerPortalPublishingSummary.innerHTML = "";
     setCustomerPortalPreviewLink(null);
     refs.customerPortalContactForm.reset();
-    refs.customerPortalContactScope.value = "customer";
+    refs.customerPortalContactRole.value = "primary";
     renderEmptyList(
       refs.customerPortalContactList,
       "Select a customer to manage portal access.",
+    );
+    renderEmptyList(
+      refs.customerPortalEstimateList,
+      "Select a customer to manage published estimates.",
+    );
+    renderEmptyList(
+      refs.customerPortalInvoiceList,
+      "Select a customer to manage invoice visibility.",
+    );
+    renderEmptyList(
+      refs.customerPortalChangeOrderList,
+      "Select a customer to manage published change orders.",
+    );
+    renderEmptyList(
+      refs.customerPortalDocumentList,
+      "Select a customer to manage client-visible documents.",
     );
     renderEmptyList(
       refs.customerPortalThreadList,
@@ -9995,10 +11153,8 @@ function renderCustomerDetail() {
       value: formatCurrency(rollup.totalPaymentsReceived),
     },
     {
-      label: "Current estimate",
-      value: rollup.currentEstimateLead
-        ? formatCurrency(rollup.currentEstimateLead.estimateSubtotal || 0)
-        : "None",
+      label: "Estimate leads",
+      value: String(rollup.estimateLeads.length),
     },
   ]
     .map(
@@ -10057,14 +11213,33 @@ function renderCustomerDetail() {
       .join("");
   }
 
-  refs.customerCurrentEstimate.innerHTML = rollup.currentEstimateLead
-    ? `
-            <div><strong>${escapeHtml(rollup.currentEstimateLead.estimateTitle || "Current estimate")}</strong></div>
-            <div>${escapeHtml(rollup.currentEstimateLead.projectAddress || "Address pending")}</div>
-            <div>${escapeHtml(formatCurrency(rollup.currentEstimateLead.estimateSubtotal || 0))}</div>
-            <div><button type="button" class="secondary-button" data-open-lead="${escapeHtml(rollup.currentEstimateLead.id)}" data-open-view="leads-view">Open lead</button></div>
-        `
-    : "No active estimate linked to this customer.";
+  const shareByLead = estimateShareMapByLead(
+    publishedEstimateSharesForCustomer(customer.id),
+  );
+  refs.customerCurrentEstimate.innerHTML = rollup.estimateLeads.length
+    ? rollup.estimateLeads
+        .map((estimateLead) => {
+          const share = shareByLead.get(safeString(estimateLead.id)) || null;
+          const status = share
+            ? estimateShareStatusLabel(share)
+            : "Draft only";
+          return `
+            <button type="button" class="record-button" data-open-lead="${escapeHtml(estimateLead.id)}" data-open-view="leads-view">
+              <div class="record-topline">
+                <span class="mini-pill">${escapeHtml(status)}</span>
+                <span class="mini-pill">${escapeHtml(formatCurrency(estimateLead.estimateSubtotal || 0))}</span>
+              </div>
+              <span class="record-title">${escapeHtml(estimateLead.estimateTitle || estimateLead.clientName || "Estimate")}</span>
+              <p class="record-copy">${escapeHtml(estimateLead.projectAddress || "Address pending")}</p>
+              <div class="record-meta">
+                <div>${escapeHtml(share ? "Client-facing history available" : "Internal draft only")}</div>
+                <div>${escapeHtml(formatDateTime(estimateLead.estimateUpdatedAt || estimateLead.updatedAt || estimateLead.createdAt))}</div>
+              </div>
+            </button>
+          `;
+        })
+        .join("")
+    : "No estimate linked to this customer yet.";
 
   renderEntityTaskList(
     refs.customerTaskList,
@@ -10073,6 +11248,7 @@ function renderCustomerDetail() {
   );
   renderCustomerPortalSummary(customer, rollup);
   renderCustomerPortalContactList(customer);
+  renderCustomerPortalPublishingPanel(customer, rollup);
   renderCustomerPortalThreadList(customer);
   renderCustomerPortalConversation(customer);
   renderCustomerDocumentTargetOptions(customer, rollup);
@@ -10094,12 +11270,12 @@ function renderCustomerDetail() {
     refs.customerPortalContactName.value = selectedPortalContact.name || "";
     refs.customerPortalContactEmail.value = selectedPortalContact.email || "";
     refs.customerPortalContactPhone.value = selectedPortalContact.phone || "";
-    refs.customerPortalContactScope.value =
-      selectedPortalContact.accessScope || "customer";
+    refs.customerPortalContactRole.value =
+      selectedPortalContact.role || "primary";
     setCustomerPortalPreviewLink(selectedPortalContact);
   } else {
     refs.customerPortalContactForm.reset();
-    refs.customerPortalContactScope.value = "customer";
+    refs.customerPortalContactRole.value = "primary";
     setCustomerPortalPreviewLink(null);
   }
 
@@ -12309,6 +13485,7 @@ function renderAll() {
   renderCurrentUserCard();
   renderSidebarSummary();
   renderWorkspaceCommandBar();
+  renderNotificationCenter();
   renderTodayView();
   renderTaskMetrics();
   renderTaskList();
@@ -12364,7 +13541,7 @@ async function apiPost(path, body) {
 
 function selectLead(
   leadId,
-  { openWorkspace = true, preserveTab = false } = {},
+  { openWorkspace = true, preserveTab = false, historyMode = "push" } = {},
 ) {
   state.leadDraft = null;
   state.selectedLeadId = leadId;
@@ -12374,7 +13551,7 @@ function selectLead(
   }
   subscribeLeadDetail();
   renderAll();
-  syncLeadRouteState();
+  syncLeadRouteState({ historyMode });
 
   if (openWorkspace) {
     window.requestAnimationFrame(() => {
@@ -12383,7 +13560,7 @@ function selectLead(
   }
 }
 
-function closeLeadWorkspace() {
+function closeLeadWorkspace({ historyMode = "push" } = {}) {
   if (!state.selectedLeadId) {
     state.leadDraft = null;
     state.leadActivities = [];
@@ -12394,13 +13571,13 @@ function closeLeadWorkspace() {
   }
   state.leadWorkspaceOpen = false;
   renderAll();
-  syncLeadRouteState();
+  syncLeadRouteState({ historyMode });
   window.requestAnimationFrame(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 }
 
-function selectProject(projectId) {
+function selectProject(projectId, { historyMode = "push" } = {}) {
   state.selectedProjectId = projectId;
   state.selectedProjectInvoiceId = null;
   state.projectInvoiceDraft = null;
@@ -12411,6 +13588,7 @@ function selectProject(projectId) {
     : "financials";
   subscribeProjectDetail();
   renderAll();
+  syncLeadRouteState({ historyMode });
   if (isMobileViewport()) {
     window.requestAnimationFrame(() => {
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -12425,6 +13603,7 @@ function selectProjectInvoice(invoiceId, { openTab = true } = {}) {
     state.activeJobTab = "invoices";
   }
   renderJobDetail();
+  syncLeadRouteState({ historyMode: "push" });
 }
 
 function startProjectInvoiceDraft(seed = {}) {
@@ -12638,6 +13817,7 @@ function resetSelectionFromSnapshots() {
     state.projectScopeItems = [];
     state.projectInvoices = [];
     state.projectInvoiceDraft = null;
+    syncLeadRouteState();
   }
 
   if (
@@ -12714,6 +13894,7 @@ function subscribeBaseData() {
         (snapshot) => {
           state.projects = snapshot.docs.map(normaliseFirestoreDoc);
           refreshScopedCustomers();
+          restoreProjectWorkspaceFromRoute();
           resetSelectionFromSnapshots();
           subscribeProjectDetail();
           subscribeCustomerDetail();
@@ -12852,7 +14033,7 @@ function subscribeBaseData() {
         renderAll();
       },
       (error) => {
-        handleBaseSubscriptionError("Service templates", error);
+        handleServiceTemplateSubscriptionError(error);
       },
     ),
   );
@@ -12965,6 +14146,7 @@ function subscribeLeadDetail() {
   state.leadActivities = [];
   state.estimate = null;
   state.estimateShare = null;
+  state.leadEstimateShares = [];
   state.leadDocuments = [];
 
   if (!state.selectedLeadId) {
@@ -13016,6 +14198,32 @@ function subscribeLeadDetail() {
   state.unsubs.leadDetail.push(
     onSnapshot(
       query(
+        collection(state.db, "estimateShares"),
+        where("leadId", "==", state.selectedLeadId),
+      ),
+      (snapshot) => {
+        syncLeadEstimateShareState(
+          state.selectedLeadId,
+          snapshot.docs
+            .map((entry) => hydrateEstimateShare(entry))
+            .filter(
+              (share) => safeString(share.type || "estimate") === "estimate",
+            ),
+        );
+      },
+      (error) => {
+        handleDetailSubscriptionError("Estimate publishing", error, () => {
+          state.leadEstimateShares = [];
+          state.estimateShare = null;
+          renderLeadDetail();
+        });
+      },
+    ),
+  );
+
+  state.unsubs.leadDetail.push(
+    onSnapshot(
+      query(
         collection(state.db, "recordDocuments"),
         where("leadId", "==", state.selectedLeadId),
       ),
@@ -13048,6 +14256,9 @@ function subscribeCustomerDetail() {
   state.unsubs.customerPortalMessages = [];
   state.customerDocuments = [];
   state.customerPortalContacts = [];
+  state.customerPortalEstimateShares = [];
+  state.customerPortalInvoices = [];
+  state.customerPortalChangeOrders = [];
   state.customerPortalThreads = [];
   state.customerPortalMessages = {};
   state.selectedCustomerPortalContactId = null;
@@ -13081,6 +14292,85 @@ function subscribeCustomerDetail() {
           state.customerDocuments = [];
           renderCustomerDetail();
         });
+      },
+    ),
+  );
+
+  state.unsubs.customerDetail.push(
+    onSnapshot(
+      query(
+        collection(state.db, "estimateShares"),
+        where("customerId", "==", state.selectedCustomerId),
+      ),
+      (snapshot) => {
+        state.customerPortalEstimateShares = snapshot.docs
+          .map(normaliseFirestoreDoc)
+          .sort(
+            (left, right) =>
+              toMillis(right.updatedAt || right.publishedAt || right.createdAt) -
+              toMillis(left.updatedAt || left.publishedAt || left.createdAt),
+          );
+        renderCustomerDetail();
+      },
+      (error) => {
+        handleDetailSubscriptionError("Customer portal estimates", error, () => {
+          state.customerPortalEstimateShares = [];
+          renderCustomerDetail();
+        });
+      },
+    ),
+  );
+
+  state.unsubs.customerDetail.push(
+    onSnapshot(
+      query(
+        collectionGroup(state.db, "invoices"),
+        where("customerId", "==", state.selectedCustomerId),
+      ),
+      (snapshot) => {
+        state.customerPortalInvoices = snapshot.docs
+          .map(normaliseFirestoreDoc)
+          .sort(
+            (left, right) =>
+              toMillis(right.updatedAt || right.issueDate || right.createdAt) -
+              toMillis(left.updatedAt || left.issueDate || left.createdAt),
+          );
+        renderCustomerDetail();
+      },
+      (error) => {
+        handleDetailSubscriptionError("Customer portal invoices", error, () => {
+          state.customerPortalInvoices = [];
+          renderCustomerDetail();
+        });
+      },
+    ),
+  );
+
+  state.unsubs.customerDetail.push(
+    onSnapshot(
+      query(
+        collectionGroup(state.db, "changeOrders"),
+        where("customerId", "==", state.selectedCustomerId),
+      ),
+      (snapshot) => {
+        state.customerPortalChangeOrders = snapshot.docs
+          .map(normaliseFirestoreDoc)
+          .sort(
+            (left, right) =>
+              toMillis(right.updatedAt || right.relatedDate || right.createdAt) -
+              toMillis(left.updatedAt || left.relatedDate || left.createdAt),
+          );
+        renderCustomerDetail();
+      },
+      (error) => {
+        handleDetailSubscriptionError(
+          "Customer portal change orders",
+          error,
+          () => {
+            state.customerPortalChangeOrders = [];
+            renderCustomerDetail();
+          },
+        );
       },
     ),
   );
@@ -13501,6 +14791,7 @@ async function bootstrapFirebase() {
         state.leads = [];
         state.projects = [];
         state.customers = [];
+        state.serviceTemplates = [];
         state.tasks = [];
         state.staffRoster = [];
         state.selectedLeadId = null;
@@ -13509,10 +14800,12 @@ async function bootstrapFirebase() {
         state.selectedCustomerId = null;
         state.selectedTaskId = null;
         state.selectedStaffKey = null;
+        state.selectedServiceTemplateId = null;
         state.staffFocusUid = "";
         state.leadDraft = null;
         state.customerDraft = null;
         state.taskDraft = null;
+        state.serviceTemplateDraft = null;
         state.leadActivities = [];
         state.projectExpenses = [];
         state.projectPayments = [];
@@ -13523,6 +14816,9 @@ async function bootstrapFirebase() {
         state.leadDocuments = [];
         state.customerDocuments = [];
         state.customerPortalContacts = [];
+        state.customerPortalEstimateShares = [];
+        state.customerPortalInvoices = [];
+        state.customerPortalChangeOrders = [];
         state.customerPortalThreads = [];
         state.customerPortalMessages = {};
         state.selectedCustomerPortalContactId = null;
@@ -14276,9 +15572,8 @@ async function convertLeadToProject(lead = currentLeadDoc()) {
 
   const existingProject = projectForLead(lead);
   if (existingProject) {
-    state.selectedProjectId = existingProject.id;
-    switchView("jobs-view");
-    subscribeProjectDetail();
+    selectProject(existingProject.id, { historyMode: "replace" });
+    switchView("jobs-view", { historyMode: "push" });
     showToast("This lead already has a job record.");
     return;
   }
@@ -14318,9 +15613,8 @@ async function convertLeadToProject(lead = currentLeadDoc()) {
     return;
   }
 
-  state.selectedProjectId = response.projectId;
-  switchView("jobs-view");
-  subscribeProjectDetail();
+  selectProject(response.projectId, { historyMode: "replace" });
+  switchView("jobs-view", { historyMode: "push" });
   showToast(
     response.existing
       ? "This lead already has a job record."
@@ -14421,6 +15715,18 @@ async function saveEstimateDraft(event) {
     },
   );
 
+  state.estimate = {
+    ...estimate,
+    id: lead.id,
+    leadId: lead.id,
+    status: "draft",
+    updatedAt: new Date().toISOString(),
+    createdAt: state.estimate?.createdAt || new Date().toISOString(),
+    lastEditedByUid: state.profile.uid,
+    lastEditedByName: state.profile.displayName,
+  };
+  applyLeadEstimateStateLocally(lead.id, state.estimate);
+  renderLeadDetail();
   showToast("Estimate saved.");
 }
 
@@ -14493,8 +15799,14 @@ async function createEstimateDraft() {
 
     state.estimate = {
       ...estimatePayload,
+      subtotal: draft.subtotal,
       updatedAt: new Date().toISOString(),
     };
+    applyLeadEstimateStateLocally(lead.id, {
+      ...state.estimate,
+      subject: draft.subject,
+      subtotal: draft.subtotal,
+    });
     renderLeadDetail();
     showToast("Estimate draft created.");
   } catch (error) {
@@ -14558,28 +15870,58 @@ async function openEstimatePrintView() {
   }
 }
 
+async function fetchEstimateSharesForLead(leadId) {
+  if (!leadId) {
+    return [];
+  }
+
+  const sharesSnap = await getDocs(
+    query(
+      collection(state.db, "estimateShares"),
+      where("leadId", "==", leadId),
+    ),
+  );
+
+  return sharesSnap.docs
+    .map((snapshot) => hydrateEstimateShare(snapshot))
+    .filter((share) => safeString(share.type || "estimate") === "estimate");
+}
+
+function syncLeadEstimateShareState(leadId, shares = []) {
+  if (state.selectedLeadId !== leadId) {
+    return null;
+  }
+
+  state.leadEstimateShares = sortByUpdatedDesc(shares);
+  state.estimateShare = pickCurrentEstimateShare(state.leadEstimateShares);
+  renderEstimateSharePanel(currentLead());
+  renderLeadEstimateClientRecords(currentLead());
+  return state.estimateShare;
+}
+
 async function refreshEstimateShareState(leadId = state.selectedLeadId) {
   if (!state.currentUser || !leadId) {
+    state.leadEstimateShares = [];
     state.estimateShare = null;
     renderEstimateSharePanel(currentLead());
+    renderLeadEstimateClientRecords(currentLead());
     return null;
   }
 
   try {
-    const share = await fetchCurrentEstimateShare(leadId);
-
+    const shares = await fetchEstimateSharesForLead(leadId);
     if (state.selectedLeadId !== leadId) {
-      return share || null;
+      return pickCurrentEstimateShare(shares) || null;
     }
 
-    state.estimateShare = share || null;
-    renderEstimateSharePanel(currentLead());
-    return state.estimateShare;
+    return syncLeadEstimateShareState(leadId, shares);
   } catch (error) {
     console.error("Estimate share refresh failed.", error);
     if (state.selectedLeadId === leadId) {
+      state.leadEstimateShares = [];
       state.estimateShare = null;
       renderEstimateSharePanel(currentLead());
+      renderLeadEstimateClientRecords(currentLead());
     }
     return null;
   }
@@ -14597,100 +15939,13 @@ async function createEstimateShareLink() {
     return;
   }
 
-  const [estimateSnap, projectSnap, sharesSnap] = await Promise.all([
-    getDoc(doc(state.db, "estimates", lead.id)),
-    getDoc(doc(state.db, "projects", lead.id)),
-    getDocs(
-      query(
-        collection(state.db, "estimateShares"),
-        where("leadId", "==", lead.id),
-      ),
-    ),
-  ]);
+  const response = await apiPost("/api/staff/estimate-share", {
+    action: "create",
+    type: "estimate",
+    leadId: lead.id,
+  });
 
-  if (!estimateSnap.exists()) {
-    showToast("Save the estimate before creating a share link.", "error");
-    return;
-  }
-
-  const batch = writeBatch(state.db);
-  const nextLeadStatus = ["new_lead", "follow_up"].includes(
-    safeString(lead.status),
-  )
-    ? "estimate_sent"
-    : safeString(lead.status || "estimate_sent");
-
-  sharesSnap.docs
-    .map((snapshot) => normaliseFirestoreDoc(snapshot))
-    .filter((share) => safeString(share.status) === "active")
-    .forEach((share) => {
-      batch.set(
-        doc(state.db, "estimateShares", share.id),
-        {
-          status: "revoked",
-          revokedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
-    });
-
-  const shareRef = doc(collection(state.db, "estimateShares"));
-  batch.set(
-    shareRef,
-    {
-      id: shareRef.id,
-      type: "estimate",
-      status: "active",
-      leadId: lead.id,
-      customerId: safeString(lead.customerId) || null,
-      projectId: projectSnap.exists() ? lead.id : null,
-      createdByUid: state.profile.uid,
-      createdByName: state.profile.displayName,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      revokedAt: null,
-      lastViewedAt: null,
-      signedAt: null,
-      agreementId: null,
-    },
-    { merge: true },
-  );
-  batch.set(
-    doc(state.db, "leads", lead.id),
-    {
-      status: nextLeadStatus,
-      statusLabel: STATUS_META[nextLeadStatus] || STATUS_META.new_lead,
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true },
-  );
-  batch.set(
-    doc(collection(state.db, "leads", lead.id, "activities")),
-    {
-      activityType: "estimate_share",
-      title: "Estimate share link created",
-      body: "A secure client estimate link was created from the staff portal.",
-      ...projectActorFields(),
-      createdAt: serverTimestamp(),
-    },
-  );
-
-  if (projectSnap.exists()) {
-    batch.set(
-      doc(collection(state.db, "projects", lead.id, "activities")),
-      {
-        activityType: "agreement",
-        title: "Estimate share link created",
-        body: "A secure client estimate link was created for this project.",
-        ...projectActorFields(),
-        createdAt: serverTimestamp(),
-      },
-    );
-  }
-
-  await batch.commit();
-  state.estimateShare = await fetchCurrentEstimateShare(lead.id);
+  state.estimateShare = response.share || (await fetchCurrentEstimateShare(lead.id));
 
   renderEstimateSharePanel(lead);
   showToast("Client estimate link created.");
@@ -14722,47 +15977,217 @@ async function revokeEstimateShareLink() {
     return;
   }
 
-  const projectSnap = await getDoc(doc(state.db, "projects", lead.id));
-  const batch = writeBatch(state.db);
+  const response = await apiPost("/api/staff/estimate-share", {
+    action: "revoke",
+    type: "estimate",
+    leadId: lead.id,
+    shareId: state.estimateShare.id,
+  });
 
-  batch.set(
-    doc(state.db, "estimateShares", state.estimateShare.id),
-    {
-      status: "revoked",
-      revokedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true },
-  );
-  batch.set(
-    doc(collection(state.db, "leads", lead.id, "activities")),
-    {
-      activityType: "estimate_share",
-      title: "Estimate share link revoked",
-      body: "The active client estimate link was revoked from the staff portal.",
-      ...projectActorFields(),
-      createdAt: serverTimestamp(),
-    },
-  );
-
-  if (projectSnap.exists()) {
-    batch.set(
-      doc(collection(state.db, "projects", lead.id, "activities")),
-      {
-        activityType: "agreement",
-        title: "Estimate share link revoked",
-        body: "The client-facing estimate share link was revoked for this project.",
-        ...projectActorFields(),
-        createdAt: serverTimestamp(),
-      },
-    );
-  }
-
-  await batch.commit();
-  state.estimateShare = await fetchCurrentEstimateShare(lead.id);
+  state.estimateShare = response.share || (await fetchCurrentEstimateShare(lead.id));
 
   renderEstimateSharePanel(lead);
   showToast("Estimate link revoked.");
+}
+
+async function deleteEstimateShareLink(leadId, shareId) {
+  if (!leadId || !shareId) {
+    showToast("Estimate record not found.", "error");
+    return;
+  }
+
+  if (!isAdmin()) {
+    showToast("Only admins can delete published estimates.", "error");
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Delete this unsigned published estimate from the portal history?",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  await apiPost("/api/staff/estimate-share", {
+    action: "delete",
+    type: "estimate",
+    leadId,
+    shareId,
+  });
+
+  if (state.selectedLeadId === leadId) {
+    await refreshEstimateShareState(leadId);
+  }
+
+  showToast("Published estimate deleted.");
+}
+
+async function publishCustomerEstimateFromLead(leadId) {
+  if (!leadId) {
+    showToast("Lead not found.", "error");
+    return;
+  }
+
+  await apiPost("/api/staff/estimate-share", {
+    action: "create",
+    type: "estimate",
+    leadId,
+  });
+
+  if (state.selectedLeadId === leadId) {
+    await refreshEstimateShareState(leadId);
+  }
+
+  showToast("Estimate published to the client portal.");
+}
+
+async function setCustomerPortalInvoiceVisibility(projectId, invoiceId, visible) {
+  if (!projectId || !invoiceId) {
+    showToast("Invoice not found.", "error");
+    return;
+  }
+
+  if (!isAdmin()) {
+    showToast("Only admins can manage invoice visibility.", "error");
+    return;
+  }
+
+  await updateDoc(doc(state.db, "projects", projectId, "invoices", invoiceId), {
+    clientVisibleOverride: visible,
+    updatedAt: serverTimestamp(),
+  });
+
+  showToast(
+    visible
+      ? "Invoice is now visible in the client portal."
+      : "Invoice is now hidden from the client portal.",
+  );
+}
+
+async function setCustomerPortalDocumentVisibility(documentId, visible) {
+  if (!documentId) {
+    showToast("Document not found.", "error");
+    return;
+  }
+
+  if (!isAdmin()) {
+    showToast("Only admins can manage document visibility.", "error");
+    return;
+  }
+
+  const documentRef = doc(state.db, "recordDocuments", documentId);
+  const documentSnap = await getDoc(documentRef);
+  if (!documentSnap.exists()) {
+    showToast("Document not found.", "error");
+    return;
+  }
+
+  const recordDocument = {
+    id: documentSnap.id,
+    ...documentSnap.data(),
+  };
+  const wasVisible = recordDocument.clientVisible === true;
+
+  await updateDoc(documentRef, {
+    clientVisible: visible === true,
+    updatedAt: serverTimestamp(),
+  });
+
+  if (visible === true && !wasVisible) {
+    let project =
+      safeString(recordDocument.projectId) &&
+      state.projects.find((entry) => entry.id === recordDocument.projectId);
+
+    if (!project && safeString(recordDocument.projectId)) {
+      const projectSnap = await getDoc(
+        doc(state.db, "projects", recordDocument.projectId),
+      );
+      if (projectSnap.exists()) {
+        project = {
+          id: projectSnap.id,
+          ...projectSnap.data(),
+        };
+      }
+    }
+
+    const customerId = safeString(recordDocument.customerId || project?.customerId);
+    const threadProjectId = safeString(recordDocument.projectId || project?.id);
+    const messageBody = buildClientPortalDocumentUpdateMessage({
+      project,
+      category: recordDocument.category,
+      title: recordDocument.title,
+      note: recordDocument.note,
+    });
+
+    if (customerId && messageBody) {
+      await postCustomerPortalThreadUpdateSafe({
+        customerId,
+        projectId: threadProjectId,
+        body: messageBody,
+      });
+    }
+  }
+
+  showToast(
+    visible
+      ? "Document is now visible in the client portal."
+      : "Document is now hidden from the client portal.",
+  );
+}
+
+async function publishCustomerChangeOrder(projectId, changeOrderId) {
+  if (!projectId || !changeOrderId) {
+    showToast("Change order not found.", "error");
+    return;
+  }
+
+  await apiPost("/api/staff/estimate-share", {
+    action: "create",
+    type: "change_order",
+    projectId,
+    changeOrderId,
+  });
+
+  showToast("Change order published for client approval.");
+}
+
+async function revokeCustomerChangeOrder(projectId, changeOrderId) {
+  if (!projectId || !changeOrderId) {
+    showToast("Change order not found.", "error");
+    return;
+  }
+
+  await apiPost("/api/staff/estimate-share", {
+    action: "revoke",
+    type: "change_order",
+    projectId,
+    changeOrderId,
+  });
+
+  showToast("Change order removed from active client approval.");
+}
+
+async function deleteCustomerChangeOrder(projectId, changeOrderId) {
+  if (!projectId || !changeOrderId) {
+    showToast("Change order not found.", "error");
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Delete this unsigned published change order from the client portal?",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  await apiPost("/api/staff/estimate-share", {
+    action: "delete",
+    type: "change_order",
+    projectId,
+    changeOrderId,
+  });
+
+  showToast("Published change order deleted.");
 }
 
 async function saveCustomer(event) {
@@ -15104,6 +16529,124 @@ function projectActorFields() {
   };
 }
 
+function ensureSentence(value) {
+  const text = safeString(value);
+  if (!text) {
+    return "";
+  }
+  return /[.!?]$/.test(text) ? text : `${text}.`;
+}
+
+function clientPortalProjectLabel(project = null) {
+  return (
+    safeString(
+      project?.projectAddress || project?.clientName || project?.projectType,
+    ) || "your property"
+  );
+}
+
+function buildClientPortalProjectUpdateMessage({
+  project,
+  nextStatus = "in_progress",
+  nextPhaseLabel = "",
+  nextTargetWindow = "",
+  nextTargetDate = null,
+  nextNextStep = "",
+  nextSharedStatusNote = "",
+}) {
+  const statusChanged =
+    safeString(project?.status || "in_progress") !== safeString(nextStatus);
+  const projectLabel = clientPortalProjectLabel(project);
+  const statusLabel =
+    JOB_STATUS_META[nextStatus] ||
+    capitalise(safeString(nextStatus || "in_progress").replace(/_/g, " "));
+  const sentences = [];
+
+  if (statusChanged && safeString(nextStatus) === "completed") {
+    sentences.push(
+      `Project update for ${projectLabel}: this job is now marked complete in your client portal.`,
+    );
+  } else if (statusChanged) {
+    sentences.push(
+      `Project update for ${projectLabel}: status is now ${statusLabel}.`,
+    );
+  } else {
+    sentences.push(`Project update for ${projectLabel}.`);
+  }
+
+  if (safeString(nextPhaseLabel)) {
+    sentences.push(`Current phase: ${safeString(nextPhaseLabel)}.`);
+  }
+
+  if (safeString(nextNextStep)) {
+    sentences.push(`Next step: ${safeString(nextNextStep)}.`);
+  }
+
+  if (safeString(nextTargetWindow)) {
+    sentences.push(`Target window: ${safeString(nextTargetWindow)}.`);
+  } else if (nextTargetDate) {
+    sentences.push(`Target date: ${formatDateOnly(nextTargetDate)}.`);
+  }
+
+  if (safeString(nextSharedStatusNote)) {
+    sentences.push(ensureSentence(nextSharedStatusNote));
+  } else if (safeString(nextStatus) === "completed") {
+    sentences.push(
+      "You can review closeout notes, photos, and documents from the jobs section anytime.",
+    );
+  }
+
+  return sentences.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function buildClientPortalDocumentUpdateMessage({
+  project = null,
+  category = "other",
+  title = "",
+  note = "",
+}) {
+  const normalisedCategory = safeString(category || "other");
+  const documentTitle =
+    safeString(title) || defaultRecordDocumentTitle(normalisedCategory);
+  const projectLabel = project ? clientPortalProjectLabel(project) : "your portal";
+  const sentences = [];
+
+  if (normalisedCategory === "photo") {
+    sentences.push(
+      documentTitle &&
+        documentTitle !== DOCUMENT_CATEGORY_META.photo &&
+        documentTitle !== "Photo"
+        ? `New progress photo shared for ${projectLabel}: ${documentTitle}.`
+        : `New progress photo shared for ${projectLabel}.`,
+    );
+    sentences.push(
+      safeString(note)
+        ? ensureSentence(note)
+        : "Open the jobs section to review the latest photo update.",
+    );
+  } else if (normalisedCategory === "closeout") {
+    sentences.push(
+      project
+        ? `A closeout document was shared for ${projectLabel}: ${documentTitle}.`
+        : `A closeout document was shared to your portal: ${documentTitle}.`,
+    );
+    if (safeString(note)) {
+      sentences.push(ensureSentence(note));
+    }
+  } else {
+    sentences.push(
+      project
+        ? `A new client document was shared for ${projectLabel}: ${documentTitle}.`
+        : `A new client document was shared to your portal: ${documentTitle}.`,
+    );
+    if (safeString(note)) {
+      sentences.push(ensureSentence(note));
+    }
+  }
+
+  return sentences.join(" ").replace(/\s+/g, " ").trim();
+}
+
 async function addProjectActivityEntry(
   projectId,
   activityType,
@@ -15337,8 +16880,11 @@ async function saveProject(event) {
     nextStep: nextNextStep,
     sharedStatusNote: nextSharedStatusNote,
   });
+  const clientFacingChanged = previousClientFacingKey !== nextClientFacingKey;
+  const statusChanged =
+    safeString(project.status || "in_progress") !== safeString(nextStatus);
 
-  if (previousClientFacingKey !== nextClientFacingKey) {
+  if (clientFacingChanged) {
     activityWrites.push(
       addProjectActivityEntry(
         project.id,
@@ -15357,6 +16903,29 @@ async function saveProject(event) {
         "Internal planning updated",
         "The internal planning notes on this job were refreshed.",
       ),
+    );
+  }
+
+  const clientPortalMessage =
+    safeString(project.customerId) && (clientFacingChanged || statusChanged)
+      ? buildClientPortalProjectUpdateMessage({
+          project,
+          nextStatus,
+          nextPhaseLabel,
+          nextTargetWindow,
+          nextTargetDate,
+          nextNextStep,
+          nextSharedStatusNote,
+        })
+      : "";
+
+  if (clientPortalMessage) {
+    activityWrites.push(
+      postCustomerPortalThreadUpdateSafe({
+        customerId: project.customerId,
+        projectId: project.id,
+        body: clientPortalMessage,
+      }),
     );
   }
 
@@ -15463,14 +17032,29 @@ async function addChangeOrder(event) {
   }
 
   await addDoc(collection(state.db, "projects", project.id, "changeOrders"), {
+    projectId: project.id,
+    leadId: safeString(project.leadId),
+    customerId: safeString(project.customerId),
+    customerName: safeString(project.customerName || project.clientName),
+    projectAddress: safeString(project.projectAddress),
+    projectType: safeString(project.projectType),
     title,
     amount,
     status,
     note: refs.changeOrderNote.value.trim(),
+    portalShareId: null,
+    portalStatus: "draft",
+    portalVisible: false,
+    agreementId: null,
+    signedAt: null,
+    signerName: "",
+    signerEmail: "",
+    signerRole: "",
     relatedDate: parseDateOnlyInput(refs.changeOrderDate.value) || new Date(),
     createdByUid: state.profile.uid,
     createdByName: state.profile.displayName,
     createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   });
 
   refs.changeOrderForm.reset();
@@ -15588,6 +17172,81 @@ async function saveCustomerDocument(event) {
   showToast("Shared document saved to this customer record.");
 }
 
+async function handleCustomerPortalPublishingAction(button) {
+  const action = safeString(button?.dataset.customerPortalAction);
+  const targetId = safeString(button?.dataset.targetId);
+  const projectId = safeString(button?.dataset.projectId);
+  const leadId = safeString(button?.dataset.leadId);
+
+  if (!action) {
+    return;
+  }
+
+  if (!isAdmin()) {
+    showToast("Only admins can manage client publishing.", "error");
+    return;
+  }
+
+  if (action === "publish-estimate") {
+    await publishCustomerEstimateFromLead(leadId || targetId);
+    return;
+  }
+
+  if (action === "revoke-estimate") {
+    await apiPost("/api/staff/estimate-share", {
+      action: "revoke",
+      type: "estimate",
+      leadId,
+      shareId: targetId,
+    });
+    if (state.selectedLeadId === leadId) {
+      await refreshEstimateShareState(leadId);
+    }
+    showToast("Estimate removed from active client approval.");
+    return;
+  }
+
+  if (action === "delete-estimate") {
+    await deleteEstimateShareLink(leadId, targetId);
+    return;
+  }
+
+  if (action === "show-invoice") {
+    await setCustomerPortalInvoiceVisibility(projectId, targetId, true);
+    return;
+  }
+
+  if (action === "hide-invoice") {
+    await setCustomerPortalInvoiceVisibility(projectId, targetId, false);
+    return;
+  }
+
+  if (action === "publish-change-order") {
+    await publishCustomerChangeOrder(projectId, targetId);
+    return;
+  }
+
+  if (action === "revoke-change-order") {
+    await revokeCustomerChangeOrder(projectId, targetId);
+    return;
+  }
+
+  if (action === "delete-change-order") {
+    await deleteCustomerChangeOrder(projectId, targetId);
+    return;
+  }
+
+  if (action === "show-document") {
+    await setCustomerPortalDocumentVisibility(targetId, true);
+    return;
+  }
+
+  if (action === "hide-document") {
+    await setCustomerPortalDocumentVisibility(targetId, false);
+    return;
+  }
+}
+
 async function saveJobDocument(event) {
   event.preventDefault();
   const project = currentProject();
@@ -15596,17 +17255,19 @@ async function saveJobDocument(event) {
   const category = refs.jobDocumentCategory.value || "other";
   const title =
     refs.jobDocumentTitle.value.trim() || defaultRecordDocumentTitle(category);
+  const note = refs.jobDocumentNote.value.trim();
+  const clientVisible = refs.jobDocumentClientVisible.checked;
 
   await createRecordDocument({
     links: buildRecordDocumentLinksFromProject(project),
     category,
     sourceType: refs.jobDocumentSourceType.value || "upload",
     title,
-    note: refs.jobDocumentNote.value.trim(),
+    note,
     relatedDate: parseDateOnlyInput(refs.jobDocumentDate.value) || new Date(),
     externalUrl: refs.jobDocumentUrl.value,
     file: refs.jobDocumentFile.files?.[0] || null,
-    clientVisible: refs.jobDocumentClientVisible.checked,
+    clientVisible,
   });
 
   refs.jobDocumentForm.reset();
@@ -15614,12 +17275,26 @@ async function saveJobDocument(event) {
   refs.jobDocumentDate.value = todayDateInputValue();
   refs.jobDocumentClientVisible.checked = false;
   renderJobDocumentSourceFields();
-  await addProjectActivityEntry(
-    project.id,
-    "document",
-    "Document added",
-    `${title} was added under ${DOCUMENT_CATEGORY_META[category] || "Other"}.`,
-  );
+  await Promise.all([
+    addProjectActivityEntry(
+      project.id,
+      "document",
+      "Document added",
+      `${title} was added under ${DOCUMENT_CATEGORY_META[category] || "Other"}.`,
+    ),
+    clientVisible && safeString(project.customerId)
+      ? postCustomerPortalThreadUpdateSafe({
+          customerId: project.customerId,
+          projectId: project.id,
+          body: buildClientPortalDocumentUpdateMessage({
+            project,
+            category,
+            title,
+            note,
+          }),
+        })
+      : Promise.resolve(),
+  ]);
   showToast("Document saved.");
 }
 
@@ -15968,24 +17643,68 @@ function handleRecordOpen(target) {
     return;
   }
 
-  const viewId = target.dataset.openView;
+  const viewId = safeString(target.dataset.openView);
+  const notificationId = safeString(target.dataset.notificationId);
+  const shouldSwitchView = Boolean(viewId && viewId !== state.activeView);
+
+  if (notificationId) {
+    markNotificationsRead([notificationId]);
+    state.notificationPanelOpen = false;
+  }
+
   if (target.dataset.openTask) {
     selectTask(target.dataset.openTask);
+    if (shouldSwitchView) {
+      switchView(viewId);
+    } else if (notificationId) {
+      renderNotificationCenter();
+    }
+    return;
   }
   if (target.dataset.openLead) {
-    selectLead(target.dataset.openLead);
+    selectLead(target.dataset.openLead, {
+      historyMode: shouldSwitchView ? "replace" : "push",
+    });
+    if (shouldSwitchView) {
+      switchView(viewId, { historyMode: "push" });
+    } else if (notificationId) {
+      renderNotificationCenter();
+    }
+    return;
   }
   if (target.dataset.openProject) {
-    selectProject(target.dataset.openProject);
+    selectProject(target.dataset.openProject, {
+      historyMode: shouldSwitchView ? "replace" : "push",
+    });
+    if (shouldSwitchView) {
+      switchView(viewId, { historyMode: "push" });
+    } else if (notificationId) {
+      renderNotificationCenter();
+    }
+    return;
   }
   if (target.dataset.openCustomer) {
     selectCustomer(target.dataset.openCustomer);
+    if (shouldSwitchView) {
+      switchView(viewId);
+    } else if (notificationId) {
+      renderNotificationCenter();
+    }
+    return;
   }
   if (target.dataset.openVendor) {
     selectVendor(target.dataset.openVendor);
+    if (shouldSwitchView) {
+      switchView(viewId);
+    } else if (notificationId) {
+      renderNotificationCenter();
+    }
+    return;
   }
   if (viewId) {
     switchView(viewId);
+  } else if (notificationId) {
+    renderNotificationCenter();
   }
 }
 
@@ -16104,6 +17823,14 @@ function bindUi() {
     openMobileCreateDrawer();
   });
 
+  refs.notificationButton?.addEventListener("click", () => {
+    toggleNotificationPanel();
+  });
+
+  refs.notificationMarkReadButton?.addEventListener("click", () => {
+    markAllNotificationsRead();
+  });
+
   refs.taskMobileBackButton.addEventListener("click", () => {
     clearMobileDetailForView("tasks-view");
   });
@@ -16154,13 +17881,14 @@ function bindUi() {
     refs.jobTaskList,
     refs.staffWorkloadList,
     refs.portalQueueList,
+    refs.notificationList,
     refs.vendorRecordContext,
     refs.vendorJobList,
     refs.vendorBillList,
   ].forEach((container) => {
     container.addEventListener("click", (event) => {
       const button = event.target.closest(
-        "[data-command], [data-open-view], [data-task-id], [data-open-project], [data-open-lead], [data-open-customer], [data-open-vendor]",
+        "[data-command], [data-notification-id], [data-open-view], [data-task-id], [data-open-project], [data-open-lead], [data-open-customer], [data-open-vendor]",
       );
       if (!button) return;
 
@@ -16535,6 +18263,41 @@ function bindUi() {
     runCustomerPortalInviteAction(action, contact).catch((error) =>
       showToast(error.message, "error"),
     );
+  });
+  [
+    refs.customerPortalEstimateList,
+    refs.customerPortalInvoiceList,
+    refs.customerPortalChangeOrderList,
+    refs.customerPortalDocumentList,
+  ].forEach((target) => {
+    target.addEventListener("click", (event) => {
+      const leadButton = event.target.closest("[data-open-lead]");
+      if (leadButton) {
+        selectLead(leadButton.dataset.openLead, {
+          openWorkspace: true,
+          preserveTab: true,
+        });
+        switchView(leadButton.dataset.openView || "leads-view");
+        return;
+      }
+
+      const projectButton = event.target.closest("[data-open-project]");
+      if (projectButton) {
+        selectProject(projectButton.dataset.openProject, {
+          historyMode: "replace",
+        });
+        switchView(projectButton.dataset.openView || "jobs-view", {
+          historyMode: "push",
+        });
+        return;
+      }
+
+      const actionButton = event.target.closest("[data-customer-portal-action]");
+      if (!actionButton) return;
+      handleCustomerPortalPublishingAction(actionButton).catch((error) =>
+        showToast(error.message, "error"),
+      );
+    });
   });
   refs.customerPortalThreadList.addEventListener("click", (event) => {
     const button = event.target.closest("[data-portal-thread-id]");
@@ -17227,6 +18990,21 @@ function bindUi() {
     renderDrawerTaskContext,
   );
 
+  document.addEventListener("click", (event) => {
+    if (!state.notificationPanelOpen) {
+      return;
+    }
+
+    const clickedInsidePanel = refs.notificationPanel?.contains(event.target);
+    const clickedButton = refs.notificationButton?.contains(event.target);
+    if (clickedInsidePanel || clickedButton) {
+      return;
+    }
+
+    state.notificationPanelOpen = false;
+    renderNotificationCenter();
+  });
+
   window.addEventListener("resize", () => {
     syncViewportHeightVar();
     syncMobileChrome();
@@ -17240,6 +19018,61 @@ function bindUi() {
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && state.drawer.type) {
       closeDrawer();
+    }
+
+    if (event.key === "Escape" && state.notificationPanelOpen) {
+      state.notificationPanelOpen = false;
+      renderNotificationCenter();
+    }
+  });
+
+  window.addEventListener("popstate", () => {
+    const route = readLeadRouteState();
+    state.pendingLeadRouteId = route.leadId;
+    state.pendingLeadRouteTab = route.leadTab || "overview";
+    state.pendingJobRouteId = route.jobId;
+    state.pendingJobRouteTab = route.jobTab || "financials";
+
+    if (route.jobId) {
+      if (!restoreProjectWorkspaceFromRoute()) {
+        switchView("jobs-view", { historyMode: "replace" });
+      }
+      return;
+    }
+
+    if (route.leadId) {
+      if (!restoreLeadWorkspaceFromRoute()) {
+        switchView("leads-view", { historyMode: "replace" });
+      }
+      return;
+    }
+
+    let didChange = false;
+
+    if (state.selectedProjectId) {
+      state.selectedProjectId = null;
+      state.selectedProjectInvoiceId = null;
+      state.projectScopeItems = [];
+      state.projectInvoices = [];
+      state.projectInvoiceDraft = null;
+      subscribeProjectDetail();
+      didChange = true;
+    }
+
+    if (state.selectedLeadId || state.leadWorkspaceOpen) {
+      state.selectedLeadId = null;
+      state.leadWorkspaceOpen = false;
+      state.leadActivities = [];
+      state.estimate = null;
+      state.estimateShare = null;
+      state.leadEstimateShares = [];
+      state.leadDocuments = [];
+      subscribeLeadDetail();
+      didChange = true;
+    }
+
+    if (didChange) {
+      renderAll();
     }
   });
 }

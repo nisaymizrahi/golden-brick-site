@@ -679,39 +679,59 @@ function accountProviderLabel() {
   return "Portal login";
 }
 
+function allJobs() {
+  return Array.isArray(state.portal.jobs) ? state.portal.jobs : [];
+}
+
 function activeJobs() {
-  const jobs = Array.isArray(state.portal.jobs) ? state.portal.jobs : [];
+  const jobs = allJobs();
   const nonCompleted = jobs.filter(
     (job) => safeString(job.status).toLowerCase() !== "completed",
   );
   return nonCompleted.length ? nonCompleted : jobs;
 }
 
-function ensureSelectedProject() {
-  const jobs = activeJobs();
+function ensureSelectedProject({ includeCompleted = false } = {}) {
+  const everyJob = allJobs();
+  const candidateJobs = includeCompleted ? everyJob : activeJobs();
+  const jobs = candidateJobs.length ? candidateJobs : everyJob;
+
   if (!jobs.length) {
     state.selectedProjectId = "";
     return;
   }
 
-  if (jobs.some((job) => job.id === state.selectedProjectId)) {
+  const selectedExistsAnywhere = everyJob.some(
+    (job) => job.id === state.selectedProjectId,
+  );
+  const selectedExistsInCandidateSet = jobs.some(
+    (job) => job.id === state.selectedProjectId,
+  );
+
+  if (
+    selectedExistsAnywhere &&
+    (includeCompleted ||
+      selectedExistsInCandidateSet ||
+      state.selectedView !== "dashboard")
+  ) {
     return;
   }
 
-  const preferred =
-    safeString(state.portal.bootstrap?.primaryProjectId) || jobs[0]?.id || "";
-  state.selectedProjectId = preferred;
+  const preferredId = safeString(state.portal.bootstrap?.primaryProjectId);
+  state.selectedProjectId =
+    jobs.find((job) => job.id === preferredId)?.id || jobs[0]?.id || "";
 }
 
-function selectedProject() {
-  const jobs = activeJobs();
+function selectedProject({ includeCompleted = false } = {}) {
+  const candidateJobs = includeCompleted ? allJobs() : activeJobs();
+  const jobs = candidateJobs.length ? candidateJobs : allJobs();
   if (!jobs.length) return null;
-  ensureSelectedProject();
+  ensureSelectedProject({ includeCompleted });
   return jobs.find((job) => job.id === state.selectedProjectId) || jobs[0];
 }
 
 function orderedJobs() {
-  const jobs = [...(Array.isArray(state.portal.jobs) ? state.portal.jobs : [])];
+  const jobs = [...allJobs()];
   return jobs.sort((left, right) => {
     if (left.id === state.selectedProjectId) return -1;
     if (right.id === state.selectedProjectId) return 1;
@@ -720,6 +740,70 @@ function orderedJobs() {
       toMillis(left.latestUpdateAt || left.updatedAt)
     );
   });
+}
+
+function documentsForProject(projectId) {
+  if (!projectId) return [];
+  return [...state.portal.documents]
+    .filter((documentItem) => safeString(documentItem.projectId) === projectId)
+    .sort(
+      (left, right) =>
+        toMillis(right.relatedDate || right.updatedAt) -
+        toMillis(left.relatedDate || left.updatedAt),
+    );
+}
+
+function photoDocumentsForProject(projectId) {
+  return documentsForProject(projectId).filter(
+    (documentItem) => safeString(documentItem.category) === "photo",
+  );
+}
+
+function projectThread(projectId) {
+  if (!projectId) return null;
+  return (
+    state.portal.threads.find(
+      (thread) =>
+        safeString(thread.threadType) === "project" &&
+        safeString(thread.projectId) === projectId,
+    ) || null
+  );
+}
+
+function projectUpdateMessages(projectId) {
+  const thread = projectThread(projectId);
+  const messages = Array.isArray(thread?.messages) ? thread.messages : [];
+  return messages
+    .filter((message) => safeString(message.authorRole) === "staff")
+    .sort(
+      (left, right) =>
+        toMillis(right.createdAt || right.updatedAt) -
+        toMillis(left.createdAt || left.updatedAt),
+    );
+}
+
+function latestProjectMessage(projectId) {
+  return projectUpdateMessages(projectId)[0] || null;
+}
+
+function jobNarrative(job) {
+  if (safeString(job.status) === "completed") {
+    return (
+      safeString(job.sharedStatusNote) ||
+      safeString(job.nextStep) ||
+      "This job is complete. Golden Brick will use this portal for any final closeout details."
+    );
+  }
+
+  return (
+    safeString(job.sharedStatusNote) ||
+    "Golden Brick will keep the latest client-facing job note posted here."
+  );
+}
+
+function jobUpdateTimestamp(job) {
+  const latestMessage = latestProjectMessage(job.id);
+  return latestMessage?.createdAt || job.latestUpdateAt || job.updatedAt;
 }
 
 function billingSnapshot() {
@@ -961,10 +1045,13 @@ function renderHelpBlock(
 
 function renderProjectSwitcher(
   target,
-  { headline = "Project focus", detail = "", includeAll = false } = {},
+  {
+    headline = "Project focus",
+    detail = "",
+    includeAll = false,
+    jobs = activeJobs(),
+  } = {},
 ) {
-  const jobs = activeJobs();
-
   if (!jobs.length) {
     target.innerHTML = `
             <div class="info-block">
@@ -1057,9 +1144,9 @@ function renderSummaryStrip() {
       copy: "Payments received on this account",
     },
     {
-      label: "Unread messages",
+      label: "Unread updates",
       value: String(toNumber(summary.unreadMessages)),
-      copy: "New replies from Golden Brick",
+      copy: "New project notes, photo shares, or replies from Golden Brick",
     },
   ]
     .map(summaryCard)
@@ -1072,9 +1159,18 @@ function deriveAttentionItems() {
     : [];
   if (bootstrapItems.length) {
     return bootstrapItems.map((item) => ({
-      label: item.label || "Portal item",
-      title: item.title || "Open this section",
-      copy: item.copy || "",
+      label: item.view === "messages" ? "Updates" : item.label || "Portal item",
+      title:
+        item.view === "messages"
+          ? safeString(item.title || "Unread portal updates").replace(
+              /portal messages?/gi,
+              "portal updates",
+            )
+          : item.title || "Open this section",
+      copy:
+        item.view === "messages"
+          ? "Open the update center to review new job notes, progress photos, or direct replies from Golden Brick."
+          : item.copy || "",
       view: item.view || "dashboard",
     }));
   }
@@ -1103,9 +1199,9 @@ function deriveAttentionItems() {
 
   if (toNumber(summary.unreadMessages) > 0) {
     items.push({
-      label: "Messages",
-      title: `${toNumber(summary.unreadMessages)} unread portal message${toNumber(summary.unreadMessages) === 1 ? "" : "s"}`,
-      copy: "Read the latest reply or keep a billing and project question in one place.",
+      label: "Updates",
+      title: `${toNumber(summary.unreadMessages)} unread portal update${toNumber(summary.unreadMessages) === 1 ? "" : "s"}`,
+      copy: "Read the latest job note, progress photo share, or direct reply from Golden Brick.",
       view: "messages",
     });
   }
@@ -1181,6 +1277,9 @@ function renderDashboardProjectSpotlight() {
 
   const project = selectedProject() || jobs[0];
   const status = statusPillMeta(project.status);
+  const latestMessage = latestProjectMessage(project.id);
+  const photoCount = photoDocumentsForProject(project.id).length;
+  const unreadCount = toNumber(projectThread(project.id)?.clientUnreadCount);
   refs.dashboardProjectsHeading.textContent =
     jobs.length > 1 ? "Selected property overview" : "Project overview";
 
@@ -1200,7 +1299,7 @@ function renderDashboardProjectSpotlight() {
                 <div class="spotlight-block">
                     <span>Current phase</span>
                     <strong>${escapeHtml(project.phaseLabel || "Planning and construction")}</strong>
-                    <p>${escapeHtml(project.sharedStatusNote || "Golden Brick will keep your project summary updated here.")}</p>
+                    <p>${escapeHtml(jobNarrative(project))}</p>
                 </div>
                 <div class="spotlight-block">
                     <span>Next step</span>
@@ -1210,14 +1309,23 @@ function renderDashboardProjectSpotlight() {
                 <div class="spotlight-block">
                     <span>Billing context</span>
                     <strong>${escapeHtml(formatCurrency(project.totalPaymentsReceived))} received</strong>
-                    <p>${escapeHtml(`${toNumber(project.openInvoiceCount)} open invoice${toNumber(project.openInvoiceCount) === 1 ? "" : "s"} connected to this property.`)}</p>
+                    <p>${escapeHtml(`${toNumber(project.openInvoiceCount)} open invoice${toNumber(project.openInvoiceCount) === 1 ? "" : "s"} connected to this property.${photoCount ? ` ${photoCount} shared photo${photoCount === 1 ? "" : "s"} posted.` : ""}`)}</p>
                 </div>
                 <div class="spotlight-block">
                     <span>Recent update</span>
-                    <strong>${escapeHtml(formatDateTime(project.latestUpdateAt || project.updatedAt))}</strong>
-                    <p>${escapeHtml(project.projectType || "Renovation project")} in your client portal.</p>
+                    <strong>${escapeHtml(formatDateTime(jobUpdateTimestamp(project)))}</strong>
+                    <p>${escapeHtml(latestMessage?.body || `${project.projectType || "Renovation project"} updates will appear here as Golden Brick shares them in the portal.`)}</p>
                 </div>
             </div>
+            ${
+              unreadCount
+                ? `
+                <div class="record-meta">
+                    <span>${escapeHtml(`${unreadCount} unread portal update${unreadCount === 1 ? "" : "s"}`)}</span>
+                </div>
+            `
+                : ""
+            }
         </article>
         ${
           otherProjects.length
@@ -1363,7 +1471,7 @@ function renderDashboardMessages() {
         })
         .join("")
     : emptyNote(
-        "No message threads are active yet. Once Golden Brick sends a portal message, it will appear here.",
+        "No portal updates are active yet. Once Golden Brick shares a project note, photo, or message, it will appear here.",
       );
 }
 
@@ -1439,13 +1547,14 @@ function renderEstimates() {
 }
 
 function renderJobsView() {
+  const jobs = orderedJobs();
   renderProjectSwitcher(refs.jobsProjectSwitcherWrap, {
     headline: "Portfolio focus",
     detail:
-      "Select a property to bring its job timeline to the top. You can still scan the rest of the portfolio below.",
+      "Select a property to bring its timeline, shared updates, and progress photos to the top. Completed jobs stay here for reference too.",
+    jobs,
   });
 
-  const jobs = orderedJobs();
   if (!jobs.length) {
     refs.jobsList.innerHTML = emptyNote(
       "No active jobs are linked to this portal account yet.",
@@ -1457,6 +1566,16 @@ function renderJobsView() {
     .map((job) => {
       const status = statusPillMeta(job.status);
       const isSelected = job.id === state.selectedProjectId;
+      const thread = projectThread(job.id);
+      const unreadCount = toNumber(thread?.clientUnreadCount);
+      const updates = projectUpdateMessages(job.id).slice(0, 2);
+      const latestMessage = updates[0] || null;
+      const allDocuments = documentsForProject(job.id);
+      const photos = photoDocumentsForProject(job.id).slice(0, 6);
+      const otherDocumentCount = Math.max(allDocuments.length - photos.length, 0);
+      const latestUpdateAt = jobUpdateTimestamp(job);
+      const isCompleted = safeString(job.status) === "completed";
+
       return `
             <article class="record-link timeline-card">
                 <div class="record-link-row">
@@ -1466,6 +1585,7 @@ function renderJobsView() {
                     </div>
                     <div class="inline-actions">
                         ${isSelected ? '<span class="pill dark">Current focus</span>' : ""}
+                        ${unreadCount ? `<span class="pill">${escapeHtml(`${unreadCount} new`)}</span>` : ""}
                         <span class="${status.className}">${escapeHtml(status.label)}</span>
                     </div>
                 </div>
@@ -1473,22 +1593,138 @@ function renderJobsView() {
                     <div class="timeline-step">
                         <span>Current phase</span>
                         <strong>${escapeHtml(job.phaseLabel || "Planning and construction")}</strong>
-                        <p>${escapeHtml(job.sharedStatusNote || "Golden Brick will keep the latest shared note posted here.")}</p>
+                        <p>${escapeHtml(jobNarrative(job))}</p>
                     </div>
                     <div class="timeline-step">
                         <span>Next step</span>
                         <strong>${escapeHtml(job.nextStep || "Golden Brick will share the next step here.")}</strong>
-                        <p>${escapeHtml(job.projectType || "Renovation project")} tied to this property.</p>
+                        <p>${escapeHtml(isCompleted ? "Golden Brick will use this portal for final closeout notes and reference files." : `${job.projectType || "Renovation project"} tied to this property.`)}</p>
                     </div>
                     <div class="timeline-step">
-                        <span>Timing</span>
-                        <strong>${escapeHtml(buildProjectTimingCopy(job))}</strong>
-                        <p>${escapeHtml(job.latestUpdateAt ? `Updated ${formatDateTime(job.latestUpdateAt)}` : "Awaiting the next portal update.")}</p>
+                        <span>Latest update</span>
+                        <strong>${escapeHtml(latestUpdateAt ? formatDateTime(latestUpdateAt) : "Awaiting update")}</strong>
+                        <p>${escapeHtml(latestMessage?.body || "Golden Brick will keep the latest client-facing update posted here.")}</p>
                     </div>
                 </div>
                 <div class="record-meta">
                     <span>${escapeHtml(`${toNumber(job.openInvoiceCount)} open invoice${toNumber(job.openInvoiceCount) === 1 ? "" : "s"}`)}</span>
                     <span>${escapeHtml(`${formatCurrency(job.totalPaymentsReceived)} received`)}</span>
+                    <span>${escapeHtml(`${photos.length} photo${photos.length === 1 ? "" : "s"} shared`)}</span>
+                    <span>${escapeHtml(`${allDocuments.length} shared file${allDocuments.length === 1 ? "" : "s"}`)}</span>
+                </div>
+                ${
+                  isCompleted
+                    ? `
+                    <div class="job-status-banner">
+                        <span class="mini-label">Completion</span>
+                        <strong>This job is marked complete.</strong>
+                        <p>${escapeHtml(job.nextStep || jobNarrative(job))}</p>
+                    </div>
+                `
+                    : ""
+                }
+                <section class="job-update-section">
+                    <div class="section-heading">
+                        <h3>Recent shared updates</h3>
+                        <p>These updates come directly from the client-facing project thread.</p>
+                    </div>
+                    <div class="stack-list job-update-stack">
+                        ${
+                          updates.length
+                            ? updates
+                                .map(
+                                  (message) => `
+                                <article class="message-item is-staff">
+                                    <span>${escapeHtml(message.createdAt ? formatDateTime(message.createdAt) : "Latest update")}</span>
+                                    <strong>${escapeHtml(message.authorName || "Golden Brick")}</strong>
+                                    <p>${escapeHtml(message.body || "")}</p>
+                                </article>
+                            `,
+                                )
+                                .join("")
+                            : emptyNote(
+                                "No separate job-thread updates have been posted yet. Golden Brick will add client-facing notes here as the job moves forward.",
+                              )
+                        }
+                    </div>
+                </section>
+                <section class="job-photo-section">
+                    <div class="section-heading">
+                        <h3>Progress photos</h3>
+                        <p>Client-visible photos uploaded from the job record appear here for this specific property.</p>
+                    </div>
+                    ${
+                      photos.length
+                        ? `
+                        <div class="job-photo-grid">
+                            ${photos
+                              .map(
+                                (photo) => `
+                                <article class="job-photo-card">
+                                    <a
+                                        class="job-photo-preview"
+                                        href="${escapeHtml(photo.href)}"
+                                        target="_blank"
+                                        rel="noreferrer"
+                                    >
+                                        <img
+                                            src="${escapeHtml(photo.href)}"
+                                            alt="${escapeHtml(photo.title || "Project photo")}"
+                                            loading="lazy"
+                                        />
+                                    </a>
+                                    <div class="job-photo-copy">
+                                        <strong>${escapeHtml(photo.title || "Project photo")}</strong>
+                                        <p>${escapeHtml(photo.note || "Open the photo to review the full-size image.")}</p>
+                                        <div class="record-meta">
+                                            <span>${escapeHtml(photo.relatedDate ? formatDate(photo.relatedDate) : "Shared recently")}</span>
+                                            <span>${escapeHtml(photo.fileName || "Client-visible photo")}</span>
+                                        </div>
+                                    </div>
+                                </article>
+                            `,
+                              )
+                              .join("")}
+                        </div>
+                    `
+                        : emptyNote(
+                            "No client-visible progress photos have been shared for this property yet.",
+                          )
+                    }
+                </section>
+                <div class="inline-actions job-card-actions">
+                    ${
+                      thread
+                        ? `
+                        <button
+                            type="button"
+                            class="ghost-button"
+                            data-job-thread-id="${escapeHtml(thread.id)}"
+                        >
+                            Open project messages
+                        </button>
+                    `
+                        : ""
+                    }
+                    ${
+                      allDocuments.length
+                        ? `
+                        <button
+                            type="button"
+                            class="ghost-button"
+                            data-project-select="${escapeHtml(job.id)}"
+                            data-job-view-target="documents"
+                        >
+                            Open shared files
+                        </button>
+                    `
+                        : ""
+                    }
+                    ${
+                      otherDocumentCount > 0
+                        ? `<span class="mini-label">${escapeHtml(`${otherDocumentCount} additional file${otherDocumentCount === 1 ? "" : "s"} in Documents`)}</span>`
+                        : ""
+                    }
                 </div>
             </article>
         `;
@@ -2382,6 +2618,29 @@ function bindEvents() {
     "click",
     projectSelectionHandler,
   );
+
+  refs.jobsList.addEventListener("click", (event) => {
+    const threadButton = event.target.closest("[data-job-thread-id]");
+    if (threadButton) {
+      state.selectedThreadId = threadButton.dataset.jobThreadId;
+      openView("messages");
+      return;
+    }
+
+    const viewButton = event.target.closest("[data-job-view-target]");
+    if (viewButton) {
+      const projectId = safeString(viewButton.dataset.projectSelect);
+      if (projectId) {
+        setSelectedProject(projectId);
+      }
+      openView(viewButton.dataset.jobViewTarget);
+      return;
+    }
+
+    const projectButton = event.target.closest("[data-project-select]");
+    if (!projectButton) return;
+    setSelectedProject(projectButton.dataset.projectSelect);
+  });
 
   refs.documentsFilterBar.addEventListener("click", (event) => {
     const button = event.target.closest("[data-document-filter]");

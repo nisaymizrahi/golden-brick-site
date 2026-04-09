@@ -137,11 +137,11 @@ function setUnavailable(message) {
   refs.unavailableCopy.textContent =
     message ||
     "The link may have expired, been replaced, or been revoked. Please contact Golden Brick Construction for a fresh copy.";
-  setStatus("This estimate link is not available right now.");
-  refs.pageTitle.textContent = "Estimate unavailable";
+  setStatus("This approval link is not available right now.");
+  refs.pageTitle.textContent = "Approval unavailable";
   refs.pageSubtitle.textContent =
-    "Please contact Golden Brick Construction for a fresh estimate link.";
-  document.title = "Estimate unavailable | Golden Brick";
+    "Please contact Golden Brick Construction for a fresh secure link.";
+  document.title = "Approval unavailable | Golden Brick";
 }
 
 function tokenFromPath() {
@@ -205,9 +205,33 @@ function createSummaryItem(label, value) {
   return item;
 }
 
+function documentLabel(payload, fallback = "Estimate") {
+  return safeString(payload?.documentLabel) || fallback;
+}
+
+function documentLabelLower(payload, fallback = "estimate") {
+  return documentLabel(payload, fallback).toLowerCase();
+}
+
+function submitButtonLabel(payload = state.payload) {
+  return safeString(payload?.documentType) === "change_order"
+    ? "Approve and sign"
+    : "Accept and sign";
+}
+
+function submitPendingLabel(payload = state.payload) {
+  return safeString(payload?.documentType) === "change_order"
+    ? "Saving approved change order..."
+    : "Saving signed agreement...";
+}
+
 function renderSummary(payload) {
   const lead = payload.lead || {};
   const estimate = payload.estimate || {};
+  const totalLabel =
+    safeString(payload?.documentType) === "change_order"
+      ? "Change amount"
+      : "Estimate total";
   refs.projectSummary.replaceChildren(
     createSummaryItem("Client", safeString(lead.clientName) || "Client"),
     createSummaryItem(
@@ -218,14 +242,16 @@ function renderSummary(payload) {
       "Project type",
       safeString(lead.projectType) || "Project details to be confirmed",
     ),
-    createSummaryItem("Estimate total", formatCurrency(estimate.subtotal)),
+    createSummaryItem(totalLabel, formatCurrency(estimate.subtotal)),
     createSummaryItem("Email", safeString(lead.clientEmail) || "Not provided"),
     createSummaryItem("Phone", safeString(lead.clientPhone) || "Not provided"),
   );
 }
 
 function estimateStatusLabel(payload) {
-  return payload?.readOnly ? "Signed and archived" : "Ready for review";
+  return payload?.readOnly
+    ? `${documentLabel(payload)} signed and archived`
+    : `${documentLabel(payload)} ready for review`;
 }
 
 function renderDecisionSummary(payload) {
@@ -267,7 +293,7 @@ function renderOverview(payload) {
   const paragraphs = blocks.length
     ? blocks
     : [
-        "Golden Brick Construction prepared this estimate for your review.",
+        `Golden Brick Construction prepared this ${documentLabelLower(payload)} for your review.`,
         "Please review the scope, terms, and agreement details below before signing.",
       ];
 
@@ -373,7 +399,10 @@ function renderSignatureState(signature) {
 
   refs.signedMeta.textContent = lines.join(" ");
   refs.agreementDownloadLink.href = safeString(signature?.downloadHref) || "#";
-  refs.agreementDownloadLink.textContent = "Download signed agreement PDF";
+  refs.agreementDownloadLink.textContent =
+    safeString(state.payload?.documentType) === "change_order"
+      ? "Download signed change order PDF"
+      : "Download signed agreement PDF";
   refs.agreementDownloadLink.hidden = !safeString(signature?.downloadHref);
 }
 
@@ -385,6 +414,13 @@ function resetSigningUi() {
   refs.reviewSignLink.hidden = false;
   refs.signPanel.hidden = false;
   refs.signedCard.hidden = true;
+  refs.agreementAccept.disabled = false;
+  refs.signerName.readOnly = false;
+  refs.signerName.disabled = false;
+  refs.clearSignatureButton.disabled = false;
+  refs.signatureCanvas.style.pointerEvents = "auto";
+  refs.signatureCanvas.setAttribute("aria-disabled", "false");
+  refs.signSubmitButton.disabled = false;
   resetCanvas();
 }
 
@@ -395,14 +431,30 @@ function applyReadOnlyMode(payload) {
   refs.reviewSignLink.hidden = readOnly;
 
   if (readOnly) {
+    refs.agreementAccept.disabled = true;
+    refs.signerName.readOnly = true;
+    refs.signerName.disabled = true;
+    refs.clearSignatureButton.disabled = true;
+    refs.signatureCanvas.style.pointerEvents = "none";
+    refs.signatureCanvas.setAttribute("aria-disabled", "true");
+    refs.signSubmitButton.disabled = true;
     renderSignatureState(payload.signature);
-    setStatus("This estimate has already been accepted and archived.");
+    setStatus(`This ${documentLabelLower(payload)} has already been accepted and archived.`);
   } else {
+    refs.agreementAccept.disabled = false;
+    refs.signerName.readOnly = false;
+    refs.signerName.disabled = false;
+    refs.clearSignatureButton.disabled = false;
+    refs.signatureCanvas.style.pointerEvents = "auto";
+    refs.signatureCanvas.setAttribute("aria-disabled", "false");
+    refs.signSubmitButton.disabled = false;
     refs.signedCard.hidden = true;
     refs.signedMeta.textContent = "";
     refs.agreementDownloadLink.hidden = true;
     refs.agreementDownloadLink.href = "#";
-    setStatus("Review the estimate details below and sign when you are ready.");
+    setStatus(
+      `Review the ${documentLabelLower(payload)} details below and sign when you are ready.`,
+    );
   }
 }
 
@@ -414,7 +466,9 @@ function renderPayload(payload) {
   refs.estimateContent.hidden = false;
   resetSigningUi();
 
-  const subject = safeString(payload?.estimate?.subject) || "Project estimate";
+  const subject =
+    safeString(payload?.estimate?.subject) ||
+    `Project ${documentLabelLower(payload)}`;
   const clientName = safeString(payload?.lead?.clientName) || "Client";
   const address =
     safeString(payload?.lead?.projectAddress) || "Project details";
@@ -422,6 +476,8 @@ function renderPayload(payload) {
   refs.pageTitle.textContent = subject;
   refs.pageSubtitle.textContent = `${clientName} • ${address}`;
   document.title = `${subject} | Golden Brick`;
+  refs.reviewSignLink.textContent = `Review ${documentLabelLower(payload)} and sign`;
+  refs.signSubmitButton.textContent = submitButtonLabel(payload);
 
   renderSummary(payload);
   renderDecisionSummary(payload);
@@ -575,8 +631,8 @@ async function submitSignature(event) {
 
   state.submitting = true;
   refs.signSubmitButton.disabled = true;
-  refs.signSubmitButton.textContent = "Saving signed agreement...";
-  setStatus("Saving your signed agreement...");
+  refs.signSubmitButton.textContent = submitPendingLabel(state.payload);
+  setStatus(`Saving your signed ${documentLabelLower(state.payload)}...`);
 
   try {
     await requestJson("/api/client/public-estimate-sign", {
@@ -608,11 +664,14 @@ async function submitSignature(event) {
   } finally {
     state.submitting = false;
     refs.signSubmitButton.disabled = false;
-    refs.signSubmitButton.textContent = "Agree and sign";
+    refs.signSubmitButton.textContent = submitButtonLabel(state.payload);
   }
 }
 
 function clearSignature() {
+  if (state.payload?.readOnly) {
+    return;
+  }
   resetCanvas();
   setStatus("Signature cleared. Draw your signature again when you are ready.");
 }
@@ -629,6 +688,7 @@ function bindEvents() {
     clearSignature();
   });
 
+  refs.signatureCanvas.style.touchAction = "none";
   refs.signatureCanvas.addEventListener("pointerdown", startDrawing);
   refs.signatureCanvas.addEventListener("pointermove", continueDrawing);
   refs.signatureCanvas.addEventListener("pointerup", stopDrawing);

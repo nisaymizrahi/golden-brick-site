@@ -15,7 +15,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link
       rel="stylesheet"
-      href="/staff/staff.css?v=20260408-service-orders-1"
+      href="/staff/staff.css?v=20260408-service-orders-2"
     />
   </head>
   <body>
@@ -157,11 +157,42 @@
                   <option value="">All staff</option>
                 </select>
               </label>
+              <button
+                type="button"
+                class="ghost-button"
+                id="notification-button"
+                aria-expanded="false"
+                aria-controls="notification-panel"
+              >
+                <span aria-hidden="true">&#128276;</span>
+                Notifications
+                <span class="mini-pill" id="notification-count">0</span>
+              </button>
               <span class="status-pill" id="sync-status">Syncing data</span>
             </div>
           </header>
 
           <div class="workspace-command-bar" id="workspace-command-bar"></div>
+
+          <section class="subpanel" id="notification-panel" hidden>
+            <div class="subpanel-head subpanel-head-split">
+              <div>
+                <h3>Notifications</h3>
+                <p>
+                  Live site events, client actions, and ownership changes in one
+                  place.
+                </p>
+              </div>
+              <button
+                type="button"
+                class="ghost-button"
+                id="notification-mark-read-button"
+              >
+                Mark all read
+              </button>
+            </div>
+            <div class="record-list" id="notification-list"></div>
+          </section>
 
           <div class="app-banner" id="app-banner" hidden></div>
 
@@ -834,6 +865,30 @@
                           </div>
                         </section>
 
+                        <section
+                          class="subpanel"
+                          aria-labelledby="lead-estimate-client-heading"
+                        >
+                          <div class="subpanel-head compact">
+                            <h4 id="lead-estimate-client-heading">
+                              Client sees
+                            </h4>
+                            <p>
+                              Track every client-facing estimate record for this
+                              lead, including drafts, live signature requests,
+                              and signed or removed versions.
+                            </p>
+                          </div>
+                          <div
+                            class="summary-grid"
+                            id="lead-estimate-client-summary"
+                          ></div>
+                          <div
+                            class="record-list"
+                            id="lead-estimate-client-list"
+                          ></div>
+                        </section>
+
                         <div class="inline-actions">
                           <button
                             type="button"
@@ -1262,10 +1317,11 @@
                   <div class="two-column-detail">
                     <section class="subpanel">
                       <div class="subpanel-head">
-                        <h3>Current estimate</h3>
+                        <h3>Lead estimates</h3>
                         <p>
-                          The active estimate on the most current open lead, if
-                          one exists.
+                          Every estimate-bearing lead tied to this customer,
+                          separated so same-client opportunities do not blur
+                          together.
                         </p>
                       </div>
                       <div
@@ -1300,7 +1356,7 @@
                         target="_blank"
                         rel="noreferrer"
                         hidden
-                        >Preview portal</a
+                        >Login as customer</a
                       >
                     </div>
                     <div
@@ -1347,14 +1403,11 @@
                             />
                           </label>
                           <label>
-                            <span>Access scope</span>
-                            <select id="customer-portal-contact-scope">
-                              <option value="customer">
-                                Full customer account
-                              </option>
-                              <option value="read_only">
-                                Read-only billing and documents
-                              </option>
+                            <span>Portal role</span>
+                            <select id="customer-portal-contact-role">
+                              <option value="primary">Primary</option>
+                              <option value="partner">Partner</option>
+                              <option value="read_only">Read-only</option>
                             </select>
                           </label>
                         </div>
@@ -1387,6 +1440,81 @@
                         ></div>
                       </section>
                     </div>
+
+                    <section class="subpanel">
+                      <div class="subpanel-head">
+                        <h4>Client publishing</h4>
+                        <p>
+                          Control exactly what this customer can review, sign,
+                          download, or stop seeing in the portal.
+                        </p>
+                      </div>
+                      <div
+                        class="summary-grid customer-portal-summary"
+                        id="customer-portal-publishing-summary"
+                      ></div>
+                      <div class="two-column-detail">
+                        <section class="subpanel">
+                          <div class="subpanel-head compact">
+                            <h4>Estimates</h4>
+                            <p>
+                              Publish a signable estimate version, replace old
+                              unsigned versions, or archive what the client no
+                              longer needs to see.
+                            </p>
+                          </div>
+                          <div
+                            class="stack-list"
+                            id="customer-portal-estimate-list"
+                          ></div>
+                        </section>
+
+                        <section class="subpanel">
+                          <div class="subpanel-head compact">
+                            <h4>Invoices</h4>
+                            <p>
+                              Draft invoices stay hidden by default. Sent and
+                              paid invoices can be overridden here anytime.
+                            </p>
+                          </div>
+                          <div
+                            class="stack-list"
+                            id="customer-portal-invoice-list"
+                          ></div>
+                        </section>
+                      </div>
+
+                      <div class="two-column-detail">
+                        <section class="subpanel">
+                          <div class="subpanel-head compact">
+                            <h4>Change orders</h4>
+                            <p>
+                              Publish written revisions for approval, copy the
+                              secure link, or pull them back before they are
+                              signed.
+                            </p>
+                          </div>
+                          <div
+                            class="stack-list"
+                            id="customer-portal-change-order-list"
+                          ></div>
+                        </section>
+
+                        <section class="subpanel">
+                          <div class="subpanel-head compact">
+                            <h4>Documents</h4>
+                            <p>
+                              Use quick visibility toggles without reopening
+                              each document record.
+                            </p>
+                          </div>
+                          <div
+                            class="stack-list"
+                            id="customer-portal-document-list"
+                          ></div>
+                        </section>
+                      </div>
+                    </section>
                   </section>
 
                   <section class="subpanel customer-portal-thread-panel">
@@ -4186,7 +4314,7 @@
 
     <script
       type="module"
-      src="/staff/staff.js?v=20260408-service-orders-1"
+      src="/staff/staff.js?v=20260408-service-orders-2"
     ></script>
   </body>
 </html>

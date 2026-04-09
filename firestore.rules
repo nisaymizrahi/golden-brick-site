@@ -278,6 +278,15 @@ service cloud.firestore {
       );
     }
 
+    match /{documentPath=**}/changeOrders/{changeOrderId} {
+      allow get, list: if isAdmin() || (
+        resource.data.projectId is string &&
+        resource.data.projectId != "" &&
+        exists(/databases/$(database)/documents/projects/$(resource.data.projectId)) &&
+        canReadProject(get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data)
+      );
+    }
+
     match /vendors/{vendorId} {
       allow get, list: if isActiveStaff();
       allow create, update, delete: if isAdmin();
