@@ -128,6 +128,12 @@ function setUnavailable(message) {
   state.loading = false;
   refs.estimateContent.hidden = true;
   refs.unavailableCard.hidden = false;
+  refs.signPanel.hidden = true;
+  refs.signedCard.hidden = true;
+  refs.reviewSignLink.hidden = true;
+  refs.agreementDownloadLink.hidden = true;
+  refs.agreementDownloadLink.href = "#";
+  refs.signedMeta.textContent = "";
   refs.unavailableCopy.textContent =
     message ||
     "The link may have expired, been replaced, or been revoked. Please contact Golden Brick Construction for a fresh copy.";
@@ -152,6 +158,7 @@ function tokenFromPath() {
 
 async function requestJson(url, options = {}) {
   const response = await fetch(url, {
+    cache: options.cache || "no-store",
     headers: {
       "Content-Type": "application/json",
       ...(options.headers || {}),
@@ -370,6 +377,17 @@ function renderSignatureState(signature) {
   refs.agreementDownloadLink.hidden = !safeString(signature?.downloadHref);
 }
 
+function resetSigningUi() {
+  refs.signatureForm.reset();
+  refs.signedMeta.textContent = "";
+  refs.agreementDownloadLink.hidden = true;
+  refs.agreementDownloadLink.href = "#";
+  refs.reviewSignLink.hidden = false;
+  refs.signPanel.hidden = false;
+  refs.signedCard.hidden = true;
+  resetCanvas();
+}
+
 function applyReadOnlyMode(payload) {
   const readOnly = payload?.readOnly === true;
   refs.signPanel.hidden = readOnly;
@@ -381,6 +399,9 @@ function applyReadOnlyMode(payload) {
     setStatus("This estimate has already been accepted and archived.");
   } else {
     refs.signedCard.hidden = true;
+    refs.signedMeta.textContent = "";
+    refs.agreementDownloadLink.hidden = true;
+    refs.agreementDownloadLink.href = "#";
     setStatus("Review the estimate details below and sign when you are ready.");
   }
 }
@@ -391,6 +412,7 @@ function renderPayload(payload) {
 
   refs.unavailableCard.hidden = true;
   refs.estimateContent.hidden = false;
+  resetSigningUi();
 
   const subject = safeString(payload?.estimate?.subject) || "Project estimate";
   const clientName = safeString(payload?.lead?.clientName) || "Client";
@@ -512,6 +534,11 @@ function stopDrawing(event) {
 
 async function loadEstimate() {
   state.loading = true;
+  refs.unavailableCard.hidden = true;
+  refs.estimateContent.hidden = true;
+  refs.signPanel.hidden = true;
+  refs.signedCard.hidden = true;
+  refs.reviewSignLink.hidden = true;
   setStatus("Loading your estimate...");
 
   const payload = await requestJson(
