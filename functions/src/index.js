@@ -3546,11 +3546,15 @@ async function fetchEstimateShareContext(token) {
     ...shareSnap.data(),
   };
 
-  if (safeString(shareData.type || "estimate") !== "estimate") {
-    const error = new Error("This share link is not supported.");
+  const shareType = normaliseShareType(shareData.type);
+
+  if (!["estimate", "change_order"].includes(shareType)) {
+    const error = new Error("This approval link is not supported.");
     error.status = 400;
     throw error;
   }
+
+  shareData.type = shareType;
 
   return {
     shareRef,
