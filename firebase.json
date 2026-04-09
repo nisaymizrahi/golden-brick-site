@@ -158,7 +158,7 @@
       {
         "source": "/api/staff/estimate-share",
         "function": {
-          "functionId": "estimateShare",
+          "functionId": "clientPortalApi",
           "region": "us-central1"
         }
       },

@@ -7,6 +7,7 @@ function buildClientPortalApi({
   logger,
   onRequest,
   verifyStaffRequest,
+  handleEstimateShareRequest,
   buildEstimateShareUrl,
   buildPublicAgreementDownloadHref,
   loadPublicEstimatePayload,
@@ -57,6 +58,42 @@ function buildClientPortalApi({
       return digits.slice(1);
     }
     return digits;
+  }
+
+  function normalisePortalRole(value) {
+    const role = safeString(value).toLowerCase();
+    if (role === "primary" || role === "partner" || role === "read_only") {
+      return role;
+    }
+    if (role === "read-only" || role === "readonly") {
+      return "read_only";
+    }
+    if (role === "customer") {
+      return "primary";
+    }
+    return "primary";
+  }
+
+  function portalRoleLabel(role) {
+    const normalised = normalisePortalRole(role);
+    if (normalised === "partner") {
+      return "Partner";
+    }
+    if (normalised === "read_only") {
+      return "Read-only";
+    }
+    return "Primary";
+  }
+
+  function portalAccessScopeForRole(role) {
+    return normalisePortalRole(role) === "read_only"
+      ? "read_only"
+      : "customer";
+  }
+
+  function portalRoleCanSign(role) {
+    const normalised = normalisePortalRole(role);
+    return normalised === "primary" || normalised === "partner";
   }
 
   function toNumber(value) {
@@ -217,13 +254,18 @@ function buildClientPortalApi({
   function serialisePortalContact(contact, request) {
     const data = contact?.data || contact || {};
     const id = contact?.id || data.id || "";
+    const role = normalisePortalRole(data.role || data.accessScope);
     return {
       id,
       customerId: safeString(data.customerId),
       name: safeString(data.name),
       email: normaliseEmail(data.email),
       phone: safeString(data.phone),
-      accessScope: safeString(data.accessScope || "customer"),
+      role,
+      roleLabel: portalRoleLabel(role),
+      accessScope: portalAccessScopeForRole(role),
+      canSign: portalRoleCanSign(role),
+      canMessage: true,
       authUid: safeString(data.authUid),
       inviteStatus: inviteStatusLabel(data),
       lastInvitedAt: serialiseDateValue(data.lastInvitedAt),
@@ -352,6 +394,7 @@ function buildClientPortalApi({
   }
 
   function buildClientInvoicePayload(invoice = {}, projectData = {}) {
+    const visibleInPortal = isClientVisibleInvoice(invoice);
     return {
       id: safeString(invoice.id),
       projectId: safeString(invoice.projectId || projectData.id),
@@ -370,6 +413,13 @@ function buildClientPortalApi({
       paymentReference: safeString(invoice.paymentReference),
       paymentNote: safeString(invoice.paymentNote),
       paidAt: serialiseDateValue(invoice.paidAt),
+      visibleInPortal,
+      visibilityMode:
+        invoice.clientVisibleOverride === true
+          ? "forced_visible"
+          : invoice.clientVisibleOverride === false
+            ? "hidden"
+            : "auto",
       updatedAt: serialiseDateValue(invoice.updatedAt || invoice.createdAt),
     };
   }
@@ -429,7 +479,7 @@ function buildClientPortalApi({
     billingSummary = {},
   }) {
     const items = [];
-    const estimatesToReview = estimates.filter(
+    const approvalsToReview = estimates.filter(
       (entry) => safeString(entry.status) === "active",
     ).length;
     const unreadMessages = threads.reduce(
@@ -437,11 +487,11 @@ function buildClientPortalApi({
       0,
     );
 
-    if (estimatesToReview > 0) {
+    if (approvalsToReview > 0) {
       items.push({
-        label: "Review estimate",
-        title: `${estimatesToReview} estimate${estimatesToReview === 1 ? "" : "s"} still need attention`,
-        copy: "Open the estimate section to review pricing, scope, or agreement status.",
+        label: "Needs approval",
+        title: `${approvalsToReview} approval${approvalsToReview === 1 ? "" : "s"} still need attention`,
+        copy: "Open the estimates section to review pricing, scope revisions, or agreement status.",
         view: "estimates",
       });
     }
@@ -493,6 +543,19 @@ function buildClientPortalApi({
     );
   }
 
+  function isClientVisibleInvoice(invoice = {}) {
+    const override = invoice.clientVisibleOverride;
+    if (override === true) {
+      return true;
+    }
+    if (override === false) {
+      return false;
+    }
+
+    const status = safeString(invoice.status).toLowerCase();
+    return status === "sent" || status === "paid";
+  }
+
   function buildClientDocumentPayload(documentData = {}) {
     return {
       id: safeString(documentData.id),
@@ -540,6 +603,55 @@ function buildClientPortalApi({
         );
       })[0] || null
     );
+  }
+
+  function shareDocumentTitle(share = {}) {
+    if (safeString(share.type) === "change_order") {
+      return safeString(
+        share.title || share.changeOrderSnapshot?.title || "Change order",
+      );
+    }
+    return safeString(share.title || share.estimateSnapshot?.subject || "Estimate");
+  }
+
+  function shareProjectAddress(share = {}) {
+    return safeString(
+      share.projectAddress ||
+        share.changeOrderSnapshot?.projectAddress ||
+        share.projectSnapshot?.projectAddress ||
+        share.leadSnapshot?.projectAddress,
+    );
+  }
+
+  function shareProjectType(share = {}) {
+    return safeString(
+      share.projectType ||
+        share.changeOrderSnapshot?.projectType ||
+        share.projectSnapshot?.projectType ||
+        share.leadSnapshot?.projectType,
+    );
+  }
+
+  function shareSubtotal(share = {}) {
+    if (safeString(share.type) === "change_order") {
+      return toNumber(
+        share.subtotal ||
+          share.changeOrderSnapshot?.amount ||
+          share.changeOrderSnapshot?.subtotal,
+      );
+    }
+    return toNumber(share.subtotal || share.estimateSnapshot?.subtotal);
+  }
+
+  function isPortalVisibleShare(share = {}) {
+    const status = safeString(share.status);
+    if (status === "signed") {
+      return true;
+    }
+    if (share.portalVisible === false) {
+      return false;
+    }
+    return status === "active";
   }
 
   async function verifyBearerToken(request) {
@@ -801,6 +913,7 @@ function buildClientPortalApi({
           buildClientInvoicePayload(invoice, project),
         );
       })
+      .filter((invoice) => invoice.visibleInPortal)
       .sort((left, right) => {
         return (
           normaliseMillis(right.updatedAt || right.issueDate) -
@@ -916,56 +1029,49 @@ function buildClientPortalApi({
   }
 
   async function loadCustomerEstimates(customerId, request) {
-    const leads = await loadCustomerLeads(customerId);
-    const estimateEntries = await Promise.all(
-      leads.map(async (lead) => {
-        const [estimateSnap, sharesSnap] = await Promise.all([
-          db.collection("estimates").doc(lead.id).get(),
-          db.collection("estimateShares").where("leadId", "==", lead.id).get(),
-        ]);
+    const sharesSnap = await db
+      .collection("estimateShares")
+      .where("customerId", "==", customerId)
+      .get();
 
-        if (!estimateSnap.exists) {
-          return null;
-        }
-
-        const shares = sharesSnap.docs.map((snapshot) => ({
-          id: snapshot.id,
-          ...snapshot.data(),
-        }));
-        const currentShare = pickCurrentEstimateShare(shares);
-
-        if (
-          !currentShare ||
-          !["active", "signed"].includes(safeString(currentShare.status))
-        ) {
-          return null;
-        }
-
-        const estimateData = estimateSnap.data() || {};
-        return {
-          leadId: lead.id,
-          projectId: safeString(currentShare.projectId || lead.wonProjectId),
-          projectAddress: safeString(lead.projectAddress),
-          projectType: safeString(lead.projectType),
-          subject: safeString(
-            estimateData.subject || lead.estimateTitle || "Estimate",
-          ),
-          subtotal: toNumber(estimateData.subtotal || lead.estimateSubtotal),
-          status: safeString(currentShare.status),
-          shareUrl: buildEstimateShareUrl(request, currentShare.id),
-          agreementDownloadHref:
-            safeString(currentShare.status) === "signed"
-              ? buildPublicAgreementDownloadHref(request, currentShare.id)
-              : "",
-          signedAt: serialiseDateValue(currentShare.signedAt),
-          updatedAt: serialiseDateValue(
-            currentShare.updatedAt || currentShare.createdAt,
-          ),
-        };
-      }),
-    );
-
-    return estimateEntries.filter(Boolean).sort((left, right) => {
+    return sharesSnap.docs
+      .map((snapshot) => ({
+        id: snapshot.id,
+        ...snapshot.data(),
+      }))
+      .filter(isPortalVisibleShare)
+      .map((share) => ({
+        id: safeString(share.id),
+        type: safeString(share.type || "estimate"),
+        leadId: safeString(share.leadId),
+        projectId: safeString(share.projectId),
+        changeOrderId: safeString(share.changeOrderId),
+        projectAddress: shareProjectAddress(share),
+        projectType: shareProjectType(share),
+        subject: shareDocumentTitle(share),
+        summary: safeString(
+          share.summary ||
+            share.changeOrderSnapshot?.note ||
+            share.estimateSnapshot?.emailBody,
+        ),
+        subtotal: shareSubtotal(share),
+        status: safeString(share.status),
+        portalStatus:
+          safeString(share.status) === "signed"
+            ? "approved"
+            : safeString(share.status) === "active"
+              ? "needs_approval"
+              : safeString(share.status),
+        shareUrl: buildEstimateShareUrl(request, share.id),
+        agreementDownloadHref:
+          safeString(share.status) === "signed"
+            ? buildPublicAgreementDownloadHref(request, share.id)
+            : "",
+        signedAt: serialiseDateValue(share.signedAt),
+        updatedAt: serialiseDateValue(share.updatedAt || share.createdAt),
+        publishedAt: serialiseDateValue(share.publishedAt || share.createdAt),
+      }))
+      .sort((left, right) => {
       return normaliseMillis(right.updatedAt) - normaliseMillis(left.updatedAt);
     });
   }
@@ -1019,6 +1125,27 @@ function buildClientPortalApi({
         normaliseMillis(left.lastMessageAt || left.updatedAt)
       );
     });
+  }
+
+  async function loadCustomerPortalContacts(customerId, request) {
+    const contactsSnap = await customerRef(customerId).collection("contacts").get();
+    return contactsSnap.docs
+      .map((snapshot) =>
+        serialisePortalContact(
+          {
+            id: snapshot.id,
+            data: snapshot.data() || {},
+          },
+          request,
+        ),
+      )
+      .filter((contact) => !contact.disabledAt && !contact.revokedAt)
+      .sort((left, right) => {
+        return (
+          normaliseMillis(right.updatedAt || right.createdAt) -
+          normaliseMillis(left.updatedAt || left.createdAt)
+        );
+      });
   }
 
   async function claimPortalAccess(request, payload) {
@@ -1106,6 +1233,10 @@ function buildClientPortalApi({
         customerId,
         contactId,
         email: decodedEmail,
+        role: normalisePortalRole(contactData.role || contactData.accessScope),
+        accessScope: portalAccessScopeForRole(
+          contactData.role || contactData.accessScope,
+        ),
         displayName: safeString(
           decoded.name ||
             payload.displayName ||
@@ -1203,7 +1334,13 @@ function buildClientPortalApi({
         ),
         email: normaliseEmail(contactData.email),
         phone: safeString(contactData.phone),
-        accessScope: safeString(contactData.accessScope || "customer"),
+        role: normalisePortalRole(contactData.role || contactData.accessScope),
+        roleLabel: portalRoleLabel(
+          contactData.role || contactData.accessScope,
+        ),
+        accessScope: portalAccessScopeForRole(
+          contactData.role || contactData.accessScope,
+        ),
         loginUrl: buildClientLoginUrl(request),
       },
     };
@@ -1264,8 +1401,11 @@ function buildClientPortalApi({
         ),
         email,
         phone: safeString(payload.phone || existing.phone),
-        accessScope: safeString(
-          payload.accessScope || existing.accessScope || "customer",
+        role: normalisePortalRole(
+          payload.role || payload.accessScope || existing.role || existing.accessScope,
+        ),
+        accessScope: portalAccessScopeForRole(
+          payload.role || payload.accessScope || existing.role || existing.accessScope,
         ),
         authUid: preserveClaim ? existingAuthUid : "",
         inviteStatus: preserveClaim ? "claimed" : "invited",
@@ -1517,11 +1657,12 @@ function buildClientPortalApi({
   }
 
   async function buildBootstrapPayload(request, clientProfile) {
-    const [jobsPayload, estimates, documents, threads] = await Promise.all([
+    const [jobsPayload, estimates, documents, threads, contacts] = await Promise.all([
       loadCustomerJobs(clientProfile.customerId),
       loadCustomerEstimates(clientProfile.customerId, request),
       loadCustomerDocuments(clientProfile.customerId),
       loadCustomerThreads(clientProfile.customerId, false),
+      loadCustomerPortalContacts(clientProfile.customerId, request),
     ]);
     const activeJobs = jobsPayload.jobs.filter(
       (job) => safeString(job.status) !== "completed",
@@ -1537,8 +1678,9 @@ function buildClientPortalApi({
     );
 
     const summary = {
-      estimatesToReview: estimates.filter((entry) => entry.status === "active")
-        .length,
+      estimatesToReview: estimates.filter(
+        (entry) => entry.status === "active",
+      ).length,
       activeJobs: activeJobs.length,
       invoicesDue: jobsPayload.billing.summary.invoicesDue,
       totalDue: jobsPayload.billing.summary.totalDue,
@@ -1566,14 +1708,26 @@ function buildClientPortalApi({
         email: normaliseEmail(clientProfile.contactData.email),
         contactName: safeString(clientProfile.contactData.name),
         phone: safeString(clientProfile.contactData.phone),
-        accessScope: safeString(
-          clientProfile.contactData.accessScope || "customer",
+        role: normalisePortalRole(
+          clientProfile.contactData.role || clientProfile.contactData.accessScope,
+        ),
+        roleLabel: portalRoleLabel(
+          clientProfile.contactData.role || clientProfile.contactData.accessScope,
+        ),
+        canSign: portalRoleCanSign(
+          clientProfile.contactData.role || clientProfile.contactData.accessScope,
+        ),
+        canMessage: true,
+        accessScope: portalAccessScopeForRole(
+          clientProfile.contactData.role || clientProfile.contactData.accessScope,
         ),
         customerName: safeString(clientProfile.customerData.name),
         customerEmail: safeString(clientProfile.customerData.primaryEmail),
         customerPhone: safeString(clientProfile.customerData.primaryPhone),
         customerAddress: safeString(clientProfile.customerData.primaryAddress),
+        lastLoginAt: serialiseDateValue(clientProfile.contactData.lastLoginAt),
       },
+      contacts,
       help: {
         name: COMPANY_INFO.name,
         phone: COMPANY_INFO.phone,
@@ -1624,6 +1778,18 @@ function buildClientPortalApi({
           const payload = parseRequestPayload(request);
           const result = await mutatePortalInvite(request, payload, staff);
           respondJson(response, 200, result);
+          return;
+        }
+
+        if (request.method === "POST" && resource === "estimate-share") {
+          const staff = await verifyStaffRequest(request);
+          const payload = parseRequestPayload(request);
+          const result = await handleEstimateShareRequest({
+            request,
+            payload,
+            staff,
+          });
+          respondJson(response, result.status, result.payload);
           return;
         }
 

@@ -28,6 +28,17 @@ const STAFF_HEADERS = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
+const PUBLIC_CORS_HTTP_OPTIONS = {
+  region: "us-central1",
+  cors: true,
+  invoker: "public",
+};
+
+const PUBLIC_HTTP_OPTIONS = {
+  region: "us-central1",
+  invoker: "public",
+};
+
 const LEAD_STATUSES = {
   new_lead: "New Lead",
   follow_up: "Follow Up",
@@ -87,6 +98,14 @@ const DEFAULT_AGREEMENT_TERMS = [
   "Special-order materials, custom fabricated items, non-stock finishes, and approved purchases made specifically for this project may be non-refundable once ordered or fabricated.",
   `Golden Brick Construction is Pennsylvania licensed and insured, PA License #${PENNSYLVANIA_LICENSE_NUMBER}. Subcontractors, specialty trades, and vendor partners may be used where appropriate, but Golden Brick remains the coordinating contractor for the approved scope reflected here.`,
   "This signed estimate, together with any later written revisions, schedules, payment milestones, change orders, selections, and required statutory notices, becomes part of the final project record maintained by Golden Brick Construction.",
+].join("\n");
+
+const DEFAULT_CHANGE_ORDER_TERMS = [
+  "This change order captures a written revision to the approved Golden Brick project record and becomes part of the signed client file once accepted.",
+  "Only the change, scope clarification, or pricing adjustment shown on this page is being approved here. All other previously approved estimate, agreement, invoice, and project terms remain in effect unless separately revised in writing.",
+  "If site conditions, concealed conditions, access limitations, code requirements, owner selections, or requested upgrades affect the revised work after this change order is issued, Golden Brick Construction will document any resulting revision in writing before the affected additional work proceeds.",
+  "Scheduling, sequencing, procurement, and completion timing tied to this change order remain subject to site access, material lead times, inspections, municipal approvals, third-party coordination, and timely owner decisions where applicable.",
+  "Once signed, this change order becomes an approved revenue revision in the project record and may be billed separately or folded into later invoices at Golden Brick's discretion.",
 ].join("\n");
 
 const LEGACY_AGREEMENT_TEMPLATE_TITLES = new Set([
@@ -193,6 +212,40 @@ function normalisePhone(value) {
     return digits.slice(1);
   }
   return digits;
+}
+
+function normalisePortalContactRole(value) {
+  const role = safeString(value).toLowerCase();
+  if (role === "primary" || role === "partner" || role === "read_only") {
+    return role;
+  }
+  if (role === "read-only" || role === "readonly") {
+    return "read_only";
+  }
+  if (role === "read_only") {
+    return "read_only";
+  }
+  if (role === "customer") {
+    return "primary";
+  }
+  return "primary";
+}
+
+function portalContactAccessScope(role) {
+  return normalisePortalContactRole(role) === "read_only"
+    ? "read_only"
+    : "customer";
+}
+
+function portalContactCanSign(role) {
+  const normalised = normalisePortalContactRole(role);
+  return normalised === "primary" || normalised === "partner";
+}
+
+function normaliseShareType(value) {
+  return safeString(value).toLowerCase() === "change_order"
+    ? "change_order"
+    : "estimate";
 }
 
 function normaliseChangeOrderStatus(value) {
@@ -1848,11 +1901,98 @@ function normaliseAgreementSnapshot(template = {}) {
   };
 }
 
+function minimalLeadSnapshot(leadData = {}) {
+  return {
+    clientName: safeString(leadData.clientName || leadData.customerName),
+    customerName: safeString(leadData.customerName || leadData.clientName),
+    customerId: safeString(leadData.customerId),
+    projectAddress: safeString(leadData.projectAddress),
+    projectType: safeString(leadData.projectType),
+    clientEmail: normaliseEmail(leadData.clientEmail),
+    clientPhone: safeString(leadData.clientPhone),
+  };
+}
+
+function minimalProjectSnapshot(projectData = {}, fallbackLead = {}) {
+  return {
+    clientName: safeString(
+      projectData.clientName ||
+        projectData.customerName ||
+        fallbackLead.clientName ||
+        fallbackLead.customerName,
+    ),
+    customerName: safeString(
+      projectData.customerName ||
+        fallbackLead.customerName ||
+        projectData.clientName ||
+        fallbackLead.clientName,
+    ),
+    customerId: safeString(projectData.customerId || fallbackLead.customerId),
+    projectAddress: safeString(
+      projectData.projectAddress || fallbackLead.projectAddress,
+    ),
+    projectType: safeString(projectData.projectType || fallbackLead.projectType),
+    clientEmail: normaliseEmail(
+      projectData.clientEmail || fallbackLead.clientEmail,
+    ),
+    clientPhone: safeString(projectData.clientPhone || fallbackLead.clientPhone),
+  };
+}
+
+function normaliseChangeOrderSnapshot(changeOrderData = {}, projectData = {}) {
+  const title = safeString(changeOrderData.title || "Change order");
+  const note = safeString(changeOrderData.note);
+  const amount = toNumber(changeOrderData.amount);
+  const relatedDate = changeOrderData.relatedDate || changeOrderData.createdAt;
+  const projectAddress = safeString(projectData.projectAddress);
+  const projectType = safeString(projectData.projectType || "Project");
+
+  return {
+    id: safeString(changeOrderData.id),
+    title,
+    note,
+    amount,
+    status: normaliseChangeOrderStatus(changeOrderData.status),
+    relatedDate,
+    projectAddress,
+    projectType,
+    subject: title,
+    emailBody: note
+      ? `Project revision for ${projectAddress || "the active job"}.\n\n${note}`
+      : `Project revision prepared for ${projectAddress || "the active job"}. Please review the updated scope and pricing below before approving this change order.`,
+    assumptions: [],
+    lineItems: [
+      {
+        label: title,
+        description:
+          note ||
+          "Written revision to the approved Golden Brick scope or pricing.",
+        amount,
+      },
+    ],
+    subtotal: amount,
+    proposalTerms: DEFAULT_CHANGE_ORDER_TERMS,
+  };
+}
+
+function normaliseChangeOrderAgreementSnapshot(projectData = {}, changeOrderData = {}) {
+  return {
+    title: "Change order approval",
+    intro: safeString(
+      changeOrderData.note
+        ? `This change order updates the approved project at ${safeString(projectData.projectAddress) || "the active property"}. Review the revision details and sign if you want Golden Brick to move forward on the updated scope.`
+        : `This change order updates the approved project at ${safeString(projectData.projectAddress) || "the active property"}. Review the revised amount and sign to approve the written change.`,
+    ),
+    terms: DEFAULT_CHANGE_ORDER_TERMS,
+  };
+}
+
 function estimateSharePriority(shareData = {}) {
   if (shareData.status === "active") return 0;
   if (shareData.status === "signed") return 1;
-  if (shareData.status === "revoked") return 2;
-  return 3;
+  if (shareData.status === "replaced") return 2;
+  if (shareData.status === "revoked") return 3;
+  return 4;
 }
 
 function pickCurrentEstimateShare(shares = []) {
@@ -1877,35 +2017,122 @@ function serialiseEstimateShare(shareData = {}, request) {
     return null;
   }
 
+  const type = normaliseShareType(shareData.type);
+  const estimateSnapshot = shareData.estimateSnapshot || {};
+  const changeOrderSnapshot = shareData.changeOrderSnapshot || {};
+  const leadSnapshot = shareData.leadSnapshot || {};
+  const projectSnapshot = shareData.projectSnapshot || {};
+  const recordSnapshot =
+    type === "change_order" ? changeOrderSnapshot : estimateSnapshot;
+  const title =
+    type === "change_order"
+      ? safeString(
+          changeOrderSnapshot.title || changeOrderSnapshot.subject || "Change order",
+        )
+      : safeString(estimateSnapshot.subject || "Estimate");
+  const summary =
+    type === "change_order"
+      ? safeString(
+          changeOrderSnapshot.note ||
+            changeOrderSnapshot.emailBody ||
+            "Client approval record for a project revision.",
+        )
+      : safeString(
+          estimateSnapshot.emailBody ||
+            estimateSnapshot.subject ||
+            "Golden Brick estimate ready for review.",
+        );
+  const subtotal = toNumber(
+    type === "change_order"
+      ? changeOrderSnapshot.amount || changeOrderSnapshot.subtotal
+      : estimateSnapshot.subtotal,
+  );
+  const projectAddress = safeString(
+    recordSnapshot.projectAddress ||
+      projectSnapshot.projectAddress ||
+      leadSnapshot.projectAddress,
+  );
+  const projectType = safeString(
+    recordSnapshot.projectType ||
+      projectSnapshot.projectType ||
+      leadSnapshot.projectType,
+  );
+  const visibleInPortal =
+    safeString(shareData.status) === "signed"
+      ? true
+      : shareData.portalVisible !== false &&
+        ["active", "signed"].includes(safeString(shareData.status));
+
   return {
     id: shareData.id,
-    type: safeString(shareData.type || "estimate"),
+    type,
     status: safeString(shareData.status || "active"),
     leadId: safeString(shareData.leadId),
     customerId: safeString(shareData.customerId),
     projectId: safeString(shareData.projectId),
+    changeOrderId: safeString(shareData.changeOrderId),
     agreementId: safeString(shareData.agreementId),
     createdByUid: safeString(shareData.createdByUid),
     createdByName: safeString(shareData.createdByName),
     createdAt: serialiseDateValue(shareData.createdAt),
+    publishedAt: serialiseDateValue(shareData.publishedAt || shareData.createdAt),
+    publishedVersion: toNumber(shareData.publishedVersion),
     updatedAt: serialiseDateValue(shareData.updatedAt),
     revokedAt: serialiseDateValue(shareData.revokedAt),
+    replacedAt: serialiseDateValue(shareData.replacedAt),
     lastViewedAt: serialiseDateValue(shareData.lastViewedAt),
     signedAt: serialiseDateValue(shareData.signedAt),
+    title,
+    summary,
+    subtotal,
+    projectAddress,
+    projectType,
+    visibleInPortal,
+    signable: safeString(shareData.status) === "active",
+    portalStatus:
+      safeString(shareData.status) === "signed"
+        ? "approved"
+        : safeString(shareData.status) === "active"
+          ? "needs_approval"
+          : safeString(shareData.status) || "hidden",
+    signerName: safeString(shareData.signerName),
+    signerEmail: normaliseEmail(shareData.signerEmail),
+    signerRole: safeString(shareData.signerRole),
     shareUrl: buildEstimateShareUrl(request, shareData.id),
+    agreementDownloadHref:
+      safeString(shareData.status) === "signed"
+        ? buildPublicAgreementDownloadHref(request, shareData.id)
+        : "",
   };
 }
 
-async function fetchLeadShares(leadId) {
+async function fetchLeadShares(leadId, type = "estimate") {
   const sharesSnap = await db
     .collection("estimateShares")
     .where("leadId", "==", leadId)
     .get();
 
-  return sharesSnap.docs.map((snapshot) => ({
-    id: snapshot.id,
-    ...snapshot.data(),
-  }));
+  return sharesSnap.docs
+    .map((snapshot) => ({
+      id: snapshot.id,
+      ...snapshot.data(),
+    }))
+    .filter((share) => normaliseShareType(share.type) === normaliseShareType(type));
+}
+
+async function fetchChangeOrderShares(projectId, changeOrderId) {
+  const sharesSnap = await db
+    .collection("estimateShares")
+    .where("projectId", "==", projectId)
+    .where("changeOrderId", "==", changeOrderId)
+    .get();
+
+  return sharesSnap.docs
+    .map((snapshot) => ({
+      id: snapshot.id,
+      ...snapshot.data(),
+    }))
+    .filter((share) => normaliseShareType(share.type) === "change_order");
 }
 
 async function saveStorageFile(
@@ -2070,16 +2297,35 @@ function buildAgreementPdfBuffer({
   projectData = {},
   estimateSnapshot = {},
   agreementSnapshot = {},
+  documentType = "estimate",
   signerName,
   signedAt,
   signatureBuffer,
 }) {
   return new Promise((resolve, reject) => {
+    const normalisedDocumentType = normaliseShareType(documentType);
+    const isChangeOrder = normalisedDocumentType === "change_order";
+    const approvalTitle = isChangeOrder
+      ? "Signed change order approval"
+      : "Signed estimate agreement";
+    const introCopy = isChangeOrder
+      ? "This PDF captures the exact change order and approval terms the client accepted through the Golden Brick client portal."
+      : "This PDF captures the exact estimate and agreement snapshot that the client accepted through the Golden Brick client portal.";
+    const totalLabel = isChangeOrder ? "Change total" : "Estimate total";
+    const overviewHeading = isChangeOrder
+      ? "Change order overview"
+      : "Estimate overview";
+    const scopeHeading = isChangeOrder
+      ? "Change order line item"
+      : "Estimate line items";
+    const scopeDescription = isChangeOrder
+      ? "The pricing revision below reflects the exact change order snapshot the client approved."
+      : "Each scope line and amount shown here reflects the accepted estimate snapshot.";
     const doc = new PDFDocument({
       size: "LETTER",
       margin: 52,
       info: {
-        Title: `Golden Brick signed agreement for ${safeString(leadData.projectAddress || leadData.clientName || "project")}`,
+        Title: `Golden Brick ${approvalTitle.toLowerCase()} for ${safeString(leadData.projectAddress || leadData.clientName || "project")}`,
         Author: "Golden Brick Construction",
       },
     });
@@ -2100,17 +2346,13 @@ function buildAgreementPdfBuffer({
       .font("Helvetica-Bold")
       .fontSize(22)
       .fillColor("#231d17")
-      .text("Signed estimate agreement");
+      .text(approvalTitle);
 
-    renderPdfParagraph(
-      doc,
-      "This PDF captures the exact estimate and agreement snapshot that the client accepted through the Golden Brick client portal.",
-      {
-        fontSize: 10,
-        color: "#554c43",
-        gapAfter: 10,
-      },
-    );
+    renderPdfParagraph(doc, introCopy, {
+      fontSize: 10,
+      color: "#554c43",
+      gapAfter: 10,
+    });
 
     const summaryRows = [
       [
@@ -2138,7 +2380,7 @@ function buildAgreementPdfBuffer({
       ],
       ["Signed", formatDateTime(signedAt)],
       ["Signer", safeString(signerName)],
-      ["Estimate total", formatCurrency(estimateSnapshot.subtotal || 0)],
+      [totalLabel, formatCurrency(estimateSnapshot.subtotal || 0)],
     ];
 
     summaryRows.forEach(([label, value]) => {
@@ -2165,7 +2407,7 @@ function buildAgreementPdfBuffer({
 
     renderPdfSectionHeading(
       doc,
-      safeString(estimateSnapshot.subject) || "Estimate overview",
+      safeString(estimateSnapshot.subject) || overviewHeading,
       "The proposal language below is frozen as accepted by the client.",
     );
     splitMultilineText(estimateSnapshot.emailBody).forEach((paragraph) => {
@@ -2178,8 +2420,8 @@ function buildAgreementPdfBuffer({
 
     renderPdfSectionHeading(
       doc,
-      "Estimate line items",
-      "Each scope line and amount shown here reflects the accepted estimate snapshot.",
+      scopeHeading,
+      scopeDescription,
     );
     renderAgreementLineItems(doc, estimateSnapshot.lineItems);
 
@@ -2398,6 +2640,34 @@ async function verifyLeadStaffAccess(leadId, profile = {}) {
   }
 
   return { leadRef, leadData };
+}
+
+async function verifyProjectStaffAccess(projectId, profile = {}) {
+  const projectRef = db.collection("projects").doc(projectId);
+  const projectSnap = await projectRef.get();
+
+  if (!projectSnap.exists) {
+    const error = new Error("Job not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  const projectData = projectSnap.data() || {};
+  const allowedStaff = uniqueValues([
+    safeString(projectData.assignedLeadOwnerUid),
+    ...(projectData.assignedWorkerIds || []),
+    ...(projectData.allowedStaffUids || []),
+  ]);
+  const canAccess =
+    profile.role === "admin" || allowedStaff.includes(safeString(profile.uid));
+
+  if (!canAccess) {
+    const error = new Error("You do not have access to this job.");
+    error.status = 403;
+    throw error;
+  }
+
+  return { projectRef, projectData };
 }
 
 async function ensureProjectForLead({
@@ -2643,8 +2913,12 @@ function buildPublicEstimatePayload({
   agreementSnapshot,
   signedAgreement = null,
 }) {
+  const type = normaliseShareType(shareData.type);
+  const documentLabel = type === "change_order" ? "Change order" : "Estimate";
   return {
     ok: true,
+    documentType: type,
+    documentLabel,
     readOnly: safeString(shareData.status) === "signed",
     share: serialiseEstimateShare(shareData, request),
     lead: {
@@ -2680,6 +2954,8 @@ function buildPublicEstimatePayload({
     signature: signedAgreement
       ? {
           signerName: safeString(signedAgreement.signerName),
+          signerEmail: normaliseEmail(signedAgreement.signerEmail),
+          signerRole: safeString(signedAgreement.signerRole),
           signedAt: serialiseDateValue(signedAgreement.signedAt),
           downloadHref: buildPublicAgreementDownloadHref(request, shareData.id),
         }
@@ -2696,17 +2972,25 @@ async function loadPublicEstimatePayload(request, token) {
   }
 
   const { shareRef, shareData } = await fetchEstimateShareContext(shareToken);
+  const shareType = normaliseShareType(shareData.type);
 
-  if (shareData.status === "revoked") {
-    const error = new Error("This estimate link has been revoked.");
+  if (["revoked", "replaced", "void"].includes(safeString(shareData.status))) {
+    const error = new Error(
+      shareType === "change_order"
+        ? "This change order link has been revoked."
+        : "This estimate link has been revoked.",
+    );
     error.status = 410;
     error.clientStatus = "revoked";
     throw error;
   }
 
-  let leadData = {};
-  let estimateSnapshot = {};
-  let agreementSnapshot = {};
+  let leadData = shareData.leadSnapshot || shareData.projectSnapshot || {};
+  let estimateSnapshot =
+    shareType === "change_order"
+      ? shareData.changeOrderSnapshot || {}
+      : shareData.estimateSnapshot || {};
+  let agreementSnapshot = shareData.agreementSnapshot || {};
   let signedAgreement = null;
 
   if (shareData.status === "signed" && safeString(shareData.agreementId)) {
@@ -2722,13 +3006,56 @@ async function loadPublicEstimatePayload(request, token) {
     }
 
     const agreementData = agreementSnap.data() || {};
-    leadData = agreementData.leadSnapshot || {};
-    estimateSnapshot = agreementData.estimateSnapshot || {};
+    leadData =
+      agreementData.leadSnapshot ||
+      agreementData.projectSnapshot ||
+      leadData ||
+      {};
+    estimateSnapshot =
+      agreementData.estimateSnapshot ||
+      agreementData.changeOrderSnapshot ||
+      estimateSnapshot ||
+      {};
     agreementSnapshot = agreementData.agreementSnapshot || {};
     signedAgreement = {
       signerName: safeString(agreementData.signerName),
+      signerEmail: normaliseEmail(agreementData.signerEmail),
+      signerRole: safeString(agreementData.signerRole),
       signedAt: agreementData.signedAt || null,
     };
+  } else if (shareType === "change_order") {
+    if (!estimateSnapshot || !safeString(estimateSnapshot.title)) {
+      const [projectSnap, changeOrderSnap] = await Promise.all([
+        db.collection("projects").doc(shareData.projectId).get(),
+        db
+          .collection("projects")
+          .doc(shareData.projectId)
+          .collection("changeOrders")
+          .doc(shareData.changeOrderId)
+          .get(),
+      ]);
+
+      if (!projectSnap.exists || !changeOrderSnap.exists) {
+        const error = new Error("This change order link is no longer available.");
+        error.status = 404;
+        throw error;
+      }
+
+      const projectData = projectSnap.data() || {};
+      const changeOrderData = {
+        id: changeOrderSnap.id,
+        ...changeOrderSnap.data(),
+      };
+      leadData = minimalProjectSnapshot(projectData);
+      estimateSnapshot = normaliseChangeOrderSnapshot(
+        changeOrderData,
+        projectData,
+      );
+      agreementSnapshot = normaliseChangeOrderAgreementSnapshot(
+        projectData,
+        changeOrderData,
+      );
+    }
   } else {
     const [leadSnap, estimateSnap, template] = await Promise.all([
       db.collection("leads").doc(shareData.leadId).get(),
@@ -2748,6 +3075,13 @@ async function loadPublicEstimatePayload(request, token) {
       template,
     );
     agreementSnapshot = normaliseAgreementSnapshot(template);
+  }
+
+  if (!safeString(agreementSnapshot.title) || !safeString(agreementSnapshot.terms)) {
+    agreementSnapshot =
+      shareType === "change_order"
+        ? normaliseChangeOrderAgreementSnapshot({}, estimateSnapshot)
+        : agreementSnapshot;
   }
 
   await shareRef.set(
@@ -2771,6 +3105,8 @@ async function loadPublicEstimatePayload(request, token) {
 async function signPublicEstimatePayload(request, payload = {}) {
   const token = safeString(payload.token);
   const signerName = safeString(payload.signerName);
+  const signerEmail = normaliseEmail(payload.signerEmail);
+  const signerRole = safeString(payload.signerRole);
   const accepted =
     payload.accepted === true ||
     safeString(payload.accepted).toLowerCase() === "true" ||
@@ -2783,9 +3119,14 @@ async function signPublicEstimatePayload(request, payload = {}) {
   }
 
   const { shareRef, shareData } = await fetchEstimateShareContext(token);
+  const shareType = normaliseShareType(shareData.type);
 
-  if (shareData.status === "revoked") {
-    const error = new Error("This estimate link has been revoked.");
+  if (["revoked", "replaced", "void"].includes(safeString(shareData.status))) {
+    const error = new Error(
+      shareType === "change_order"
+        ? "This change order link has been revoked."
+        : "This estimate link has been revoked.",
+    );
     error.status = 410;
     error.clientStatus = "revoked";
     throw error;
@@ -2825,44 +3166,97 @@ async function signPublicEstimatePayload(request, payload = {}) {
   }
 
   const signature = parseSignatureDataUrl(payload.signatureDataUrl);
-  const [leadSnap, estimateSnap, template] = await Promise.all([
-    db.collection("leads").doc(shareData.leadId).get(),
-    db.collection("estimates").doc(shareData.leadId).get(),
-    fetchTemplate(),
-  ]);
-
-  if (!leadSnap.exists || !estimateSnap.exists) {
-    const error = new Error("This estimate is no longer available.");
-    error.status = 404;
-    throw error;
-  }
-
-  const leadData = leadSnap.data() || {};
   const portalActor = {
     uid: "client-portal",
     email: "portal@goldenbrick.local",
     displayName: "Golden Brick Client Portal",
     role: "system",
   };
-  const projectResult = await ensureProjectForLead({
-    leadId: shareData.leadId,
-    leadRef: db.collection("leads").doc(shareData.leadId),
-    leadData,
-    actorProfile: portalActor,
-    allowAmbiguousCustomerCreate: true,
-  });
-  const projectSnap = await db
-    .collection("projects")
-    .doc(projectResult.projectId)
-    .get();
-  const projectData = projectSnap.exists
-    ? projectSnap.data() || {}
-    : projectResult.projectData || {};
-  const estimateSnapshot = normaliseEstimateSnapshot(
-    estimateSnap.data() || {},
-    template,
-  );
-  const agreementSnapshot = normaliseAgreementSnapshot(template);
+  let leadData = {};
+  let projectData = {};
+  let projectResult = null;
+  let estimateSnapshot = {};
+  let agreementSnapshot = {};
+  let changeOrderRef = null;
+
+  if (shareType === "change_order") {
+    const projectRef = db.collection("projects").doc(shareData.projectId);
+    changeOrderRef = projectRef
+      .collection("changeOrders")
+      .doc(shareData.changeOrderId);
+    const [projectSnap, changeOrderSnap] = await Promise.all([
+      projectRef.get(),
+      changeOrderRef.get(),
+    ]);
+
+    if (!projectSnap.exists || !changeOrderSnap.exists) {
+      const error = new Error("This change order is no longer available.");
+      error.status = 404;
+      throw error;
+    }
+
+    projectData = projectSnap.data() || {};
+    const changeOrderData = {
+      id: changeOrderSnap.id,
+      ...changeOrderSnap.data(),
+    };
+    leadData = minimalProjectSnapshot(projectData);
+    estimateSnapshot =
+      shareData.changeOrderSnapshot &&
+      safeString(shareData.changeOrderSnapshot.title)
+        ? shareData.changeOrderSnapshot
+        : normaliseChangeOrderSnapshot(changeOrderData, projectData);
+    agreementSnapshot =
+      shareData.agreementSnapshot && safeString(shareData.agreementSnapshot.terms)
+        ? shareData.agreementSnapshot
+        : normaliseChangeOrderAgreementSnapshot(projectData, changeOrderData);
+    projectResult = {
+      existing: true,
+      projectId: shareData.projectId,
+      customerLink: {
+        customerId: safeString(projectData.customerId),
+        customerName: safeString(projectData.customerName || projectData.clientName),
+      },
+      projectData,
+    };
+  } else {
+    const [leadSnap, estimateSnap, template] = await Promise.all([
+      db.collection("leads").doc(shareData.leadId).get(),
+      db.collection("estimates").doc(shareData.leadId).get(),
+      fetchTemplate(),
+    ]);
+
+    if (!leadSnap.exists || !estimateSnap.exists) {
+      const error = new Error("This estimate is no longer available.");
+      error.status = 404;
+      throw error;
+    }
+
+    leadData = leadSnap.data() || {};
+    projectResult = await ensureProjectForLead({
+      leadId: shareData.leadId,
+      leadRef: db.collection("leads").doc(shareData.leadId),
+      leadData,
+      actorProfile: portalActor,
+      allowAmbiguousCustomerCreate: true,
+    });
+    const projectSnap = await db
+      .collection("projects")
+      .doc(projectResult.projectId)
+      .get();
+    projectData = projectSnap.exists
+      ? projectSnap.data() || {}
+      : projectResult.projectData || {};
+    estimateSnapshot =
+      shareData.estimateSnapshot && safeString(shareData.estimateSnapshot.subject)
+        ? shareData.estimateSnapshot
+        : normaliseEstimateSnapshot(estimateSnap.data() || {}, template);
+    agreementSnapshot =
+      shareData.agreementSnapshot && safeString(shareData.agreementSnapshot.terms)
+        ? shareData.agreementSnapshot
+        : normaliseAgreementSnapshot(template);
+  }
+
   const signedAt = new Date();
   const agreementRef = db.collection("agreements").doc();
   const recordDocumentRef = db.collection("recordDocuments").doc();
@@ -2875,6 +3269,7 @@ async function signPublicEstimatePayload(request, payload = {}) {
     projectData,
     estimateSnapshot,
     agreementSnapshot,
+    documentType: shareType,
     signerName,
     signedAt,
     signatureBuffer: signature.buffer,
@@ -2895,38 +3290,45 @@ async function signPublicEstimatePayload(request, payload = {}) {
     },
   });
 
-  const leadSnapshot = {
-    clientName: safeString(leadData.clientName || leadData.customerName),
-    projectAddress: safeString(leadData.projectAddress),
-    projectType: safeString(leadData.projectType),
-    clientEmail: normaliseEmail(leadData.clientEmail),
-    clientPhone: safeString(leadData.clientPhone),
-  };
+  const leadSnapshot = minimalLeadSnapshot(leadData);
+  const projectSnapshot = minimalProjectSnapshot(projectData, leadData);
   const audit = requestAuditMetadata(request);
   const batch = db.batch();
+  const signedDocumentTitle =
+    shareType === "change_order"
+      ? `Signed change order - ${formatDateOnly(signedAt)}`
+      : `Signed agreement - ${formatDateOnly(signedAt)}`;
+  const signedDocumentCategory =
+    shareType === "change_order" ? "change_order" : "agreement";
+  const signedDocumentNote =
+    shareType === "change_order"
+      ? `Signed by ${signerName} through the client change order link.`
+      : `Signed by ${signerName} through the client estimate link.`;
 
   batch.set(
     agreementRef,
     {
       id: agreementRef.id,
-      type: "estimate",
+      type: shareType,
       status: "signed",
-      leadId: shareData.leadId,
+      leadId: cleanNullableString(shareData.leadId),
       projectId: projectResult.projectId,
       customerId: projectResult.customerLink.customerId,
       customerName: projectResult.customerLink.customerName,
       shareId: shareData.id,
+      changeOrderId:
+        shareType === "change_order"
+          ? cleanNullableString(shareData.changeOrderId)
+          : null,
       leadSnapshot,
-      projectSnapshot: {
-        clientName: safeString(
-          projectData.clientName || projectData.customerName,
-        ),
-        projectAddress: safeString(projectData.projectAddress),
-        projectType: safeString(projectData.projectType),
-      },
-      estimateSnapshot,
+      projectSnapshot,
+      estimateSnapshot: shareType === "estimate" ? estimateSnapshot : null,
+      changeOrderSnapshot:
+        shareType === "change_order" ? estimateSnapshot : null,
       agreementSnapshot,
       signerName,
+      signerEmail,
+      signerRole,
       signedAt,
       signedIpAddress: audit.ipAddress,
       signedUserAgent: audit.userAgent,
@@ -2948,10 +3350,10 @@ async function signPublicEstimatePayload(request, payload = {}) {
     {
       id: recordDocumentRef.id,
       documentKind: "file",
-      category: "agreement",
+      category: signedDocumentCategory,
       sourceType: "upload",
-      title: `Signed agreement - ${formatDateOnly(signedAt)}`,
-      note: `Signed by ${signerName} through the client estimate link.`,
+      title: signedDocumentTitle,
+      note: signedDocumentNote,
       relatedDate: signedAt,
       externalUrl: "",
       fileUrl: pdfUrl,
@@ -2961,6 +3363,7 @@ async function signPublicEstimatePayload(request, payload = {}) {
       customerId: cleanNullableString(projectResult.customerLink.customerId),
       projectId: cleanNullableString(projectResult.projectId),
       agreementId: agreementRef.id,
+      clientVisible: true,
       createdByUid: portalActor.uid,
       createdByName: portalActor.displayName,
       createdByRole: portalActor.role,
@@ -2978,15 +3381,43 @@ async function signPublicEstimatePayload(request, payload = {}) {
       agreementId: agreementRef.id,
       projectId: projectResult.projectId,
       customerId: projectResult.customerLink.customerId,
+      customerName: projectResult.customerLink.customerName,
+      portalVisible: true,
+      signerName,
+      signerEmail,
+      signerRole,
       lastViewedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true },
   );
 
+  if (shareType === "change_order" && changeOrderRef) {
+    batch.set(
+      changeOrderRef,
+      {
+        status: "approved",
+        customerId: safeString(projectData.customerId),
+        customerName: safeString(projectData.customerName || projectData.clientName),
+        projectAddress: safeString(projectData.projectAddress),
+        portalShareId: shareData.id,
+        portalStatus: "signed",
+        portalVisible: true,
+        publishedAt: shareData.publishedAt || shareData.createdAt || FieldValue.serverTimestamp(),
+        agreementId: agreementRef.id,
+        signedAt,
+        signerName,
+        signerEmail,
+        signerRole,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+
   await batch.commit();
 
-  if (!projectResult.existing) {
+  if (shareType === "estimate" && !projectResult.existing) {
     await addLeadActivity(shareData.leadId, {
       activityType: "system",
       title: "Lead converted to job",
@@ -3008,19 +3439,27 @@ async function signPublicEstimatePayload(request, payload = {}) {
     });
   }
 
-  await addLeadActivity(shareData.leadId, {
-    activityType: "agreement",
-    title: "Client signed estimate agreement",
-    body: `${signerName} accepted the estimate and signed the agreement through the client link.`,
-    actorName: portalActor.displayName,
-    actorUid: portalActor.uid,
-    actorRole: portalActor.role,
-  });
+  if (shareType === "estimate" && safeString(shareData.leadId)) {
+    await addLeadActivity(shareData.leadId, {
+      activityType: "agreement",
+      title: "Client signed estimate agreement",
+      body: `${signerName} accepted the estimate and signed the agreement through the client link.`,
+      actorName: portalActor.displayName,
+      actorUid: portalActor.uid,
+      actorRole: portalActor.role,
+    });
+  }
 
   await addProjectActivity(projectResult.projectId, {
     activityType: "agreement",
-    title: "Client agreement signed",
-    body: `${signerName} signed the estimate agreement through the client portal.`,
+    title:
+      shareType === "change_order"
+        ? "Client signed change order"
+        : "Client agreement signed",
+    body:
+      shareType === "change_order"
+        ? `${signerName} signed the published change order through the client portal.`
+        : `${signerName} signed the estimate agreement through the client portal.`,
     actorName: portalActor.displayName,
     actorUid: portalActor.uid,
     actorRole: portalActor.role,
@@ -3028,8 +3467,14 @@ async function signPublicEstimatePayload(request, payload = {}) {
 
   await addProjectActivity(projectResult.projectId, {
     activityType: "document",
-    title: "Signed agreement filed",
-    body: "The signed agreement PDF was stored in the job documents and archived in the agreements folder.",
+    title:
+      shareType === "change_order"
+        ? "Signed change order filed"
+        : "Signed agreement filed",
+    body:
+      shareType === "change_order"
+        ? "The signed change order PDF was stored in the project documents and archived in the agreements folder."
+        : "The signed agreement PDF was stored in the job documents and archived in the agreements folder.",
     actorName: portalActor.displayName,
     actorUid: portalActor.uid,
     actorRole: portalActor.role,
@@ -3038,6 +3483,7 @@ async function signPublicEstimatePayload(request, payload = {}) {
   return {
     ok: true,
     status: "signed",
+    type: shareType,
     agreementId: agreementRef.id,
     projectId: projectResult.projectId,
     signedAt: signedAt.toISOString(),
@@ -3656,10 +4102,7 @@ async function expireCheckoutSessionIfNeeded(stripe, sessionId) {
 }
 
 exports.createServiceOrder = onRequest(
-  {
-    region: "us-central1",
-    cors: true,
-  },
+  PUBLIC_CORS_HTTP_OPTIONS,
   async (request, response) => {
     applyCors(response);
 
@@ -3743,10 +4186,7 @@ exports.createServiceOrder = onRequest(
 );
 
 exports.createServiceCheckout = onRequest(
-  {
-    region: "us-central1",
-    cors: true,
-  },
+  PUBLIC_CORS_HTTP_OPTIONS,
   async (request, response) => {
     applyCors(response);
 
@@ -3795,7 +4235,7 @@ exports.createServiceCheckout = onRequest(
 
 exports.stripeWebhook = onRequest(
   {
-    region: "us-central1",
+    ...PUBLIC_HTTP_OPTIONS,
     cors: false,
   },
   async (request, response) => {
@@ -3814,10 +4254,7 @@ exports.stripeWebhook = onRequest(
 );
 
 exports.publicLeadIntake = onRequest(
-  {
-    region: "us-central1",
-    cors: true,
-  },
+  PUBLIC_CORS_HTTP_OPTIONS,
   async (request, response) => {
     applyCors(response);
 
@@ -3939,10 +4376,7 @@ exports.publicLeadIntake = onRequest(
 );
 
 exports.syncStaffSession = onRequest(
-  {
-    region: "us-central1",
-    cors: true,
-  },
+  PUBLIC_CORS_HTTP_OPTIONS,
   async (request, response) => {
     applyCors(response);
 
@@ -4061,10 +4495,7 @@ exports.syncStaffSession = onRequest(
 );
 
 exports.syncLeadCustomerLink = onRequest(
-  {
-    region: "us-central1",
-    cors: true,
-  },
+  PUBLIC_CORS_HTTP_OPTIONS,
   async (request, response) => {
     applyCors(response);
 
@@ -4117,11 +4548,521 @@ exports.syncLeadCustomerLink = onRequest(
   },
 );
 
+async function handleEstimateShareRequest({ request, payload, staff }) {
+  const recordType = normaliseShareType(payload.type);
+  const leadId = safeString(payload.leadId);
+  const projectId = safeString(payload.projectId);
+  const changeOrderId = safeString(payload.changeOrderId);
+  const requestedShareId = safeString(payload.shareId);
+  const action = safeString(payload.action || "get").toLowerCase();
+
+  let leadRef = null;
+  let leadData = {};
+  let projectData = {};
+  let customerLink = null;
+  let shares = [];
+  let existingProjectSnap = null;
+
+  if (recordType === "change_order") {
+    if (!projectId || !changeOrderId) {
+      return {
+        status: 400,
+        payload: {
+          ok: false,
+          message: "projectId and changeOrderId are required.",
+        },
+      };
+    }
+
+    const projectContext = await verifyProjectStaffAccess(
+      projectId,
+      staff.profile,
+    );
+    projectData = projectContext.projectData || {};
+    shares = await fetchChangeOrderShares(projectId, changeOrderId);
+  } else {
+    if (!leadId) {
+      return {
+        status: 400,
+        payload: {
+          ok: false,
+          message: "leadId is required.",
+        },
+      };
+    }
+
+    const leadContext = await verifyLeadStaffAccess(leadId, staff.profile);
+    leadRef = leadContext.leadRef;
+    leadData = leadContext.leadData;
+    existingProjectSnap = await db.collection("projects").doc(leadId).get();
+    if (existingProjectSnap.exists) {
+      projectData = existingProjectSnap.data() || {};
+    }
+    shares = await fetchLeadShares(leadId, "estimate");
+  }
+
+  const currentShare = pickCurrentEstimateShare(shares);
+  const targetShare = requestedShareId
+    ? shares.find((share) => safeString(share.id) === requestedShareId) || null
+    : currentShare;
+
+  if (requestedShareId && !targetShare) {
+    return {
+      status: 404,
+      payload: {
+        ok: false,
+        message: "Published client record not found.",
+      },
+    };
+  }
+
+  if (action === "get") {
+    return {
+      status: 200,
+      payload: {
+        ok: true,
+        share: currentShare ? serialiseEstimateShare(currentShare, request) : null,
+      },
+    };
+  }
+
+  if (staff.profile.role !== "admin") {
+    return {
+      status: 403,
+      payload: {
+        ok: false,
+        message: "Only admins can manage client publishing.",
+      },
+    };
+  }
+
+  if (action === "delete") {
+    if (!targetShare) {
+      return {
+        status: 200,
+        payload: {
+          ok: true,
+          deleted: false,
+          share: null,
+        },
+      };
+    }
+
+    if (safeString(targetShare.status) === "signed") {
+      return {
+        status: 409,
+        payload: {
+          ok: false,
+          message: "Signed approvals are archived and cannot be deleted.",
+        },
+      };
+    }
+
+    await db.collection("estimateShares").doc(targetShare.id).delete();
+
+    if (recordType === "change_order") {
+      const mutatingCurrentShare =
+        safeString(targetShare.id) === safeString(currentShare?.id);
+      await db
+        .collection("projects")
+        .doc(projectId)
+        .collection("changeOrders")
+        .doc(changeOrderId)
+        .set(
+          {
+            portalShareId: mutatingCurrentShare
+              ? null
+              : safeString(currentShare?.id) || null,
+            portalStatus: mutatingCurrentShare ? "draft" : "published",
+            portalVisible: mutatingCurrentShare ? false : true,
+            ...(mutatingCurrentShare ? { publishedAt: null } : {}),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+
+      await addProjectActivity(projectId, {
+        activityType: "change_order",
+        title: "Published change order deleted",
+        body: "The unsigned client-facing change order version was deleted.",
+        actorName: staff.profile.displayName,
+        actorUid: staff.profile.uid,
+        actorRole: staff.profile.role,
+      });
+    } else {
+      await addLeadActivity(leadId, {
+        activityType: "estimate_share",
+        title: "Published estimate deleted",
+        body: "The unsigned client-facing estimate version was deleted.",
+        actorName: staff.profile.displayName,
+        actorUid: staff.profile.uid,
+        actorRole: staff.profile.role,
+      });
+    }
+
+    return {
+      status: 200,
+      payload: {
+        ok: true,
+        deleted: true,
+        share: null,
+      },
+    };
+  }
+
+  if (action === "revoke") {
+    if (!targetShare || targetShare.status !== "active") {
+      return {
+        status: 200,
+        payload: {
+          ok: true,
+          share: targetShare ? serialiseEstimateShare(targetShare, request) : null,
+        },
+      };
+    }
+
+    await db.collection("estimateShares").doc(targetShare.id).set(
+      {
+        status: "revoked",
+        portalVisible: false,
+        revokedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    if (recordType === "change_order") {
+      const mutatingCurrentShare =
+        safeString(targetShare.id) === safeString(currentShare?.id);
+      await db
+        .collection("projects")
+        .doc(projectId)
+        .collection("changeOrders")
+        .doc(changeOrderId)
+        .set(
+          {
+            portalShareId: mutatingCurrentShare
+              ? null
+              : safeString(currentShare?.id) || null,
+            portalStatus: mutatingCurrentShare ? "revoked" : "published",
+            portalVisible: mutatingCurrentShare ? false : true,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+
+      await addProjectActivity(projectId, {
+        activityType: "change_order",
+        title: "Change order link revoked",
+        body: "The active client-facing change order link was revoked.",
+        actorName: staff.profile.displayName,
+        actorUid: staff.profile.uid,
+        actorRole: staff.profile.role,
+      });
+    } else {
+      await addLeadActivity(leadId, {
+        activityType: "estimate_share",
+        title: "Estimate share link revoked",
+        body: "The active client estimate link was revoked from the staff portal.",
+        actorName: staff.profile.displayName,
+        actorUid: staff.profile.uid,
+        actorRole: staff.profile.role,
+      });
+
+      if (existingProjectSnap.exists) {
+        await addProjectActivity(leadId, {
+          activityType: "agreement",
+          title: "Estimate share link revoked",
+          body: "The client-facing estimate share link was revoked for this project.",
+          actorName: staff.profile.displayName,
+          actorUid: staff.profile.uid,
+          actorRole: staff.profile.role,
+        });
+      }
+    }
+
+    const revokedSnap = await db.collection("estimateShares").doc(targetShare.id).get();
+    return {
+      status: 200,
+      payload: {
+        ok: true,
+        share: serialiseEstimateShare(
+          {
+            id: revokedSnap.id,
+            ...revokedSnap.data(),
+          },
+          request,
+        ),
+      },
+    };
+  }
+
+  if (action !== "create") {
+    return {
+      status: 400,
+      payload: {
+        ok: false,
+        message: "Unsupported estimate share action.",
+      },
+    };
+  }
+
+  const batch = db.batch();
+  const nextVersion =
+    shares.reduce(
+      (maxVersion, share) =>
+        Math.max(maxVersion, toNumber(share.publishedVersion)),
+      0,
+    ) + 1;
+  const shareId = createOpaqueId();
+  const shareRef = db.collection("estimateShares").doc(shareId);
+
+  if (recordType === "change_order") {
+    const changeOrderRef = db
+      .collection("projects")
+      .doc(projectId)
+      .collection("changeOrders")
+      .doc(changeOrderId);
+    const changeOrderSnap = await changeOrderRef.get();
+    if (!changeOrderSnap.exists) {
+      return {
+        status: 404,
+        payload: {
+          ok: false,
+          message: "Change order not found.",
+        },
+      };
+    }
+
+    const changeOrderData = {
+      id: changeOrderSnap.id,
+      ...changeOrderSnap.data(),
+    };
+    const changeOrderSnapshot = normaliseChangeOrderSnapshot(
+      changeOrderData,
+      projectData,
+    );
+    const agreementSnapshot = normaliseChangeOrderAgreementSnapshot(
+      projectData,
+      changeOrderData,
+    );
+    shares
+      .filter((share) => share.status === "active")
+      .forEach((share) => {
+        batch.set(
+          db.collection("estimateShares").doc(share.id),
+          {
+            status: "replaced",
+            portalVisible: false,
+            replacedAt: FieldValue.serverTimestamp(),
+            replacedByShareId: shareId,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      });
+
+    batch.set(
+      shareRef,
+      {
+        id: shareId,
+        type: "change_order",
+        status: "active",
+        leadId: cleanNullableString(projectData.leadId),
+        customerId: safeString(projectData.customerId) || null,
+        customerName: safeString(projectData.customerName || projectData.clientName),
+        projectId,
+        changeOrderId,
+        leadSnapshot: minimalProjectSnapshot(projectData),
+        projectSnapshot: minimalProjectSnapshot(projectData),
+        changeOrderSnapshot,
+        agreementSnapshot,
+        publishedVersion: nextVersion,
+        publishedAt: FieldValue.serverTimestamp(),
+        portalVisible: true,
+        createdByUid: staff.profile.uid,
+        createdByName: staff.profile.displayName,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        revokedAt: null,
+        replacedAt: null,
+        lastViewedAt: null,
+        signedAt: null,
+        agreementId: null,
+      },
+      { merge: true },
+    );
+
+    batch.set(
+      changeOrderRef,
+      {
+        customerId: safeString(projectData.customerId),
+        customerName: safeString(projectData.customerName || projectData.clientName),
+        projectAddress: safeString(projectData.projectAddress),
+        portalShareId: shareId,
+        portalStatus: "published",
+        portalVisible: true,
+        publishedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    await batch.commit();
+
+    await addProjectActivity(projectId, {
+      activityType: "change_order",
+      title: "Change order published to client",
+      body: `${safeString(changeOrderData.title || "Change order")} was published for client approval.`,
+      actorName: staff.profile.displayName,
+      actorUid: staff.profile.uid,
+      actorRole: staff.profile.role,
+    });
+
+    const createdSnap = await shareRef.get();
+    return {
+      status: 200,
+      payload: {
+        ok: true,
+        share: serialiseEstimateShare(
+          {
+            id: createdSnap.id,
+            ...createdSnap.data(),
+          },
+          request,
+        ),
+      },
+    };
+  }
+
+  const estimateSnap = await db.collection("estimates").doc(leadId).get();
+  if (!estimateSnap.exists) {
+    return {
+      status: 400,
+      payload: {
+        ok: false,
+        message: "Save the estimate before creating a share link.",
+      },
+    };
+  }
+
+  customerLink = await ensureLeadCustomerLink(leadRef, leadData);
+  const template = await fetchTemplate();
+  const estimateSnapshot = normaliseEstimateSnapshot(
+    estimateSnap.data() || {},
+    template,
+  );
+  const agreementSnapshot = normaliseAgreementSnapshot(template);
+  const nextLeadStatus = ["new_lead", "follow_up"].includes(
+    safeString(leadData.status),
+  )
+    ? "estimate_sent"
+    : safeString(leadData.status || "estimate_sent");
+
+  shares
+    .filter((share) => share.status === "active")
+    .forEach((share) => {
+      batch.set(
+        db.collection("estimateShares").doc(share.id),
+        {
+          status: "replaced",
+          portalVisible: false,
+          replacedAt: FieldValue.serverTimestamp(),
+          replacedByShareId: shareId,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    });
+
+  batch.set(
+    shareRef,
+    {
+      id: shareId,
+      type: "estimate",
+      status: "active",
+      leadId,
+      customerId: customerLink.customerId || null,
+      customerName: customerLink.customerName || "",
+      projectId: existingProjectSnap.exists ? leadId : null,
+      leadSnapshot: minimalLeadSnapshot({
+        ...leadData,
+        customerId: customerLink.customerId,
+        customerName: customerLink.customerName,
+      }),
+      projectSnapshot: existingProjectSnap.exists
+        ? minimalProjectSnapshot(projectData, leadData)
+        : {},
+      estimateSnapshot,
+      agreementSnapshot,
+      publishedVersion: nextVersion,
+      publishedAt: FieldValue.serverTimestamp(),
+      portalVisible: true,
+      createdByUid: staff.profile.uid,
+      createdByName: staff.profile.displayName,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      revokedAt: null,
+      replacedAt: null,
+      lastViewedAt: null,
+      signedAt: null,
+      agreementId: null,
+    },
+    { merge: true },
+  );
+
+  batch.set(
+    leadRef,
+    {
+      status: nextLeadStatus,
+      statusLabel: statusLabel(nextLeadStatus),
+      customerId: customerLink.customerId || null,
+      customerName: customerLink.customerName || "",
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  await batch.commit();
+
+  await addLeadActivity(leadId, {
+    activityType: "estimate_share",
+    title: "Estimate published to client",
+    body: "A client-facing estimate version was published from the staff portal.",
+    actorName: staff.profile.displayName,
+    actorUid: staff.profile.uid,
+    actorRole: staff.profile.role,
+  });
+
+  if (existingProjectSnap.exists) {
+    await addProjectActivity(leadId, {
+      activityType: "agreement",
+      title: "Estimate published to client",
+      body: "A client-facing estimate version was published for this project.",
+      actorName: staff.profile.displayName,
+      actorUid: staff.profile.uid,
+      actorRole: staff.profile.role,
+    });
+  }
+
+  const createdSnap = await shareRef.get();
+  return {
+    status: 200,
+    payload: {
+      ok: true,
+      share: serialiseEstimateShare(
+        {
+          id: createdSnap.id,
+          ...createdSnap.data(),
+        },
+        request,
+      ),
+    },
+  };
+}
+
 exports.estimateShare = onRequest(
-  {
-    region: "us-central1",
-    cors: true,
-  },
+  PUBLIC_CORS_HTTP_OPTIONS,
   async (request, response) => {
     applyCors(response);
 
@@ -4138,207 +5079,12 @@ exports.estimateShare = onRequest(
     try {
       const staff = await verifyStaffRequest(request);
       const payload = await parseRequestPayload(request);
-      const leadId = safeString(payload.leadId);
-      const action = safeString(payload.action || "get").toLowerCase();
-
-      if (!leadId) {
-        respondJson(response, 400, {
-          ok: false,
-          message: "leadId is required.",
-        });
-        return;
-      }
-
-      const { leadRef, leadData } = await verifyLeadStaffAccess(
-        leadId,
-        staff.profile,
-      );
-      const existingProjectSnap = await db
-        .collection("projects")
-        .doc(leadId)
-        .get();
-      const shares = await fetchLeadShares(leadId);
-      const currentShare = pickCurrentEstimateShare(shares);
-
-      if (action === "get") {
-        respondJson(response, 200, {
-          ok: true,
-          share: currentShare
-            ? serialiseEstimateShare(currentShare, request)
-            : null,
-        });
-        return;
-      }
-
-      if (staff.profile.role !== "admin") {
-        respondJson(response, 403, {
-          ok: false,
-          message: "Only admins can manage estimate share links.",
-        });
-        return;
-      }
-
-      if (action === "revoke") {
-        if (!currentShare || currentShare.status !== "active") {
-          respondJson(response, 200, {
-            ok: true,
-            share: currentShare
-              ? serialiseEstimateShare(currentShare, request)
-              : null,
-          });
-          return;
-        }
-
-        await db.collection("estimateShares").doc(currentShare.id).set(
-          {
-            status: "revoked",
-            revokedAt: FieldValue.serverTimestamp(),
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true },
-        );
-
-        await addLeadActivity(leadId, {
-          activityType: "estimate_share",
-          title: "Estimate share link revoked",
-          body: "The active client estimate link was revoked from the staff portal.",
-          actorName: staff.profile.displayName,
-          actorUid: staff.profile.uid,
-          actorRole: staff.profile.role,
-        });
-
-        if (existingProjectSnap.exists) {
-          await addProjectActivity(leadId, {
-            activityType: "agreement",
-            title: "Estimate share link revoked",
-            body: "The client-facing estimate share link was revoked for this project.",
-            actorName: staff.profile.displayName,
-            actorUid: staff.profile.uid,
-            actorRole: staff.profile.role,
-          });
-        }
-
-        const revokedSnap = await db
-          .collection("estimateShares")
-          .doc(currentShare.id)
-          .get();
-        respondJson(response, 200, {
-          ok: true,
-          share: serialiseEstimateShare(
-            {
-              id: revokedSnap.id,
-              ...revokedSnap.data(),
-            },
-            request,
-          ),
-        });
-        return;
-      }
-
-      if (action !== "create") {
-        respondJson(response, 400, {
-          ok: false,
-          message: "Unsupported estimate share action.",
-        });
-        return;
-      }
-
-      const estimateSnap = await db.collection("estimates").doc(leadId).get();
-      if (!estimateSnap.exists) {
-        respondJson(response, 400, {
-          ok: false,
-          message: "Save the estimate before creating a share link.",
-        });
-        return;
-      }
-
-      const batch = db.batch();
-      shares
-        .filter((share) => share.status === "active")
-        .forEach((share) => {
-          batch.set(
-            db.collection("estimateShares").doc(share.id),
-            {
-              status: "revoked",
-              revokedAt: FieldValue.serverTimestamp(),
-              updatedAt: FieldValue.serverTimestamp(),
-            },
-            { merge: true },
-          );
-        });
-
-      const shareId = createOpaqueId();
-      const shareRef = db.collection("estimateShares").doc(shareId);
-      const nextLeadStatus = ["new_lead", "follow_up"].includes(
-        safeString(leadData.status),
-      )
-        ? "estimate_sent"
-        : safeString(leadData.status || "estimate_sent");
-
-      batch.set(
-        shareRef,
-        {
-          id: shareId,
-          type: "estimate",
-          status: "active",
-          leadId,
-          customerId: safeString(leadData.customerId) || null,
-          projectId: existingProjectSnap.exists ? leadId : null,
-          createdByUid: staff.profile.uid,
-          createdByName: staff.profile.displayName,
-          createdAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp(),
-          revokedAt: null,
-          lastViewedAt: null,
-          signedAt: null,
-          agreementId: null,
-        },
-        { merge: true },
-      );
-
-      batch.set(
-        leadRef,
-        {
-          status: nextLeadStatus,
-          statusLabel: statusLabel(nextLeadStatus),
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      );
-
-      await batch.commit();
-
-      await addLeadActivity(leadId, {
-        activityType: "estimate_share",
-        title: "Estimate share link created",
-        body: "A secure client estimate link was created from the staff portal.",
-        actorName: staff.profile.displayName,
-        actorUid: staff.profile.uid,
-        actorRole: staff.profile.role,
+      const result = await handleEstimateShareRequest({
+        request,
+        payload,
+        staff,
       });
-
-      if (existingProjectSnap.exists) {
-        await addProjectActivity(leadId, {
-          activityType: "agreement",
-          title: "Estimate share link created",
-          body: "A secure client estimate link was created for this project.",
-          actorName: staff.profile.displayName,
-          actorUid: staff.profile.uid,
-          actorRole: staff.profile.role,
-        });
-      }
-
-      const createdSnap = await shareRef.get();
-      respondJson(response, 200, {
-        ok: true,
-        share: serialiseEstimateShare(
-          {
-            id: createdSnap.id,
-            ...createdSnap.data(),
-          },
-          request,
-        ),
-      });
+      respondJson(response, result.status, result.payload);
     } catch (error) {
       logger.error("Estimate share request failed.", error);
       respondJson(response, error.status || 500, {
@@ -4350,10 +5096,7 @@ exports.estimateShare = onRequest(
 );
 
 exports.convertLeadToProject = onRequest(
-  {
-    region: "us-central1",
-    cors: true,
-  },
+  PUBLIC_CORS_HTTP_OPTIONS,
   async (request, response) => {
     applyCors(response);
 
@@ -4433,10 +5176,7 @@ exports.convertLeadToProject = onRequest(
 );
 
 exports.publicEstimateView = onRequest(
-  {
-    region: "us-central1",
-    cors: true,
-  },
+  PUBLIC_CORS_HTTP_OPTIONS,
   async (request, response) => {
     applyCors(response);
 
@@ -4469,10 +5209,7 @@ exports.publicEstimateView = onRequest(
 );
 
 exports.publicEstimateSign = onRequest(
-  {
-    region: "us-central1",
-    cors: true,
-  },
+  PUBLIC_CORS_HTTP_OPTIONS,
   async (request, response) => {
     applyCors(response);
 
@@ -4502,10 +5239,7 @@ exports.publicEstimateSign = onRequest(
 );
 
 exports.publicAgreementDocument = onRequest(
-  {
-    region: "us-central1",
-    cors: true,
-  },
+  PUBLIC_CORS_HTTP_OPTIONS,
   async (request, response) => {
     applyCors(response);
 
@@ -4560,6 +5294,7 @@ exports.clientPortalApi = buildClientPortalApi({
   logger,
   onRequest,
   verifyStaffRequest,
+  handleEstimateShareRequest,
   buildEstimateShareUrl,
   buildPublicAgreementDownloadHref,
   loadPublicEstimatePayload,
@@ -4568,10 +5303,7 @@ exports.clientPortalApi = buildClientPortalApi({
 });
 
 exports.generateEstimateDraft = onRequest(
-  {
-    region: "us-central1",
-    cors: true,
-  },
+  PUBLIC_CORS_HTTP_OPTIONS,
   async (request, response) => {
     applyCors(response);
 
