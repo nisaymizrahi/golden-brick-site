@@ -5,6 +5,8 @@ const state = {
   submitting: false,
   signatureDirty: false,
   activePointerId: null,
+  activeStroke: null,
+  signatureStrokes: [],
 };
 
 const refs = {
@@ -421,6 +423,9 @@ function resetSigningUi() {
   refs.signatureCanvas.style.pointerEvents = "auto";
   refs.signatureCanvas.setAttribute("aria-disabled", "false");
   refs.signSubmitButton.disabled = false;
+  state.activePointerId = null;
+  state.activeStroke = null;
+  state.signatureStrokes = [];
   resetCanvas();
 }
 
@@ -495,6 +500,7 @@ function renderPayload(payload) {
   );
   renderAgreement(payload);
   applyReadOnlyMode(payload);
+  syncVisibleSignatureCanvas();
 }
 
 function resetCanvas() {
@@ -506,14 +512,62 @@ function resetCanvas() {
   canvasContext.lineWidth = 2.4;
   canvasContext.lineCap = "round";
   canvasContext.lineJoin = "round";
-  state.signatureDirty = false;
+  redrawSignatureStrokes();
+  state.signatureDirty = state.signatureStrokes.length > 0;
+}
+
+function normalisedPoint(point) {
+  return {
+    x: point.x / Math.max(refs.signatureCanvas.width, 1),
+    y: point.y / Math.max(refs.signatureCanvas.height, 1),
+  };
+}
+
+function canvasPointFromNormalised(point) {
+  return {
+    x: point.x * refs.signatureCanvas.width,
+    y: point.y * refs.signatureCanvas.height,
+  };
+}
+
+function drawSignatureDot(point) {
+  canvasContext.beginPath();
+  canvasContext.arc(point.x, point.y, 1.6, 0, Math.PI * 2);
+  canvasContext.fillStyle = "#6f5430";
+  canvasContext.fill();
+  canvasContext.closePath();
+}
+
+function drawSignatureSegment(fromPoint, toPoint) {
+  canvasContext.beginPath();
+  canvasContext.moveTo(fromPoint.x, fromPoint.y);
+  canvasContext.lineTo(toPoint.x, toPoint.y);
+  canvasContext.stroke();
+  canvasContext.closePath();
+}
+
+function redrawSignatureStrokes() {
+  state.signatureStrokes.forEach((stroke) => {
+    if (!Array.isArray(stroke?.points) || !stroke.points.length) {
+      return;
+    }
+
+    if (stroke.points.length === 1) {
+      drawSignatureDot(canvasPointFromNormalised(stroke.points[0]));
+      return;
+    }
+
+    for (let index = 1; index < stroke.points.length; index += 1) {
+      drawSignatureSegment(
+        canvasPointFromNormalised(stroke.points[index - 1]),
+        canvasPointFromNormalised(stroke.points[index]),
+      );
+    }
+  });
 }
 
 function resizeSignatureCanvas() {
   const ratio = Math.max(window.devicePixelRatio || 1, 1);
-  const existingDataUrl = state.signatureDirty
-    ? refs.signatureCanvas.toDataURL("image/png")
-    : "";
   const bounds = refs.signatureCanvas.getBoundingClientRect();
   const nextWidth = Math.max(Math.round(bounds.width * ratio), 1);
   const nextHeight = Math.max(Math.round(bounds.height * ratio), 1);
@@ -528,23 +582,16 @@ function resizeSignatureCanvas() {
   refs.signatureCanvas.width = nextWidth;
   refs.signatureCanvas.height = nextHeight;
   resetCanvas();
+}
 
-  if (!existingDataUrl) {
+function syncVisibleSignatureCanvas() {
+  if (state.payload?.readOnly) {
     return;
   }
 
-  const image = new Image();
-  image.onload = () => {
-    canvasContext.drawImage(
-      image,
-      0,
-      0,
-      refs.signatureCanvas.width,
-      refs.signatureCanvas.height,
-    );
-    state.signatureDirty = true;
-  };
-  image.src = existingDataUrl;
+  window.requestAnimationFrame(() => {
+    resizeSignatureCanvas();
+  });
 }
 
 function canvasPointFromEvent(event) {
@@ -559,33 +606,51 @@ function canvasPointFromEvent(event) {
 
 function startDrawing(event) {
   if (state.payload?.readOnly) return;
+  event.preventDefault();
 
   state.activePointerId = event.pointerId;
+  state.activeStroke = null;
   refs.signatureCanvas.setPointerCapture(event.pointerId);
   const point = canvasPointFromEvent(event);
-  canvasContext.beginPath();
-  canvasContext.moveTo(point.x, point.y);
+  const stroke = {
+    points: [normalisedPoint(point)],
+  };
+  state.activeStroke = stroke;
+  state.signatureStrokes.push(stroke);
+  drawSignatureDot(point);
   state.signatureDirty = true;
 }
 
 function continueDrawing(event) {
   if (state.payload?.readOnly) return;
   if (state.activePointerId !== event.pointerId) return;
+  event.preventDefault();
 
   const point = canvasPointFromEvent(event);
-  canvasContext.lineTo(point.x, point.y);
-  canvasContext.stroke();
+  const stroke = state.activeStroke;
+  if (!stroke?.points?.length) {
+    return;
+  }
+
+  const nextPoint = normalisedPoint(point);
+  const previousPoint = canvasPointFromNormalised(
+    stroke.points[stroke.points.length - 1],
+  );
+  stroke.points.push(nextPoint);
+  drawSignatureSegment(previousPoint, point);
 }
 
 function stopDrawing(event) {
+  if (state.payload?.readOnly) return;
   if (state.activePointerId !== event.pointerId) return;
+  event.preventDefault();
   try {
     refs.signatureCanvas.releasePointerCapture(event.pointerId);
   } catch (error) {
     // Ignore release failures when the browser has already ended capture.
   }
   state.activePointerId = null;
-  canvasContext.closePath();
+  state.activeStroke = null;
 }
 
 async function loadEstimate() {
@@ -672,6 +737,8 @@ function clearSignature() {
   if (state.payload?.readOnly) {
     return;
   }
+  state.signatureStrokes = [];
+  state.activeStroke = null;
   resetCanvas();
   setStatus("Signature cleared. Draw your signature again when you are ready.");
 }

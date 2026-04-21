@@ -382,6 +382,7 @@ a {
 .checkbox-row input {
   margin-top: 3px;
   width: auto;
+  accent-color: var(--estimate-brand-deep);
 }
 
 input[type="text"],
@@ -423,6 +424,7 @@ textarea:focus-visible,
   width: 100%;
   min-height: 220px;
   height: 220px;
+  display: block;
   border-radius: 18px;
   border: 1px dashed rgba(60, 43, 24, 0.22);
   background: linear-gradient(
@@ -432,6 +434,9 @@ textarea:focus-visible,
   );
   touch-action: none;
   cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .form-actions {
