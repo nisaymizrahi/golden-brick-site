@@ -65,6 +65,62 @@ function normaliseEmail(value) {
   return safeString(value).toLowerCase();
 }
 
+function httpError(message, status = 500) {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+}
+
+function httpStatusForError(error, fallback = 500) {
+  if (Number.isInteger(error?.status)) {
+    return error.status;
+  }
+
+  const code = safeString(error?.code).toLowerCase();
+  if (
+    code.includes("id-token-expired") ||
+    code.includes("argument-error") ||
+    code.includes("invalid-credential") ||
+    code.includes("invalid-id-token")
+  ) {
+    return 401;
+  }
+
+  if (
+    code.includes("insufficient-permission") ||
+    code.includes("permission-denied") ||
+    code.includes("user-disabled")
+  ) {
+    return 403;
+  }
+
+  if (
+    code.includes("deadline-exceeded") ||
+    code.includes("unavailable") ||
+    code.includes("resource-exhausted")
+  ) {
+    return 503;
+  }
+
+  return fallback;
+}
+
+async function verifyStaffIdToken(request) {
+  const authHeader = request.get("authorization") || "";
+  const matches = authHeader.match(/^Bearer (.+)$/i);
+
+  if (!matches) {
+    throw httpError("Missing bearer token.", 401);
+  }
+
+  try {
+    return await admin.auth().verifyIdToken(matches[1]);
+  } catch (error) {
+    logger.warn("Staff bearer token could not be verified.", error);
+    throw httpError("Your staff session expired. Please sign in again.", 401);
+  }
+}
+
 function normalisePhone(value) {
   const digits = String(value || "").replace(/\D/g, "");
   if (digits.length === 11 && digits.startsWith("1")) {
@@ -591,14 +647,7 @@ async function resolveLeadAssignee() {
 }
 
 async function verifyStaffRequest(request) {
-  const authHeader = request.get("authorization") || "";
-  const matches = authHeader.match(/^Bearer (.+)$/i);
-
-  if (!matches) {
-    throw new Error("Missing bearer token.");
-  }
-
-  const decoded = await admin.auth().verifyIdToken(matches[1]);
+  const decoded = await verifyStaffIdToken(request);
   const email = safeString(decoded.email).toLowerCase();
   const userSnap = await db.collection("users").doc(decoded.uid).get();
 
@@ -610,12 +659,12 @@ async function verifyStaffRequest(request) {
   }
 
   if (!email) {
-    throw new Error("User is not authorised for the staff portal.");
+    throw httpError("User is not authorised for the staff portal.", 403);
   }
 
   const allowedSnap = await db.collection("allowedStaff").doc(sanitizeEmailKey(email)).get();
   if (!allowedSnap.exists || allowedSnap.data().active !== true) {
-    throw new Error("User is not authorised for the staff portal.");
+    throw httpError("User is not authorised for the staff portal.", 403);
   }
 
   return {
@@ -881,19 +930,7 @@ exports.syncStaffSession = onRequest(
     }
 
     try {
-      const authHeader = request.get("authorization") || "";
-      const matches = authHeader.match(/^Bearer (.+)$/i);
-
-      if (!matches) {
-        respondJson(response, 401, {
-          ok: false,
-          authorised: false,
-          message: "Missing auth token."
-        });
-        return;
-      }
-
-      const decoded = await admin.auth().verifyIdToken(matches[1]);
+      const decoded = await verifyStaffIdToken(request);
       const email = safeString(decoded.email).toLowerCase();
       const emailKey = sanitizeEmailKey(email);
       const bootstrapAdmins = parseCommaList(CRM_ADMIN_EMAILS.value());
@@ -922,7 +959,13 @@ exports.syncStaffSession = onRequest(
         return;
       }
 
-      await ensureDefaultTemplate();
+      let templateSynced = true;
+      try {
+        await ensureDefaultTemplate();
+      } catch (error) {
+        templateSynced = false;
+        logger.warn("Default estimate template sync degraded during staff login.", error);
+      }
 
       const profile = buildStaffProfile(decoded, allowedData);
 
@@ -965,14 +1008,16 @@ exports.syncStaffSession = onRequest(
         authorised: true,
         mode: "api",
         claimsSynced,
+        templateSynced,
         profile: serialiseStaffProfile(profile)
       });
     } catch (error) {
       logger.error("Staff session sync failed.", error);
-      respondJson(response, 500, {
+      const status = httpStatusForError(error, 503);
+      respondJson(response, status, {
         ok: false,
         authorised: false,
-        message: "Could not verify this staff account."
+        message: error.message || "Could not verify this staff account."
       });
     }
   }
@@ -1018,7 +1063,7 @@ exports.syncLeadCustomerLink = onRequest(
       });
     } catch (error) {
       logger.error("Lead customer sync failed.", error);
-      respondJson(response, error.status || 500, {
+      respondJson(response, httpStatusForError(error), {
         ok: false,
         message: error.message || "Could not sync the lead customer."
       });
@@ -1173,7 +1218,7 @@ exports.convertLeadToProject = onRequest(
       });
     } catch (error) {
       logger.error("Lead conversion failed.", error);
-      respondJson(response, error.status || 500, {
+      respondJson(response, httpStatusForError(error), {
         ok: false,
         message: error.message || "Could not convert the lead right now."
       });

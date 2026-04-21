@@ -12,7 +12,7 @@ import {
     collection,
     doc,
     getDoc,
-    getFirestore,
+    initializeFirestore,
     onSnapshot,
     query,
     serverTimestamp,
@@ -668,6 +668,8 @@ function isPermissionDeniedError(error) {
 
 function shouldFallbackToFirestore(error) {
     return error?.status === 404
+        || error?.status === 401
+        || error?.status === 403
         || error?.status >= 500
         || isPermissionDeniedError(error)
         || /Failed to fetch/i.test(error?.message || "");
@@ -3510,8 +3512,23 @@ function renderAll() {
     }
 }
 
-async function apiPost(path, body) {
-    const token = await state.currentUser.getIdToken();
+function shouldRetryApiRequest(error) {
+    return error?.status === 401
+        || error?.status === 403
+        || error?.status === 408
+        || error?.status === 429
+        || error?.status >= 500
+        || /Failed to fetch/i.test(error?.message || "");
+}
+
+async function apiPostOnce(path, body, { forceRefresh = false } = {}) {
+    if (!state.currentUser) {
+        const error = new Error("Your staff session is not active. Please sign in again.");
+        error.status = 401;
+        throw error;
+    }
+
+    const token = await state.currentUser.getIdToken(forceRefresh);
     const response = await fetch(path, {
         method: "POST",
         headers: {
@@ -3531,6 +3548,18 @@ async function apiPost(path, body) {
     }
 
     return payload;
+}
+
+async function apiPost(path, body) {
+    try {
+        return await apiPostOnce(path, body);
+    } catch (error) {
+        if (!shouldRetryApiRequest(error)) {
+            throw error;
+        }
+
+        return apiPostOnce(path, body, { forceRefresh: true });
+    }
 }
 
 function selectLead(leadId) {
@@ -3590,12 +3619,14 @@ async function syncSession(user) {
     const allowedRef = doc(state.db, "allowedStaff", sanitiseEmailKey(email));
 
     async function syncSessionViaApi() {
-        const token = await user.getIdToken();
+        const token = await user.getIdToken(true);
         const response = await fetch("/api/auth/sync-session", {
             method: "POST",
             headers: {
+                "Content-Type": "application/json",
                 Authorization: "Bearer " + token
-            }
+            },
+            body: "{}"
         });
         const payload = await response.json().catch(() => ({}));
 
@@ -3925,7 +3956,9 @@ async function bootstrapFirebase() {
 
         state.app = initializeApp(firebaseConfig);
         state.auth = getAuth(state.app);
-        state.db = getFirestore(state.app);
+        state.db = initializeFirestore(state.app, {
+            experimentalForceLongPolling: true
+        });
         state.storage = getStorage(state.app);
         state.provider = new GoogleAuthProvider();
         state.provider.setCustomParameters({ prompt: "select_account" });
@@ -4048,8 +4081,176 @@ function selectedTaskAssignee(select) {
     return activeStaffOptions().find((member) => member.uid === uid) || null;
 }
 
+function customerPayloadFromLead(leadData = {}, existingCustomer = {}) {
+    return {
+        name: safeString(existingCustomer.name || leadData.customerName || leadData.clientName || "Unnamed customer"),
+        primaryEmail: safeString(existingCustomer.primaryEmail || leadData.clientEmail),
+        primaryPhone: safeString(existingCustomer.primaryPhone || leadData.clientPhone),
+        primaryAddress: safeString(existingCustomer.primaryAddress || leadData.projectAddress),
+        notes: safeString(existingCustomer.notes),
+        searchEmail: normaliseEmail(existingCustomer.searchEmail || existingCustomer.primaryEmail || leadData.clientEmail),
+        searchPhone: normalisePhone(existingCustomer.searchPhone || existingCustomer.primaryPhone || leadData.clientPhone),
+        allowedStaffUids: uniqueValues([
+            ...(existingCustomer.allowedStaffUids || []),
+            safeString(leadData.assignedToUid),
+            safeString(state.profile?.uid)
+        ])
+    };
+}
+
+function matchingCustomersForLead(leadData = {}) {
+    const leadEmail = normaliseEmail(leadData.clientEmail);
+    const leadPhone = normalisePhone(leadData.clientPhone);
+
+    if (!leadEmail && !leadPhone) {
+        return [];
+    }
+
+    return state.customers
+        .filter((customer) => {
+            const customerEmail = normaliseEmail(customer.searchEmail || customer.primaryEmail);
+            const customerPhone = normalisePhone(customer.searchPhone || customer.primaryPhone);
+            return (leadEmail && customerEmail === leadEmail)
+                || (leadPhone && customerPhone === leadPhone);
+        })
+        .sort((left, right) => toMillis(right.updatedAt || right.createdAt) - toMillis(left.updatedAt || left.createdAt));
+}
+
+async function writeCustomerFromLead(customerRef, leadData = {}, existingCustomer = {}) {
+    const payload = customerPayloadFromLead(leadData, existingCustomer);
+    await setDoc(customerRef, {
+        id: customerRef.id,
+        ...payload,
+        createdAt: existingCustomer.createdAt || serverTimestamp(),
+        updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    return {
+        id: customerRef.id,
+        name: payload.name
+    };
+}
+
+async function syncLeadCustomerLinkDirect(leadId) {
+    if (!isAdmin()) {
+        const error = new Error("Backend customer linking is unavailable, and only admins can use the direct Firestore fallback.");
+        error.status = 503;
+        throw error;
+    }
+
+    const leadRef = doc(state.db, "leads", leadId);
+    const leadSnap = await getDoc(leadRef);
+    if (!leadSnap.exists()) {
+        const error = new Error("Lead not found.");
+        error.status = 404;
+        throw error;
+    }
+
+    const leadData = {
+        id: leadSnap.id,
+        ...leadSnap.data()
+    };
+
+    if (leadData.customerId) {
+        const existingCustomer = state.customers.find((customer) => customer.id === leadData.customerId) || {};
+        const linkedCustomer = await writeCustomerFromLead(
+            doc(state.db, "customers", leadData.customerId),
+            leadData,
+            existingCustomer
+        );
+
+        await setDoc(leadRef, {
+            customerId: linkedCustomer.id,
+            customerName: linkedCustomer.name,
+            customerMatchResult: "linked",
+            customerReviewRequired: false,
+            customerMatchIds: [linkedCustomer.id],
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        return {
+            ok: true,
+            customerId: linkedCustomer.id,
+            customerName: linkedCustomer.name,
+            matchResult: "linked",
+            reviewRequired: false,
+            customerMatchIds: [linkedCustomer.id],
+            fallback: "firestore"
+        };
+    }
+
+    const matches = matchingCustomersForLead(leadData);
+
+    if (matches.length > 1) {
+        const customerMatchIds = matches.map((customer) => customer.id);
+        await setDoc(leadRef, {
+            customerId: null,
+            customerName: "",
+            customerMatchResult: "review_required",
+            customerReviewRequired: true,
+            customerMatchIds,
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        return {
+            ok: true,
+            customerId: null,
+            customerName: "",
+            matchResult: "review_required",
+            reviewRequired: true,
+            customerMatchIds,
+            fallback: "firestore"
+        };
+    }
+
+    const targetCustomer = matches[0] || null;
+    const customerRef = targetCustomer
+        ? doc(state.db, "customers", targetCustomer.id)
+        : doc(collection(state.db, "customers"));
+    const linkedCustomer = await writeCustomerFromLead(
+        customerRef,
+        {
+            ...leadData,
+            customerId: targetCustomer?.id || "",
+            customerName: targetCustomer?.name || leadData.clientName
+        },
+        targetCustomer || {}
+    );
+    const matchResult = targetCustomer ? "linked" : "created";
+
+    await setDoc(leadRef, {
+        customerId: linkedCustomer.id,
+        customerName: linkedCustomer.name,
+        customerMatchResult: matchResult,
+        customerReviewRequired: false,
+        customerMatchIds: [linkedCustomer.id],
+        updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    return {
+        ok: true,
+        customerId: linkedCustomer.id,
+        customerName: linkedCustomer.name,
+        matchResult,
+        reviewRequired: false,
+        customerMatchIds: [linkedCustomer.id],
+        fallback: "firestore"
+    };
+}
+
 async function syncLeadCustomerLink(leadId, { quiet = false } = {}) {
-    const payload = await apiPost("/api/staff/lead-customer-link", { leadId });
+    let payload;
+
+    try {
+        payload = await apiPost("/api/staff/lead-customer-link", { leadId });
+    } catch (error) {
+        if (!shouldRetryApiRequest(error) || !isAdmin()) {
+            throw error;
+        }
+
+        payload = await syncLeadCustomerLinkDirect(leadId);
+        setBanner("Customer linking used the direct Firestore fallback because the staff API is temporarily unavailable.", "info");
+    }
 
     if (!quiet) {
         if (payload.matchResult === "created") {
@@ -4468,6 +4669,149 @@ async function moveLeadToStatus(lead, nextStatus, { source = "button" } = {}) {
     showToast(nextStatus === "closed_lost" ? "Lead marked lost." : `Lead moved to ${STATUS_META[nextStatus]}.`);
 }
 
+function initialProjectFinancials(baseContractValue, assignedWorkers = []) {
+    const contractValue = toNumber(baseContractValue);
+    const workerBreakdown = assignedWorkers.map((worker, index) => ({
+        uid: worker.uid || `worker-${index + 1}`,
+        name: worker.name || worker.email || "Assigned worker",
+        email: worker.email || "",
+        percent: toNumber(worker.percent) || (assignedWorkers.length === 1 ? 100 : 0),
+        amount: 0
+    }));
+
+    return {
+        baseContractValue: contractValue,
+        approvedChangeOrdersTotal: 0,
+        totalContractRevenue: contractValue,
+        totalExpenses: 0,
+        totalPayments: 0,
+        profit: contractValue,
+        projectedGrossProfit: contractValue,
+        distributableProfit: Math.max(contractValue, 0),
+        cashPosition: 0,
+        balanceRemaining: contractValue,
+        companyShare: Math.max(contractValue, 0) * 0.5,
+        workerPool: Math.max(contractValue, 0) * 0.5,
+        workerBreakdown,
+        updatedAt: serverTimestamp()
+    };
+}
+
+async function convertLeadToProjectDirect(leadId) {
+    if (!isAdmin()) {
+        const error = new Error("Backend lead conversion is unavailable, and only admins can use the direct Firestore fallback.");
+        error.status = 503;
+        throw error;
+    }
+
+    const leadRef = doc(state.db, "leads", leadId);
+    const projectRef = doc(state.db, "projects", leadId);
+    const existingProjectSnap = await getDoc(projectRef);
+    if (existingProjectSnap.exists()) {
+        return {
+            ok: true,
+            existing: true,
+            projectId: leadId,
+            fallback: "firestore"
+        };
+    }
+
+    const customerLink = await syncLeadCustomerLinkDirect(leadId);
+    if (customerLink.matchResult === "review_required") {
+        return customerLink;
+    }
+
+    const refreshedLeadSnap = await getDoc(leadRef);
+    if (!refreshedLeadSnap.exists()) {
+        const error = new Error("Lead not found.");
+        error.status = 404;
+        throw error;
+    }
+
+    const refreshedLead = refreshedLeadSnap.data() || {};
+    const leadOwnerUid = safeString(refreshedLead.assignedToUid || state.profile?.uid);
+    const leadOwnerName = safeString(refreshedLead.assignedToName || state.profile?.displayName || state.profile?.email);
+    const leadOwnerEmail = normaliseEmail(refreshedLead.assignedToEmail || state.profile?.email);
+    const assignedWorkers = leadOwnerUid
+        ? [{
+            uid: leadOwnerUid,
+            name: leadOwnerName,
+            email: leadOwnerEmail,
+            percent: 100
+        }]
+        : [];
+    const financials = initialProjectFinancials(refreshedLead.estimateSubtotal || 0, assignedWorkers);
+    const batch = writeBatch(state.db);
+
+    batch.set(projectRef, {
+        id: leadId,
+        leadId,
+        customerId: customerLink.customerId,
+        customerName: customerLink.customerName,
+        clientName: safeString(refreshedLead.clientName),
+        clientEmail: normaliseEmail(refreshedLead.clientEmail),
+        clientPhone: safeString(refreshedLead.clientPhone),
+        projectAddress: safeString(refreshedLead.projectAddress),
+        projectType: safeString(refreshedLead.projectType),
+        status: "in_progress",
+        baseContractValue: financials.baseContractValue,
+        approvedChangeOrdersTotal: financials.approvedChangeOrdersTotal,
+        totalContractRevenue: financials.totalContractRevenue,
+        cashPosition: financials.cashPosition,
+        balanceRemaining: financials.balanceRemaining,
+        jobValue: financials.totalContractRevenue,
+        assignedLeadOwnerUid: leadOwnerUid || null,
+        assignedWorkers,
+        assignedWorkerIds: assignedWorkers.map((worker) => worker.uid).filter(Boolean),
+        allowedStaffUids: uniqueValues([
+            leadOwnerUid,
+            ...assignedWorkers.map((worker) => worker.uid)
+        ]),
+        commissionLocked: false,
+        lockedCommissionSnapshot: null,
+        financials,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    batch.set(leadRef, {
+        status: "closed_won",
+        statusLabel: STATUS_META.closed_won,
+        customerId: customerLink.customerId,
+        customerName: customerLink.customerName,
+        wonProjectId: leadId,
+        updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    await batch.commit();
+
+    await Promise.all([
+        addDoc(collection(state.db, "leads", leadId, "activities"), {
+            activityType: "system",
+            title: "Lead converted to job",
+            body: "Won job created and linked to the customer record.",
+            actorName: state.profile?.displayName || state.profile?.email || "Team",
+            actorUid: state.profile?.uid || "",
+            actorRole: state.profile?.role || "employee",
+            createdAt: serverTimestamp()
+        }),
+        addProjectActivityEntry(
+            leadId,
+            "system",
+            "Job created from won lead",
+            "The won lead was converted into the operational job record."
+        )
+    ]);
+
+    return {
+        ok: true,
+        existing: false,
+        projectId: leadId,
+        matchResult: customerLink.matchResult,
+        fallback: "firestore"
+    };
+}
+
 async function convertLeadToProject(lead = currentLeadDoc()) {
     if (!lead?.id) {
         showToast("Save the lead first.", "error");
@@ -4499,7 +4843,18 @@ async function convertLeadToProject(lead = currentLeadDoc()) {
         });
     }
 
-    const response = await apiPost("/api/staff/convert-lead", { leadId: lead.id });
+    let response;
+
+    try {
+        response = await apiPost("/api/staff/convert-lead", { leadId: lead.id });
+    } catch (error) {
+        if (!shouldRetryApiRequest(error) || !isAdmin()) {
+            throw error;
+        }
+
+        response = await convertLeadToProjectDirect(lead.id);
+        setBanner("Lead conversion used the direct Firestore fallback because the staff API is temporarily unavailable.", "info");
+    }
 
     if (response.matchResult === "review_required") {
         showToast("Multiple customer matches were found. Review the linked customer first.", "error");
