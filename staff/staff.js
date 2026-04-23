@@ -394,6 +394,11 @@ const state = {
     projectExpenses: [],
     projectPayments: [],
     projectChangeOrders: [],
+    projectDetailLoaded: {
+        expenses: false,
+        payments: false,
+        changeOrders: false
+    },
     projectDocuments: [],
     projectNotes: [],
     projectActivities: [],
@@ -453,6 +458,29 @@ function sanitiseEmailKey(email) {
 function toNumber(value) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function firstFiniteNumber(...values) {
+    for (const value of values) {
+        if (value === null || value === undefined || value === "") {
+            continue;
+        }
+
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) {
+            return parsed;
+        }
+    }
+
+    return 0;
+}
+
+function normaliseChangeOrderStatus(value) {
+    const status = safeString(value).toLowerCase();
+    if (status === "approved" || status === "void") {
+        return status;
+    }
+    return "draft";
 }
 
 function toMillis(value) {
@@ -2943,7 +2971,7 @@ function renderJobMetrics() {
     const inProgress = state.projects.filter((project) => project.status !== "completed").length;
     const completed = state.projects.filter((project) => project.status === "completed").length;
     const totalRevenue = state.projects.reduce((sum, project) => sum + projectRevenueValue(project), 0);
-    const totalPayments = state.projects.reduce((sum, project) => sum + toNumber(projectFinancials(project).totalPayments), 0);
+    const totalPayments = state.projects.reduce((sum, project) => sum + firstFiniteNumber(projectFinancials(project).totalPayments, 0), 0);
 
     renderMetricStrip(refs.jobMetrics, [
         { label: "In progress", value: inProgress },
@@ -2974,8 +3002,8 @@ function renderJobList() {
                 <div class="record-meta">
                     <div>${escapeHtml(project.customerName || "No linked customer")}</div>
                     <div>Revenue ${escapeHtml(formatCurrency(projectRevenueValue(project)))}</div>
-                    <div>Balance ${escapeHtml(formatCurrency(financials.balanceRemaining || project.balanceRemaining || 0))}</div>
-                    <div>Profit ${escapeHtml(formatCurrency(financials.projectedGrossProfit || financials.profit || 0))}</div>
+                    <div>Balance ${escapeHtml(formatCurrency(firstFiniteNumber(financials.balanceRemaining, project.balanceRemaining, 0)))}</div>
+                    <div>Profit ${escapeHtml(formatCurrency(firstFiniteNumber(financials.projectedGrossProfit, financials.profit, 0)))}</div>
                 </div>
             </button>
         `;
@@ -3010,13 +3038,107 @@ function renderWorkerAssignments(project) {
     }).join("");
 }
 
+function normaliseAssignedProjectWorkers(project) {
+    const storedWorkers = Array.isArray(project?.financials?.workerBreakdown) ? project.financials.workerBreakdown : [];
+    const source = Array.isArray(project?.assignedWorkers) && project.assignedWorkers.length
+        ? project.assignedWorkers
+        : storedWorkers;
+
+    return source
+        .filter((worker) => safeString(worker?.uid || worker?.email || worker?.name))
+        .map((worker, index) => ({
+            uid: safeString(worker.uid || `worker-${index + 1}`),
+            name: safeString(worker.name || worker.email || "Assigned worker"),
+            email: safeString(worker.email),
+            percent: toNumber(worker.percent)
+        }));
+}
+
+function selectedProjectFinancialsReady(project) {
+    return Boolean(
+        project?.id
+        && project.id === state.selectedProjectId
+        && state.projectDetailLoaded.expenses
+        && state.projectDetailLoaded.payments
+        && state.projectDetailLoaded.changeOrders
+    );
+}
+
+function computeSelectedProjectFinancials(project) {
+    const storedFinancials = project?.financials || {};
+    if (!selectedProjectFinancialsReady(project)) {
+        return storedFinancials;
+    }
+
+    const baseContractValue = firstFiniteNumber(
+        project?.baseContractValue,
+        storedFinancials.baseContractValue,
+        project?.jobValue,
+        0
+    );
+    const approvedChangeOrdersTotal = state.projectChangeOrders
+        .filter((changeOrder) => normaliseChangeOrderStatus(changeOrder.status) === "approved")
+        .reduce((sum, changeOrder) => sum + toNumber(changeOrder.amount), 0);
+    const totalContractRevenue = baseContractValue + approvedChangeOrdersTotal;
+    const totalExpenses = state.projectExpenses.reduce((sum, expense) => sum + toNumber(expense.amount), 0);
+    const totalPayments = state.projectPayments.reduce((sum, payment) => sum + toNumber(payment.amount), 0);
+    const rawProfit = totalContractRevenue - totalExpenses;
+    const distributableProfit = Math.max(rawProfit, 0);
+    const companyShare = distributableProfit * 0.5;
+    const workerPool = distributableProfit * 0.5;
+    const cashPosition = totalPayments - totalExpenses;
+    const balanceRemaining = totalContractRevenue - totalPayments;
+    const assignedWorkers = normaliseAssignedProjectWorkers(project);
+    const totalPercent = assignedWorkers.reduce((sum, worker) => sum + worker.percent, 0);
+    const workerBreakdown = assignedWorkers.map((worker, index) => {
+        let effectivePercent = worker.percent;
+
+        if (assignedWorkers.length === 1 && totalPercent <= 0) {
+            effectivePercent = 100;
+        } else if (totalPercent > 0) {
+            effectivePercent = (worker.percent / totalPercent) * 100;
+        }
+
+        return {
+            uid: worker.uid || `worker-${index + 1}`,
+            name: worker.name || worker.email || "Assigned worker",
+            email: worker.email,
+            percent: Number(effectivePercent.toFixed(2)),
+            amount: Number(((workerPool * effectivePercent) / 100).toFixed(2))
+        };
+    });
+
+    return {
+        ...storedFinancials,
+        baseContractValue: Number(baseContractValue.toFixed(2)),
+        approvedChangeOrdersTotal: Number(approvedChangeOrdersTotal.toFixed(2)),
+        totalContractRevenue: Number(totalContractRevenue.toFixed(2)),
+        totalExpenses: Number(totalExpenses.toFixed(2)),
+        totalPayments: Number(totalPayments.toFixed(2)),
+        profit: Number(rawProfit.toFixed(2)),
+        projectedGrossProfit: Number(rawProfit.toFixed(2)),
+        distributableProfit: Number(distributableProfit.toFixed(2)),
+        cashPosition: Number(cashPosition.toFixed(2)),
+        balanceRemaining: Number(balanceRemaining.toFixed(2)),
+        companyShare: Number(companyShare.toFixed(2)),
+        workerPool: Number(workerPool.toFixed(2)),
+        workerBreakdown
+    };
+}
+
 function projectFinancials(project) {
-    return project?.financials || {};
+    return computeSelectedProjectFinancials(project);
 }
 
 function projectRevenueValue(project) {
     const financials = projectFinancials(project);
-    return toNumber(financials.totalContractRevenue || project?.totalContractRevenue || project?.jobValue || project?.baseContractValue);
+    return firstFiniteNumber(
+        financials.totalContractRevenue,
+        project?.totalContractRevenue,
+        project?.jobValue,
+        project?.baseContractValue,
+        0
+    );
 }
 
 function lockedCommissionSnapshot(project) {
@@ -3103,9 +3225,9 @@ function renderJobRecordContext(project) {
         }),
         buildContextCard({
             label: "Cash position",
-            title: formatCurrency(financials.cashPosition || project.cashPosition || 0),
+            title: formatCurrency(firstFiniteNumber(financials.cashPosition, project.cashPosition, 0)),
             meta: assignedWorkers.length
-                ? `${assignedWorkers.length} assigned · Balance ${formatCurrency(financials.balanceRemaining || project.balanceRemaining || 0)}`
+                ? `${assignedWorkers.length} assigned · Balance ${formatCurrency(firstFiniteNumber(financials.balanceRemaining, project.balanceRemaining, 0))}`
                 : "Assign workers and expenses to track the true margin.",
             muted: true
         })
@@ -3116,11 +3238,11 @@ function renderJobSummaryStrip(project) {
     const financials = projectFinancials(project);
     refs.jobSummaryStrip.innerHTML = [
         { label: "Total contract revenue", value: formatCurrency(projectRevenueValue(project)) },
-        { label: "Payments received", value: formatCurrency(financials.totalPayments || 0) },
-        { label: "Expenses recorded", value: formatCurrency(financials.totalExpenses || 0) },
-        { label: "Projected gross profit", value: formatCurrency(financials.projectedGrossProfit || financials.profit || 0) },
-        { label: "Cash position", value: formatCurrency(financials.cashPosition || project.cashPosition || 0) },
-        { label: "Balance remaining", value: formatCurrency(financials.balanceRemaining || project.balanceRemaining || 0) }
+        { label: "Payments received", value: formatCurrency(firstFiniteNumber(financials.totalPayments, 0)) },
+        { label: "Expenses recorded", value: formatCurrency(firstFiniteNumber(financials.totalExpenses, 0)) },
+        { label: "Projected gross profit", value: formatCurrency(firstFiniteNumber(financials.projectedGrossProfit, financials.profit, 0)) },
+        { label: "Cash position", value: formatCurrency(firstFiniteNumber(financials.cashPosition, project.cashPosition, 0)) },
+        { label: "Balance remaining", value: formatCurrency(firstFiniteNumber(financials.balanceRemaining, project.balanceRemaining, 0)) }
     ].map((item) => `
         <article class="finance-card">
             <span>${escapeHtml(item.label)}</span>
@@ -3142,7 +3264,7 @@ function renderJobOverviewSummary(project) {
         { label: "Open tasks", value: String(openTasks.length) },
         { label: "Documents", value: String(documents) },
         { label: "Estimate total", value: linkedLead ? formatCurrency(linkedLead.estimateSubtotal || 0) : "No estimate" },
-        { label: "Balance remaining", value: formatCurrency(financials.balanceRemaining || project.balanceRemaining || 0) }
+        { label: "Balance remaining", value: formatCurrency(firstFiniteNumber(financials.balanceRemaining, project.balanceRemaining, 0)) }
     ].map((item) => `
         <article class="summary-card">
             <span>${escapeHtml(item.label)}</span>
@@ -3184,10 +3306,10 @@ function renderExpenseReceiptOptions() {
 function renderRevenueSummary(project) {
     const financials = projectFinancials(project);
     refs.jobRevenueSummary.innerHTML = [
-        { label: "Base contract", value: formatCurrency(project.baseContractValue || financials.baseContractValue || 0) },
-        { label: "Approved change orders", value: formatCurrency(project.approvedChangeOrdersTotal || financials.approvedChangeOrdersTotal || 0) },
+        { label: "Base contract", value: formatCurrency(firstFiniteNumber(project.baseContractValue, financials.baseContractValue, project.jobValue, 0)) },
+        { label: "Approved change orders", value: formatCurrency(firstFiniteNumber(financials.approvedChangeOrdersTotal, project.approvedChangeOrdersTotal, 0)) },
         { label: "Total revenue", value: formatCurrency(projectRevenueValue(project)) },
-        { label: "Balance remaining", value: formatCurrency(financials.balanceRemaining || project.balanceRemaining || 0) }
+        { label: "Balance remaining", value: formatCurrency(firstFiniteNumber(financials.balanceRemaining, project.balanceRemaining, 0)) }
     ].map((item) => `
         <article class="finance-card">
             <span>${escapeHtml(item.label)}</span>
@@ -3244,9 +3366,9 @@ function renderTeamFinancialSummary(project) {
         : null;
 
     refs.jobTeamFinancialSummary.innerHTML = [
-        { label: "Company share", value: formatCurrency(financials.companyShare || 0) },
-        { label: "Worker pool", value: formatCurrency(financials.workerPool || 0) },
-        { label: "My projected payout", value: formatCurrency(myBreakdown?.amount || 0) },
+        { label: "Company share", value: formatCurrency(firstFiniteNumber(financials.companyShare, 0)) },
+        { label: "Worker pool", value: formatCurrency(firstFiniteNumber(financials.workerPool, 0)) },
+        { label: "My projected payout", value: formatCurrency(firstFiniteNumber(myBreakdown?.amount, 0)) },
         { label: "Lock state", value: project.commissionLocked ? "Locked" : "Projected" }
     ].map((item) => `
         <article class="finance-card">
@@ -3287,7 +3409,7 @@ function renderCommissionState(project) {
             <div><strong>Locked profit:</strong> ${escapeHtml(formatCurrency(snapshot.projectedGrossProfit || 0))}</div>
             <div><strong>Locked worker pool:</strong> ${escapeHtml(formatCurrency(snapshot.workerPool || 0))}</div>
             <div><strong>Locked on:</strong> ${escapeHtml(formatDateTime(snapshot.lockedAt))}</div>
-            <div><strong>Live gross profit now:</strong> ${escapeHtml(formatCurrency(financials.projectedGrossProfit || financials.profit || 0))}</div>
+            <div><strong>Live gross profit now:</strong> ${escapeHtml(formatCurrency(firstFiniteNumber(financials.projectedGrossProfit, financials.profit, 0)))}</div>
         `
         : "No locked commission snapshot yet.";
 
@@ -3392,7 +3514,7 @@ function renderJobDetail() {
     refs.jobRecordBadge.className = "status-pill";
     refs.jobStatusSelect.value = project.status || "in_progress";
     refs.jobStatusSelect.disabled = !isAdmin();
-    refs.jobBaseContractInput.value = toNumber(project.baseContractValue || financials.baseContractValue || project.jobValue || 0);
+    refs.jobBaseContractInput.value = firstFiniteNumber(project.baseContractValue, financials.baseContractValue, project.jobValue, 0);
     refs.jobBaseContractInput.readOnly = !isAdmin();
     refs.jobCustomerDisplay.value = project.customerName || "No linked customer";
     refs.jobAddressDisplay.value = project.projectAddress || "";
@@ -3849,6 +3971,11 @@ function subscribeProjectDetail() {
     state.projectExpenses = [];
     state.projectPayments = [];
     state.projectChangeOrders = [];
+    state.projectDetailLoaded = {
+        expenses: false,
+        payments: false,
+        changeOrders: false
+    };
     state.projectDocuments = [];
     state.projectNotes = [];
     state.projectActivities = [];
@@ -3863,10 +3990,15 @@ function subscribeProjectDetail() {
         state.projectExpenses = snapshot.docs
             .map(normaliseFirestoreDoc)
             .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
+        state.projectDetailLoaded.expenses = true;
+        renderJobMetrics();
+        renderJobList();
         renderJobDetail();
     }, (error) => {
         handleDetailSubscriptionError("Job expenses", error, () => {
             state.projectExpenses = [];
+            renderJobMetrics();
+            renderJobList();
             renderJobDetail();
         });
     }));
@@ -3875,10 +4007,15 @@ function subscribeProjectDetail() {
         state.projectPayments = snapshot.docs
             .map(normaliseFirestoreDoc)
             .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
+        state.projectDetailLoaded.payments = true;
+        renderJobMetrics();
+        renderJobList();
         renderJobDetail();
     }, (error) => {
         handleDetailSubscriptionError("Job payments", error, () => {
             state.projectPayments = [];
+            renderJobMetrics();
+            renderJobList();
             renderJobDetail();
         });
     }));
@@ -3887,10 +4024,15 @@ function subscribeProjectDetail() {
         state.projectChangeOrders = snapshot.docs
             .map(normaliseFirestoreDoc)
             .sort((left, right) => toMillis(right.relatedDate || right.createdAt) - toMillis(left.relatedDate || left.createdAt));
+        state.projectDetailLoaded.changeOrders = true;
+        renderJobMetrics();
+        renderJobList();
         renderJobDetail();
     }, (error) => {
         handleDetailSubscriptionError("Job change orders", error, () => {
             state.projectChangeOrders = [];
+            renderJobMetrics();
+            renderJobList();
             renderJobDetail();
         });
     }));
@@ -3992,6 +4134,11 @@ async function bootstrapFirebase() {
                 state.projectExpenses = [];
                 state.projectPayments = [];
                 state.projectChangeOrders = [];
+                state.projectDetailLoaded = {
+                    expenses: false,
+                    payments: false,
+                    changeOrders: false
+                };
                 state.projectDocuments = [];
                 state.projectNotes = [];
                 state.projectActivities = [];
