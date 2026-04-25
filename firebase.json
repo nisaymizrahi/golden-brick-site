@@ -60,9 +60,71 @@
             "value": "same-origin-allow-popups"
           }
         ]
+      },
+      {
+        "source": "/client",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
+      },
+      {
+        "source": "/client/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
+      },
+      {
+        "source": "/client/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
+      },
+      {
+        "source": "/estimate",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
+      },
+      {
+        "source": "/estimate/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
+      },
+      {
+        "source": "/estimate/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
       }
     ],
     "rewrites": [
+      {
+        "source": "/client/**",
+        "destination": "/client/index.html"
+      },
+      {
+        "source": "/estimate/**",
+        "destination": "/estimate/index.html"
+      },
       {
         "source": "/api/public/lead-intake",
         "function": {
@@ -92,9 +154,65 @@
         }
       },
       {
+        "source": "/api/staff/create-service-order",
+        "function": {
+          "functionId": "createServiceOrder",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/staff/create-service-checkout",
+        "function": {
+          "functionId": "createServiceCheckout",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/staff/estimate-share",
+        "function": {
+          "functionId": "clientPortalApi",
+          "region": "us-central1"
+        }
+      },
+      {
         "source": "/api/staff/estimate-draft",
         "function": {
           "functionId": "generateEstimateDraft",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/public/estimate-view",
+        "function": {
+          "functionId": "clientPortalApi",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/public/estimate-sign",
+        "function": {
+          "functionId": "clientPortalApi",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/public/agreement-document",
+        "function": {
+          "functionId": "clientPortalApi",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/stripe/webhook",
+        "function": {
+          "functionId": "stripeWebhook",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/client/**",
+        "function": {
+          "functionId": "clientPortalApi",
           "region": "us-central1"
         }
       }

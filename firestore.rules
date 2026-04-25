@@ -86,6 +86,40 @@ service cloud.firestore {
       );
     }
 
+    function canReadVendorDocument(documentData) {
+      return isAdmin() || (
+        isActiveStaff() &&
+        documentData.accessLevel != "admin_only"
+      );
+    }
+
+    function canReadRecordDocument(documentData) {
+      return isAdmin() || (
+        isActiveStaff() && (
+          (
+            documentData.projectId is string &&
+            documentData.projectId != "" &&
+            exists(/databases/$(database)/documents/projects/$(documentData.projectId)) &&
+            canReadProject(get(/databases/$(database)/documents/projects/$(documentData.projectId)).data)
+          ) || (
+            documentData.leadId is string &&
+            documentData.leadId != "" &&
+            exists(/databases/$(database)/documents/leads/$(documentData.leadId)) &&
+            canReadLead(get(/databases/$(database)/documents/leads/$(documentData.leadId)).data)
+          ) || (
+            documentData.customerId is string &&
+            documentData.customerId != "" &&
+            exists(/databases/$(database)/documents/customers/$(documentData.customerId)) &&
+            canReadCustomer(get(/databases/$(database)/documents/customers/$(documentData.customerId)).data)
+          )
+        )
+      );
+    }
+
+    function canWriteRecordDocument(documentData) {
+      return canReadRecordDocument(documentData);
+    }
+
     match /allowedStaff/{staffKey} {
       allow read: if isAdmin() || (signedIn() && requestEmail() == staffKey);
       allow create, delete: if isAdmin();
@@ -126,9 +160,19 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /clientUsers/{userId} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == userId);
+      allow create, update, delete: if isAdmin();
+    }
+
     match /emailTemplates/{templateId} {
       allow read: if isActiveStaff();
       allow write: if isAdmin();
+    }
+
+    match /serviceTemplates/{templateId} {
+      allow read: if isActiveStaff();
+      allow create, update, delete: if isAdmin();
     }
 
     match /leads/{leadId} {
@@ -172,6 +216,16 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /estimateShares/{shareId} {
+      allow get, list: if isActiveStaff();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /agreements/{agreementId} {
+      allow get, list: if isActiveStaff();
+      allow create, update, delete: if isAdmin();
+    }
+
     match /customers/{customerId} {
       allow get: if canReadCustomer(resource.data);
       allow list: if isAdmin() || (
@@ -180,6 +234,78 @@ service cloud.firestore {
         resource.data.allowedStaffUids.hasAny([request.auth.uid])
       );
       allow create, update, delete: if isAdmin();
+
+      match /contacts/{contactId} {
+        allow get, list: if isAdmin();
+        allow create, update, delete: if isAdmin();
+      }
+
+      match /threads/{threadId} {
+        allow get, list: if canReadCustomer(get(/databases/$(database)/documents/customers/$(customerId)).data);
+        allow create, update, delete: if canReadCustomer(get(/databases/$(database)/documents/customers/$(customerId)).data);
+
+        match /messages/{messageId} {
+          allow get, list: if canReadCustomer(get(/databases/$(database)/documents/customers/$(customerId)).data);
+          allow create, update, delete: if canReadCustomer(get(/databases/$(database)/documents/customers/$(customerId)).data);
+        }
+      }
+    }
+
+    match /{documentPath=**}/contacts/{contactId} {
+      allow get, list: if isAdmin() || (
+        resource.data.customerId is string &&
+        resource.data.customerId != "" &&
+        exists(/databases/$(database)/documents/customers/$(resource.data.customerId)) &&
+        canReadCustomer(get(/databases/$(database)/documents/customers/$(resource.data.customerId)).data)
+      );
+    }
+
+    match /{documentPath=**}/threads/{threadId} {
+      allow get, list: if isAdmin() || (
+        resource.data.customerId is string &&
+        resource.data.customerId != "" &&
+        exists(/databases/$(database)/documents/customers/$(resource.data.customerId)) &&
+        canReadCustomer(get(/databases/$(database)/documents/customers/$(resource.data.customerId)).data)
+      );
+    }
+
+    match /{documentPath=**}/invoices/{invoiceId} {
+      allow get, list: if isAdmin() || (
+        resource.data.projectId is string &&
+        resource.data.projectId != "" &&
+        exists(/databases/$(database)/documents/projects/$(resource.data.projectId)) &&
+        canReadProject(get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data)
+      );
+    }
+
+    match /{documentPath=**}/changeOrders/{changeOrderId} {
+      allow get, list: if isAdmin() || (
+        resource.data.projectId is string &&
+        resource.data.projectId != "" &&
+        exists(/databases/$(database)/documents/projects/$(resource.data.projectId)) &&
+        canReadProject(get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data)
+      );
+    }
+
+    match /vendors/{vendorId} {
+      allow get, list: if isActiveStaff();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /vendorBills/{billId} {
+      allow get, list: if isActiveStaff();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /vendorDocuments/{documentId} {
+      allow get, list: if canReadVendorDocument(resource.data);
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /recordDocuments/{documentId} {
+      allow get, list: if canReadRecordDocument(resource.data);
+      allow create, update: if isAdmin() || canWriteRecordDocument(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /tasks/{taskId} {
@@ -221,9 +347,21 @@ service cloud.firestore {
         allow create, update, delete: if isAdmin();
       }
 
-      match /changeOrders/{changeOrderId} {
+      match /invoices/{invoiceId} {
         allow read: if canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
         allow create, update, delete: if isAdmin();
+      }
+
+      match /changeOrders/{changeOrderId} {
+        allow read: if canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow create, update: if isAdmin() || canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow delete: if isAdmin();
+      }
+
+      match /scopeItems/{scopeItemId} {
+        allow read: if canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow create, update: if isAdmin() || canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow delete: if isAdmin();
       }
 
       match /documents/{documentId} {
