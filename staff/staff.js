@@ -8,20 +8,6 @@ import {
   signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-<<<<<<< HEAD
-    addDoc,
-    collection,
-    doc,
-    getDoc,
-    initializeFirestore,
-    onSnapshot,
-    query,
-    serverTimestamp,
-    setDoc,
-    updateDoc,
-    where,
-    writeBatch
-=======
   addDoc,
   collection,
   collectionGroup,
@@ -29,8 +15,8 @@ import {
   doc,
   getDoc,
   getDocs,
-  getFirestore,
   increment,
+  initializeFirestore,
   onSnapshot,
   query,
   serverTimestamp,
@@ -38,7 +24,6 @@ import {
   updateDoc,
   where,
   writeBatch,
->>>>>>> codex/staff-mobile-overhaul
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   deleteObject,
@@ -1069,6 +1054,11 @@ const state = {
   projectPayments: [],
   projectInvoices: [],
   projectChangeOrders: [],
+  projectDetailLoaded: {
+    expenses: false,
+    payments: false,
+    changeOrders: false,
+  },
   projectScopeItems: [],
   projectDocuments: [],
   leadDocuments: [],
@@ -1122,50 +1112,6 @@ const state = {
     customerDraft: null,
     vendorDraft: null,
     taskDraft: null,
-<<<<<<< HEAD
-    leadActivities: [],
-    projectExpenses: [],
-    projectPayments: [],
-    projectChangeOrders: [],
-    projectDetailLoaded: {
-        expenses: false,
-        payments: false,
-        changeOrders: false
-    },
-    projectDocuments: [],
-    projectNotes: [],
-    projectActivities: [],
-    projectLeadActivities: [],
-    estimate: null,
-    activeLeadTab: "overview",
-    activeJobTab: "financials",
-    activeView: "today-view",
-    todayScope: "mine",
-    leadLayout: "list",
-    leadSearch: "",
-    leadStage: "all",
-    customerSearch: "",
-    jobSearch: "",
-    jobStatus: "active",
-    taskSearch: "",
-    taskBucket: "open",
-    dragLeadId: null,
-    dragLeadOverStatus: null,
-    drawer: {
-        type: null,
-        context: {},
-        leadDraft: null,
-        customerDraft: null,
-        taskDraft: null
-    },
-    sessionResetting: false,
-    unsubs: {
-        base: [],
-        scopedProjects: [],
-        leadDetail: [],
-        projectDetail: []
-    }
-=======
   },
   sessionResetting: false,
   unsubs: {
@@ -1177,7 +1123,6 @@ const state = {
     customerPortalMessages: [],
     projectDetail: [],
   },
->>>>>>> codex/staff-mobile-overhaul
 };
 
 const initialLeadRoute = readLeadRouteState();
@@ -1602,29 +1547,6 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function firstFiniteNumber(...values) {
-    for (const value of values) {
-        if (value === null || value === undefined || value === "") {
-            continue;
-        }
-
-        const parsed = Number(value);
-        if (Number.isFinite(parsed)) {
-            return parsed;
-        }
-    }
-
-    return 0;
-}
-
-function normaliseChangeOrderStatus(value) {
-    const status = safeString(value).toLowerCase();
-    if (status === "approved" || status === "void") {
-        return status;
-    }
-    return "draft";
-}
-
 function toMillis(value) {
   if (!value) return 0;
   if (typeof value?.toMillis === "function") return value.toMillis();
@@ -2021,21 +1943,14 @@ function isPermissionDeniedError(error) {
 }
 
 function shouldFallbackToFirestore(error) {
-<<<<<<< HEAD
-    return error?.status === 404
-        || error?.status === 401
-        || error?.status === 403
-        || error?.status >= 500
-        || isPermissionDeniedError(error)
-        || /Failed to fetch/i.test(error?.message || "");
-=======
   return (
     error?.status === 404 ||
+    error?.status === 401 ||
+    error?.status === 403 ||
     error?.status >= 500 ||
     isPermissionDeniedError(error) ||
     /Failed to fetch/i.test(error?.message || "")
   );
->>>>>>> codex/staff-mobile-overhaul
 }
 
 async function verifyClientStaffAccess(user, profile = {}) {
@@ -6592,2609 +6507,6 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
 }
 
 function buildEstimatePlainText(lead, estimateDraft) {
-<<<<<<< HEAD
-    const template = state.template || EMPTY_TEMPLATE;
-    const assumptions = Array.isArray(estimateDraft.assumptions) && estimateDraft.assumptions.length
-        ? estimateDraft.assumptions
-        : (safeString(template.terms) ? [safeString(template.terms)] : []);
-
-    return [
-        safeString(estimateDraft.subject) || defaultEstimateTitle(lead),
-        "",
-        (template.greeting || EMPTY_TEMPLATE.greeting).replace("{{clientName}}", safeString(lead?.clientName) || "Client"),
-        "",
-        safeString(estimateDraft.emailBody) || safeString(template.intro),
-        "",
-        "Project Address: " + (safeString(lead?.projectAddress) || "To be confirmed"),
-        "Project Type: " + (safeString(lead?.projectType) || "General scope"),
-        "",
-        "Line Items",
-        (estimateDraft.lineItems || []).map((item) => {
-            return [
-                `- ${item.label || "Line item"}: ${formatCurrency(item.amount || 0)}`,
-                item.description ? `  ${item.description}` : ""
-            ].filter(Boolean).join("\n");
-        }).join("\n") || "- Scope pending",
-        "",
-        "Estimated Total: " + formatCurrency(estimateDraft.subtotal || 0),
-        "",
-        "Assumptions / Exclusions",
-        assumptions.length ? assumptions.map((item) => `- ${item}`).join("\n") : "- None listed",
-        "",
-        safeString(template.outro || EMPTY_TEMPLATE.outro)
-    ].join("\n");
-}
-
-function renderEstimateLines(lineItems) {
-    const rows = lineItems.length ? lineItems : [{ label: "", description: "", amount: "" }];
-    const editable = isAdmin();
-
-    refs.estimateLines.innerHTML = rows.map((item, index) => `
-        <div class="line-item-row" data-line-index="${index}">
-            <input type="text" data-line-field="label" value="${escapeHtml(item.label || "")}" placeholder="Line item" ${editable ? "" : "disabled"}>
-            <input type="text" data-line-field="description" value="${escapeHtml(item.description || "")}" placeholder="What is included" ${editable ? "" : "disabled"}>
-            <input type="number" data-line-field="amount" value="${escapeHtml(item.amount ?? "")}" min="0" step="0.01" placeholder="0.00" ${editable ? "" : "disabled"}>
-            <button type="button" class="ghost-button" data-remove-line="${index}" ${editable ? "" : "hidden disabled"}>Remove</button>
-        </div>
-    `).join("");
-
-    Array.from(refs.estimateLines.querySelectorAll("[data-remove-line]")).forEach((button) => {
-        button.addEventListener("click", () => {
-            const lines = collectEstimateForm().lineItems;
-            lines.splice(Number(button.dataset.removeLine), 1);
-            renderEstimateLines(lines);
-            updateEstimatePreview();
-        });
-    });
-
-    Array.from(refs.estimateLines.querySelectorAll("input")).forEach((input) => {
-        input.addEventListener("input", updateEstimatePreview);
-    });
-}
-
-function updateEstimatePreview() {
-    const lead = currentLead();
-    if (!lead) {
-        refs.estimatePreview.innerHTML = `<div class="empty-note">Save or select a lead to preview the estimate.</div>`;
-        refs.estimateSubtotal.textContent = formatCurrency(0);
-        return;
-    }
-
-    const estimate = collectEstimateForm();
-    refs.estimateSubtotal.textContent = formatCurrency(estimate.subtotal);
-    refs.estimatePreview.innerHTML = buildEstimatePreviewHtml(lead, estimate);
-}
-
-function renderEstimatePanel() {
-    const lead = currentLead();
-    const estimate = state.estimate || {
-        subject: "",
-        emailBody: "",
-        assumptions: [],
-        lineItems: []
-    };
-
-    refs.estimateSubject.value = estimate.subject || defaultEstimateTitle(lead);
-    refs.estimateBody.value = estimate.emailBody || "";
-    refs.estimateAssumptions.value = Array.isArray(estimate.assumptions) ? estimate.assumptions.join("\n") : "";
-    refs.estimateSubject.readOnly = !isAdmin();
-    refs.estimateBody.readOnly = !isAdmin();
-    refs.estimateAssumptions.readOnly = !isAdmin();
-    renderEstimateLines(Array.isArray(estimate.lineItems) ? estimate.lineItems : []);
-    updateEstimatePreview();
-}
-
-function renderEntityTaskList(container, tasks, emptyMessage) {
-    if (!tasks.length) {
-        renderEmptyList(container, emptyMessage);
-        return;
-    }
-
-    container.innerHTML = tasks.map((task) => `
-        <button type="button" class="record-button" data-task-id="${escapeHtml(task.id)}" data-open-view="tasks-view">
-            <div class="record-topline">
-                <span class="priority-pill ${escapeHtml(task.priority || "medium")}">${escapeHtml(PRIORITY_META[task.priority] || "Task")}</span>
-                <span class="mini-pill">${escapeHtml(TASK_STATUS_META[task.status] || "Open")}</span>
-            </div>
-            <span class="record-title">${escapeHtml(task.title || "Untitled task")}</span>
-            <p class="record-copy">${escapeHtml(task.description || linkedTaskLabel(task))}</p>
-            <div class="record-meta">
-                <div>${escapeHtml(task.assignedToName || task.assignedToEmail || "Unassigned")}</div>
-                <div>${escapeHtml(task.dueAt ? formatDateTime(task.dueAt) : "No due date")}</div>
-            </div>
-        </button>
-    `).join("");
-}
-
-function renderLeadTabState() {
-    refs.leadTabButtons.forEach((button) => {
-        button.classList.toggle("is-active", button.dataset.leadTab === state.activeLeadTab);
-    });
-
-    Array.from(document.querySelectorAll("#lead-record-shell .tab-pane")).forEach((pane) => {
-        pane.classList.toggle("is-active", pane.id === `lead-tab-${state.activeLeadTab}`);
-    });
-}
-
-function renderLeadJobSummary(lead) {
-    const project = projectForLead(lead);
-
-    if (!project) {
-        refs.leadJobSummary.innerHTML = `<div class="empty-note">This lead has not been converted into a job yet.</div>`;
-        return;
-    }
-
-    refs.leadJobSummary.innerHTML = `
-        <div><strong>Job status:</strong> ${escapeHtml(project.status === "completed" ? "Completed" : "In Progress")}</div>
-        <div><strong>Contract value:</strong> ${escapeHtml(formatCurrency(project.jobValue || 0))}</div>
-        <div><strong>Client paid:</strong> ${escapeHtml(formatCurrency(project.financials?.totalPayments || 0))}</div>
-        <div><strong>Profit tracked:</strong> ${escapeHtml(formatCurrency(project.financials?.profit || 0))}</div>
-        <div><button type="button" class="secondary-button" data-open-project="${escapeHtml(project.id)}" data-open-view="jobs-view">Open job record</button></div>
-    `;
-}
-
-function renderLeadDetail() {
-    const lead = currentLead();
-
-    if (!lead) {
-        refs.leadRecordTitle.textContent = "Select a lead";
-        refs.leadRecordBadge.textContent = "No lead selected";
-        refs.leadRecordBadge.className = "status-pill neutral";
-        renderLeadCustomerMatch(null);
-        refs.leadRecordContext.innerHTML = "";
-        refs.leadRecordEmpty.hidden = false;
-        refs.leadRecordShell.hidden = true;
-        return;
-    }
-
-    refs.leadRecordEmpty.hidden = true;
-    refs.leadRecordShell.hidden = false;
-    refs.leadRecordTitle.textContent = lead.clientName || "New lead";
-    refs.leadRecordBadge.textContent = lead.id ? (STATUS_META[lead.status] || "Lead") : "Draft";
-    refs.leadRecordBadge.className = lead.id ? "status-pill" : "status-pill neutral";
-    refs.leadClientName.value = lead.clientName || "";
-    refs.leadClientEmail.value = lead.clientEmail || "";
-    refs.leadClientPhone.value = lead.clientPhone || "";
-    refs.leadProjectAddress.value = lead.projectAddress || "";
-    refs.leadProjectType.value = lead.projectType || "";
-    renderLeadStageOptions(lead);
-    refs.leadNotesInput.value = lead.notes || "";
-    refs.leadSourceDisplay.value = lead.sourcePage || lead.sourceForm || "Staff CRM";
-    refs.leadEstimateDisplay.value = formatCurrency(lead.estimateSubtotal || state.estimate?.subtotal || 0);
-    renderLeadAssigneeOptions(lead.assignedToUid || "");
-    renderCustomerOptions(lead.customerId || null);
-    renderLeadCustomerMatch(lead);
-
-    refs.leadMeta.innerHTML = `
-        <div><strong>Created:</strong> ${escapeHtml(lead.createdAt ? formatDateTime(lead.createdAt) : "Not saved yet")}</div>
-        <div><strong>Updated:</strong> ${escapeHtml(lead.updatedAt ? formatDateTime(lead.updatedAt) : "Not saved yet")}</div>
-        <div><strong>Lead source:</strong> ${escapeHtml(lead.sourcePage || lead.sourceForm || "Staff CRM")}</div>
-        <div><strong>Customer:</strong> ${escapeHtml(lead.customerName || "No linked customer")}</div>
-        <div><strong>Match status:</strong> ${escapeHtml(lead.customerReviewRequired ? "Review required" : (lead.customerMatchResult || "Pending"))}</div>
-    `;
-
-    renderLeadRecordContext(lead);
-    renderLeadOverviewSummary(lead);
-    renderActivityList(refs.noteList, state.leadActivities, "No activity recorded yet.");
-    renderEstimatePanel();
-    renderEntityTaskList(refs.leadTaskList, lead.id ? relatedTasksForEntity("leadId", lead.id) : [], "Save the lead first to attach tasks.");
-    renderLeadJobSummary(lead);
-    renderLeadTabState();
-
-    refs.noteForm.querySelector("button").disabled = !lead.id;
-    refs.estimateAiButton.disabled = !lead.id || !isAdmin();
-    refs.estimateAddLineButton.disabled = !isAdmin();
-    refs.leadCreateTaskButton.disabled = !lead.id;
-    refs.leadTaskDrawerButton.disabled = !lead.id;
-    refs.leadMarkWonButton.disabled = !lead.id;
-    refs.leadMarkLostButton.disabled = !lead.id;
-}
-
-function renderCustomerMetrics() {
-    const totalSales = state.customers.reduce((sum, customer) => {
-        return sum + toNumber(customer.totalWonSales || customerRollup(customer).totalWonSales);
-    }, 0);
-    const totalPayments = state.customers.reduce((sum, customer) => {
-        return sum + toNumber(customer.totalPaymentsReceived || customerRollup(customer).totalPaymentsReceived);
-    }, 0);
-
-    renderMetricStrip(refs.customerMetrics, [
-        { label: "Customers", value: state.customers.length },
-        { label: "Open opportunities", value: state.leads.filter((lead) => ["new_lead", "follow_up", "estimate_sent"].includes(lead.status)).length },
-        { label: "Won sales", value: formatCurrency(totalSales) },
-        { label: "Payments received", value: formatCurrency(totalPayments) }
-    ]);
-}
-
-function renderCustomerList() {
-    const customers = filteredCustomers();
-
-    if (!customers.length) {
-        renderEmptyList(refs.customerList, "No customers match the current search.");
-        return;
-    }
-
-    refs.customerList.innerHTML = customers.map((customer) => {
-        const rollup = customerRollup(customer);
-        return `
-            <button type="button" class="record-button ${customer.id === state.selectedCustomerId && !state.customerDraft ? "is-selected" : ""}" data-customer-id="${escapeHtml(customer.id)}">
-                <div class="record-topline">
-                    <span class="mini-pill">${escapeHtml(`${rollup.openLeads.length} open`)}</span>
-                    <span class="mini-pill">${escapeHtml(`${rollup.projects.length} jobs`)}</span>
-                </div>
-                <span class="record-title">${escapeHtml(customer.name || "Unnamed customer")}</span>
-                <p class="record-copy">${escapeHtml(customer.primaryAddress || customer.primaryEmail || customer.primaryPhone || "No contact info")}</p>
-                <div class="record-meta">
-                    <div>${escapeHtml(customer.primaryPhone || "No phone")}</div>
-                    <div>${escapeHtml(formatCurrency(rollup.totalWonSales))} won sales</div>
-                    <div>${escapeHtml(formatCurrency(rollup.totalPaymentsReceived))} payments received</div>
-                </div>
-            </button>
-        `;
-    }).join("");
-}
-
-function renderCustomerRecordContext(customer, rollup) {
-    if (!customer) {
-        refs.customerRecordContext.innerHTML = "";
-        return;
-    }
-
-    const latestLead = latestByUpdated(rollup.openLeads);
-    const latestProject = latestByUpdated(rollup.projects);
-    const openCustomerTasks = customer.id ? activeTasksForEntity("customerId", customer.id) : [];
-    const contactValue = customer.primaryPhone || customer.primaryEmail || customer.primaryAddress || "Add contact details";
-    const contactMeta = [customer.primaryEmail, customer.primaryAddress].filter(Boolean).join(" · ") || "Main investor contact details live here.";
-
-    refs.customerRecordContext.innerHTML = [
-        buildContextCard({
-            label: "Primary contact",
-            title: contactValue,
-            meta: contactMeta,
-            muted: true
-        }),
-        buildContextCard({
-            label: "Current opportunity",
-            title: latestLead ? (latestLead.clientName || latestLead.projectAddress || "Open lead") : "No open opportunity",
-            meta: latestLead
-                ? `${STATUS_META[latestLead.status] || "Lead"} · ${formatCurrency(latestLead.estimateSubtotal || 0)}`
-                : "Create a new lead when this client has another project.",
-            dataAttrs: latestLead
-                ? {
-                    "data-open-lead": latestLead.id,
-                    "data-open-view": "leads-view"
-                }
-                : {},
-            muted: !latestLead
-        }),
-        buildContextCard({
-            label: "Latest job",
-            title: latestProject ? (latestProject.projectAddress || latestProject.clientName || "Job record") : "No job yet",
-            meta: latestProject
-                ? `${latestProject.status === "completed" ? "Completed" : "In progress"} · Paid ${formatCurrency(latestProject.financials?.totalPayments || 0)}`
-                : "Won work for this customer will appear here.",
-            dataAttrs: latestProject
-                ? {
-                    "data-open-project": latestProject.id,
-                    "data-open-view": "jobs-view"
-                }
-                : {},
-            muted: !latestProject
-        }),
-        buildContextCard({
-            label: "Open tasks",
-            title: customer.id ? String(openCustomerTasks.length) : "Save first",
-            meta: customer.id
-                ? (openCustomerTasks[0]?.title ? `Next: ${openCustomerTasks[0].title}` : "No active account-level tasks.")
-                : "Save the customer before creating tasks.",
-            muted: true
-        })
-    ].join("");
-}
-
-function renderCustomerDetail() {
-    const customer = currentCustomer();
-
-    if (!customer) {
-        refs.customerRecordTitle.textContent = "Select a customer";
-        refs.customerRecordBadge.textContent = "No customer selected";
-        refs.customerRecordBadge.className = "status-pill neutral";
-        refs.customerRecordContext.innerHTML = "";
-        refs.customerRecordEmpty.hidden = false;
-        refs.customerRecordShell.hidden = true;
-        return;
-    }
-
-    const rollup = customerRollup(customer);
-
-    refs.customerRecordEmpty.hidden = true;
-    refs.customerRecordShell.hidden = false;
-    refs.customerRecordTitle.textContent = customer.name || "New customer";
-    refs.customerRecordBadge.textContent = customer.id ? `${rollup.projects.length} jobs linked` : "Draft";
-    refs.customerRecordBadge.className = customer.id ? "status-pill" : "status-pill neutral";
-    refs.customerNameInput.value = customer.name || "";
-    refs.customerEmailInput.value = customer.primaryEmail || "";
-    refs.customerPhoneInput.value = customer.primaryPhone || "";
-    refs.customerAddressInput.value = customer.primaryAddress || "";
-    refs.customerNotesInput.value = customer.notes || "";
-
-    renderCustomerRecordContext(customer, rollup);
-    refs.customerSummary.innerHTML = [
-        { label: "Open opportunities", value: rollup.openLeads.length },
-        { label: "Won jobs", value: rollup.projects.length },
-        { label: "Lost leads", value: rollup.lostLeads.length },
-        { label: "Won sales", value: formatCurrency(rollup.totalWonSales) },
-        { label: "Payments received", value: formatCurrency(rollup.totalPaymentsReceived) },
-        { label: "Current estimate", value: rollup.currentEstimateLead ? formatCurrency(rollup.currentEstimateLead.estimateSubtotal || 0) : "None" }
-    ].map((item) => `
-        <article class="summary-card">
-            <span>${escapeHtml(item.label)}</span>
-            <strong>${escapeHtml(item.value)}</strong>
-        </article>
-    `).join("");
-
-    if (!rollup.openLeads.length) {
-        renderEmptyList(refs.customerOpportunitiesList, "No open opportunities linked to this customer.");
-    } else {
-        refs.customerOpportunitiesList.innerHTML = rollup.openLeads.map((lead) => stackCardButton({
-            title: lead.clientName || "Unnamed lead",
-            copy: lead.projectAddress || "Address pending",
-            pill: STATUS_META[lead.status] || "Lead",
-            secondaryPill: formatCurrency(lead.estimateSubtotal || 0),
-            dataAttrs: {
-                "data-open-lead": lead.id,
-                "data-open-view": "leads-view"
-            },
-            meta: `<div>${escapeHtml(lead.projectType || "General scope")}</div>`
-        })).join("");
-    }
-
-    if (!rollup.projects.length) {
-        renderEmptyList(refs.customerJobsList, "No jobs linked to this customer yet.");
-    } else {
-        refs.customerJobsList.innerHTML = rollup.projects.map((project) => stackCardButton({
-            title: project.clientName || "Unnamed job",
-            copy: project.projectAddress || "Address pending",
-            pill: project.status === "completed" ? "Completed" : "In Progress",
-            secondaryPill: formatCurrency(project.jobValue || 0),
-            dataAttrs: {
-                "data-open-project": project.id,
-                "data-open-view": "jobs-view"
-            },
-            meta: `<div>Paid ${escapeHtml(formatCurrency(project.financials?.totalPayments || 0))}</div>`
-        })).join("");
-    }
-
-    refs.customerCurrentEstimate.innerHTML = rollup.currentEstimateLead
-        ? `
-            <div><strong>${escapeHtml(rollup.currentEstimateLead.estimateTitle || "Current estimate")}</strong></div>
-            <div>${escapeHtml(rollup.currentEstimateLead.projectAddress || "Address pending")}</div>
-            <div>${escapeHtml(formatCurrency(rollup.currentEstimateLead.estimateSubtotal || 0))}</div>
-            <div><button type="button" class="secondary-button" data-open-lead="${escapeHtml(rollup.currentEstimateLead.id)}" data-open-view="leads-view">Open lead</button></div>
-        `
-        : "No active estimate linked to this customer.";
-
-    renderEntityTaskList(refs.customerTaskList, customer.id ? relatedTasksForEntity("customerId", customer.id) : [], "Save the customer first to attach tasks.");
-    renderTaskAssigneeOptions(refs.customerTaskAssignee, state.profile?.uid || "");
-    refs.customerTaskForm.querySelector("button").disabled = !customer.id;
-}
-
-function renderJobMetrics() {
-    const inProgress = state.projects.filter((project) => project.status !== "completed").length;
-    const completed = state.projects.filter((project) => project.status === "completed").length;
-    const totalRevenue = state.projects.reduce((sum, project) => sum + projectRevenueValue(project), 0);
-    const totalPayments = state.projects.reduce((sum, project) => sum + firstFiniteNumber(projectFinancials(project).totalPayments, 0), 0);
-
-    renderMetricStrip(refs.jobMetrics, [
-        { label: "In progress", value: inProgress },
-        { label: "Completed", value: completed },
-        { label: "Contract revenue", value: formatCurrency(totalRevenue) },
-        { label: "Payments received", value: formatCurrency(totalPayments) }
-    ]);
-}
-
-function renderJobList() {
-    const projects = filteredProjects();
-
-    if (!projects.length) {
-        renderEmptyList(refs.jobList, "No jobs match the current filters.");
-        return;
-    }
-
-    refs.jobList.innerHTML = projects.map((project) => {
-        const financials = projectFinancials(project);
-        return `
-            <button type="button" class="record-button ${project.id === state.selectedProjectId ? "is-selected" : ""}" data-project-id="${escapeHtml(project.id)}">
-                <div class="record-topline">
-                    <span class="mini-pill">${escapeHtml(JOB_STATUS_META[project.status] || "In Progress")}</span>
-                    <span class="mini-pill">${escapeHtml(project.projectType || "Project")}</span>
-                </div>
-                <span class="record-title">${escapeHtml(project.clientName || "Unnamed job")}</span>
-                <p class="record-copy">${escapeHtml(project.projectAddress || "Address pending")}</p>
-                <div class="record-meta">
-                    <div>${escapeHtml(project.customerName || "No linked customer")}</div>
-                    <div>Revenue ${escapeHtml(formatCurrency(projectRevenueValue(project)))}</div>
-                    <div>Balance ${escapeHtml(formatCurrency(firstFiniteNumber(financials.balanceRemaining, project.balanceRemaining, 0)))}</div>
-                    <div>Profit ${escapeHtml(formatCurrency(firstFiniteNumber(financials.projectedGrossProfit, financials.profit, 0)))}</div>
-                </div>
-            </button>
-        `;
-    }).join("");
-}
-
-function renderWorkerAssignments(project) {
-    const roster = isAdmin() ? activeStaffOptions() : (project.assignedWorkers || []).map((worker) => ({
-        uid: worker.uid,
-        email: worker.email,
-        displayName: worker.name || worker.email
-    }));
-
-    if (!roster.length) {
-        renderEmptyList(refs.workerAssignmentList, "No staff records available yet.");
-        return;
-    }
-
-    refs.workerAssignmentList.innerHTML = roster.map((member) => {
-        const key = member.uid || member.email || "";
-        const assigned = (project.assignedWorkers || []).find((worker) => worker.uid === member.uid || worker.email === member.email);
-        const editable = isAdmin() && Boolean(member.uid);
-        return `
-            <div class="worker-row">
-                <label>
-                    <input type="checkbox" data-worker-check="${escapeHtml(key)}" ${assigned ? "checked" : ""} ${editable ? "" : "disabled"}>
-                    <span>${escapeHtml((member.displayName || member.email || "Assigned worker") + (isAdmin() && !member.uid ? " (sign in once to activate)" : ""))}</span>
-                </label>
-                <input type="number" data-worker-percent="${escapeHtml(key)}" min="0" step="0.01" value="${escapeHtml(assigned?.percent ?? "")}" placeholder="% split" ${editable ? "" : "disabled"}>
-            </div>
-        `;
-    }).join("");
-}
-
-function normaliseAssignedProjectWorkers(project) {
-    const storedWorkers = Array.isArray(project?.financials?.workerBreakdown) ? project.financials.workerBreakdown : [];
-    const source = Array.isArray(project?.assignedWorkers) && project.assignedWorkers.length
-        ? project.assignedWorkers
-        : storedWorkers;
-
-    return source
-        .filter((worker) => safeString(worker?.uid || worker?.email || worker?.name))
-        .map((worker, index) => ({
-            uid: safeString(worker.uid || `worker-${index + 1}`),
-            name: safeString(worker.name || worker.email || "Assigned worker"),
-            email: safeString(worker.email),
-            percent: toNumber(worker.percent)
-        }));
-}
-
-function selectedProjectFinancialsReady(project) {
-    return Boolean(
-        project?.id
-        && project.id === state.selectedProjectId
-        && state.projectDetailLoaded.expenses
-        && state.projectDetailLoaded.payments
-        && state.projectDetailLoaded.changeOrders
-    );
-}
-
-function computeSelectedProjectFinancials(project) {
-    const storedFinancials = project?.financials || {};
-    if (!selectedProjectFinancialsReady(project)) {
-        return storedFinancials;
-    }
-
-    const baseContractValue = firstFiniteNumber(
-        project?.baseContractValue,
-        storedFinancials.baseContractValue,
-        project?.jobValue,
-        0
-    );
-    const approvedChangeOrdersTotal = state.projectChangeOrders
-        .filter((changeOrder) => normaliseChangeOrderStatus(changeOrder.status) === "approved")
-        .reduce((sum, changeOrder) => sum + toNumber(changeOrder.amount), 0);
-    const totalContractRevenue = baseContractValue + approvedChangeOrdersTotal;
-    const totalExpenses = state.projectExpenses.reduce((sum, expense) => sum + toNumber(expense.amount), 0);
-    const totalPayments = state.projectPayments.reduce((sum, payment) => sum + toNumber(payment.amount), 0);
-    const rawProfit = totalContractRevenue - totalExpenses;
-    const distributableProfit = Math.max(rawProfit, 0);
-    const companyShare = distributableProfit * 0.5;
-    const workerPool = distributableProfit * 0.5;
-    const cashPosition = totalPayments - totalExpenses;
-    const balanceRemaining = totalContractRevenue - totalPayments;
-    const assignedWorkers = normaliseAssignedProjectWorkers(project);
-    const totalPercent = assignedWorkers.reduce((sum, worker) => sum + worker.percent, 0);
-    const workerBreakdown = assignedWorkers.map((worker, index) => {
-        let effectivePercent = worker.percent;
-
-        if (assignedWorkers.length === 1 && totalPercent <= 0) {
-            effectivePercent = 100;
-        } else if (totalPercent > 0) {
-            effectivePercent = (worker.percent / totalPercent) * 100;
-        }
-
-        return {
-            uid: worker.uid || `worker-${index + 1}`,
-            name: worker.name || worker.email || "Assigned worker",
-            email: worker.email,
-            percent: Number(effectivePercent.toFixed(2)),
-            amount: Number(((workerPool * effectivePercent) / 100).toFixed(2))
-        };
-    });
-
-    return {
-        ...storedFinancials,
-        baseContractValue: Number(baseContractValue.toFixed(2)),
-        approvedChangeOrdersTotal: Number(approvedChangeOrdersTotal.toFixed(2)),
-        totalContractRevenue: Number(totalContractRevenue.toFixed(2)),
-        totalExpenses: Number(totalExpenses.toFixed(2)),
-        totalPayments: Number(totalPayments.toFixed(2)),
-        profit: Number(rawProfit.toFixed(2)),
-        projectedGrossProfit: Number(rawProfit.toFixed(2)),
-        distributableProfit: Number(distributableProfit.toFixed(2)),
-        cashPosition: Number(cashPosition.toFixed(2)),
-        balanceRemaining: Number(balanceRemaining.toFixed(2)),
-        companyShare: Number(companyShare.toFixed(2)),
-        workerPool: Number(workerPool.toFixed(2)),
-        workerBreakdown
-    };
-}
-
-function projectFinancials(project) {
-    return computeSelectedProjectFinancials(project);
-}
-
-function projectRevenueValue(project) {
-    const financials = projectFinancials(project);
-    return firstFiniteNumber(
-        financials.totalContractRevenue,
-        project?.totalContractRevenue,
-        project?.jobValue,
-        project?.baseContractValue,
-        0
-    );
-}
-
-function lockedCommissionSnapshot(project) {
-    return project?.lockedCommissionSnapshot || null;
-}
-
-function documentHref(item) {
-    return safeString(item?.fileUrl || item?.externalUrl || item?.receiptUrl);
-}
-
-function renderSimpleEntries(container, items, formatter, emptyMessage) {
-    if (!items.length) {
-        renderEmptyList(container, emptyMessage);
-        return;
-    }
-
-    container.innerHTML = items.map((item) => formatter(item)).join("");
-}
-
-function renderJobOwnerOptions(project) {
-    if (!isAdmin()) {
-        refs.jobOwnerSelect.innerHTML = `<option value="${escapeHtml(project.assignedLeadOwnerUid || state.profile?.uid || "")}">${escapeHtml(project.assignedWorkers?.[0]?.name || state.profile?.displayName || "Lead owner")}</option>`;
-        refs.jobOwnerSelect.disabled = true;
-        return;
-    }
-
-    refs.jobOwnerSelect.disabled = false;
-    refs.jobOwnerSelect.innerHTML = [`<option value="">Unassigned</option>`].concat(
-        activeStaffOptions().map((member) => `
-            <option value="${escapeHtml(member.uid || "")}" ${project.assignedLeadOwnerUid === member.uid ? "selected" : ""} ${member.uid ? "" : "disabled"}>
-                ${escapeHtml((member.displayName || member.email) + (member.uid ? "" : " (sign in once to activate)"))}
-            </option>
-        `)
-    ).join("");
-}
-
-function renderJobRecordContext(project) {
-    if (!project) {
-        refs.jobRecordContext.innerHTML = "";
-        return;
-    }
-
-    const linkedLead = project.leadId ? state.leads.find((lead) => lead.id === project.leadId) : null;
-    const linkedCustomer = project.customerId ? state.customers.find((customer) => customer.id === project.customerId) : null;
-    const openProjectTasks = project.id ? activeTasksForEntity("projectId", project.id) : [];
-    const assignedWorkers = Array.isArray(project.assignedWorkers) ? project.assignedWorkers.filter((worker) => safeString(worker.uid || worker.email)) : [];
-    const financials = projectFinancials(project);
-
-    refs.jobRecordContext.innerHTML = [
-        buildContextCard({
-            label: "Customer",
-            title: linkedCustomer?.name || project.customerName || "No linked customer",
-            meta: linkedCustomer
-                ? `${customerRollup(linkedCustomer).openLeads.length} open opportunities`
-                : "Linked customer keeps repeat work and payments connected.",
-            dataAttrs: linkedCustomer
-                ? {
-                    "data-open-customer": linkedCustomer.id,
-                    "data-open-view": "customers-view"
-                }
-                : {},
-            muted: !linkedCustomer
-        }),
-        buildContextCard({
-            label: "Linked lead",
-            title: linkedLead?.clientName || linkedLead?.projectAddress || "Original lead",
-            meta: linkedLead
-                ? `${STATUS_META[linkedLead.status] || "Lead"} · ${formatCurrency(linkedLead.estimateSubtotal || 0)} estimate`
-                : "This job was created from a won lead.",
-            dataAttrs: linkedLead
-                ? {
-                    "data-open-lead": linkedLead.id,
-                    "data-open-view": "leads-view"
-                }
-                : {},
-            muted: !linkedLead
-        }),
-        buildContextCard({
-            label: "Open tasks",
-            title: String(openProjectTasks.length),
-            meta: openProjectTasks[0]?.title ? `Next: ${openProjectTasks[0].title}` : "No active tasks linked to this job.",
-            dataAttrs: project.id ? { "data-command": "job-create-task" } : {},
-            muted: !project.id
-        }),
-        buildContextCard({
-            label: "Cash position",
-            title: formatCurrency(firstFiniteNumber(financials.cashPosition, project.cashPosition, 0)),
-            meta: assignedWorkers.length
-                ? `${assignedWorkers.length} assigned · Balance ${formatCurrency(firstFiniteNumber(financials.balanceRemaining, project.balanceRemaining, 0))}`
-                : "Assign workers and expenses to track the true margin.",
-            muted: true
-        })
-    ].join("");
-}
-
-function renderJobSummaryStrip(project) {
-    const financials = projectFinancials(project);
-    refs.jobSummaryStrip.innerHTML = [
-        { label: "Total contract revenue", value: formatCurrency(projectRevenueValue(project)) },
-        { label: "Payments received", value: formatCurrency(firstFiniteNumber(financials.totalPayments, 0)) },
-        { label: "Expenses recorded", value: formatCurrency(firstFiniteNumber(financials.totalExpenses, 0)) },
-        { label: "Projected gross profit", value: formatCurrency(firstFiniteNumber(financials.projectedGrossProfit, financials.profit, 0)) },
-        { label: "Cash position", value: formatCurrency(firstFiniteNumber(financials.cashPosition, project.cashPosition, 0)) },
-        { label: "Balance remaining", value: formatCurrency(firstFiniteNumber(financials.balanceRemaining, project.balanceRemaining, 0)) }
-    ].map((item) => `
-        <article class="finance-card">
-            <span>${escapeHtml(item.label)}</span>
-            <strong>${escapeHtml(item.value)}</strong>
-        </article>
-    `).join("");
-}
-
-function renderJobOverviewSummary(project) {
-    const financials = projectFinancials(project);
-    const linkedLead = project.leadId ? state.leads.find((lead) => lead.id === project.leadId) : null;
-    const openTasks = relatedTasksForEntity("projectId", project.id).filter((task) => !taskIsCompleted(task));
-    const documents = state.projectDocuments.length;
-    const assignedWorkers = Array.isArray(project.assignedWorkers) ? project.assignedWorkers.length : 0;
-
-    refs.jobOverviewSummary.innerHTML = [
-        { label: "Lead owner", value: project.assignedWorkers?.find((worker) => worker.uid === project.assignedLeadOwnerUid)?.name || state.staffRoster.find((member) => member.uid === project.assignedLeadOwnerUid)?.displayName || "Unassigned" },
-        { label: "Assigned workers", value: String(assignedWorkers) },
-        { label: "Open tasks", value: String(openTasks.length) },
-        { label: "Documents", value: String(documents) },
-        { label: "Estimate total", value: linkedLead ? formatCurrency(linkedLead.estimateSubtotal || 0) : "No estimate" },
-        { label: "Balance remaining", value: formatCurrency(firstFiniteNumber(financials.balanceRemaining, project.balanceRemaining, 0)) }
-    ].map((item) => `
-        <article class="summary-card">
-            <span>${escapeHtml(item.label)}</span>
-            <strong>${escapeHtml(item.value)}</strong>
-        </article>
-    `).join("");
-}
-
-function renderJobTabState() {
-    refs.jobTabButtons.forEach((button) => {
-        button.classList.toggle("is-active", button.dataset.jobTab === state.activeJobTab);
-    });
-
-    Array.from(document.querySelectorAll("#job-record-shell .tab-pane")).forEach((pane) => {
-        pane.classList.toggle("is-active", pane.id === `job-tab-${state.activeJobTab}`);
-    });
-}
-
-function openJobTab(tab, focusTarget = null) {
-    state.activeJobTab = tab;
-    renderJobTabState();
-    queueFocus(focusTarget);
-}
-
-function renderExpenseReceiptOptions() {
-    const currentValue = refs.expenseReceiptSelect.value || "";
-    const receiptDocuments = state.projectDocuments
-        .filter((item) => item.category === "receipt")
-        .sort((left, right) => toMillis(right.relatedDate || right.createdAt) - toMillis(left.relatedDate || left.createdAt));
-
-    refs.expenseReceiptSelect.innerHTML = [`<option value="">No linked receipt</option>`].concat(
-        receiptDocuments.map((item) => `
-            <option value="${escapeHtml(item.id)}">${escapeHtml(item.title || "Receipt")} · ${escapeHtml(formatDateOnly(item.relatedDate || item.createdAt))}</option>
-        `)
-    ).join("");
-    refs.expenseReceiptSelect.value = receiptDocuments.some((item) => item.id === currentValue) ? currentValue : "";
-}
-
-function renderRevenueSummary(project) {
-    const financials = projectFinancials(project);
-    refs.jobRevenueSummary.innerHTML = [
-        { label: "Base contract", value: formatCurrency(firstFiniteNumber(project.baseContractValue, financials.baseContractValue, project.jobValue, 0)) },
-        { label: "Approved change orders", value: formatCurrency(firstFiniteNumber(financials.approvedChangeOrdersTotal, project.approvedChangeOrdersTotal, 0)) },
-        { label: "Total revenue", value: formatCurrency(projectRevenueValue(project)) },
-        { label: "Balance remaining", value: formatCurrency(firstFiniteNumber(financials.balanceRemaining, project.balanceRemaining, 0)) }
-    ].map((item) => `
-        <article class="finance-card">
-            <span>${escapeHtml(item.label)}</span>
-            <strong>${escapeHtml(item.value)}</strong>
-        </article>
-    `).join("");
-}
-
-function renderChangeOrderList() {
-    renderSimpleEntries(refs.changeOrderList, state.projectChangeOrders, (changeOrder) => `
-        <article class="simple-item">
-            <strong>${escapeHtml(changeOrder.title || "Change order")} · ${escapeHtml(formatCurrency(changeOrder.amount || 0))}</strong>
-            <p>${escapeHtml(changeOrder.note || "")}</p>
-            <div class="simple-meta">
-                ${escapeHtml(CHANGE_ORDER_STATUS_META[changeOrder.status] || "Draft")} · ${escapeHtml(formatDateOnly(changeOrder.relatedDate || changeOrder.createdAt))}
-            </div>
-        </article>
-    `, "No change orders recorded yet.");
-}
-
-function renderExpenseList() {
-    renderSimpleEntries(refs.expenseList, state.projectExpenses, (expense) => {
-        const href = documentHref(expense);
-        return `
-            <article class="simple-item">
-                <strong>${escapeHtml(expense.category || "Expense")} · ${escapeHtml(formatCurrency(expense.amount || 0))}</strong>
-                <p>${escapeHtml(expense.note || "")}</p>
-                <div class="simple-meta">
-                    ${escapeHtml(formatDateOnly(expense.relatedDate || expense.createdAt))} · ${escapeHtml(expense.vendor || "No vendor")}
-                    ${expense.receiptTitle ? ` · Receipt: ${escapeHtml(expense.receiptTitle)}` : ""}
-                </div>
-                ${href ? `<div class="simple-meta"><a href="${escapeHtml(href)}" target="_blank" rel="noreferrer">Open receipt</a></div>` : ""}
-            </article>
-        `;
-    }, "No expenses added yet.");
-}
-
-function renderPaymentList() {
-    renderSimpleEntries(refs.paymentList, state.projectPayments, (payment) => `
-        <article class="simple-item">
-            <strong>${escapeHtml(PAYMENT_TYPE_META[payment.paymentType] || payment.method || "Payment")} · ${escapeHtml(formatCurrency(payment.amount || 0))}</strong>
-            <p>${escapeHtml(payment.note || "")}</p>
-            <div class="simple-meta">
-                ${escapeHtml(formatDateOnly(payment.relatedDate || payment.createdAt))} · ${escapeHtml(payment.method || "No method")}
-            </div>
-        </article>
-    `, "No payments recorded yet.");
-}
-
-function renderTeamFinancialSummary(project) {
-    const financials = projectFinancials(project);
-    const myBreakdown = Array.isArray(financials.workerBreakdown)
-        ? financials.workerBreakdown.find((worker) => worker.uid === state.profile?.uid)
-        : null;
-
-    refs.jobTeamFinancialSummary.innerHTML = [
-        { label: "Company share", value: formatCurrency(firstFiniteNumber(financials.companyShare, 0)) },
-        { label: "Worker pool", value: formatCurrency(firstFiniteNumber(financials.workerPool, 0)) },
-        { label: "My projected payout", value: formatCurrency(firstFiniteNumber(myBreakdown?.amount, 0)) },
-        { label: "Lock state", value: project.commissionLocked ? "Locked" : "Projected" }
-    ].map((item) => `
-        <article class="finance-card">
-            <span>${escapeHtml(item.label)}</span>
-            <strong>${escapeHtml(item.value)}</strong>
-        </article>
-    `).join("");
-
-    const breakdown = Array.isArray(financials.workerBreakdown) ? financials.workerBreakdown : [];
-    refs.commissionBreakdown.innerHTML = breakdown.length
-        ? breakdown.map((worker) => `
-            <article class="simple-item">
-                <strong>${escapeHtml(worker.name)}</strong>
-                <p>${escapeHtml(`${worker.percent}% of worker pool`)}</p>
-                <div class="simple-meta">${escapeHtml(formatCurrency(worker.amount || 0))}</div>
-            </article>
-        `).join("")
-        : `<div class="empty-note">No worker split saved yet.</div>`;
-}
-
-function renderCommissionState(project) {
-    const financials = projectFinancials(project);
-    const snapshot = lockedCommissionSnapshot(project);
-
-    refs.jobCommissionStatus.innerHTML = project.commissionLocked
-        ? `
-            <div><strong>Commission locked</strong></div>
-            <div>The current payout split was locked when this job was marked completed.</div>
-        `
-        : `
-            <div><strong>Projected payout</strong></div>
-            <div>The split is still live and will lock automatically when the job is marked completed.</div>
-        `;
-
-    refs.jobCommissionSnapshot.innerHTML = project.commissionLocked && snapshot
-        ? `
-            <div><strong>Locked revenue:</strong> ${escapeHtml(formatCurrency(snapshot.totalContractRevenue || 0))}</div>
-            <div><strong>Locked profit:</strong> ${escapeHtml(formatCurrency(snapshot.projectedGrossProfit || 0))}</div>
-            <div><strong>Locked worker pool:</strong> ${escapeHtml(formatCurrency(snapshot.workerPool || 0))}</div>
-            <div><strong>Locked on:</strong> ${escapeHtml(formatDateTime(snapshot.lockedAt))}</div>
-            <div><strong>Live gross profit now:</strong> ${escapeHtml(formatCurrency(firstFiniteNumber(financials.projectedGrossProfit, financials.profit, 0)))}</div>
-        `
-        : "No locked commission snapshot yet.";
-
-    refs.jobReopenUnlockButton.hidden = !(isAdmin() && project.commissionLocked && project.status === "completed");
-}
-
-function combinedProjectHistory(project) {
-    if (!project) return [];
-
-    return [
-        ...state.projectLeadActivities.map((item) => ({
-            ...item,
-            historySource: "Lead history"
-        })),
-        ...state.projectActivities.map((item) => ({
-            ...item,
-            historySource: "Job activity"
-        })),
-        ...state.projectNotes.map((item) => ({
-            ...item,
-            title: item.title || "Job note",
-            activityType: "note",
-            actorName: item.createdByName || "Team",
-            historySource: "Job note"
-        }))
-    ].sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
-}
-
-function renderJobHistory(project) {
-    const items = combinedProjectHistory(project);
-    if (!items.length) {
-        renderEmptyList(refs.jobHistoryList, "No history recorded yet.");
-        return;
-    }
-
-    refs.jobHistoryList.innerHTML = items.map((item) => `
-        <article class="timeline-item">
-            <strong>${escapeHtml(item.title || "History item")}</strong>
-            <p>${escapeHtml(item.body || item.note || "")}</p>
-            <div class="timeline-meta">
-                ${escapeHtml(item.historySource || item.activityType || "system")} · ${escapeHtml(item.actorName || item.createdByName || "Team")} · ${escapeHtml(formatDateTime(item.createdAt))}
-            </div>
-        </article>
-    `).join("");
-}
-
-function renderJobDocumentSourceFields() {
-    const sourceType = refs.jobDocumentSourceType.value || "upload";
-    refs.jobDocumentUrlRow.hidden = sourceType !== "link";
-    refs.jobDocumentFileRow.hidden = sourceType !== "upload";
-}
-
-function renderJobDocumentSummary() {
-    const categories = ["agreement", "receipt", "permit", "closeout"];
-    refs.jobDocumentSummary.innerHTML = categories.map((category) => {
-        const count = state.projectDocuments.filter((item) => item.category === category).length;
-        return `
-            <article class="summary-card">
-                <span>${escapeHtml(DOCUMENT_CATEGORY_META[category])}</span>
-                <strong>${escapeHtml(String(count))}</strong>
-            </article>
-        `;
-    }).join("");
-}
-
-function renderJobDocumentList() {
-    renderSimpleEntries(refs.jobDocumentList, state.projectDocuments, (item) => {
-        const href = documentHref(item);
-        return `
-            <article class="simple-item">
-                <strong>${escapeHtml(item.title || "Document")}</strong>
-                <p>${escapeHtml(item.note || "")}</p>
-                <div class="simple-meta">
-                    ${escapeHtml(DOCUMENT_CATEGORY_META[item.category] || "Other")} · ${escapeHtml(DOCUMENT_SOURCE_META[item.sourceType] || "Manual record")} · ${escapeHtml(formatDateOnly(item.relatedDate || item.createdAt))}
-                </div>
-                ${href ? `<div class="simple-meta"><a href="${escapeHtml(href)}" target="_blank" rel="noreferrer">Open document</a></div>` : ""}
-            </article>
-        `;
-    }, "No documents saved on this job yet.");
-}
-
-function renderJobDetail() {
-    const project = currentProject();
-
-    if (!project) {
-        refs.jobRecordTitle.textContent = "Select a job";
-        refs.jobRecordBadge.textContent = "No job selected";
-        refs.jobRecordBadge.className = "status-pill neutral";
-        refs.jobRecordContext.innerHTML = "";
-        refs.jobRecordEmpty.hidden = false;
-        refs.jobRecordShell.hidden = true;
-        return;
-    }
-
-    const linkedLead = project.leadId ? state.leads.find((lead) => lead.id === project.leadId) : null;
-    const financials = projectFinancials(project);
-
-    refs.jobRecordEmpty.hidden = true;
-    refs.jobRecordShell.hidden = false;
-    refs.jobRecordTitle.textContent = project.clientName || "Unnamed job";
-    refs.jobRecordBadge.textContent = JOB_STATUS_META[project.status] || "In Progress";
-    refs.jobRecordBadge.className = "status-pill";
-    refs.jobStatusSelect.value = project.status || "in_progress";
-    refs.jobStatusSelect.disabled = !isAdmin();
-    refs.jobBaseContractInput.value = firstFiniteNumber(project.baseContractValue, financials.baseContractValue, project.jobValue, 0);
-    refs.jobBaseContractInput.readOnly = !isAdmin();
-    refs.jobCustomerDisplay.value = project.customerName || "No linked customer";
-    refs.jobAddressDisplay.value = project.projectAddress || "";
-    refs.jobTotalRevenueDisplay.value = formatCurrency(projectRevenueValue(project));
-    refs.jobLinkedLeadDisplay.value = linkedLead?.clientName || linkedLead?.projectAddress || "Lead record linked automatically from won conversion";
-    renderJobOwnerOptions(project);
-    renderWorkerAssignments(project);
-    renderJobRecordContext(project);
-    renderJobSummaryStrip(project);
-    renderJobOverviewSummary(project);
-    renderRevenueSummary(project);
-    renderChangeOrderList();
-    renderExpenseReceiptOptions();
-    renderExpenseList();
-    renderPaymentList();
-    renderTeamFinancialSummary(project);
-    renderCommissionState(project);
-    renderEntityTaskList(refs.jobTaskList, relatedTasksForEntity("projectId", project.id), "No tasks linked to this job yet.");
-    renderJobHistory(project);
-    renderJobDocumentSourceFields();
-    renderJobDocumentSummary();
-    renderJobDocumentList();
-    renderJobTabState();
-    refs.jobOpenLeadButton.hidden = !project.leadId;
-
-    if (!refs.changeOrderDate.value) {
-        refs.changeOrderDate.value = todayDateInputValue();
-    }
-    if (!refs.expenseDate.value) {
-        refs.expenseDate.value = todayDateInputValue();
-    }
-    if (!refs.paymentDate.value) {
-        refs.paymentDate.value = todayDateInputValue();
-    }
-    if (!refs.jobDocumentDate.value) {
-        refs.jobDocumentDate.value = todayDateInputValue();
-    }
-    if (!refs.jobDocumentSourceType.value) {
-        refs.jobDocumentSourceType.value = "upload";
-        renderJobDocumentSourceFields();
-    }
-}
-
-function renderTemplateForm() {
-    refs.templateName.value = state.template.name || EMPTY_TEMPLATE.name;
-    refs.templateSubject.value = state.template.subjectTemplate || EMPTY_TEMPLATE.subjectTemplate;
-    refs.templateGreeting.value = state.template.greeting || EMPTY_TEMPLATE.greeting;
-    refs.templateIntro.value = state.template.intro || EMPTY_TEMPLATE.intro;
-    refs.templateOutro.value = state.template.outro || EMPTY_TEMPLATE.outro;
-    refs.templateTerms.value = state.template.terms || EMPTY_TEMPLATE.terms;
-}
-
-function renderStaffList() {
-    if (!isAdmin()) {
-        refs.staffList.innerHTML = `
-            <article class="simple-item">
-                <strong>${escapeHtml(state.profile?.displayName || state.profile?.email || "Signed in")}</strong>
-                <p>${escapeHtml(state.profile?.email || "")}</p>
-                <div class="simple-meta">${escapeHtml(state.profile?.role === "admin" ? "Admin" : "Employee")}</div>
-            </article>
-        `;
-        refs.staffAdminShell.hidden = true;
-        refs.staffEmployeeMessage.hidden = false;
-        return;
-    }
-
-    refs.staffAdminShell.hidden = false;
-    refs.staffEmployeeMessage.hidden = true;
-
-    if (!state.staffRoster.length) {
-        renderEmptyList(refs.staffList, "No staff records created yet.");
-        return;
-    }
-
-    refs.staffList.innerHTML = sortByUpdatedDesc(state.staffRoster)
-        .sort((left, right) => (left.displayName || left.email || "").localeCompare(right.displayName || right.email || ""))
-        .map((member) => `
-            <button type="button" class="record-button ${member.id === state.selectedStaffKey ? "is-selected" : ""}" data-staff-key="${escapeHtml(member.id)}">
-                <div class="record-topline">
-                    <span class="mini-pill">${escapeHtml(member.role || "employee")}</span>
-                    <span class="mini-pill">${escapeHtml(member.active === false ? "Inactive" : "Active")}</span>
-                </div>
-                <span class="record-title">${escapeHtml(member.displayName || member.email)}</span>
-                <p class="record-copy">${escapeHtml(member.email || "")}</p>
-                <div class="record-meta">
-                    <div>${escapeHtml(member.defaultLeadAssignee ? "Default lead assignee" : "Not default assignee")}</div>
-                    <div>${escapeHtml(member.uid ? "Signed in at least once" : "Waiting for first sign-in")}</div>
-                </div>
-            </button>
-        `).join("");
-}
-
-function renderAll() {
-    renderWorkspaceTools();
-    renderCurrentUserCard();
-    renderSidebarSummary();
-    renderWorkspaceCommandBar();
-    renderTodayView();
-    renderTaskMetrics();
-    renderTaskList();
-    renderTaskDetail();
-    renderLeadMetrics();
-    renderLeadListShell();
-    renderLeadDetail();
-    renderCustomerMetrics();
-    renderCustomerList();
-    renderCustomerDetail();
-    renderJobMetrics();
-    renderJobList();
-    renderJobDetail();
-    renderTemplateForm();
-    renderStaffList();
-    if (state.drawer.type) {
-        renderActiveDrawer();
-    } else {
-        setDrawerVisibility(false);
-    }
-}
-
-function shouldRetryApiRequest(error) {
-    return error?.status === 401
-        || error?.status === 403
-        || error?.status === 408
-        || error?.status === 429
-        || error?.status >= 500
-        || /Failed to fetch/i.test(error?.message || "");
-}
-
-async function apiPostOnce(path, body, { forceRefresh = false } = {}) {
-    if (!state.currentUser) {
-        const error = new Error("Your staff session is not active. Please sign in again.");
-        error.status = 401;
-        throw error;
-    }
-
-    const token = await state.currentUser.getIdToken(forceRefresh);
-    const response = await fetch(path, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer " + token
-        },
-        body: JSON.stringify(body || {})
-    });
-
-    const payload = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-        const error = new Error(payload.message || "Request failed.");
-        error.status = response.status;
-        error.payload = payload;
-        throw error;
-    }
-
-    return payload;
-}
-
-async function apiPost(path, body) {
-    try {
-        return await apiPostOnce(path, body);
-    } catch (error) {
-        if (!shouldRetryApiRequest(error)) {
-            throw error;
-        }
-
-        return apiPostOnce(path, body, { forceRefresh: true });
-    }
-}
-
-function selectLead(leadId) {
-    state.leadDraft = null;
-    state.selectedLeadId = leadId;
-    state.activeLeadTab = "overview";
-    subscribeLeadDetail();
-    renderAll();
-}
-
-function selectProject(projectId) {
-    state.selectedProjectId = projectId;
-    state.activeJobTab = "financials";
-    subscribeProjectDetail();
-    renderAll();
-}
-
-function selectCustomer(customerId) {
-    state.customerDraft = null;
-    state.selectedCustomerId = customerId;
-    renderAll();
-}
-
-function selectTask(taskId) {
-    state.taskDraft = null;
-    state.selectedTaskId = taskId;
-    renderAll();
-}
-
-function startLeadDraft(customerId = null) {
-    const customer = customerId ? state.customers.find((item) => item.id === customerId) : null;
-    state.selectedLeadId = null;
-    state.leadDraft = defaultLeadDraft(customer || null);
-    state.leadActivities = [];
-    state.estimate = null;
-    state.activeLeadTab = "overview";
-    switchView("leads-view");
-    renderAll();
-}
-
-function startCustomerDraft() {
-    state.selectedCustomerId = null;
-    state.customerDraft = defaultCustomerDraft();
-    switchView("customers-view");
-    renderAll();
-}
-
-function startTaskDraft(linked = {}) {
-    state.selectedTaskId = null;
-    state.taskDraft = defaultTaskDraft(linked);
-    switchView("tasks-view");
-    renderAll();
-}
-
-async function syncSession(user) {
-    const email = safeString(user.email).toLowerCase();
-    const allowedRef = doc(state.db, "allowedStaff", sanitiseEmailKey(email));
-
-    async function syncSessionViaApi() {
-        const token = await user.getIdToken(true);
-        const response = await fetch("/api/auth/sync-session", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer " + token
-            },
-            body: "{}"
-        });
-        const payload = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-            const error = new Error(payload.message || `Could not verify this staff account (${response.status}).`);
-            error.status = response.status;
-            throw error;
-        }
-
-        return {
-            ...payload,
-            mode: payload.mode || "api",
-            claimsSynced: payload.claimsSynced !== false,
-            profile: await verifyClientStaffAccess(user, payload.profile || {})
-        };
-    }
-
-    async function syncSessionFromFirestore() {
-        if (!email) {
-            return {
-                authorised: false,
-                message: "This Google account does not have an email address."
-            };
-        }
-
-        const allowedSnap = await getDoc(allowedRef);
-        if (!allowedSnap.exists()) {
-            return {
-                authorised: false,
-                message: "This Google account is not approved for the staff portal."
-            };
-        }
-
-        const allowedData = allowedSnap.data() || {};
-        if (allowedData.active !== true) {
-            return {
-                authorised: false,
-                message: "This Google account is not approved for the staff portal."
-            };
-        }
-
-        const profile = normaliseStaffProfile(user, allowedData);
-
-        await Promise.all([
-            setDoc(doc(state.db, "users", user.uid), {
-                ...profile,
-                createdAt: serverTimestamp(),
-                lastLoginAt: serverTimestamp(),
-                updatedAt: serverTimestamp()
-            }, { merge: true }),
-            setDoc(allowedRef, {
-                uid: user.uid,
-                email,
-                displayName: profile.displayName,
-                lastLoginAt: serverTimestamp(),
-                updatedAt: serverTimestamp()
-            }, { merge: true })
-        ]);
-
-        return {
-            ok: true,
-            authorised: true,
-            profile: await verifyClientStaffAccess(user, profile),
-            mode: "firestore",
-            claimsSynced: false
-        };
-    }
-
-    try {
-        return await syncSessionViaApi();
-    } catch (error) {
-        if (!shouldFallbackToFirestore(error)) {
-            throw error;
-        }
-
-        return syncSessionFromFirestore();
-    }
-}
-
-function resetSelectionFromSnapshots() {
-    if (state.selectedLeadId && !state.leads.some((lead) => lead.id === state.selectedLeadId)) {
-        state.selectedLeadId = null;
-    }
-
-    if (state.selectedProjectId && !state.projects.some((project) => project.id === state.selectedProjectId)) {
-        state.selectedProjectId = null;
-    }
-
-    if (state.selectedCustomerId && !state.customers.some((customer) => customer.id === state.selectedCustomerId)) {
-        state.selectedCustomerId = null;
-    }
-
-    if (state.selectedTaskId && !state.tasks.some((task) => task.id === state.selectedTaskId)) {
-        state.selectedTaskId = null;
-    }
-}
-
-function subscribeBaseData() {
-    clearUnsubs(state.unsubs.base);
-    state.unsubs.base = [];
-    clearUnsubs(state.unsubs.scopedProjects);
-    state.unsubs.scopedProjects = [];
-
-    const leadSource = isAdmin()
-        ? collection(state.db, "leads")
-        : query(collection(state.db, "leads"), where("assignedToUid", "==", state.profile.uid));
-
-    state.unsubs.base.push(onSnapshot(leadSource, (snapshot) => {
-        state.leads = snapshot.docs.map(normaliseFirestoreDoc);
-        refreshScopedCustomers();
-        if (!isAdmin()) {
-            syncScopedProjects();
-        }
-        resetSelectionFromSnapshots();
-        subscribeLeadDetail();
-        renderAll();
-        setSyncStatus("Lead data live");
-    }, (error) => {
-        handleBaseSubscriptionError("Lead data", error);
-    }));
-
-    if (isAdmin()) {
-        state.unsubs.base.push(onSnapshot(collection(state.db, "projects"), (snapshot) => {
-            state.projects = snapshot.docs.map(normaliseFirestoreDoc);
-            refreshScopedCustomers();
-            resetSelectionFromSnapshots();
-            subscribeProjectDetail();
-            renderAll();
-        }, (error) => {
-            handleBaseSubscriptionError("Job data", error);
-        }));
-    } else {
-        state.projects = [];
-        syncScopedProjects();
-    }
-
-    if (isAdmin()) {
-        state.unsubs.base.push(onSnapshot(collection(state.db, "customers"), (snapshot) => {
-            state.customers = snapshot.docs.map(normaliseFirestoreDoc);
-            resetSelectionFromSnapshots();
-            renderAll();
-        }, (error) => {
-            handleBaseSubscriptionError("Customer data", error);
-        }));
-    } else {
-        refreshScopedCustomers();
-    }
-
-    const taskSource = isAdmin()
-        ? collection(state.db, "tasks")
-        : query(collection(state.db, "tasks"), where("assignedToUid", "==", state.profile.uid));
-
-    state.unsubs.base.push(onSnapshot(taskSource, (snapshot) => {
-        state.tasks = snapshot.docs.map(normaliseFirestoreDoc);
-        if (!isAdmin()) {
-            syncScopedProjects();
-        }
-        resetSelectionFromSnapshots();
-        renderAll();
-    }, (error) => {
-        handleBaseSubscriptionError("Task data", error);
-    }));
-
-    state.unsubs.base.push(onSnapshot(doc(state.db, "emailTemplates", "estimate-default"), (snapshot) => {
-        state.template = snapshot.exists() ? normaliseFirestoreDoc(snapshot) : { ...EMPTY_TEMPLATE };
-        renderTemplateForm();
-    }, (error) => {
-        handleBaseSubscriptionError("Estimate template", error);
-    }));
-
-    if (isAdmin()) {
-        state.unsubs.base.push(onSnapshot(collection(state.db, "allowedStaff"), (snapshot) => {
-            state.staffRoster = snapshot.docs.map(normaliseFirestoreDoc);
-            renderAll();
-        }, (error) => {
-            handleBaseSubscriptionError("Staff roster", error);
-        }));
-    } else {
-        state.staffRoster = [];
-    }
-}
-
-function subscribeLeadDetail() {
-    clearUnsubs(state.unsubs.leadDetail);
-    state.unsubs.leadDetail = [];
-    state.leadActivities = [];
-    state.estimate = null;
-
-    if (!state.selectedLeadId) {
-        renderLeadDetail();
-        return;
-    }
-
-    state.unsubs.leadDetail.push(onSnapshot(collection(state.db, "leads", state.selectedLeadId, "activities"), (snapshot) => {
-        state.leadActivities = snapshot.docs
-            .map(normaliseFirestoreDoc)
-            .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
-        renderLeadDetail();
-    }, (error) => {
-        handleDetailSubscriptionError("Lead activity", error, () => {
-            state.leadActivities = [];
-            renderLeadDetail();
-        });
-    }));
-
-    state.unsubs.leadDetail.push(onSnapshot(doc(state.db, "estimates", state.selectedLeadId), (snapshot) => {
-        state.estimate = snapshot.exists() ? normaliseFirestoreDoc(snapshot) : null;
-        renderLeadDetail();
-    }, (error) => {
-        handleDetailSubscriptionError("Estimate", error, () => {
-            state.estimate = null;
-            renderLeadDetail();
-        });
-    }));
-}
-
-function subscribeProjectDetail() {
-    clearUnsubs(state.unsubs.projectDetail);
-    state.unsubs.projectDetail = [];
-    state.projectExpenses = [];
-    state.projectPayments = [];
-    state.projectChangeOrders = [];
-    state.projectDetailLoaded = {
-        expenses: false,
-        payments: false,
-        changeOrders: false
-    };
-    state.projectDocuments = [];
-    state.projectNotes = [];
-    state.projectActivities = [];
-    state.projectLeadActivities = [];
-
-    if (!state.selectedProjectId) {
-        renderJobDetail();
-        return;
-    }
-
-    state.unsubs.projectDetail.push(onSnapshot(collection(state.db, "projects", state.selectedProjectId, "expenses"), (snapshot) => {
-        state.projectExpenses = snapshot.docs
-            .map(normaliseFirestoreDoc)
-            .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
-        state.projectDetailLoaded.expenses = true;
-        renderJobMetrics();
-        renderJobList();
-        renderJobDetail();
-    }, (error) => {
-        handleDetailSubscriptionError("Job expenses", error, () => {
-            state.projectExpenses = [];
-            renderJobMetrics();
-            renderJobList();
-            renderJobDetail();
-        });
-    }));
-
-    state.unsubs.projectDetail.push(onSnapshot(collection(state.db, "projects", state.selectedProjectId, "payments"), (snapshot) => {
-        state.projectPayments = snapshot.docs
-            .map(normaliseFirestoreDoc)
-            .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
-        state.projectDetailLoaded.payments = true;
-        renderJobMetrics();
-        renderJobList();
-        renderJobDetail();
-    }, (error) => {
-        handleDetailSubscriptionError("Job payments", error, () => {
-            state.projectPayments = [];
-            renderJobMetrics();
-            renderJobList();
-            renderJobDetail();
-        });
-    }));
-
-    state.unsubs.projectDetail.push(onSnapshot(collection(state.db, "projects", state.selectedProjectId, "changeOrders"), (snapshot) => {
-        state.projectChangeOrders = snapshot.docs
-            .map(normaliseFirestoreDoc)
-            .sort((left, right) => toMillis(right.relatedDate || right.createdAt) - toMillis(left.relatedDate || left.createdAt));
-        state.projectDetailLoaded.changeOrders = true;
-        renderJobMetrics();
-        renderJobList();
-        renderJobDetail();
-    }, (error) => {
-        handleDetailSubscriptionError("Job change orders", error, () => {
-            state.projectChangeOrders = [];
-            renderJobMetrics();
-            renderJobList();
-            renderJobDetail();
-        });
-    }));
-
-    state.unsubs.projectDetail.push(onSnapshot(collection(state.db, "projects", state.selectedProjectId, "documents"), (snapshot) => {
-        state.projectDocuments = snapshot.docs
-            .map(normaliseFirestoreDoc)
-            .sort((left, right) => toMillis(right.relatedDate || right.createdAt) - toMillis(left.relatedDate || left.createdAt));
-        renderJobDetail();
-    }, (error) => {
-        handleDetailSubscriptionError("Job documents", error, () => {
-            state.projectDocuments = [];
-            renderJobDetail();
-        });
-    }));
-
-    state.unsubs.projectDetail.push(onSnapshot(collection(state.db, "projects", state.selectedProjectId, "notes"), (snapshot) => {
-        state.projectNotes = snapshot.docs
-            .map(normaliseFirestoreDoc)
-            .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
-        renderJobDetail();
-    }, (error) => {
-        handleDetailSubscriptionError("Job notes", error, () => {
-            state.projectNotes = [];
-            renderJobDetail();
-        });
-    }));
-
-    state.unsubs.projectDetail.push(onSnapshot(collection(state.db, "projects", state.selectedProjectId, "activities"), (snapshot) => {
-        state.projectActivities = snapshot.docs
-            .map(normaliseFirestoreDoc)
-            .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
-        renderJobDetail();
-    }, (error) => {
-        handleDetailSubscriptionError("Job history", error, () => {
-            state.projectActivities = [];
-            renderJobDetail();
-        });
-    }));
-
-    const linkedLeadId = currentProject()?.leadId;
-    if (linkedLeadId) {
-        state.unsubs.projectDetail.push(onSnapshot(collection(state.db, "leads", linkedLeadId, "activities"), (snapshot) => {
-            state.projectLeadActivities = snapshot.docs
-                .map(normaliseFirestoreDoc)
-                .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
-            renderJobDetail();
-        }, (error) => {
-            handleDetailSubscriptionError("Lead-to-job history", error, () => {
-                state.projectLeadActivities = [];
-                renderJobDetail();
-            });
-        }));
-    }
-}
-
-async function bootstrapFirebase() {
-    try {
-        refs.signInButton.disabled = true;
-        refs.authFeedback.textContent = "Loading Firebase configuration...";
-        const configResponse = await fetch("/__/firebase/init.json");
-        const firebaseConfig = await configResponse.json();
-
-        state.app = initializeApp(firebaseConfig);
-        state.auth = getAuth(state.app);
-        state.db = initializeFirestore(state.app, {
-            experimentalForceLongPolling: true
-        });
-        state.storage = getStorage(state.app);
-        state.provider = new GoogleAuthProvider();
-        state.provider.setCustomParameters({ prompt: "select_account" });
-
-        refs.signInButton.disabled = false;
-        refs.authFeedback.textContent = "Only approved staff accounts can enter the portal.";
-
-        onAuthStateChanged(state.auth, async (user) => {
-            clearUnsubs(state.unsubs.base);
-            clearUnsubs(state.unsubs.scopedProjects);
-            clearUnsubs(state.unsubs.leadDetail);
-            clearUnsubs(state.unsubs.projectDetail);
-
-            if (!user) {
-                state.sessionResetting = false;
-                state.currentUser = null;
-                state.profile = null;
-                state.leads = [];
-                state.projects = [];
-                state.customers = [];
-                state.tasks = [];
-                state.staffRoster = [];
-                state.selectedLeadId = null;
-                state.selectedProjectId = null;
-                state.selectedCustomerId = null;
-                state.selectedTaskId = null;
-                state.leadDraft = null;
-                state.customerDraft = null;
-                state.taskDraft = null;
-                state.leadActivities = [];
-                state.projectExpenses = [];
-                state.projectPayments = [];
-                state.projectChangeOrders = [];
-                state.projectDetailLoaded = {
-                    expenses: false,
-                    payments: false,
-                    changeOrders: false
-                };
-                state.projectDocuments = [];
-                state.projectNotes = [];
-                state.projectActivities = [];
-                state.projectLeadActivities = [];
-                state.activeJobTab = "financials";
-                closeDrawer();
-                setBanner("", "info");
-                showAuthShell();
-                return;
-            }
-
-            state.sessionResetting = false;
-            state.currentUser = user;
-
-            try {
-                const session = await syncSession(user);
-
-                if (!session.authorised) {
-                    showAuthShell(session.message || "This Google account is not approved for the staff portal.");
-                    await signOut(state.auth);
-                    return;
-                }
-
-                state.profile = session.profile;
-                state.todayScope = "mine";
-                applyRoleVisibility();
-                showStaffShell();
-                switchView("today-view");
-                setBanner(
-                    session.mode === "firestore"
-                        ? "Staff login is running from the approved Firestore staff list while backend permissions finish syncing."
-                        : session.claimsSynced === false
-                            ? "Staff login is working, but backend claims sync is still degraded. Core CRM access will keep working."
-                        : ""
-                );
-                setSyncStatus("Syncing data");
-                subscribeBaseData();
-                renderAll();
-            } catch (error) {
-                showAuthShell(error.message || "Could not verify this staff account.");
-                await signOut(state.auth);
-            }
-        });
-    } catch (error) {
-        refs.authFeedback.textContent = "Firebase could not load. Check Hosting setup and try again.";
-        refs.signInButton.disabled = true;
-        console.error(error);
-    }
-}
-
-function selectedLeadAssignee() {
-    const uid = refs.leadAssigneeSelect.value || "";
-    return activeStaffOptions().find((member) => member.uid === uid) || null;
-}
-
-function collectLeadFormState(baseLead = currentLead()) {
-    const assignee = isAdmin() ? selectedLeadAssignee() : null;
-    const customerId = isAdmin() ? (refs.leadCustomerSelect.value || null) : baseLead?.customerId || null;
-    const customer = customerId ? state.customers.find((item) => item.id === customerId) : null;
-    const status = refs.leadStageSelect.value || baseLead?.status || "new_lead";
-
-    return {
-        clientName: refs.leadClientName.value.trim(),
-        clientEmail: refs.leadClientEmail.value.trim(),
-        clientPhone: refs.leadClientPhone.value.trim(),
-        projectAddress: refs.leadProjectAddress.value.trim(),
-        projectType: refs.leadProjectType.value.trim(),
-        notes: refs.leadNotesInput.value.trim(),
-        status,
-        statusLabel: STATUS_META[status],
-        customerId,
-        customerName: customer?.name || baseLead?.customerName || "",
-        assignedToUid: isAdmin()
-            ? assignee?.uid || null
-            : baseLead?.assignedToUid || state.profile?.uid || null,
-        assignedToName: isAdmin()
-            ? assignee?.displayName || assignee?.email || ""
-            : baseLead?.assignedToName || state.profile?.displayName || "",
-        assignedToEmail: isAdmin()
-            ? assignee?.email || ""
-            : baseLead?.assignedToEmail || state.profile?.email || ""
-    };
-}
-
-function selectedTaskAssignee(select) {
-    const uid = select.value || "";
-    return activeStaffOptions().find((member) => member.uid === uid) || null;
-}
-
-function customerPayloadFromLead(leadData = {}, existingCustomer = {}) {
-    return {
-        name: safeString(existingCustomer.name || leadData.customerName || leadData.clientName || "Unnamed customer"),
-        primaryEmail: safeString(existingCustomer.primaryEmail || leadData.clientEmail),
-        primaryPhone: safeString(existingCustomer.primaryPhone || leadData.clientPhone),
-        primaryAddress: safeString(existingCustomer.primaryAddress || leadData.projectAddress),
-        notes: safeString(existingCustomer.notes),
-        searchEmail: normaliseEmail(existingCustomer.searchEmail || existingCustomer.primaryEmail || leadData.clientEmail),
-        searchPhone: normalisePhone(existingCustomer.searchPhone || existingCustomer.primaryPhone || leadData.clientPhone),
-        allowedStaffUids: uniqueValues([
-            ...(existingCustomer.allowedStaffUids || []),
-            safeString(leadData.assignedToUid),
-            safeString(state.profile?.uid)
-        ])
-    };
-}
-
-function matchingCustomersForLead(leadData = {}) {
-    const leadEmail = normaliseEmail(leadData.clientEmail);
-    const leadPhone = normalisePhone(leadData.clientPhone);
-
-    if (!leadEmail && !leadPhone) {
-        return [];
-    }
-
-    return state.customers
-        .filter((customer) => {
-            const customerEmail = normaliseEmail(customer.searchEmail || customer.primaryEmail);
-            const customerPhone = normalisePhone(customer.searchPhone || customer.primaryPhone);
-            return (leadEmail && customerEmail === leadEmail)
-                || (leadPhone && customerPhone === leadPhone);
-        })
-        .sort((left, right) => toMillis(right.updatedAt || right.createdAt) - toMillis(left.updatedAt || left.createdAt));
-}
-
-async function writeCustomerFromLead(customerRef, leadData = {}, existingCustomer = {}) {
-    const payload = customerPayloadFromLead(leadData, existingCustomer);
-    await setDoc(customerRef, {
-        id: customerRef.id,
-        ...payload,
-        createdAt: existingCustomer.createdAt || serverTimestamp(),
-        updatedAt: serverTimestamp()
-    }, { merge: true });
-
-    return {
-        id: customerRef.id,
-        name: payload.name
-    };
-}
-
-async function syncLeadCustomerLinkDirect(leadId) {
-    if (!isAdmin()) {
-        const error = new Error("Backend customer linking is unavailable, and only admins can use the direct Firestore fallback.");
-        error.status = 503;
-        throw error;
-    }
-
-    const leadRef = doc(state.db, "leads", leadId);
-    const leadSnap = await getDoc(leadRef);
-    if (!leadSnap.exists()) {
-        const error = new Error("Lead not found.");
-        error.status = 404;
-        throw error;
-    }
-
-    const leadData = {
-        id: leadSnap.id,
-        ...leadSnap.data()
-    };
-
-    if (leadData.customerId) {
-        const existingCustomer = state.customers.find((customer) => customer.id === leadData.customerId) || {};
-        const linkedCustomer = await writeCustomerFromLead(
-            doc(state.db, "customers", leadData.customerId),
-            leadData,
-            existingCustomer
-        );
-
-        await setDoc(leadRef, {
-            customerId: linkedCustomer.id,
-            customerName: linkedCustomer.name,
-            customerMatchResult: "linked",
-            customerReviewRequired: false,
-            customerMatchIds: [linkedCustomer.id],
-            updatedAt: serverTimestamp()
-        }, { merge: true });
-
-        return {
-            ok: true,
-            customerId: linkedCustomer.id,
-            customerName: linkedCustomer.name,
-            matchResult: "linked",
-            reviewRequired: false,
-            customerMatchIds: [linkedCustomer.id],
-            fallback: "firestore"
-        };
-    }
-
-    const matches = matchingCustomersForLead(leadData);
-
-    if (matches.length > 1) {
-        const customerMatchIds = matches.map((customer) => customer.id);
-        await setDoc(leadRef, {
-            customerId: null,
-            customerName: "",
-            customerMatchResult: "review_required",
-            customerReviewRequired: true,
-            customerMatchIds,
-            updatedAt: serverTimestamp()
-        }, { merge: true });
-
-        return {
-            ok: true,
-            customerId: null,
-            customerName: "",
-            matchResult: "review_required",
-            reviewRequired: true,
-            customerMatchIds,
-            fallback: "firestore"
-        };
-    }
-
-    const targetCustomer = matches[0] || null;
-    const customerRef = targetCustomer
-        ? doc(state.db, "customers", targetCustomer.id)
-        : doc(collection(state.db, "customers"));
-    const linkedCustomer = await writeCustomerFromLead(
-        customerRef,
-        {
-            ...leadData,
-            customerId: targetCustomer?.id || "",
-            customerName: targetCustomer?.name || leadData.clientName
-        },
-        targetCustomer || {}
-    );
-    const matchResult = targetCustomer ? "linked" : "created";
-
-    await setDoc(leadRef, {
-        customerId: linkedCustomer.id,
-        customerName: linkedCustomer.name,
-        customerMatchResult: matchResult,
-        customerReviewRequired: false,
-        customerMatchIds: [linkedCustomer.id],
-        updatedAt: serverTimestamp()
-    }, { merge: true });
-
-    return {
-        ok: true,
-        customerId: linkedCustomer.id,
-        customerName: linkedCustomer.name,
-        matchResult,
-        reviewRequired: false,
-        customerMatchIds: [linkedCustomer.id],
-        fallback: "firestore"
-    };
-}
-
-async function syncLeadCustomerLink(leadId, { quiet = false } = {}) {
-    let payload;
-
-    try {
-        payload = await apiPost("/api/staff/lead-customer-link", { leadId });
-    } catch (error) {
-        if (!shouldRetryApiRequest(error) || !isAdmin()) {
-            throw error;
-        }
-
-        payload = await syncLeadCustomerLinkDirect(leadId);
-        setBanner("Customer linking used the direct Firestore fallback because the staff API is temporarily unavailable.", "info");
-    }
-
-    if (!quiet) {
-        if (payload.matchResult === "created") {
-            showToast("Lead saved and new customer created.");
-        } else if (payload.matchResult === "linked") {
-            showToast("Lead saved and linked to the matching customer.");
-        } else if (payload.matchResult === "review_required") {
-            showToast("Multiple customer matches found. Review the linked customer on the lead record.", "error");
-        }
-    }
-
-    return payload;
-}
-
-async function saveLeadDrawer(event) {
-    event.preventDefault();
-
-    if (!isAdmin()) {
-        showToast("Only admins can create leads from the quick drawer.", "error");
-        return;
-    }
-
-    const draft = state.drawer.leadDraft || {};
-    const assignee = activeStaffOptions().find((member) => member.uid === refs.drawerLeadAssignee.value) || preferredLeadAssignee();
-    const leadRef = doc(collection(state.db, "leads"));
-
-    const payload = {
-        id: leadRef.id,
-        customerId: draft.customerId || null,
-        customerName: draft.customerName || "",
-        clientName: refs.drawerLeadClientName.value.trim(),
-        clientEmail: refs.drawerLeadClientEmail.value.trim(),
-        clientPhone: refs.drawerLeadClientPhone.value.trim(),
-        projectAddress: refs.drawerLeadProjectAddress.value.trim(),
-        projectType: refs.drawerLeadProjectType.value.trim(),
-        notes: refs.drawerLeadNotes.value.trim(),
-        sourceForm: "manual_entry",
-        sourcePage: "Staff CRM",
-        sourcePath: "/staff",
-        consent: false,
-        status: "new_lead",
-        statusLabel: STATUS_META.new_lead,
-        inquiryChannel: "staff",
-        assignedToUid: assignee?.uid || null,
-        assignedToName: assignee?.displayName || assignee?.email || "",
-        assignedToEmail: assignee?.email || "",
-        hasEstimate: false,
-        estimateSubtotal: 0,
-        estimateTitle: "",
-        customerMatchResult: draft.customerId ? "linked" : "",
-        customerReviewRequired: false,
-        customerMatchIds: draft.customerId ? [draft.customerId] : [],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-    };
-
-    if (!payload.clientName || !payload.clientPhone) {
-        showToast("Client name and phone are required.", "error");
-        return;
-    }
-
-    await setDoc(leadRef, payload, { merge: true });
-    await addDoc(collection(state.db, "leads", leadRef.id, "activities"), {
-        activityType: "system",
-        title: "Lead created in staff CRM",
-        body: "Manual lead created from the quick-add drawer.",
-        actorName: state.profile.displayName,
-        actorUid: state.profile.uid,
-        actorRole: state.profile.role,
-        createdAt: serverTimestamp()
-    });
-
-    await syncLeadCustomerLink(leadRef.id, { quiet: true });
-    closeDrawer();
-    switchView("leads-view");
-    selectLead(leadRef.id);
-    showToast("Lead created.");
-}
-
-async function saveCustomerDrawer(event) {
-    event.preventDefault();
-
-    if (!isAdmin()) {
-        showToast("Only admins can create customers.", "error");
-        return;
-    }
-
-    const customerRef = doc(collection(state.db, "customers"));
-    const primaryEmail = refs.drawerCustomerEmail.value.trim();
-    const primaryPhone = refs.drawerCustomerPhone.value.trim();
-    const payload = {
-        id: customerRef.id,
-        name: refs.drawerCustomerName.value.trim(),
-        primaryEmail,
-        primaryPhone,
-        primaryAddress: refs.drawerCustomerAddress.value.trim(),
-        notes: refs.drawerCustomerNotes.value.trim(),
-        searchEmail: normaliseEmail(primaryEmail),
-        searchPhone: normalisePhone(primaryPhone),
-        allowedStaffUids: uniqueValues([state.profile?.uid]),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-    };
-
-    if (!payload.name) {
-        showToast("Customer name is required.", "error");
-        return;
-    }
-
-    await setDoc(customerRef, payload, { merge: true });
-    closeDrawer();
-    switchView("customers-view");
-    selectCustomer(customerRef.id);
-    showToast("Customer created.");
-}
-
-async function saveTaskDrawer(event) {
-    event.preventDefault();
-
-    const assignee = selectedTaskAssignee(refs.drawerTaskAssignee) || activeStaffOptions()[0] || null;
-    const linkedType = refs.drawerTaskLinkedType.value;
-    const linkedId = refs.drawerTaskLinkedRecord.value || "";
-    const linkedLead = linkedType === "lead" ? state.leads.find((item) => item.id === linkedId) : null;
-    const linkedProject = linkedType === "project" ? state.projects.find((item) => item.id === linkedId) : null;
-    const created = await createQuickTask({
-        title: refs.drawerTaskTitle.value,
-        dueValue: refs.drawerTaskDue.value,
-        priority: refs.drawerTaskPriority.value,
-        assigneeSelect: refs.drawerTaskAssignee,
-        leadId: linkedType === "lead" ? linkedId : null,
-        customerId: linkedType === "customer"
-            ? linkedId
-            : linkedLead?.customerId
-                || linkedProject?.customerId
-                || state.drawer.taskDraft?.customerId
-                || null,
-        projectId: linkedType === "project" ? linkedId : null
-    });
-
-    if (!created) {
-        return;
-    }
-
-    closeDrawer();
-
-    if (linkedType === "lead" && linkedId) {
-        const lead = state.leads.find((item) => item.id === linkedId);
-        if (lead) {
-            selectLead(lead.id);
-            switchView("leads-view");
-            state.activeLeadTab = "tasks";
-            renderLeadTabState();
-        }
-    } else if (linkedType === "customer" && linkedId) {
-        selectCustomer(linkedId);
-        switchView("customers-view");
-    } else if (linkedType === "project" && linkedId) {
-        selectProject(linkedId);
-        switchView("jobs-view");
-    } else if (assignee?.uid) {
-        switchView("tasks-view");
-    }
-}
-
-async function saveTask(event) {
-    event.preventDefault();
-
-    const existing = currentTaskDoc();
-    const linkedType = refs.taskLinkedTypeSelect.value;
-    const linkedId = refs.taskLinkedRecordSelect.value || "";
-    const assignee = selectedTaskAssignee(refs.taskAssigneeSelect) || activeStaffOptions()[0] || null;
-    const payload = {
-        title: refs.taskTitleInput.value.trim(),
-        description: refs.taskDescriptionInput.value.trim(),
-        status: refs.taskStatusSelect.value,
-        priority: refs.taskPrioritySelect.value,
-        dueAt: parseDateInput(refs.taskDueInput.value),
-        assignedToUid: assignee?.uid || state.profile?.uid || "",
-        assignedToName: assignee?.displayName || assignee?.email || state.profile?.displayName || "",
-        assignedToEmail: assignee?.email || state.profile?.email || "",
-        leadId: linkedType === "lead" ? linkedId : null,
-        customerId: linkedType === "customer" ? linkedId : null,
-        projectId: linkedType === "project" ? linkedId : null,
-        updatedAt: serverTimestamp()
-    };
-
-    if (!payload.title) {
-        showToast("Task title is required.", "error");
-        return;
-    }
-
-    if (state.taskDraft || !existing) {
-        const taskRef = doc(collection(state.db, "tasks"));
-        await setDoc(taskRef, {
-            id: taskRef.id,
-            ...payload,
-            createdAt: serverTimestamp(),
-            createdByUid: state.profile.uid,
-            createdByName: state.profile.displayName
-        }, { merge: true });
-
-        state.taskDraft = null;
-        state.selectedTaskId = taskRef.id;
-        showToast("Task created.");
-    } else {
-        await updateDoc(doc(state.db, "tasks", existing.id), payload);
-        showToast("Task updated.");
-    }
-}
-
-async function markTaskComplete() {
-    const task = currentTaskDoc();
-    if (!task) return;
-
-    await updateDoc(doc(state.db, "tasks", task.id), {
-        status: "completed",
-        updatedAt: serverTimestamp()
-    });
-
-    showToast("Task marked complete.");
-}
-
-async function createQuickTask({ title, dueValue, priority, assigneeSelect, leadId = null, customerId = null, projectId = null }) {
-    const assignee = selectedTaskAssignee(assigneeSelect) || activeStaffOptions()[0] || null;
-    const cleanTitle = safeString(title);
-
-    if (!cleanTitle) {
-        showToast("Task title is required.", "error");
-        return false;
-    }
-
-    const taskRef = doc(collection(state.db, "tasks"));
-    await setDoc(taskRef, {
-        id: taskRef.id,
-        title: cleanTitle,
-        description: "",
-        status: "open",
-        priority,
-        dueAt: parseDateInput(dueValue),
-        assignedToUid: assignee?.uid || state.profile?.uid || "",
-        assignedToName: assignee?.displayName || assignee?.email || state.profile?.displayName || "",
-        assignedToEmail: assignee?.email || state.profile?.email || "",
-        leadId,
-        customerId,
-        projectId,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        createdByUid: state.profile.uid,
-        createdByName: state.profile.displayName
-    }, { merge: true });
-
-    showToast("Task created.");
-    return true;
-}
-
-async function saveLead(event) {
-    event.preventDefault();
-
-    const existing = currentLeadDoc();
-    const payload = {
-        ...collectLeadFormState(existing || currentLead()),
-        customerMatchResult: refs.leadCustomerSelect.value ? "linked" : "",
-        customerReviewRequired: false,
-        customerMatchIds: refs.leadCustomerSelect.value ? [refs.leadCustomerSelect.value] : [],
-        updatedAt: serverTimestamp()
-    };
-
-    if (!payload.clientName || !payload.clientPhone) {
-        showToast("Client name and phone are required.", "error");
-        return;
-    }
-
-    if (!isAdmin() && existing && existing.status !== "closed_won" && payload.status === "closed_won") {
-        showToast("Only admins can mark a lead won and create the linked job.", "error");
-        refs.leadStageSelect.value = existing.status || "new_lead";
-        return;
-    }
-
-    if (state.leadDraft || !existing) {
-        const leadRef = doc(collection(state.db, "leads"));
-        await setDoc(leadRef, {
-            id: leadRef.id,
-            ...payload,
-            sourceForm: "manual_entry",
-            sourcePage: "Staff CRM",
-            sourcePath: "/staff",
-            consent: false,
-            inquiryChannel: "staff",
-            hasEstimate: false,
-            estimateSubtotal: 0,
-            estimateTitle: "",
-            createdAt: serverTimestamp()
-        }, { merge: true });
-
-        await addDoc(collection(state.db, "leads", leadRef.id, "activities"), {
-            activityType: "system",
-            title: "Lead created in staff CRM",
-            body: "Manual lead created inside the staff portal.",
-            actorName: state.profile.displayName,
-            actorUid: state.profile.uid,
-            actorRole: state.profile.role,
-            createdAt: serverTimestamp()
-        });
-
-        await syncLeadCustomerLink(leadRef.id, { quiet: true });
-        state.leadDraft = null;
-        state.selectedLeadId = leadRef.id;
-        subscribeLeadDetail();
-        showToast("Lead created.");
-        return;
-    }
-
-    const statusChanged = existing.status !== payload.status;
-    const reassigned = isAdmin() && existing.assignedToUid !== (payload.assignedToUid || null);
-    const customerChanged = existing.customerId !== payload.customerId;
-
-    await updateDoc(doc(state.db, "leads", existing.id), payload);
-
-    if (statusChanged) {
-        await addDoc(collection(state.db, "leads", existing.id, "activities"), {
-            activityType: "system",
-            title: "Lead status updated",
-            body: `Moved to ${STATUS_META[payload.status]}.`,
-            actorName: state.profile.displayName,
-            actorUid: state.profile.uid,
-            actorRole: state.profile.role,
-            createdAt: serverTimestamp()
-        });
-    }
-
-    if (reassigned) {
-        await addDoc(collection(state.db, "leads", existing.id, "activities"), {
-            activityType: "system",
-            title: "Lead reassigned",
-            body: `Assigned to ${payload.assignedToName || "Unassigned"}.`,
-            actorName: state.profile.displayName,
-            actorUid: state.profile.uid,
-            actorRole: state.profile.role,
-            createdAt: serverTimestamp()
-        });
-    }
-
-    if (customerChanged) {
-        await addDoc(collection(state.db, "leads", existing.id, "activities"), {
-            activityType: "system",
-            title: "Customer link updated",
-            body: payload.customerName ? `Linked to customer ${payload.customerName}.` : "Removed linked customer.",
-            actorName: state.profile.displayName,
-            actorUid: state.profile.uid,
-            actorRole: state.profile.role,
-            createdAt: serverTimestamp()
-        });
-    }
-
-    await syncLeadCustomerLink(existing.id, { quiet: true });
-    showToast("Lead updated.");
-}
-
-async function persistSelectedLeadForm(lead, overrides = {}) {
-    if (!lead?.id || lead.id !== state.selectedLeadId || state.leadDraft) {
-        return;
-    }
-
-    const formState = collectLeadFormState(lead);
-    await updateDoc(doc(state.db, "leads", lead.id), {
-        ...formState,
-        ...overrides,
-        status: overrides.status || formState.status,
-        statusLabel: STATUS_META[overrides.status || formState.status],
-        customerMatchResult: (overrides.customerId || formState.customerId) ? "linked" : (lead.customerMatchResult || ""),
-        customerReviewRequired: Boolean(overrides.customerReviewRequired || false),
-        customerMatchIds: overrides.customerId || formState.customerId
-            ? [overrides.customerId || formState.customerId]
-            : (lead.customerMatchIds || []),
-        updatedAt: serverTimestamp()
-    });
-}
-
-async function moveLeadToStatus(lead, nextStatus, { source = "button" } = {}) {
-    if (!lead?.id) {
-        showToast("Select a lead first.", "error");
-        return;
-    }
-
-    if (lead.status === nextStatus && nextStatus !== "closed_won") {
-        return;
-    }
-
-    if (nextStatus === "closed_won") {
-        await convertLeadToProject(lead);
-        return;
-    }
-
-    if (lead.id === state.selectedLeadId && !state.leadDraft) {
-        await persistSelectedLeadForm(lead, { status: nextStatus });
-    } else {
-        await updateDoc(doc(state.db, "leads", lead.id), {
-            status: nextStatus,
-            statusLabel: STATUS_META[nextStatus],
-            updatedAt: serverTimestamp()
-        });
-    }
-
-    await addDoc(collection(state.db, "leads", lead.id, "activities"), {
-        activityType: "system",
-        title: nextStatus === "closed_lost" ? "Lead marked lost" : "Lead stage updated",
-        body: nextStatus === "closed_lost"
-            ? `Lead was closed lost from the ${source === "drag" ? "pipeline board" : "record actions"}.`
-            : `Moved to ${STATUS_META[nextStatus]} from the ${source === "drag" ? "pipeline board" : "record actions"}.`,
-        actorName: state.profile.displayName,
-        actorUid: state.profile.uid,
-        actorRole: state.profile.role,
-        createdAt: serverTimestamp()
-    });
-
-    showToast(nextStatus === "closed_lost" ? "Lead marked lost." : `Lead moved to ${STATUS_META[nextStatus]}.`);
-}
-
-function initialProjectFinancials(baseContractValue, assignedWorkers = []) {
-    const contractValue = toNumber(baseContractValue);
-    const workerBreakdown = assignedWorkers.map((worker, index) => ({
-        uid: worker.uid || `worker-${index + 1}`,
-        name: worker.name || worker.email || "Assigned worker",
-        email: worker.email || "",
-        percent: toNumber(worker.percent) || (assignedWorkers.length === 1 ? 100 : 0),
-        amount: 0
-    }));
-
-    return {
-        baseContractValue: contractValue,
-        approvedChangeOrdersTotal: 0,
-        totalContractRevenue: contractValue,
-        totalExpenses: 0,
-        totalPayments: 0,
-        profit: contractValue,
-        projectedGrossProfit: contractValue,
-        distributableProfit: Math.max(contractValue, 0),
-        cashPosition: 0,
-        balanceRemaining: contractValue,
-        companyShare: Math.max(contractValue, 0) * 0.5,
-        workerPool: Math.max(contractValue, 0) * 0.5,
-        workerBreakdown,
-        updatedAt: serverTimestamp()
-    };
-}
-
-async function convertLeadToProjectDirect(leadId) {
-    if (!isAdmin()) {
-        const error = new Error("Backend lead conversion is unavailable, and only admins can use the direct Firestore fallback.");
-        error.status = 503;
-        throw error;
-    }
-
-    const leadRef = doc(state.db, "leads", leadId);
-    const projectRef = doc(state.db, "projects", leadId);
-    const existingProjectSnap = await getDoc(projectRef);
-    if (existingProjectSnap.exists()) {
-        return {
-            ok: true,
-            existing: true,
-            projectId: leadId,
-            fallback: "firestore"
-        };
-    }
-
-    const customerLink = await syncLeadCustomerLinkDirect(leadId);
-    if (customerLink.matchResult === "review_required") {
-        return customerLink;
-    }
-
-    const refreshedLeadSnap = await getDoc(leadRef);
-    if (!refreshedLeadSnap.exists()) {
-        const error = new Error("Lead not found.");
-        error.status = 404;
-        throw error;
-    }
-
-    const refreshedLead = refreshedLeadSnap.data() || {};
-    const leadOwnerUid = safeString(refreshedLead.assignedToUid || state.profile?.uid);
-    const leadOwnerName = safeString(refreshedLead.assignedToName || state.profile?.displayName || state.profile?.email);
-    const leadOwnerEmail = normaliseEmail(refreshedLead.assignedToEmail || state.profile?.email);
-    const assignedWorkers = leadOwnerUid
-        ? [{
-            uid: leadOwnerUid,
-            name: leadOwnerName,
-            email: leadOwnerEmail,
-            percent: 100
-        }]
-        : [];
-    const financials = initialProjectFinancials(refreshedLead.estimateSubtotal || 0, assignedWorkers);
-    const batch = writeBatch(state.db);
-
-    batch.set(projectRef, {
-        id: leadId,
-        leadId,
-        customerId: customerLink.customerId,
-        customerName: customerLink.customerName,
-        clientName: safeString(refreshedLead.clientName),
-        clientEmail: normaliseEmail(refreshedLead.clientEmail),
-        clientPhone: safeString(refreshedLead.clientPhone),
-        projectAddress: safeString(refreshedLead.projectAddress),
-        projectType: safeString(refreshedLead.projectType),
-        status: "in_progress",
-        baseContractValue: financials.baseContractValue,
-        approvedChangeOrdersTotal: financials.approvedChangeOrdersTotal,
-        totalContractRevenue: financials.totalContractRevenue,
-        cashPosition: financials.cashPosition,
-        balanceRemaining: financials.balanceRemaining,
-        jobValue: financials.totalContractRevenue,
-        assignedLeadOwnerUid: leadOwnerUid || null,
-        assignedWorkers,
-        assignedWorkerIds: assignedWorkers.map((worker) => worker.uid).filter(Boolean),
-        allowedStaffUids: uniqueValues([
-            leadOwnerUid,
-            ...assignedWorkers.map((worker) => worker.uid)
-        ]),
-        commissionLocked: false,
-        lockedCommissionSnapshot: null,
-        financials,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-    }, { merge: true });
-
-    batch.set(leadRef, {
-        status: "closed_won",
-        statusLabel: STATUS_META.closed_won,
-        customerId: customerLink.customerId,
-        customerName: customerLink.customerName,
-        wonProjectId: leadId,
-        updatedAt: serverTimestamp()
-    }, { merge: true });
-
-    await batch.commit();
-
-    await Promise.all([
-        addDoc(collection(state.db, "leads", leadId, "activities"), {
-            activityType: "system",
-            title: "Lead converted to job",
-            body: "Won job created and linked to the customer record.",
-            actorName: state.profile?.displayName || state.profile?.email || "Team",
-            actorUid: state.profile?.uid || "",
-            actorRole: state.profile?.role || "employee",
-            createdAt: serverTimestamp()
-        }),
-        addProjectActivityEntry(
-            leadId,
-            "system",
-            "Job created from won lead",
-            "The won lead was converted into the operational job record."
-        )
-    ]);
-
-    return {
-        ok: true,
-        existing: false,
-        projectId: leadId,
-        matchResult: customerLink.matchResult,
-        fallback: "firestore"
-    };
-}
-
-async function convertLeadToProject(lead = currentLeadDoc()) {
-    if (!lead?.id) {
-        showToast("Save the lead first.", "error");
-        return;
-    }
-
-    const existingProject = projectForLead(lead);
-    if (existingProject) {
-        state.selectedProjectId = existingProject.id;
-        switchView("jobs-view");
-        subscribeProjectDetail();
-        showToast("This lead already has a job record.");
-        return;
-    }
-
-    if (lead.id === state.selectedLeadId && !state.leadDraft) {
-        const leadFormState = collectLeadFormState(lead);
-        if (!leadFormState.clientName || !leadFormState.clientPhone) {
-            showToast("Client name and phone are required before marking a lead won.", "error");
-            return;
-        }
-
-        await updateDoc(doc(state.db, "leads", lead.id), {
-            ...leadFormState,
-            customerMatchResult: leadFormState.customerId ? "linked" : (lead.customerMatchResult || ""),
-            customerReviewRequired: false,
-            customerMatchIds: leadFormState.customerId ? [leadFormState.customerId] : (lead.customerMatchIds || []),
-            updatedAt: serverTimestamp()
-        });
-    }
-
-    let response;
-
-    try {
-        response = await apiPost("/api/staff/convert-lead", { leadId: lead.id });
-    } catch (error) {
-        if (!shouldRetryApiRequest(error) || !isAdmin()) {
-            throw error;
-        }
-
-        response = await convertLeadToProjectDirect(lead.id);
-        setBanner("Lead conversion used the direct Firestore fallback because the staff API is temporarily unavailable.", "info");
-    }
-
-    if (response.matchResult === "review_required") {
-        showToast("Multiple customer matches were found. Review the linked customer first.", "error");
-        return;
-    }
-
-    state.selectedProjectId = response.projectId;
-    switchView("jobs-view");
-    subscribeProjectDetail();
-    showToast(response.existing ? "This lead already has a job record." : "Job created from won lead.");
-}
-
-async function addNote(event) {
-    event.preventDefault();
-    const lead = currentLeadDoc();
-    const body = refs.noteBody.value.trim();
-
-    if (!lead) {
-        showToast("Save the lead first.", "error");
-        return;
-    }
-
-    if (!body) {
-        showToast("Note text is required.", "error");
-        return;
-    }
-
-    await addDoc(collection(state.db, "leads", lead.id, "activities"), {
-        activityType: "note",
-        title: "Internal note",
-        body,
-        actorName: state.profile.displayName,
-        actorUid: state.profile.uid,
-        actorRole: state.profile.role,
-        createdAt: serverTimestamp()
-    });
-
-    refs.noteBody.value = "";
-    showToast("Internal note saved.");
-}
-
-async function saveEstimateDraft(event) {
-    event.preventDefault();
-    const lead = currentLeadDoc();
-
-    if (!lead || !isAdmin()) {
-        showToast("Save the lead first.", "error");
-        return;
-    }
-
-    const estimate = collectEstimateForm();
-    await setDoc(doc(state.db, "estimates", lead.id), {
-        id: lead.id,
-        leadId: lead.id,
-        status: "draft",
-        subject: estimate.subject,
-        emailBody: estimate.emailBody,
-        assumptions: estimate.assumptions,
-        lineItems: estimate.lineItems,
-        subtotal: estimate.subtotal,
-        updatedAt: serverTimestamp(),
-        createdAt: state.estimate?.createdAt || serverTimestamp(),
-        lastEditedByUid: state.profile.uid,
-        lastEditedByName: state.profile.displayName
-    }, { merge: true });
-
-    await updateDoc(doc(state.db, "leads", lead.id), {
-        hasEstimate: true,
-        estimateSubtotal: estimate.subtotal,
-        estimateTitle: estimate.subject,
-        estimateUpdatedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-    });
-
-    await addDoc(collection(state.db, "leads", lead.id, "activities"), {
-        activityType: "estimate",
-        title: "Estimate updated",
-        body: "Current estimate content was updated in the staff portal.",
-        actorName: state.profile.displayName,
-        actorUid: state.profile.uid,
-        actorRole: state.profile.role,
-        createdAt: serverTimestamp()
-    });
-
-    showToast("Estimate saved.");
-}
-
-async function createEstimateDraft() {
-    const lead = currentLeadDoc();
-    if (!lead || !isAdmin()) {
-        showToast("Save the lead first.", "error");
-        return;
-    }
-
-    refs.estimateAiButton.disabled = true;
-    refs.estimateAiButton.textContent = "Creating...";
-
-    try {
-        const draft = buildTemplateEstimateDraft(lead);
-        const estimatePayload = {
-            id: lead.id,
-            leadId: lead.id,
-            status: "draft",
-            generatedBy: "template",
-            subject: draft.subject,
-            emailBody: draft.emailBody,
-            assumptions: draft.assumptions,
-            lineItems: draft.lineItems,
-            subtotal: draft.subtotal,
-            updatedAt: serverTimestamp(),
-            createdAt: state.estimate?.createdAt || serverTimestamp(),
-            lastEditedByUid: state.profile.uid,
-            lastEditedByName: state.profile.displayName
-        };
-
-        await Promise.all([
-            setDoc(doc(state.db, "estimates", lead.id), estimatePayload, { merge: true }),
-            updateDoc(doc(state.db, "leads", lead.id), {
-                hasEstimate: true,
-                estimateSubtotal: draft.subtotal,
-                estimateTitle: draft.subject,
-                estimateUpdatedAt: serverTimestamp(),
-                updatedAt: serverTimestamp()
-            }),
-            addDoc(collection(state.db, "leads", lead.id, "activities"), {
-                activityType: "estimate",
-                title: "Estimate draft refreshed",
-                body: "Estimate draft generated from the internal template.",
-                actorName: state.profile.displayName,
-                actorUid: state.profile.uid,
-                actorRole: state.profile.role,
-                createdAt: serverTimestamp()
-            })
-        ]);
-
-        state.estimate = {
-            ...estimatePayload,
-            updatedAt: new Date().toISOString()
-        };
-        renderLeadDetail();
-        showToast("Estimate draft created.");
-    } catch (error) {
-        showToast(error.message, "error");
-    } finally {
-        refs.estimateAiButton.disabled = false;
-        refs.estimateAiButton.textContent = "Create Draft";
-    }
-}
-
-async function copyEstimateToClipboard() {
-    const lead = currentLead();
-    if (!lead) {
-        showToast("Select a lead first.", "error");
-        return;
-    }
-
-    try {
-        await navigator.clipboard.writeText(buildEstimatePlainText(lead, collectEstimateForm()));
-        showToast("Estimate copied.");
-    } catch (error) {
-        showToast("Could not copy the estimate.", "error");
-    }
-}
-
-function openEstimatePrintView() {
-    const lead = currentLead();
-    if (!lead) {
-        showToast("Select a lead first.", "error");
-        return;
-    }
-
-    const previewHtml = buildEstimatePreviewHtml(lead, collectEstimateForm());
-    const printWindow = window.open("", "_blank", "noopener,noreferrer");
-
-    if (!printWindow) {
-        showToast("Pop-up blocked. Allow pop-ups to open the print view.", "error");
-        return;
-    }
-
-    printWindow.document.write(`<!DOCTYPE html>
-=======
   const template = state.template || EMPTY_TEMPLATE;
   const standardTerms = estimateStandardTerms(template);
   const projectAssumptions = estimateProjectAssumptionList(
@@ -9258,7 +6570,6 @@ function buildEstimateDocumentHtml(lead, estimateDraft) {
   const previewHtml = buildEstimatePreviewHtml(lead, estimateDraft);
 
   return `<!DOCTYPE html>
->>>>>>> codex/staff-mobile-overhaul
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -12063,9 +9374,9 @@ function renderLeadJobSummary(lead) {
 
   refs.leadJobSummary.innerHTML = `
         <div><strong>Job status:</strong> ${escapeHtml(project.status === "completed" ? "Completed" : "In Progress")}</div>
-        <div><strong>Contract value:</strong> ${escapeHtml(formatCurrency(project.jobValue || 0))}</div>
-        <div><strong>Client paid:</strong> ${escapeHtml(formatCurrency(project.financials?.totalPayments || 0))}</div>
-        <div><strong>Profit tracked:</strong> ${escapeHtml(formatCurrency(project.financials?.profit || 0))}</div>
+        <div><strong>Contract value:</strong> ${escapeHtml(formatCurrency(projectRevenueValue(project)))}</div>
+        <div><strong>Client paid:</strong> ${escapeHtml(formatCurrency(firstFiniteNumber(projectFinancials(project).totalPayments, 0)))}</div>
+        <div><strong>Profit tracked:</strong> ${escapeHtml(formatCurrency(firstFiniteNumber(projectFinancials(project).projectedGrossProfit, projectFinancials(project).profit, 0)))}</div>
         <div><button type="button" class="secondary-button" data-open-project="${escapeHtml(project.id)}" data-open-view="jobs-view">Open job record</button></div>
     `;
 }
@@ -14035,8 +11346,8 @@ function renderJobList() {
                 <div class="record-meta">
                     <div>${escapeHtml(project.customerName || "No linked customer")}</div>
                     <div>Revenue ${escapeHtml(formatCurrency(projectRevenueValue(project)))}</div>
-                    <div>Balance ${escapeHtml(formatCurrency(financials.balanceRemaining || project.balanceRemaining || 0))}</div>
-                    <div>Profit ${escapeHtml(formatCurrency(financials.projectedGrossProfit || financials.profit || 0))}</div>
+                    <div>Balance ${escapeHtml(formatCurrency(firstFiniteNumber(financials.balanceRemaining, project.balanceRemaining, 0)))}</div>
+                    <div>Profit ${escapeHtml(formatCurrency(firstFiniteNumber(financials.projectedGrossProfit, financials.profit, 0)))}</div>
                 </div>
             </button>
         `;
@@ -14081,8 +11392,110 @@ function renderWorkerAssignments(project) {
     .join("");
 }
 
+function normaliseAssignedProjectWorkers(project) {
+  const storedWorkers = Array.isArray(project?.financials?.workerBreakdown)
+    ? project.financials.workerBreakdown
+    : [];
+  const source =
+    Array.isArray(project?.assignedWorkers) && project.assignedWorkers.length
+      ? project.assignedWorkers
+      : storedWorkers;
+
+  return source
+    .filter((worker) => safeString(worker?.uid || worker?.email || worker?.name))
+    .map((worker, index) => ({
+      uid: safeString(worker.uid || `worker-${index + 1}`),
+      name: safeString(worker.name || worker.email || "Assigned worker"),
+      email: safeString(worker.email),
+      percent: toNumber(worker.percent),
+    }));
+}
+
+function selectedProjectFinancialsReady(project) {
+  return Boolean(
+    project?.id &&
+      project.id === state.selectedProjectId &&
+      state.projectDetailLoaded.expenses &&
+      state.projectDetailLoaded.payments &&
+      state.projectDetailLoaded.changeOrders,
+  );
+}
+
+function computeSelectedProjectFinancials(project) {
+  const storedFinancials = project?.financials || {};
+  if (!selectedProjectFinancialsReady(project)) {
+    return storedFinancials;
+  }
+
+  const baseContractValue = firstFiniteNumber(
+    project?.baseContractValue,
+    storedFinancials.baseContractValue,
+    project?.jobValue,
+    0,
+  );
+  const approvedChangeOrdersTotal = state.projectChangeOrders
+    .filter(
+      (changeOrder) => normaliseChangeOrderStatus(changeOrder.status) === "approved",
+    )
+    .reduce((sum, changeOrder) => sum + toNumber(changeOrder.amount), 0);
+  const totalContractRevenue = baseContractValue + approvedChangeOrdersTotal;
+  const totalExpenses = state.projectExpenses.reduce(
+    (sum, expense) => sum + toNumber(expense.amount),
+    0,
+  );
+  const totalPayments = state.projectPayments.reduce(
+    (sum, payment) => sum + toNumber(payment.amount),
+    0,
+  );
+  const rawProfit = totalContractRevenue - totalExpenses;
+  const distributableProfit = Math.max(rawProfit, 0);
+  const companyShare = distributableProfit * 0.5;
+  const workerPool = distributableProfit * 0.5;
+  const cashPosition = totalPayments - totalExpenses;
+  const balanceRemaining = totalContractRevenue - totalPayments;
+  const assignedWorkers = normaliseAssignedProjectWorkers(project);
+  const totalPercent = assignedWorkers.reduce(
+    (sum, worker) => sum + worker.percent,
+    0,
+  );
+  const workerBreakdown = assignedWorkers.map((worker, index) => {
+    let effectivePercent = worker.percent;
+
+    if (assignedWorkers.length === 1 && totalPercent <= 0) {
+      effectivePercent = 100;
+    } else if (totalPercent > 0) {
+      effectivePercent = (worker.percent / totalPercent) * 100;
+    }
+
+    return {
+      uid: worker.uid || `worker-${index + 1}`,
+      name: worker.name || worker.email || "Assigned worker",
+      email: worker.email,
+      percent: Number(effectivePercent.toFixed(2)),
+      amount: Number(((workerPool * effectivePercent) / 100).toFixed(2)),
+    };
+  });
+
+  return {
+    ...storedFinancials,
+    baseContractValue: Number(baseContractValue.toFixed(2)),
+    approvedChangeOrdersTotal: Number(approvedChangeOrdersTotal.toFixed(2)),
+    totalContractRevenue: Number(totalContractRevenue.toFixed(2)),
+    totalExpenses: Number(totalExpenses.toFixed(2)),
+    totalPayments: Number(totalPayments.toFixed(2)),
+    profit: Number(rawProfit.toFixed(2)),
+    projectedGrossProfit: Number(rawProfit.toFixed(2)),
+    distributableProfit: Number(distributableProfit.toFixed(2)),
+    cashPosition: Number(cashPosition.toFixed(2)),
+    balanceRemaining: Number(balanceRemaining.toFixed(2)),
+    companyShare: Number(companyShare.toFixed(2)),
+    workerPool: Number(workerPool.toFixed(2)),
+    workerBreakdown,
+  };
+}
+
 function projectFinancials(project) {
-  return project?.financials || {};
+  return computeSelectedProjectFinancials(project);
 }
 
 function isServiceOrderProject(project) {
@@ -14091,11 +11504,12 @@ function isServiceOrderProject(project) {
 
 function projectRevenueValue(project) {
   const financials = projectFinancials(project);
-  return toNumber(
-    financials.totalContractRevenue ||
-      project?.totalContractRevenue ||
-      project?.jobValue ||
-      project?.baseContractValue,
+  return firstFiniteNumber(
+    financials.totalContractRevenue,
+    project?.totalContractRevenue,
+    project?.jobValue,
+    project?.baseContractValue,
+    0,
   );
 }
 
@@ -14275,7 +11689,7 @@ function renderJobRecordContext(project) {
         financials.cashPosition || project.cashPosition || 0,
       ),
       meta: assignedWorkers.length
-        ? `${assignedWorkers.length} assigned · Balance ${formatCurrency(financials.balanceRemaining || project.balanceRemaining || 0)}`
+        ? `${assignedWorkers.length} assigned · Balance ${formatCurrency(firstFiniteNumber(financials.balanceRemaining, project.balanceRemaining, 0))}`
         : "Assign workers and expenses to track the true margin.",
       muted: true,
     }),
@@ -14291,11 +11705,11 @@ function renderJobSummaryStrip(project) {
     },
     {
       label: "Payments received",
-      value: formatCurrency(financials.totalPayments || 0),
+      value: formatCurrency(firstFiniteNumber(financials.totalPayments, 0)),
     },
     {
       label: "Expenses recorded",
-      value: formatCurrency(financials.totalExpenses || 0),
+      value: formatCurrency(firstFiniteNumber(financials.totalExpenses, 0)),
     },
     {
       label: "Projected gross profit",
@@ -14770,12 +12184,12 @@ function renderTeamFinancialSummary(project) {
   refs.jobTeamFinancialSummary.innerHTML = [
     {
       label: "Company share",
-      value: formatCurrency(financials.companyShare || 0),
+      value: formatCurrency(firstFiniteNumber(financials.companyShare, 0)),
     },
-    { label: "Worker pool", value: formatCurrency(financials.workerPool || 0) },
+    { label: "Worker pool", value: formatCurrency(firstFiniteNumber(financials.workerPool, 0)) },
     {
       label: "My projected payout",
-      value: formatCurrency(myBreakdown?.amount || 0),
+      value: formatCurrency(firstFiniteNumber(myBreakdown?.amount, 0)),
     },
     {
       label: "Lock state",
@@ -14827,11 +12241,11 @@ function renderCommissionState(project) {
   refs.jobCommissionSnapshot.innerHTML =
     project.commissionLocked && snapshot
       ? `
-            <div><strong>Locked revenue:</strong> ${escapeHtml(formatCurrency(snapshot.totalContractRevenue || 0))}</div>
-            <div><strong>Locked profit:</strong> ${escapeHtml(formatCurrency(snapshot.projectedGrossProfit || 0))}</div>
-            <div><strong>Locked worker pool:</strong> ${escapeHtml(formatCurrency(snapshot.workerPool || 0))}</div>
+            <div><strong>Locked revenue:</strong> ${escapeHtml(formatCurrency(firstFiniteNumber(snapshot.totalContractRevenue, 0)))}</div>
+            <div><strong>Locked profit:</strong> ${escapeHtml(formatCurrency(firstFiniteNumber(snapshot.projectedGrossProfit, 0)))}</div>
+            <div><strong>Locked worker pool:</strong> ${escapeHtml(formatCurrency(firstFiniteNumber(snapshot.workerPool, 0)))}</div>
             <div><strong>Locked on:</strong> ${escapeHtml(formatDateTime(snapshot.lockedAt))}</div>
-            <div><strong>Live gross profit now:</strong> ${escapeHtml(formatCurrency(financials.projectedGrossProfit || financials.profit || 0))}</div>
+            <div><strong>Live gross profit now:</strong> ${escapeHtml(formatCurrency(firstFiniteNumber(financials.projectedGrossProfit, financials.profit, 0)))}</div>
         `
       : "No locked commission snapshot yet.";
 
@@ -16212,8 +13626,27 @@ function renderAll() {
   syncMobileChrome();
 }
 
-async function apiPost(path, body) {
-  const token = await state.currentUser.getIdToken();
+function shouldRetryApiRequest(error) {
+  return (
+    error?.status === 401 ||
+    error?.status === 403 ||
+    error?.status === 408 ||
+    error?.status === 429 ||
+    error?.status >= 500 ||
+    /Failed to fetch/i.test(error?.message || "")
+  );
+}
+
+async function apiPostOnce(path, body, { forceRefresh = false } = {}) {
+  if (!state.currentUser) {
+    const error = new Error(
+      "Your staff session is not active. Please sign in again.",
+    );
+    error.status = 401;
+    throw error;
+  }
+
+  const token = await state.currentUser.getIdToken(forceRefresh);
   const response = await fetch(path, {
     method: "POST",
     headers: {
@@ -16233,6 +13666,18 @@ async function apiPost(path, body) {
   }
 
   return payload;
+}
+
+async function apiPost(path, body) {
+  try {
+    return await apiPostOnce(path, body);
+  } catch (error) {
+    if (!shouldRetryApiRequest(error)) {
+      throw error;
+    }
+
+    return apiPostOnce(path, body, { forceRefresh: true });
+  }
 }
 
 function selectLead(
@@ -17218,6 +14663,11 @@ function subscribeProjectDetail() {
   state.projectPayments = [];
   state.projectInvoices = [];
   state.projectChangeOrders = [];
+  state.projectDetailLoaded = {
+    expenses: false,
+    payments: false,
+    changeOrders: false,
+  };
   state.projectScopeItems = [];
   state.projectDocuments = [];
   state.projectNotes = [];
@@ -17241,11 +14691,16 @@ function subscribeProjectDetail() {
             (left, right) =>
               toMillis(right.createdAt) - toMillis(left.createdAt),
           );
+        state.projectDetailLoaded.expenses = true;
+        renderJobMetrics();
+        renderJobList();
         renderJobDetail();
       },
       (error) => {
         handleDetailSubscriptionError("Job expenses", error, () => {
           state.projectExpenses = [];
+          renderJobMetrics();
+          renderJobList();
           renderJobDetail();
         });
       },
@@ -17262,11 +14717,16 @@ function subscribeProjectDetail() {
             (left, right) =>
               toMillis(right.createdAt) - toMillis(left.createdAt),
           );
+        state.projectDetailLoaded.payments = true;
+        renderJobMetrics();
+        renderJobList();
         renderJobDetail();
       },
       (error) => {
         handleDetailSubscriptionError("Job payments", error, () => {
           state.projectPayments = [];
+          renderJobMetrics();
+          renderJobList();
           renderJobDetail();
         });
       },
@@ -17325,11 +14785,16 @@ function subscribeProjectDetail() {
               toMillis(right.relatedDate || right.createdAt) -
               toMillis(left.relatedDate || left.createdAt),
           );
+        state.projectDetailLoaded.changeOrders = true;
+        renderJobMetrics();
+        renderJobList();
         renderJobDetail();
       },
       (error) => {
         handleDetailSubscriptionError("Job change orders", error, () => {
           state.projectChangeOrders = [];
+          renderJobMetrics();
+          renderJobList();
           renderJobDetail();
         });
       },
@@ -17462,7 +14927,9 @@ async function bootstrapFirebase() {
 
     state.app = initializeApp(firebaseConfig);
     state.auth = getAuth(state.app);
-    state.db = getFirestore(state.app);
+    state.db = initializeFirestore(state.app, {
+      experimentalForceLongPolling: true,
+    });
     state.storage = getStorage(state.app);
     state.provider = new GoogleAuthProvider();
     state.provider.setCustomParameters({ prompt: "select_account" });
@@ -17622,8 +15089,145 @@ function selectedTaskAssignee(select) {
   return activeStaffOptions().find((member) => member.uid === uid) || null;
 }
 
+async function syncLeadCustomerLinkDirect(leadId) {
+  if (!isAdmin()) {
+    const error = new Error(
+      "Backend customer linking is unavailable, and only admins can use the direct Firestore fallback.",
+    );
+    error.status = 503;
+    throw error;
+  }
+
+  const leadRef = doc(state.db, "leads", leadId);
+  const leadSnap = await getDoc(leadRef);
+  if (!leadSnap.exists()) {
+    const error = new Error("Lead not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  const leadData = {
+    id: leadSnap.id,
+    ...leadSnap.data(),
+  };
+
+  if (leadData.customerId) {
+    const existingCustomer =
+      state.customers.find((customer) => customer.id === leadData.customerId) ||
+      {};
+    const linkedCustomer = await writeCustomerFromLead(
+      doc(state.db, "customers", leadData.customerId),
+      leadData,
+      existingCustomer,
+    );
+
+    await setDoc(
+      leadRef,
+      {
+        customerId: linkedCustomer.id,
+        customerName: linkedCustomer.name,
+        customerMatchResult: "linked",
+        customerReviewRequired: false,
+        customerMatchIds: [linkedCustomer.id],
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    return {
+      ok: true,
+      customerId: linkedCustomer.id,
+      customerName: linkedCustomer.name,
+      matchResult: "linked",
+      reviewRequired: false,
+      customerMatchIds: [linkedCustomer.id],
+      fallback: "firestore",
+    };
+  }
+
+  const matches = matchingCustomersForLead(leadData);
+
+  if (matches.length > 1) {
+    const customerMatchIds = matches.map((customer) => customer.id);
+    await setDoc(
+      leadRef,
+      {
+        customerId: null,
+        customerName: "",
+        customerMatchResult: "review_required",
+        customerReviewRequired: true,
+        customerMatchIds,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    return {
+      ok: true,
+      customerId: null,
+      customerName: "",
+      matchResult: "review_required",
+      reviewRequired: true,
+      customerMatchIds,
+      fallback: "firestore",
+    };
+  }
+
+  const targetCustomer = matches[0] || null;
+  const customerRef = targetCustomer
+    ? doc(state.db, "customers", targetCustomer.id)
+    : doc(collection(state.db, "customers"));
+  const linkedCustomer = await writeCustomerFromLead(
+    customerRef,
+    {
+      ...leadData,
+      customerId: targetCustomer?.id || "",
+      customerName: targetCustomer?.name || leadData.clientName,
+    },
+    targetCustomer || {},
+  );
+  const matchResult = targetCustomer ? "linked" : "created";
+
+  await setDoc(
+    leadRef,
+    {
+      customerId: linkedCustomer.id,
+      customerName: linkedCustomer.name,
+      customerMatchResult: matchResult,
+      customerReviewRequired: false,
+      customerMatchIds: [linkedCustomer.id],
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  return {
+    ok: true,
+    customerId: linkedCustomer.id,
+    customerName: linkedCustomer.name,
+    matchResult,
+    reviewRequired: false,
+    customerMatchIds: [linkedCustomer.id],
+    fallback: "firestore",
+  };
+}
+
 async function syncLeadCustomerLink(leadId, { quiet = false } = {}) {
-  const payload = await apiPost("/api/staff/lead-customer-link", { leadId });
+  let payload;
+
+  try {
+    payload = await apiPost("/api/staff/lead-customer-link", { leadId });
+  } catch (error) {
+    if (!shouldRetryApiRequest(error) || !isAdmin()) {
+      throw error;
+    }
+
+    payload = await syncLeadCustomerLinkDirect(leadId);
+    setBanner(
+      "Customer linking used the direct Firestore fallback because the staff API is temporarily unavailable.",
+      "info",
+    );
+  }
 
   if (!quiet) {
     if (payload.matchResult === "created") {
@@ -18260,6 +15864,144 @@ async function moveLeadToStatus(lead, nextStatus, { source = "button" } = {}) {
   );
 }
 
+async function convertLeadToProjectDirect(leadId) {
+  if (!isAdmin()) {
+    const error = new Error(
+      "Backend lead conversion is unavailable, and only admins can use the direct Firestore fallback.",
+    );
+    error.status = 503;
+    throw error;
+  }
+
+  const leadRef = doc(state.db, "leads", leadId);
+  const projectRef = doc(state.db, "projects", leadId);
+  const existingProjectSnap = await getDoc(projectRef);
+  if (existingProjectSnap.exists()) {
+    return {
+      ok: true,
+      existing: true,
+      projectId: leadId,
+      fallback: "firestore",
+    };
+  }
+
+  const customerLink = await syncLeadCustomerLinkDirect(leadId);
+  if (customerLink.matchResult === "review_required") {
+    return customerLink;
+  }
+
+  const refreshedLeadSnap = await getDoc(leadRef);
+  if (!refreshedLeadSnap.exists()) {
+    const error = new Error("Lead not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  const refreshedLead = refreshedLeadSnap.data() || {};
+  const leadOwnerUid = safeString(
+    refreshedLead.assignedToUid || state.profile?.uid,
+  );
+  const leadOwnerName = safeString(
+    refreshedLead.assignedToName ||
+      state.profile?.displayName ||
+      state.profile?.email,
+  );
+  const leadOwnerEmail = normaliseEmail(
+    refreshedLead.assignedToEmail || state.profile?.email,
+  );
+  const assignedWorkers = leadOwnerUid
+    ? [
+        {
+          uid: leadOwnerUid,
+          name: leadOwnerName,
+          email: leadOwnerEmail,
+          percent: 100,
+        },
+      ]
+    : [];
+  const financials = initialProjectFinancials(
+    refreshedLead.estimateSubtotal || 0,
+    assignedWorkers,
+  );
+  const batch = writeBatch(state.db);
+
+  batch.set(
+    projectRef,
+    {
+      id: leadId,
+      leadId,
+      customerId: customerLink.customerId,
+      customerName: customerLink.customerName,
+      clientName: safeString(refreshedLead.clientName),
+      clientEmail: normaliseEmail(refreshedLead.clientEmail),
+      clientPhone: safeString(refreshedLead.clientPhone),
+      projectAddress: safeString(refreshedLead.projectAddress),
+      projectType: safeString(refreshedLead.projectType),
+      status: "in_progress",
+      baseContractValue: financials.baseContractValue,
+      approvedChangeOrdersTotal: financials.approvedChangeOrdersTotal,
+      totalContractRevenue: financials.totalContractRevenue,
+      cashPosition: financials.cashPosition,
+      balanceRemaining: financials.balanceRemaining,
+      jobValue: financials.totalContractRevenue,
+      assignedLeadOwnerUid: leadOwnerUid || null,
+      assignedWorkers,
+      assignedWorkerIds: assignedWorkers.map((worker) => worker.uid).filter(Boolean),
+      allowedStaffUids: uniqueValues([
+        leadOwnerUid,
+        ...assignedWorkers.map((worker) => worker.uid),
+      ]),
+      commissionLocked: false,
+      lockedCommissionSnapshot: null,
+      financials,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  batch.set(
+    leadRef,
+    {
+      status: "closed_won",
+      statusLabel: STATUS_META.closed_won,
+      customerId: customerLink.customerId,
+      customerName: customerLink.customerName,
+      wonProjectId: leadId,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  await batch.commit();
+
+  await Promise.all([
+    addDoc(collection(state.db, "leads", leadId, "activities"), {
+      activityType: "system",
+      title: "Lead converted to job",
+      body: "Won job created and linked to the customer record.",
+      actorName: state.profile?.displayName || state.profile?.email || "Team",
+      actorUid: state.profile?.uid || "",
+      actorRole: state.profile?.role || "employee",
+      createdAt: serverTimestamp(),
+    }),
+    addProjectActivityEntry(
+      leadId,
+      "system",
+      "Job created from won lead",
+      "The won lead was converted into the operational job record.",
+    ),
+  ]);
+
+  return {
+    ok: true,
+    existing: false,
+    projectId: leadId,
+    matchResult: customerLink.matchResult,
+    fallback: "firestore",
+  };
+}
+
 async function convertLeadToProject(lead = currentLeadDoc()) {
   if (!lead?.id) {
     showToast("Save the lead first.", "error");
@@ -18297,9 +16039,23 @@ async function convertLeadToProject(lead = currentLeadDoc()) {
     });
   }
 
-  const response = await apiPost("/api/staff/convert-lead", {
-    leadId: lead.id,
-  });
+  let response;
+
+  try {
+    response = await apiPost("/api/staff/convert-lead", {
+      leadId: lead.id,
+    });
+  } catch (error) {
+    if (!shouldRetryApiRequest(error) || !isAdmin()) {
+      throw error;
+    }
+
+    response = await convertLeadToProjectDirect(lead.id);
+    setBanner(
+      "Lead conversion used the direct Firestore fallback because the staff API is temporarily unavailable.",
+      "info",
+    );
+  }
 
   if (response.matchResult === "review_required") {
     showToast(

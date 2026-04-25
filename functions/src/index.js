@@ -4444,23 +4444,7 @@ exports.syncStaffSession = onRequest(
     }
 
     try {
-<<<<<<< HEAD
       const decoded = await verifyStaffIdToken(request);
-=======
-      const authHeader = request.get("authorization") || "";
-      const matches = authHeader.match(/^Bearer (.+)$/i);
-
-      if (!matches) {
-        respondJson(response, 401, {
-          ok: false,
-          authorised: false,
-          message: "Missing auth token.",
-        });
-        return;
-      }
-
-      const decoded = await admin.auth().verifyIdToken(matches[1]);
->>>>>>> codex/staff-mobile-overhaul
       const email = safeString(decoded.email).toLowerCase();
       const emailKey = sanitizeEmailKey(email);
       const bootstrapAdmins = parseCommaList(CRM_ADMIN_EMAILS.value());
@@ -4489,20 +4473,19 @@ exports.syncStaffSession = onRequest(
         return;
       }
 
-<<<<<<< HEAD
       let templateSynced = true;
       try {
-        await ensureDefaultTemplate();
+        await Promise.all([
+          ensureDefaultTemplate(),
+          ensureDefaultServiceTemplates(),
+        ]);
       } catch (error) {
         templateSynced = false;
-        logger.warn("Default estimate template sync degraded during staff login.", error);
+        logger.warn(
+          "Default estimate template sync degraded during staff login.",
+          error,
+        );
       }
-=======
-      await Promise.all([
-        ensureDefaultTemplate(),
-        ensureDefaultServiceTemplates(),
-      ]);
->>>>>>> codex/staff-mobile-overhaul
 
       const profile = buildStaffProfile(decoded, allowedData);
 
@@ -4548,12 +4531,8 @@ exports.syncStaffSession = onRequest(
         authorised: true,
         mode: "api",
         claimsSynced,
-<<<<<<< HEAD
         templateSynced,
-        profile: serialiseStaffProfile(profile)
-=======
         profile: serialiseStaffProfile(profile),
->>>>>>> codex/staff-mobile-overhaul
       });
     } catch (error) {
       logger.error("Staff session sync failed.", error);
@@ -4561,11 +4540,7 @@ exports.syncStaffSession = onRequest(
       respondJson(response, status, {
         ok: false,
         authorised: false,
-<<<<<<< HEAD
-        message: error.message || "Could not verify this staff account."
-=======
-        message: "Could not verify this staff account.",
->>>>>>> codex/staff-mobile-overhaul
+        message: error.message || "Could not verify this staff account.",
       });
     }
   },
