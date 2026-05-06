@@ -35,9 +35,9 @@ import {
 
 const VIEW_META = {
   "today-view": {
-    title: "Today",
+    title: "Dashboard",
     subtitle:
-      "Start with what is overdue, what is due today, which leads are fresh, and which jobs need attention.",
+      "Start with what needs attention next: fresh leads, follow-ups, today's schedule, client messages, and active jobs.",
   },
   "tasks-view": {
     title: "Tasks",
@@ -47,7 +47,7 @@ const VIEW_META = {
   "leads-view": {
     title: "Leads",
     subtitle:
-      "Work the pipeline from a full board, then open each lead in a focused workspace for planning, estimates, tasks, and job handoff.",
+      "Search, filter, assign, update, and safely archive leads from a cleaner list-first workflow.",
   },
   "customers-view": {
     title: "Customers",
@@ -57,7 +57,12 @@ const VIEW_META = {
   "jobs-view": {
     title: "Jobs",
     subtitle:
-      "Operate won work and repeatable service orders from one record: staffing, billing, expenses, payments, company share, and worker split.",
+      "Run active work from a focused job workspace with schedule, client updates, tasks, documents, billing, and safe archive controls.",
+  },
+  "calendar-view": {
+    title: "Calendar",
+    subtitle:
+      "Schedule crew work, estimate appointments, inspections, deliveries, milestones, and client-visible job updates.",
   },
   "vendors-view": {
     title: "Vendors",
@@ -65,9 +70,9 @@ const VIEW_META = {
       "Manage trade partners, what we owe them, and the agreements, insurance, and W-9 files that support the relationship.",
   },
   "staff-view": {
-    title: "Staff",
+    title: "Admin / More",
     subtitle:
-      "Manage staff access, review each employee's workload, assign follow-up tasks, and control the default lead routing.",
+      "Manage staff access, portal queue, service templates, team workload, and the restore-safe trash area.",
   },
 };
 
@@ -93,7 +98,26 @@ const PRIORITY_META = {
 };
 
 const JOB_STATUS_META = {
+  planning: "Planning",
   in_progress: "In Progress",
+  on_hold: "On Hold",
+  completed: "Completed",
+};
+
+const CALENDAR_TYPE_META = {
+  job_work: "Job work",
+  estimate_appointment: "Estimate appointment",
+  milestone: "Milestone",
+  inspection: "Inspection",
+  delivery: "Delivery",
+  client_update: "Client update",
+  internal: "Internal",
+};
+
+const CALENDAR_STATUS_META = {
+  scheduled: "Scheduled",
+  confirmed: "Confirmed",
+  needs_attention: "Needs attention",
   completed: "Completed",
 };
 
@@ -327,11 +351,16 @@ const ESTIMATE_PDF_THEME = {
 const MOBILE_BREAKPOINT = 860;
 const MOBILE_PRIMARY_VIEWS = [
   "today-view",
+  "leads-view",
   "jobs-view",
-  "vendors-view",
-  "tasks-view",
+  "calendar-view",
 ];
-const MOBILE_MORE_VIEWS = ["leads-view", "customers-view", "staff-view"];
+const MOBILE_MORE_VIEWS = [
+  "tasks-view",
+  "customers-view",
+  "staff-view",
+  "vendors-view",
+];
 
 let jsPdfModulePromise = null;
 
@@ -490,6 +519,7 @@ const refs = {
   leadJobSummary: document.getElementById("lead-job-summary"),
   leadMarkWonButton: document.getElementById("lead-mark-won-button"),
   leadMarkLostButton: document.getElementById("lead-mark-lost-button"),
+  leadArchiveButton: document.getElementById("lead-archive-button"),
 
   customerMetrics: document.getElementById("customer-metrics"),
   customerSearchInput: document.getElementById("customer-search-input"),
@@ -608,13 +638,17 @@ const refs = {
   customerTaskAssignee: document.getElementById("customer-task-assignee"),
 
   jobMetrics: document.getElementById("job-metrics"),
+  jobsView: document.getElementById("jobs-view"),
   jobSearchInput: document.getElementById("job-search-input"),
   jobStatusFilter: document.getElementById("job-status-filter"),
+  jobNewButton: document.getElementById("job-new-button"),
   jobNewServiceOrderButton: document.getElementById(
     "job-new-service-order-button",
   ),
   jobList: document.getElementById("job-list"),
   jobRecordTitle: document.getElementById("job-record-title"),
+  jobWorkspaceMeta: document.getElementById("job-workspace-meta"),
+  jobWorkspaceBackButton: document.getElementById("job-workspace-back-button"),
   jobRecordBadge: document.getElementById("job-record-badge"),
   jobMobileBackButton: document.getElementById("job-mobile-back-button"),
   jobRecordEmpty: document.getElementById("job-record-empty"),
@@ -629,12 +663,18 @@ const refs = {
   jobAddNoteButton: document.getElementById("job-add-note-button"),
   jobSummaryStrip: document.getElementById("job-summary-strip"),
   jobTabButtons: Array.from(document.querySelectorAll("[data-job-tab]")),
+  jobOpenEstimateButton: document.getElementById("job-open-estimate-button"),
+  jobDeleteButton: document.getElementById("job-delete-button"),
   jobCoreForm: document.getElementById("job-core-form"),
   jobStatusSelect: document.getElementById("job-status-select"),
   jobBaseContractInput: document.getElementById("job-base-contract-input"),
   jobOwnerSelect: document.getElementById("job-owner-select"),
-  jobCustomerDisplay: document.getElementById("job-customer-display"),
-  jobAddressDisplay: document.getElementById("job-address-display"),
+  jobCustomerSelect: document.getElementById("job-customer-select"),
+  jobClientNameInput: document.getElementById("job-client-name-input"),
+  jobClientPhoneInput: document.getElementById("job-client-phone-input"),
+  jobClientEmailInput: document.getElementById("job-client-email-input"),
+  jobProjectTypeInput: document.getElementById("job-project-type-input"),
+  jobProjectAddressInput: document.getElementById("job-project-address-input"),
   jobTotalRevenueDisplay: document.getElementById("job-total-revenue-display"),
   jobLinkedLeadDisplay: document.getElementById("job-linked-lead-display"),
   jobPlanningNotesInput: document.getElementById("job-planning-notes-input"),
@@ -647,6 +687,22 @@ const refs = {
   ),
   jobRecordContext: document.getElementById("job-record-context"),
   jobOverviewSummary: document.getElementById("job-overview-summary"),
+  jobCalendarSummary: document.getElementById("job-calendar-summary"),
+  jobCalendarList: document.getElementById("job-calendar-list"),
+  jobCalendarFocusButton: document.getElementById("job-calendar-focus-button"),
+  jobEstimateSummary: document.getElementById("job-estimate-summary"),
+  jobEstimateStatus: document.getElementById("job-estimate-status"),
+  jobEstimatePreview: document.getElementById("job-estimate-preview"),
+  jobEstimateActions: document.getElementById("job-estimate-actions"),
+  jobEstimateOpenLeadButton: document.getElementById(
+    "job-estimate-open-lead-button",
+  ),
+  jobEstimateDownloadButton: document.getElementById(
+    "job-estimate-download-button",
+  ),
+  jobGenerateCloseoutButton: document.getElementById(
+    "job-generate-closeout-button",
+  ),
   workerAssignmentList: document.getElementById("worker-assignment-list"),
   jobOpenLeadButton: document.getElementById("job-open-lead-button"),
   jobRevenueSummary: document.getElementById("job-revenue-summary"),
@@ -656,6 +712,10 @@ const refs = {
   changeOrderStatus: document.getElementById("change-order-status"),
   changeOrderDate: document.getElementById("change-order-date"),
   changeOrderNote: document.getElementById("change-order-note"),
+  changeOrderSubmitButton: document.getElementById(
+    "change-order-submit-button",
+  ),
+  changeOrderResetButton: document.getElementById("change-order-reset-button"),
   changeOrderList: document.getElementById("change-order-list"),
   jobChangeOrderFocusButton: document.getElementById(
     "job-change-order-focus-button",
@@ -668,6 +728,8 @@ const refs = {
   expenseVendor: document.getElementById("expense-vendor"),
   expenseReceiptSelect: document.getElementById("expense-receipt-select"),
   expenseNote: document.getElementById("expense-note"),
+  expenseSubmitButton: document.getElementById("expense-submit-button"),
+  expenseResetButton: document.getElementById("expense-reset-button"),
   expenseList: document.getElementById("expense-list"),
   paymentForm: document.getElementById("payment-form"),
   paymentAmount: document.getElementById("payment-amount"),
@@ -740,6 +802,47 @@ const refs = {
     "job-document-client-visible",
   ),
   jobDocumentList: document.getElementById("job-document-list"),
+
+  calendarMetrics: document.getElementById("calendar-metrics"),
+  calendarScopeFilter: document.getElementById("calendar-scope-filter"),
+  calendarStatusFilter: document.getElementById("calendar-status-filter"),
+  calendarStaffFilter: document.getElementById("calendar-staff-filter"),
+  calendarProjectFilter: document.getElementById("calendar-project-filter"),
+  calendarList: document.getElementById("calendar-list"),
+  calendarEventForm: document.getElementById("calendar-event-form"),
+  calendarTitleInput: document.getElementById("calendar-title-input"),
+  calendarTypeSelect: document.getElementById("calendar-type-select"),
+  calendarEventStatusSelect: document.getElementById(
+    "calendar-event-status-select",
+  ),
+  calendarStartInput: document.getElementById("calendar-start-input"),
+  calendarEndInput: document.getElementById("calendar-end-input"),
+  calendarAllDayInput: document.getElementById("calendar-all-day-input"),
+  calendarLinkedProjectSelect: document.getElementById(
+    "calendar-linked-project-select",
+  ),
+  calendarLinkedLeadSelect: document.getElementById(
+    "calendar-linked-lead-select",
+  ),
+  calendarLinkedCustomerSelect: document.getElementById(
+    "calendar-linked-customer-select",
+  ),
+  calendarAssignedStaffSelect: document.getElementById(
+    "calendar-assigned-staff-select",
+  ),
+  calendarClientVisibleInput: document.getElementById(
+    "calendar-client-visible-input",
+  ),
+  calendarClientTitleInput: document.getElementById(
+    "calendar-client-title-input",
+  ),
+  calendarClientNoteInput: document.getElementById(
+    "calendar-client-note-input",
+  ),
+  calendarInternalNoteInput: document.getElementById(
+    "calendar-internal-note-input",
+  ),
+  calendarResetButton: document.getElementById("calendar-reset-button"),
 
   vendorMetrics: document.getElementById("vendor-metrics"),
   vendorSearchInput: document.getElementById("vendor-search-input"),
@@ -855,6 +958,8 @@ const refs = {
   staffEmployeeMessage: document.getElementById("staff-employee-message"),
   portalQueueSummary: document.getElementById("portal-queue-summary"),
   portalQueueList: document.getElementById("portal-queue-list"),
+  trashSummary: document.getElementById("trash-summary"),
+  trashList: document.getElementById("trash-list"),
   staffWorkloadSummary: document.getElementById("staff-workload-summary"),
   staffWorkloadList: document.getElementById("staff-workload-list"),
   staffClearFocusButton: document.getElementById("staff-clear-focus-button"),
@@ -951,6 +1056,24 @@ const refs = {
   drawerLeadAssignee: document.getElementById("drawer-lead-assignee"),
   drawerLeadNotes: document.getElementById("drawer-lead-notes"),
   drawerLeadContext: document.getElementById("drawer-lead-context"),
+  drawerJobForm: document.getElementById("drawer-job-form"),
+  drawerJobCustomerSearch: document.getElementById(
+    "drawer-job-customer-search",
+  ),
+  drawerJobCustomerSelect: document.getElementById(
+    "drawer-job-customer-select",
+  ),
+  drawerJobClientName: document.getElementById("drawer-job-client-name"),
+  drawerJobProjectType: document.getElementById("drawer-job-project-type"),
+  drawerJobClientPhone: document.getElementById("drawer-job-client-phone"),
+  drawerJobClientEmail: document.getElementById("drawer-job-client-email"),
+  drawerJobClientAddress: document.getElementById("drawer-job-client-address"),
+  drawerJobBaseContract: document.getElementById("drawer-job-base-contract"),
+  drawerJobStatus: document.getElementById("drawer-job-status"),
+  drawerJobOwner: document.getElementById("drawer-job-owner"),
+  drawerJobStaffGrid: document.getElementById("drawer-job-staff-grid"),
+  drawerJobPlanningNotes: document.getElementById("drawer-job-planning-notes"),
+  drawerJobContext: document.getElementById("drawer-job-context"),
   drawerServiceOrderForm: document.getElementById("drawer-service-order-form"),
   drawerServiceTemplate: document.getElementById("drawer-service-template"),
   drawerServicePaymentRule: document.getElementById(
@@ -1027,6 +1150,7 @@ const state = {
   vendorDocuments: [],
   serviceTemplates: [],
   tasks: [],
+  calendarEvents: [],
   staffRoster: [],
   template: { ...EMPTY_TEMPLATE },
   selectedLeadId: null,
@@ -1063,6 +1187,8 @@ const state = {
   projectDocuments: [],
   leadDocuments: [],
   customerDocuments: [],
+  projectLeadEstimate: null,
+  projectLeadEstimateShares: [],
   customerPortalContacts: [],
   customerPortalEstimateShares: [],
   customerPortalInvoices: [],
@@ -1075,6 +1201,8 @@ const state = {
   projectActivities: [],
   projectLeadActivities: [],
   projectInvoiceDraft: null,
+  editingChangeOrderId: null,
+  editingExpenseId: null,
   portalQueueEstimateShares: [],
   portalQueueInvoices: [],
   portalQueueThreads: [],
@@ -1097,6 +1225,10 @@ const state = {
   vendorBillState: "all",
   jobSearch: "",
   jobStatus: "active",
+  calendarScope: "upcoming",
+  calendarStatus: "all",
+  calendarStaffUid: "",
+  calendarProjectId: "",
   taskSearch: "",
   taskBucket: "open",
   activeVendorTab: "overview",
@@ -1108,6 +1240,7 @@ const state = {
     restoreFocus: null,
     expenseDraft: null,
     leadDraft: null,
+    jobDraft: null,
     serviceOrderDraft: null,
     customerDraft: null,
     vendorDraft: null,
@@ -1408,6 +1541,36 @@ function defaultServiceOrderDrawerDraft(seed = {}) {
   };
 }
 
+function defaultJobDrawerDraft(seed = {}) {
+  const preferredOwner =
+    seed.assignedLeadOwnerUid ||
+    preferredLeadAssignee()?.uid ||
+    state.profile?.uid ||
+    "";
+
+  return {
+    customerSearch: "",
+    customerId: seed.customerId || null,
+    customerName: seed.customerName || "",
+    clientName: seed.clientName || "",
+    clientPhone: seed.clientPhone || "",
+    clientEmail: seed.clientEmail || "",
+    clientAddress: seed.clientAddress || "",
+    projectType: seed.projectType || "",
+    baseContractValue:
+      seed.baseContractValue ?? seed.priceOverride ?? seed.estimateSubtotal ?? "",
+    status: seed.status || "planning",
+    assignedLeadOwnerUid: preferredOwner,
+    assignedWorkerUids:
+      Array.isArray(seed.assignedWorkerUids) && seed.assignedWorkerUids.length
+        ? seed.assignedWorkerUids
+        : preferredOwner
+          ? [preferredOwner]
+          : [],
+    planningNotes: seed.planningNotes || "",
+  };
+}
+
 function openLeadsListSurface() {
   state.leadLayout = "list";
   state.leadWorkspaceOpen = false;
@@ -1504,6 +1667,8 @@ function clearMobileDetailForView(viewId) {
     state.projectNotes = [];
     state.projectActivities = [];
     state.projectLeadActivities = [];
+    state.projectLeadEstimate = null;
+    state.projectLeadEstimateShares = [];
   } else if (viewId === "vendors-view") {
     state.selectedVendorId = null;
     state.vendorDraft = null;
@@ -1513,6 +1678,14 @@ function clearMobileDetailForView(viewId) {
   }
 
   renderAll();
+}
+
+function closeJobWorkspace({ historyMode = "push" } = {}) {
+  clearSelectedProjectWorkspace({ historyMode });
+  renderAll();
+  window.requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
 }
 
 function isAdmin() {
@@ -1545,6 +1718,44 @@ function sanitiseEmailKey(email) {
 function toNumber(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function firstFiniteNumber(...values) {
+  for (const value of values) {
+    if (value == null || value === "") {
+      continue;
+    }
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return 0;
+}
+
+function normaliseChangeOrderStatus(value) {
+  const status = safeString(value).toLowerCase();
+  if (status === "approved" || status === "void") {
+    return status;
+  }
+  return "draft";
+}
+
+function changeOrderIsPublished(changeOrder = {}) {
+  return safeString(changeOrder?.portalStatus) === "published";
+}
+
+function changeOrderIsSigned(changeOrder = {}) {
+  return (
+    safeString(changeOrder?.portalStatus) === "signed" ||
+    Boolean(safeString(changeOrder?.agreementId))
+  );
+}
+
+function setActionButtonLabel(button, text) {
+  if (button) {
+    button.textContent = text;
+  }
 }
 
 function toMillis(value) {
@@ -1783,6 +1994,13 @@ function showStaffShell() {
   syncMobileChrome();
 }
 
+function authErrorMessage(prefix, error) {
+  const code = safeString(error?.code);
+  const message = safeString(error?.message);
+  const detail = [code, message].filter(Boolean).join(" - ");
+  return detail ? `${prefix} (${detail})` : prefix;
+}
+
 function normaliseStaffRole(value) {
   return safeString(value).toLowerCase() === "admin" ? "admin" : "employee";
 }
@@ -1810,6 +2028,122 @@ function normalisePhone(value) {
     return digits.slice(1);
   }
   return digits;
+}
+
+function matchingCustomersForClientRecord({
+  clientName = "",
+  clientEmail = "",
+  clientPhone = "",
+  projectAddress = "",
+} = {}) {
+  const name = safeString(clientName).toLowerCase();
+  const email = normaliseEmail(clientEmail);
+  const phone = normalisePhone(clientPhone);
+  const address = safeString(projectAddress).toLowerCase();
+
+  const scoredMatches = state.customers
+    .map((customer) => {
+      let score = 0;
+      if (email && normaliseEmail(customer.primaryEmail) === email) {
+        score += 4;
+      }
+      if (phone && normalisePhone(customer.primaryPhone) === phone) {
+        score += 4;
+      }
+      if (name && safeString(customer.name).toLowerCase() === name) {
+        score += 2;
+      }
+      if (address && safeString(customer.primaryAddress).toLowerCase() === address) {
+        score += 1;
+      }
+      return { customer, score };
+    })
+    .filter(({ score }) => score >= 4 || (!email && !phone && score >= 3))
+    .sort((left, right) => {
+      if (right.score !== left.score) {
+        return right.score - left.score;
+      }
+      return (
+        toMillis(right.customer.updatedAt || right.customer.createdAt) -
+        toMillis(left.customer.updatedAt || left.customer.createdAt)
+      );
+    });
+
+  return scoredMatches.map(({ customer }) => customer);
+}
+
+function matchingCustomersForLead(lead = {}) {
+  return matchingCustomersForClientRecord({
+    clientName: lead.clientName,
+    clientEmail: lead.clientEmail,
+    clientPhone: lead.clientPhone,
+    projectAddress: lead.projectAddress,
+  });
+}
+
+async function writeCustomerFromClientRecord(
+  customerRef,
+  record = {},
+  existingCustomer = {},
+) {
+  const customerName = safeString(
+    record.customerName || record.clientName || existingCustomer.name,
+  );
+  const primaryEmail = safeString(record.clientEmail || existingCustomer.primaryEmail);
+  const primaryPhone = safeString(record.clientPhone || existingCustomer.primaryPhone);
+  const primaryAddress = safeString(
+    record.projectAddress || record.clientAddress || existingCustomer.primaryAddress,
+  );
+  const notes = safeString(
+    record.customerNotes || record.notes || existingCustomer.notes,
+  );
+  const allowedStaffUids = uniqueValues([
+    ...(Array.isArray(existingCustomer.allowedStaffUids)
+      ? existingCustomer.allowedStaffUids
+      : []),
+    state.profile?.uid || "",
+  ]);
+
+  const payload = {
+    id: customerRef.id,
+    name: customerName || "Unnamed customer",
+    primaryEmail,
+    primaryPhone,
+    primaryAddress,
+    notes,
+    searchEmail: normaliseEmail(primaryEmail),
+    searchPhone: normalisePhone(primaryPhone),
+    allowedStaffUids,
+    updatedAt: serverTimestamp(),
+  };
+
+  if (!existingCustomer?.createdAt) {
+    payload.createdAt = serverTimestamp();
+  }
+
+  await setDoc(customerRef, payload, { merge: true });
+
+  return {
+    id: customerRef.id,
+    ...existingCustomer,
+    ...payload,
+    name: payload.name,
+  };
+}
+
+async function writeCustomerFromLead(customerRef, leadData, existingCustomer = {}) {
+  return writeCustomerFromClientRecord(
+    customerRef,
+    {
+      customerName: leadData.customerName,
+      clientName: leadData.clientName,
+      clientEmail: leadData.clientEmail,
+      clientPhone: leadData.clientPhone,
+      projectAddress: leadData.projectAddress,
+      notes: leadData.notes,
+    },
+    existingCustomer,
+  );
 }
 
 function readLeadRouteState() {
@@ -2270,11 +2604,24 @@ function customerMatchesStaffFocus(
   );
 }
 
+function recordIsArchived(record) {
+  return Boolean(record?.archivedAt);
+}
+
+function activeRecords(records = []) {
+  return records.filter((record) => !recordIsArchived(record));
+}
+
+function archivedRecords(records = []) {
+  return records.filter(recordIsArchived);
+}
+
 function visibleLeads() {
   const focusUid = currentStaffFocusUid();
+  const leads = activeRecords(state.leads);
   return focusUid
-    ? state.leads.filter((lead) => leadMatchesStaffFocus(lead, focusUid))
-    : state.leads;
+    ? leads.filter((lead) => leadMatchesStaffFocus(lead, focusUid))
+    : leads;
 }
 
 function visibleTasks() {
@@ -2286,11 +2633,46 @@ function visibleTasks() {
 
 function visibleProjects() {
   const focusUid = currentStaffFocusUid();
+  const projects = activeRecords(state.projects);
   return focusUid
-    ? state.projects.filter((project) =>
+    ? projects.filter((project) =>
         projectMatchesStaffFocus(project, focusUid),
       )
-    : state.projects;
+    : projects;
+}
+
+function calendarEventMatchesStaffFocus(
+  event,
+  staffUid = currentStaffFocusUid(),
+) {
+  if (!staffUid) return true;
+  const assignedStaffUids = Array.isArray(event?.assignedStaffUids)
+    ? event.assignedStaffUids
+    : [];
+  if (assignedStaffUids.includes(staffUid)) {
+    return true;
+  }
+  if (event?.projectId) {
+    const project = state.projects.find(
+      (item) => safeString(item.id) === safeString(event.projectId),
+    );
+    return projectMatchesStaffFocus(project, staffUid);
+  }
+  if (event?.leadId) {
+    const lead = state.leads.find(
+      (item) => safeString(item.id) === safeString(event.leadId),
+    );
+    return leadMatchesStaffFocus(lead, staffUid);
+  }
+  return false;
+}
+
+function visibleCalendarEvents() {
+  const focusUid = currentStaffFocusUid();
+  const events = activeRecords(state.calendarEvents);
+  return focusUid
+    ? events.filter((event) => calendarEventMatchesStaffFocus(event, focusUid))
+    : events;
 }
 
 function visibleCustomers() {
@@ -3001,6 +3383,133 @@ async function downloadEstimatePdfForLead(leadId) {
   }
 }
 
+async function createJobCloseoutPacket() {
+  const project = currentProject();
+  if (!project) {
+    showToast("Select a job first.", "error");
+    return;
+  }
+
+  if (safeString(project.status) !== "completed") {
+    showToast(
+      "Mark the job completed first so the closeout packet closes the record correctly.",
+      "error",
+    );
+    openJobTab("overview", refs.jobStatusSelect);
+    return;
+  }
+
+  if (!projectIsPaidInFull(project)) {
+    showToast(
+      "Record final payment and bring the job balance to $0.00 before generating the paid-in-full closeout packet.",
+      "error",
+    );
+    openJobTab("financials", refs.paymentAmount);
+    return;
+  }
+
+  const incompleteScopeCount = state.projectScopeItems.filter(
+    (item) => !item.completed,
+  ).length;
+  if (state.projectScopeItems.length && incompleteScopeCount > 0) {
+    const confirmed = window.confirm(
+      `${incompleteScopeCount} scope item${incompleteScopeCount === 1 ? "" : "s"} are not marked complete in the live job tracker. Generate the closeout packet anyway?`,
+    );
+    if (!confirmed) {
+      return;
+    }
+  }
+
+  let estimate = state.projectLeadEstimate;
+  if (!estimate && safeString(project.leadId)) {
+    const estimateSnap = await getDoc(doc(state.db, "estimates", project.leadId));
+    estimate = estimateSnap.exists() ? normaliseFirestoreDoc(estimateSnap) : null;
+  }
+
+  const linkedLead = safeString(project.leadId)
+    ? state.leads.find((lead) => lead.id === project.leadId) || null
+    : null;
+  const approvedChangeOrders = state.projectChangeOrders.filter(
+    (item) => normaliseChangeOrderStatus(item.status) === "approved",
+  );
+  const financials = projectFinancials(project);
+  const clientVisibleDocuments = state.projectDocuments.filter(
+    (item) => item.clientVisible,
+  );
+  const context = {
+    project,
+    linkedLead,
+    estimate,
+    scopeItems: state.projectScopeItems,
+    payments: state.projectPayments,
+    approvedChangeOrders,
+    financials,
+    clientVisibleDocumentCount: clientVisibleDocuments.length,
+    clientVisiblePhotoCount: clientVisibleDocuments.filter(
+      (item) => safeString(item.category) === "photo",
+    ).length,
+    invoiceCount: state.projectInvoices.length,
+  };
+
+  const { jsPDF } = await loadJsPdfModule();
+  const pdf = new jsPDF({
+    unit: "pt",
+    format: "letter",
+  });
+  buildProjectCloseoutPdf(pdf, context);
+  const pdfBlob = pdf.output("blob");
+  const closeoutFile = new File(
+    [pdfBlob],
+    closeoutDownloadFilename(project, "pdf"),
+    { type: "application/pdf" },
+  );
+  const closeoutTitle = closeoutDocumentTitle(project);
+  const closeoutNote =
+    "Final paid-in-full closeout packet generated from the live job record, linked estimate history, approved change orders, and client-visible portal record.";
+  const clientVisible = Boolean(safeString(project.customerId));
+
+  await createRecordDocument({
+    links: buildRecordDocumentLinksFromProject(project),
+    category: "closeout",
+    sourceType: "upload",
+    title: closeoutTitle,
+    note: closeoutNote,
+    relatedDate: projectCloseoutDate(project) || new Date(),
+    file: closeoutFile,
+    clientVisible,
+  });
+
+  await Promise.all([
+    addProjectActivityEntry(
+      project.id,
+      "closeout",
+      "Closeout packet generated",
+      clientVisible
+        ? "A final paid-in-full closeout PDF was generated and shared to the client portal."
+        : "A final paid-in-full closeout PDF was generated and saved to the job record.",
+    ),
+    clientVisible
+      ? postCustomerPortalThreadUpdateSafe({
+          customerId: project.customerId,
+          projectId: project.id,
+          body: buildClientPortalDocumentUpdateMessage({
+            project,
+            category: "closeout",
+            title: closeoutTitle,
+            note: closeoutNote,
+          }),
+        })
+      : Promise.resolve(),
+  ]);
+
+  openJobTab("documents", refs.jobDocumentTitle);
+  showToast(
+    clientVisible
+      ? "Closeout PDF saved and shared to the client portal."
+      : "Closeout PDF saved to job documents.",
+  );
+}
+
 function openEstimateRecordFromDocument(leadId) {
   if (!safeString(leadId)) {
     showToast("This estimate is not linked to a lead yet.", "error");
@@ -3406,6 +3915,7 @@ function resetDrawerState(overrides = {}) {
     restoreFocus: null,
     expenseDraft: null,
     leadDraft: null,
+    jobDraft: null,
     serviceOrderDraft: null,
     customerDraft: null,
     vendorDraft: null,
@@ -3539,6 +4049,22 @@ function openServiceOrderDrawer(seed = {}) {
   queueFocus(refs.drawerServiceTemplate);
 }
 
+function openJobDrawer(seed = {}) {
+  if (!isAdmin()) {
+    showToast("Only admins can create jobs directly.", "error");
+    return;
+  }
+
+  state.drawer = resetDrawerState({
+    type: "job",
+    context: {},
+    restoreFocus: rememberedFocusElement(),
+    jobDraft: defaultJobDrawerDraft(seed),
+  });
+  renderActiveDrawer();
+  queueFocus(refs.drawerJobClientName);
+}
+
 function openMobileCreateDrawer() {
   state.drawer = resetDrawerState({
     type: "mobile-create",
@@ -3574,6 +4100,7 @@ function hideDrawerPanels() {
   refs.drawerMenuPanel.hidden = true;
   refs.drawerExpenseForm.hidden = true;
   refs.drawerLeadForm.hidden = true;
+  refs.drawerJobForm.hidden = true;
   refs.drawerServiceOrderForm.hidden = true;
   refs.drawerCustomerForm.hidden = true;
   refs.drawerVendorForm.hidden = true;
@@ -3600,6 +4127,7 @@ function renderDrawerCreateMenu() {
     title: "Create something",
     subtitle: "Start the most common updates from one clean mobile menu.",
     items: [
+      { label: "New job", action: "job" },
       { label: "New service order", action: "service-order" },
       { label: "Add expense", action: "expense" },
       { label: "Add lead", action: "lead" },
@@ -3723,6 +4251,199 @@ function applyDrawerLeadCustomerSelection(customerId) {
   };
 
   renderDrawerLead();
+}
+
+function collectDrawerJobDraftFromInputs() {
+  return {
+    ...(state.drawer.jobDraft || defaultJobDrawerDraft()),
+    customerSearch:
+      refs.drawerJobCustomerSearch?.value ||
+      state.drawer.jobDraft?.customerSearch ||
+      "",
+    customerId:
+      refs.drawerJobCustomerSelect?.value ||
+      state.drawer.jobDraft?.customerId ||
+      null,
+    clientName:
+      refs.drawerJobClientName?.value ?? state.drawer.jobDraft?.clientName ?? "",
+    projectType:
+      refs.drawerJobProjectType?.value ??
+      state.drawer.jobDraft?.projectType ??
+      "",
+    clientPhone:
+      refs.drawerJobClientPhone?.value ??
+      state.drawer.jobDraft?.clientPhone ??
+      "",
+    clientEmail:
+      refs.drawerJobClientEmail?.value ??
+      state.drawer.jobDraft?.clientEmail ??
+      "",
+    clientAddress:
+      refs.drawerJobClientAddress?.value ??
+      state.drawer.jobDraft?.clientAddress ??
+      "",
+    baseContractValue:
+      refs.drawerJobBaseContract?.value ??
+      state.drawer.jobDraft?.baseContractValue ??
+      "",
+    status:
+      refs.drawerJobStatus?.value || state.drawer.jobDraft?.status || "planning",
+    assignedLeadOwnerUid:
+      refs.drawerJobOwner?.value ||
+      state.drawer.jobDraft?.assignedLeadOwnerUid ||
+      "",
+    assignedWorkerUids: selectedDrawerJobWorkerUids(),
+    planningNotes:
+      refs.drawerJobPlanningNotes?.value ??
+      state.drawer.jobDraft?.planningNotes ??
+      "",
+  };
+}
+
+function renderDrawerJobCustomerOptions() {
+  const draft = state.drawer.jobDraft || defaultJobDrawerDraft();
+  const search = safeString(
+    refs.drawerJobCustomerSearch?.value || draft.customerSearch,
+  ).toLowerCase();
+  const selectedCustomerId = draft.customerId || "";
+  const customers = sortByUpdatedDesc(state.customers).filter((customer) => {
+    if (!search) return true;
+    const blob = [
+      customer.name,
+      customer.primaryEmail,
+      customer.primaryPhone,
+      customer.primaryAddress,
+    ]
+      .join(" ")
+      .toLowerCase();
+    return blob.includes(search);
+  });
+
+  refs.drawerJobCustomerSelect.innerHTML = [
+    `<option value="">Auto-create / auto-match customer</option>`,
+  ]
+    .concat(
+      customers.map(
+        (customer) => `
+            <option value="${escapeHtml(customer.id)}">
+                ${escapeHtml(`${customer.name || "Unnamed customer"} · ${customer.primaryPhone || customer.primaryEmail || customer.primaryAddress || "No contact info"}`)}
+            </option>
+        `,
+      ),
+    )
+    .join("");
+
+  refs.drawerJobCustomerSelect.value = selectedCustomerId || "";
+}
+
+function renderDrawerJobStaffGrid(selectedUids = [], ownerUid = "") {
+  const owner = safeString(ownerUid);
+  const selected = new Set([owner, ...selectedUids].filter(Boolean));
+  const staff = activeStaffOptions().filter((member) => safeString(member.uid));
+
+  refs.drawerJobStaffGrid.innerHTML = staff.length
+    ? staff
+        .map(
+          (member) => `
+            <label class="drawer-staff-chip">
+                <input type="checkbox" data-drawer-job-worker="${escapeHtml(member.uid)}" ${selected.has(member.uid) ? "checked" : ""}>
+                <span>${escapeHtml(member.displayName || member.email || "Assigned staff")}</span>
+            </label>
+        `,
+        )
+        .join("")
+    : `<div class="empty-note">No active staff records are ready for assignment yet.</div>`;
+}
+
+function selectedDrawerJobWorkerUids() {
+  return Array.from(
+    refs.drawerJobStaffGrid?.querySelectorAll(
+      "[data-drawer-job-worker]:checked",
+    ) || [],
+  )
+    .map((checkbox) => checkbox.dataset.drawerJobWorker || "")
+    .filter(Boolean);
+}
+
+function applyDrawerJobCustomerSelection(customerId) {
+  const currentDraft = collectDrawerJobDraftFromInputs();
+  const customer = customerId
+    ? state.customers.find((item) => item.id === customerId)
+    : null;
+
+  state.drawer.jobDraft = {
+    ...currentDraft,
+    customerId: customer?.id || null,
+    customerName: customer?.name || "",
+    customerSearch: refs.drawerJobCustomerSearch.value || customer?.name || "",
+    clientName: customer
+      ? customer.name || currentDraft.clientName
+      : currentDraft.clientName,
+    clientEmail: customer
+      ? customer.primaryEmail || currentDraft.clientEmail
+      : currentDraft.clientEmail,
+    clientPhone: customer
+      ? customer.primaryPhone || currentDraft.clientPhone
+      : currentDraft.clientPhone,
+    clientAddress: customer
+      ? currentDraft.clientAddress || customer.primaryAddress || ""
+      : currentDraft.clientAddress,
+  };
+
+  renderDrawerJob();
+}
+
+function renderDrawerJobContext() {
+  const draft = state.drawer.jobDraft || defaultJobDrawerDraft();
+  const owner =
+    activeStaffOptions().find(
+      (member) => member.uid === draft.assignedLeadOwnerUid,
+    ) || null;
+  const linkedCustomer = draft.customerId
+    ? state.customers.find((item) => item.id === draft.customerId)
+    : null;
+  const baseContractValue = toNumber(draft.baseContractValue);
+
+  refs.drawerJobContext.innerHTML = `
+        <div><strong>Job status:</strong> ${escapeHtml(JOB_STATUS_META[draft.status] || "Planning")} · <strong>Starting revenue:</strong> ${escapeHtml(formatCurrency(baseContractValue))}</div>
+        <div><strong>Lead owner:</strong> ${escapeHtml(owner?.displayName || owner?.email || "Unassigned")}${linkedCustomer ? ` · <strong>Customer:</strong> ${escapeHtml(linkedCustomer.name || "Linked customer")}` : ""}</div>
+        <div>${escapeHtml(linkedCustomer ? "This job will stay linked to the selected customer account." : "If no customer is selected, the CRM will auto-match by phone or email or create a new customer account for this job.")}</div>
+    `;
+}
+
+function renderDrawerJob() {
+  const draft = state.drawer.jobDraft || defaultJobDrawerDraft();
+
+  hideDrawerPanels();
+  refs.drawerJobForm.hidden = false;
+  refs.drawerKicker.textContent = "Quick add";
+  refs.drawerTitle.textContent = "New job";
+  refs.drawerSubtitle.textContent =
+    "Create a standard job directly from the jobs workspace, then keep billing, expenses, documents, and status updates under one clean record.";
+
+  refs.drawerJobCustomerSearch.value = draft.customerSearch || "";
+  renderDrawerJobCustomerOptions();
+  refs.drawerJobClientName.value = draft.clientName || "";
+  refs.drawerJobProjectType.value = draft.projectType || "";
+  refs.drawerJobClientPhone.value = draft.clientPhone || "";
+  refs.drawerJobClientEmail.value = draft.clientEmail || "";
+  refs.drawerJobClientAddress.value = draft.clientAddress || "";
+  refs.drawerJobBaseContract.value =
+    draft.baseContractValue === "" ? "" : toNumber(draft.baseContractValue || 0);
+  refs.drawerJobStatus.value = draft.status || "planning";
+  renderTaskAssigneeOptions(
+    refs.drawerJobOwner,
+    draft.assignedLeadOwnerUid ||
+      preferredLeadAssignee()?.uid ||
+      state.profile?.uid ||
+      "",
+  );
+  renderDrawerJobStaffGrid(
+    draft.assignedWorkerUids || [],
+    refs.drawerJobOwner.value || draft.assignedLeadOwnerUid || "",
+  );
+  refs.drawerJobPlanningNotes.value = draft.planningNotes || "";
+  renderDrawerJobContext();
 }
 
 function collectDrawerServiceOrderDraftFromInputs() {
@@ -4262,6 +4983,11 @@ function renderActiveDrawer() {
     return;
   }
 
+  if (drawerType === "job") {
+    renderDrawerJob();
+    return;
+  }
+
   if (drawerType === "service-order") {
     renderDrawerServiceOrder();
     return;
@@ -4322,6 +5048,7 @@ function renderStaffFocusOptions() {
     "leads-view",
     "customers-view",
     "jobs-view",
+    "calendar-view",
     "staff-view",
   ];
   const shouldShow = isAdmin() && supportedViews.includes(state.activeView);
@@ -4507,6 +5234,113 @@ function filteredProjects() {
   return sortByUpdatedDesc(projects);
 }
 
+function calendarEventStartMillis(event) {
+  return toMillis(event?.startAt || event?.eventDate || event?.createdAt);
+}
+
+function calendarEventsForProject(projectId) {
+  const targetProjectId = safeString(projectId);
+  if (!targetProjectId) return [];
+  return visibleCalendarEvents()
+    .filter((event) => safeString(event.projectId) === targetProjectId)
+    .sort(
+      (left, right) =>
+        calendarEventStartMillis(left) - calendarEventStartMillis(right),
+    );
+}
+
+function filteredCalendarEvents() {
+  const now = Date.now();
+  const weekFromNow = now + 7 * 24 * 60 * 60 * 1000;
+  let events = [...visibleCalendarEvents()];
+
+  if (state.calendarProjectId) {
+    events = events.filter(
+      (event) => safeString(event.projectId) === safeString(state.calendarProjectId),
+    );
+  }
+
+  if (state.calendarStaffUid) {
+    events = events.filter((event) => {
+      const assignedStaffUids = Array.isArray(event.assignedStaffUids)
+        ? event.assignedStaffUids
+        : [];
+      return assignedStaffUids.includes(state.calendarStaffUid);
+    });
+  }
+
+  if (state.calendarStatus !== "all") {
+    events = events.filter(
+      (event) => safeString(event.status || "scheduled") === state.calendarStatus,
+    );
+  }
+
+  if (state.calendarScope === "today") {
+    events = events.filter((event) => isSameDay(event.startAt, new Date()));
+  } else if (state.calendarScope === "week") {
+    events = events.filter((event) => {
+      const startMillis = calendarEventStartMillis(event);
+      return startMillis >= now && startMillis <= weekFromNow;
+    });
+  } else if (state.calendarScope === "past") {
+    events = events.filter((event) => {
+      const startMillis = calendarEventStartMillis(event);
+      return startMillis > 0 && startMillis < now;
+    });
+  } else if (state.calendarScope !== "all") {
+    events = events.filter((event) => {
+      const startMillis = calendarEventStartMillis(event);
+      return !startMillis || startMillis >= now;
+    });
+  }
+
+  return events.sort(
+    (left, right) =>
+      calendarEventStartMillis(left) - calendarEventStartMillis(right),
+  );
+}
+
+function clearSelectedProjectWorkspace({ historyMode = "replace" } = {}) {
+  state.selectedProjectId = null;
+  state.selectedProjectInvoiceId = null;
+  state.projectScopeItems = [];
+  state.projectInvoices = [];
+  state.projectInvoiceDraft = null;
+  state.projectExpenses = [];
+  state.projectPayments = [];
+  state.projectChangeOrders = [];
+  state.projectDocuments = [];
+  state.projectNotes = [];
+  state.projectActivities = [];
+  state.projectLeadActivities = [];
+  state.projectLeadEstimate = null;
+  state.projectLeadEstimateShares = [];
+  subscribeProjectDetail();
+  syncLeadRouteState({ historyMode });
+}
+
+function syncSelectedProjectWithJobFilters({ historyMode = "replace" } = {}) {
+  if (!state.selectedProjectId) {
+    return false;
+  }
+
+  const projects = filteredProjects();
+  if (projects.some((project) => project.id === state.selectedProjectId)) {
+    return false;
+  }
+
+  if (!projects.length || isMobileViewport()) {
+    clearSelectedProjectWorkspace({ historyMode });
+    renderAll();
+    return true;
+  }
+
+  const nextTab = state.activeJobTab || "overview";
+  selectProject(projects[0].id, { historyMode });
+  openJobTab(nextTab);
+  return true;
+}
+
 function openLeadsForToday() {
   const focusUid = currentStaffFocusUid();
   if (focusUid) {
@@ -4517,8 +5351,10 @@ function openLeadsForToday() {
 
   const scopeLeads =
     isAdmin() && state.todayScope === "team"
-      ? state.leads
-      : state.leads.filter((lead) => lead.assignedToUid === state.profile?.uid);
+      ? activeRecords(state.leads)
+      : activeRecords(state.leads).filter(
+          (lead) => lead.assignedToUid === state.profile?.uid,
+        );
 
   return sortByUpdatedDesc(
     scopeLeads.filter((lead) => lead.status === "new_lead"),
@@ -4540,8 +5376,10 @@ function estimateReviewLeads() {
 
   const scopeLeads =
     isAdmin() && state.todayScope === "team"
-      ? state.leads
-      : state.leads.filter((lead) => lead.assignedToUid === state.profile?.uid);
+      ? activeRecords(state.leads)
+      : activeRecords(state.leads).filter(
+          (lead) => lead.assignedToUid === state.profile?.uid,
+        );
 
   return sortByUpdatedDesc(
     scopeLeads.filter((lead) => {
@@ -4565,8 +5403,9 @@ function projectScopeSet() {
   if (!state.profile) return [];
   const focusUid = currentStaffFocusUid();
   if (focusUid) return visibleProjects();
-  if (isAdmin() && state.todayScope === "team") return state.projects;
-  return state.projects.filter((project) => {
+  const projects = activeRecords(state.projects);
+  if (isAdmin() && state.todayScope === "team") return projects;
+  return projects.filter((project) => {
     const allowed = Array.isArray(project.allowedStaffUids)
       ? project.allowedStaffUids
       : [];
@@ -4792,6 +5631,11 @@ function renderWorkspaceCommandBar() {
   const summaryChips = [];
 
   if (isAdmin() && !isMobile) {
+    actionButtons.push(
+      buildCommandAction("New job", "secondary-button", {
+        "data-command": "start-job-draft",
+      }),
+    );
     actionButtons.push(
       buildCommandAction("New service order", "primary-button", {
         "data-command": "start-service-order",
@@ -5029,7 +5873,8 @@ function renderWorkspaceCommandBar() {
     const jobsAwaitingPayment = visibleProjectSet.filter((project) => {
       return (
         project.status !== "completed" &&
-        toNumber(project.financials?.totalPayments) < toNumber(project.jobValue)
+        toNumber(projectFinancials(project).totalPayments) <
+          projectRevenueValue(project)
       );
     }).length;
 
@@ -5171,10 +6016,14 @@ function renderTodayView() {
   const activeJobs = sortByUpdatedDesc(
     projectScopeSet().filter((project) => project.status !== "completed"),
   );
+  const scheduledToday = visibleCalendarEvents().filter((event) =>
+    isSameDay(event.startAt, new Date()),
+  );
 
   renderMetricStrip(refs.todayMetrics, [
     { label: "Overdue tasks", value: overdueTasks.length },
     { label: "Due today", value: dueTodayTasks.length },
+    { label: "Scheduled today", value: scheduledToday.length },
     { label: "New leads", value: newLeads.length },
     { label: "Active jobs", value: activeJobs.length },
   ]);
@@ -5274,19 +6123,24 @@ function renderTodayView() {
   } else {
     refs.todayJobsList.innerHTML = activeJobs
       .slice(0, 8)
-      .map((project) =>
-        stackCardButton({
+      .map((project) => {
+        const nextEvent = calendarEventsForProject(project.id).find(
+          (event) => calendarEventStartMillis(event) >= Date.now(),
+        );
+        return stackCardButton({
           title: project.clientName || "Unnamed job",
           copy: project.projectAddress || "Address pending",
-          pill: project.status === "completed" ? "Completed" : "In Progress",
-          secondaryPill: formatCurrency(project.financials?.profit || 0),
+          pill: JOB_STATUS_META[project.status] || "In Progress",
+          secondaryPill: nextEvent
+            ? formatDateTime(nextEvent.startAt)
+            : formatCurrency(project.financials?.profit || 0),
           dataAttrs: {
             "data-open-project": project.id,
             "data-open-view": "jobs-view",
           },
-          meta: `<div>${escapeHtml(project.projectType || "Project")}</div><div>Paid ${escapeHtml(formatCurrency(project.financials?.totalPayments || 0))}</div>`,
-        }),
-      )
+          meta: `<div>${escapeHtml(project.projectType || "Project")}</div><div>${escapeHtml(nextEvent ? `Next: ${nextEvent.title || "Scheduled event"}` : `Paid ${formatCurrency(project.financials?.totalPayments || 0)}`)}</div>`,
+        });
+      })
       .join("");
   }
 }
@@ -5951,7 +6805,7 @@ function renderLeadRecordContext(lead) {
           : "In progress job"
         : "Not converted yet",
       meta: linkedProject
-        ? `${formatCurrency(linkedProject.jobValue || 0)} contract value`
+        ? `${formatCurrency(projectRevenueValue(linkedProject))} contract value`
         : "Use Mark won to create the operational job record.",
       dataAttrs: linkedProject
         ? {
@@ -6040,6 +6894,58 @@ function estimateOverviewParagraphs(
 
 function normaliseEstimateCompareValue(value) {
   return safeString(value).replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function normaliseEstimateLineItemsForCompare(lineItems = []) {
+  return (Array.isArray(lineItems) ? lineItems : [])
+    .map((item) => ({
+      label: normaliseEstimateCompareValue(item?.label || item?.title),
+      description: normaliseEstimateCompareValue(
+        item?.description || item?.note,
+      ),
+      amount: Number(toNumber(item?.amount).toFixed(2)),
+    }))
+    .filter((item) => item.label || item.description || item.amount);
+}
+
+function normaliseEstimateAssumptionsForCompare(assumptions = []) {
+  return (Array.isArray(assumptions) ? assumptions : [])
+    .map((item) => normaliseEstimateCompareValue(item))
+    .filter(Boolean);
+}
+
+function estimateDraftMatchesShareSnapshot(estimateDraft = {}, share = {}) {
+  if (safeString(share?.type || "estimate") !== "estimate") {
+    return false;
+  }
+
+  const shareSnapshot = share?.estimateSnapshot || share || {};
+  const estimateSubject = normaliseEstimateCompareValue(estimateDraft?.subject);
+  const shareSubject = normaliseEstimateCompareValue(shareSnapshot?.subject);
+
+  if (!estimateSubject || !shareSubject) {
+    return false;
+  }
+
+  return (
+    estimateSubject === shareSubject &&
+    normaliseEstimateCompareValue(estimateDraft?.emailBody) ===
+      normaliseEstimateCompareValue(shareSnapshot?.emailBody) &&
+    Number(toNumber(estimateDraft?.subtotal).toFixed(2)) ===
+      Number(toNumber(shareSnapshot?.subtotal).toFixed(2)) &&
+    JSON.stringify(
+      normaliseEstimateAssumptionsForCompare(estimateDraft?.assumptions),
+    ) ===
+      JSON.stringify(
+        normaliseEstimateAssumptionsForCompare(shareSnapshot?.assumptions),
+      ) &&
+    JSON.stringify(
+      normaliseEstimateLineItemsForCompare(estimateDraft?.lineItems),
+    ) ===
+      JSON.stringify(
+        normaliseEstimateLineItemsForCompare(shareSnapshot?.lineItems),
+      )
+  );
 }
 
 function splitEstimateMultilineText(value) {
@@ -6214,6 +7120,117 @@ function estimateDownloadFilename(lead, estimateDraft, extension = "pdf") {
   const dateStamp = formatDateOnlyInputValue(new Date()) || "estimate";
   const fileStem = preferredStem || fallbackStem || "golden-brick-estimate";
   return `${fileStem}-${dateStamp}.${extension}`;
+}
+
+function closeoutDocumentTitle(project) {
+  const projectLabel =
+    safeString(project?.projectAddress) ||
+    safeString(project?.clientName) ||
+    safeString(project?.projectType) ||
+    "project";
+  return `Project closeout packet for ${projectLabel}`;
+}
+
+function projectCloseoutDate(project) {
+  return (
+    project?.lockedCommissionSnapshot?.lockedAt ||
+    project?.updatedAt ||
+    project?.createdAt ||
+    new Date()
+  );
+}
+
+function closeoutDownloadFilename(project, extension = "pdf") {
+  const preferredStem = sanitiseDownloadName(
+    [
+      safeString(project?.projectAddress),
+      safeString(project?.clientName),
+      "closeout-packet",
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+  const dateStamp =
+    formatDateOnlyInputValue(projectCloseoutDate(project) || new Date()) ||
+    formatDateOnlyInputValue(new Date()) ||
+    "closeout";
+  const fileStem = preferredStem || "golden-brick-closeout-packet";
+  return `${fileStem}-${dateStamp}.${extension}`;
+}
+
+function projectIsPaidInFull(project) {
+  if (!project) {
+    return false;
+  }
+
+  const financials = projectFinancials(project);
+  const totalRevenue = projectRevenueValue(project);
+  const totalPayments = toNumber(financials.totalPayments || 0);
+  return totalRevenue > 0 && totalPayments >= totalRevenue - 0.01;
+}
+
+function latestPaymentEntry(payments = []) {
+  return payments
+    .slice()
+    .sort(
+      (left, right) =>
+        toMillis(right.relatedDate || right.createdAt) -
+        toMillis(left.relatedDate || left.createdAt),
+    )[0];
+}
+
+function buildProjectCloseoutScopeItems({
+  project,
+  scopeItems = [],
+  estimate = null,
+  linkedLead = null,
+}) {
+  if (scopeItems.length) {
+    return scopeItems.map((item, index) => {
+      const details = [safeString(item.description)];
+
+      if (safeString(item.note)) {
+        details.push(`Field closeout note: ${safeString(item.note)}`);
+      }
+
+      details.push(
+        item.completed
+          ? `Marked complete ${formatDateOnly(item.completedAt || item.updatedAt)}.`
+          : "Not marked complete in the live scope tracker.",
+      );
+
+      return {
+        label: scopeItemTitle(item, index),
+        description: details.filter(Boolean).join(" "),
+        amount: toNumber(item.amount),
+      };
+    });
+  }
+
+  const estimateItems = estimateScopeItems(estimate);
+  if (estimateItems.length) {
+    return estimateItems.map((item, index) => ({
+      label: scopeItemTitle(item, index),
+      description:
+        safeString(item.description) ||
+        "Completed scope carried from the linked estimate snapshot.",
+      amount: toNumber(item.amount),
+    }));
+  }
+
+  return [
+    {
+      label:
+        safeString(project?.projectType) ||
+        safeString(linkedLead?.projectType) ||
+        "Completed scope",
+      description:
+        safeString(project?.planningNotes) ||
+        safeString(project?.sharedStatusNote) ||
+        "Golden Brick completed the work recorded in the live job file and is closing the project record for reference.",
+      amount: projectRevenueValue(project),
+    },
+  ];
 }
 
 function buildTemplateEstimateDraft(lead) {
@@ -6969,12 +7986,22 @@ function drawEstimatePdfMetaCards(doc, cursor, items) {
   }
 }
 
-function drawEstimatePdfLineItems(doc, cursor, lineItems, subtotal) {
+function drawEstimatePdfLineItems(
+  doc,
+  cursor,
+  lineItems,
+  subtotal,
+  {
+    heading = "Line items",
+    copy = "Each line item rolls into the current working estimate total.",
+    totalLabel = "Estimated Total",
+  } = {},
+) {
   drawEstimatePdfSectionHeading(
     doc,
     cursor,
-    "Line items",
-    "Each line item rolls into the current working estimate total.",
+    heading,
+    copy,
   );
 
   doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
@@ -7038,7 +8065,7 @@ function drawEstimatePdfLineItems(doc, cursor, lineItems, subtotal) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
-  doc.text("Estimated Total", cursor.left + 16, cursor.y + 22);
+  doc.text(totalLabel, cursor.left + 16, cursor.y + 22);
   doc.text(
     formatCurrency(subtotal || 0),
     cursor.left + cursor.width - 16,
@@ -7224,6 +8251,283 @@ function buildEstimatePdf(doc, lead, estimateDraft) {
   );
 }
 
+function buildProjectCloseoutPdf(doc, context) {
+  const {
+    project,
+    linkedLead,
+    estimate,
+    scopeItems,
+    payments,
+    approvedChangeOrders,
+    financials,
+    clientVisibleDocumentCount,
+    clientVisiblePhotoCount,
+    invoiceCount,
+  } = context;
+  const title = closeoutDocumentTitle(project);
+  const closeoutDate = projectCloseoutDate(project);
+  const closeoutScopeItems = buildProjectCloseoutScopeItems({
+    project,
+    scopeItems,
+    estimate,
+    linkedLead,
+  });
+  const scopeSubtotal = closeoutScopeItems.reduce(
+    (sum, item) => sum + toNumber(item.amount),
+    0,
+  );
+  const estimateSubtotal = firstFiniteNumber(
+    estimate?.subtotal,
+    linkedLead?.estimateSubtotal,
+    0,
+  );
+  const totalRevenue = projectRevenueValue(project);
+  const totalPayments = toNumber(financials.totalPayments || 0);
+  const balanceRemaining = Math.max(
+    toNumber(financials.balanceRemaining || 0),
+    0,
+  );
+  const lastPayment = latestPaymentEntry(payments);
+  const changeOrderTotal = approvedChangeOrders.reduce(
+    (sum, item) => sum + toNumber(item.amount),
+    0,
+  );
+  const overviewBlocks = estimate ? estimateOverviewParagraphs(estimate) : [];
+  const projectAssumptions = estimate
+    ? estimateProjectAssumptionList(estimate)
+    : [];
+  const cursor = {
+    left: 54,
+    top: 46,
+    bottom: 52,
+    width: doc.internal.pageSize.getWidth() - 108,
+    y: 46,
+  };
+
+  doc.setProperties({
+    title,
+    subject: `${COMPANY_INFO.name} closeout packet`,
+    author: COMPANY_INFO.name,
+    creator: COMPANY_INFO.name,
+  });
+
+  applyEstimatePdfTopBar(doc);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(...ESTIMATE_PDF_THEME.brandDeep);
+  doc.text(COMPANY_INFO.name.toUpperCase(), cursor.left, cursor.y);
+  cursor.y += 20;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(24);
+  doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+  const titleLines = doc.splitTextToSize(title, cursor.width);
+  doc.text(titleLines, cursor.left, cursor.y);
+  cursor.y += titleLines.length * 28;
+
+  drawEstimatePdfParagraph(
+    doc,
+    cursor,
+    "Final client closeout packet prepared from the live Golden Brick job record, estimate history, and project financials.",
+    {
+      fontSize: 11,
+      lineHeight: 15,
+      color: ESTIMATE_PDF_THEME.muted,
+      gapAfter: 14,
+    },
+  );
+
+  drawEstimatePdfMetaCards(doc, cursor, [
+    {
+      label: "Client",
+      value: safeString(project?.clientName) || "Client",
+    },
+    {
+      label: "Project address",
+      value: safeString(project?.projectAddress) || "Property on file",
+    },
+    {
+      label: "Project type",
+      value:
+        safeString(project?.projectType) ||
+        safeString(linkedLead?.projectType) ||
+        "Renovation project",
+    },
+    {
+      label: "Closed on",
+      value: formatDateOnly(closeoutDate),
+    },
+    {
+      label: "Contract status",
+      value: "Paid in full",
+    },
+    {
+      label: "Final revenue",
+      value: formatCurrency(totalRevenue),
+    },
+  ]);
+
+  drawEstimatePdfSectionHeading(
+    doc,
+    cursor,
+    "Thank you / closeout summary",
+    "This packet closes the internal job record and gives the client a polished summary of the work, billing, and retained portal reference material.",
+  );
+  [
+    `Thank you for trusting ${COMPANY_INFO.name} with ${clientPortalProjectLabel(project)}.`,
+    `Based on the live job record, this project is marked complete and closed as of ${formatDateOnly(closeoutDate)}, and final payment has been received in full.`,
+    estimate
+      ? "The sections below preserve the original estimate direction, the final completed scope, any approved change orders, and the final paid receipt for the client file."
+      : "The sections below preserve the final completed scope, any approved change orders, and the final paid receipt for the client file.",
+  ].forEach((paragraph) => {
+    drawEstimatePdfParagraph(doc, cursor, paragraph, {
+      fontSize: 11,
+      lineHeight: 16,
+      color: ESTIMATE_PDF_THEME.muted,
+      gapAfter: 10,
+    });
+  });
+
+  if (overviewBlocks.length) {
+    drawEstimatePdfSectionHeading(
+      doc,
+      cursor,
+      "Original estimate direction",
+      "This section carries forward the original estimate narrative that framed the work before delivery.",
+    );
+    overviewBlocks.forEach((paragraph) => {
+      drawEstimatePdfParagraph(doc, cursor, paragraph, {
+        fontSize: 11,
+        lineHeight: 16,
+        color: ESTIMATE_PDF_THEME.muted,
+        gapAfter: 10,
+      });
+    });
+  }
+
+  drawEstimatePdfLineItems(doc, cursor, closeoutScopeItems, scopeSubtotal, {
+    heading: "Completed scope",
+    copy:
+      "The completed scope below comes from the live job tracker when available, otherwise the linked estimate snapshot is used.",
+    totalLabel: "Recorded scope value",
+  });
+
+  if (approvedChangeOrders.length) {
+    drawEstimatePdfSectionHeading(
+      doc,
+      cursor,
+      "Approved change orders",
+      "Approved pricing revisions are listed separately so the final record is easy to audit later.",
+    );
+    approvedChangeOrders.forEach((item) => {
+      const line = `${safeString(item.title || "Approved change order")} - ${formatCurrency(item.amount || 0)}${safeString(item.note) ? ` (${safeString(item.note)})` : ""}`;
+      drawEstimatePdfBulletItem(doc, cursor, line);
+    });
+    cursor.y += 4;
+  }
+
+  drawEstimatePdfSectionHeading(
+    doc,
+    cursor,
+    "Financial closeout",
+    "This final ledger summary captures the estimate base, approved revisions, payments received, and the zero-balance closeout state.",
+  );
+  drawEstimatePdfMetaCards(doc, cursor, [
+    {
+      label: "Original estimate",
+      value: formatCurrency(estimateSubtotal),
+    },
+    {
+      label: "Approved change orders",
+      value: formatCurrency(changeOrderTotal),
+    },
+    {
+      label: "Final contract revenue",
+      value: formatCurrency(totalRevenue),
+    },
+    {
+      label: "Payments received",
+      value: formatCurrency(totalPayments),
+    },
+    {
+      label: "Balance remaining",
+      value: formatCurrency(balanceRemaining),
+    },
+    {
+      label: "Latest payment",
+      value: lastPayment
+        ? `${formatDateOnly(lastPayment.relatedDate || lastPayment.createdAt)}${safeString(lastPayment.method) ? ` · ${safeString(lastPayment.method)}` : ""}`
+        : "Paid record saved",
+    },
+  ]);
+
+  drawEstimatePdfSectionHeading(
+    doc,
+    cursor,
+    "Portal record retained",
+    "Most construction closeout packages keep supporting records together. This packet also points the client back to the portal record that stays live after completion.",
+  );
+  [
+    `${invoiceCount} invoice${invoiceCount === 1 ? "" : "s"} retained in the job record.`,
+    `${approvedChangeOrders.length} approved change order${approvedChangeOrders.length === 1 ? "" : "s"} retained with the project financial history.`,
+    `${clientVisiblePhotoCount} client-visible progress photo${clientVisiblePhotoCount === 1 ? "" : "s"} available in the portal.`,
+    `${clientVisibleDocumentCount} client-visible document${clientVisibleDocumentCount === 1 ? "" : "s"} available in the portal after closeout.`,
+  ].forEach((item) => {
+    drawEstimatePdfBulletItem(doc, cursor, item);
+  });
+  cursor.y += 4;
+
+  if (projectAssumptions.length) {
+    drawEstimatePdfSectionHeading(
+      doc,
+      cursor,
+      "Estimate assumptions carried into the file",
+      "These estimate-specific notes stay with the closed record for future reference.",
+    );
+    projectAssumptions.forEach((item) => {
+      drawEstimatePdfBulletItem(doc, cursor, item);
+    });
+    cursor.y += 4;
+  }
+
+  drawEstimatePdfSectionHeading(
+    doc,
+    cursor,
+    "Final paid receipt and contractor waiver",
+    "This section gives the client a clean paid-in-full record while keeping the waiver language tied to payment actually received.",
+  );
+  [
+    `Golden Brick's internal ledger reflects that the work described in this packet has been paid in full as of ${formatDateOnly(lastPayment?.relatedDate || closeoutDate)}.`,
+    `To the extent permitted by applicable law and only to the extent that payment has actually been received, ${COMPANY_INFO.name} waives and releases any mechanics' lien rights it may have against the property described in this packet for labor, services, materials, and equipment furnished by Golden Brick through the closeout date shown above.`,
+    "This packet covers Golden Brick's own project record only. Any separate subcontractor, vendor, supplier, lender, title-company, or contract-required waiver forms should be handled separately in writing if requested.",
+  ].forEach((paragraph) => {
+    drawEstimatePdfParagraph(doc, cursor, paragraph, {
+      fontSize: 11,
+      lineHeight: 16,
+      color: ESTIMATE_PDF_THEME.muted,
+      gapAfter: 10,
+    });
+  });
+
+  ensureEstimatePdfSpace(doc, cursor, 32);
+  doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
+  doc.line(cursor.left, cursor.y, cursor.left + cursor.width, cursor.y);
+  cursor.y += 18;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+  doc.text(COMPANY_INFO.name, cursor.left, cursor.y);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...ESTIMATE_PDF_THEME.muted);
+  doc.text(
+    `${COMPANY_INFO.email} | ${COMPANY_INFO.phone}`,
+    cursor.left + cursor.width,
+    cursor.y,
+    { align: "right" },
+  );
+}
+
 function renderEstimateLines(lineItems) {
   const rows = lineItems.length
     ? lineItems
@@ -7304,6 +8608,11 @@ function renderEstimateSharePanel(lead = currentLead()) {
     safeString(share?.status || ""),
   );
   const detailBits = [];
+  const estimateDraft = state.estimate;
+  const draftMatchesShare = estimateDraftMatchesShareSnapshot(
+    estimateDraft,
+    share,
+  );
 
   if (share?.createdAt) {
     detailBits.push(`Created ${formatDateTime(share.createdAt)}`);
@@ -7319,6 +8628,22 @@ function renderEstimateSharePanel(lead = currentLead()) {
   }
   if (share?.revokedAt) {
     detailBits.push(`Revoked ${formatDateTime(share.revokedAt)}`);
+  }
+
+  if (safeString(share?.status) === "active" && estimateDraft) {
+    detailBits.unshift(
+      draftMatchesShare
+        ? "Current saved draft matches the live client version"
+        : "Current saved draft has newer edits than the live client version",
+    );
+  }
+
+  if (safeString(share?.status) === "signed" && estimateDraft) {
+    detailBits.unshift(
+      draftMatchesShare
+        ? "This signed version matches the current saved draft"
+        : "This signed version is older than the current saved draft",
+    );
   }
 
   refs.estimateShareStatusPill.textContent = statusMeta.label;
@@ -7356,6 +8681,12 @@ function renderLeadEstimateClientRecords(lead = currentLead()) {
   }
 
   const shares = estimateSharesForLead(lead.id);
+  const currentShare = pickCurrentEstimateShare(shares);
+  const currentShareStatus = safeString(currentShare?.status);
+  const currentDraftMatchesShare = estimateDraftMatchesShareSnapshot(
+    state.estimate,
+    currentShare,
+  );
   const activeShares = shares.filter(
     (share) => safeString(share.status) === "active",
   );
@@ -7385,26 +8716,68 @@ function renderLeadEstimateClientRecords(lead = currentLead()) {
     )
     .join("");
 
+  let draftStatusLabel = "Draft only";
+  let draftMetaCopy = state.estimate
+    ? "Saved internally. The client cannot see this version until you publish it."
+    : "This lead has an estimate saved, but the full draft has not loaded yet.";
+  let publishLabel = "Publish to portal";
+
+  if (state.estimate && currentShareStatus === "active") {
+    draftStatusLabel = currentDraftMatchesShare
+      ? "Published now"
+      : "Updated since publish";
+    draftMetaCopy = currentDraftMatchesShare
+      ? "This saved draft matches the live client version in the portal."
+      : "The client is still seeing an older published version. Publish again to send these latest edits.";
+    publishLabel = currentDraftMatchesShare
+      ? "Republish"
+      : "Publish updated version";
+  } else if (currentShareStatus === "active") {
+    draftStatusLabel = "Published now";
+    draftMetaCopy =
+      "A live client version exists for this lead. Open the portal record below to review it.";
+    publishLabel = "Publish updated version";
+  } else if (state.estimate && currentShareStatus === "signed") {
+    draftStatusLabel = currentDraftMatchesShare
+      ? "Signed record"
+      : "Revised after signing";
+    draftMetaCopy = currentDraftMatchesShare
+      ? "This estimate was signed and archived. Publish a new version only if the scope changes."
+      : "A signed version is archived, but this draft has newer edits that are not client-visible yet.";
+    publishLabel = "Publish revised estimate";
+  } else if (currentShareStatus === "signed") {
+    draftStatusLabel = "Signed record";
+    draftMetaCopy =
+      "A signed client-facing record is archived for this lead.";
+    publishLabel = "Publish revised estimate";
+  } else if (currentShareStatus === "replaced") {
+    draftStatusLabel = "Draft ready";
+    draftMetaCopy =
+      "The last client-facing version was replaced or removed. Publish this draft to make it visible again.";
+    publishLabel = "Publish to portal";
+  } else if (currentShareStatus === "revoked") {
+    draftStatusLabel = "Draft ready";
+    draftMetaCopy =
+      "The last client-facing version was revoked. Publish this draft to make it visible again.";
+    publishLabel = "Publish to portal";
+  }
+
   const draftCard = (state.estimate || lead.hasEstimate)
     ? `
       <article class="simple-item">
         <div class="record-topline">
-          <span class="mini-pill">Draft only</span>
+          <span class="mini-pill">${escapeHtml(draftStatusLabel)}</span>
           <span class="mini-pill">${escapeHtml(formatCurrency(state.estimate?.subtotal || lead.estimateSubtotal || 0))}</span>
         </div>
         <strong>${escapeHtml(state.estimate?.subject || lead.estimateTitle || "Current estimate draft")}</strong>
         <p>${escapeHtml(lead.projectAddress || "Address pending")}</p>
-        <div class="simple-meta">${escapeHtml(
-          state.estimate
-            ? "Saved internally. The client cannot see this version until you publish it."
-            : "This lead has an estimate saved, but the full draft has not loaded yet.",
-        )}</div>
+        <div class="simple-meta">${escapeHtml(draftMetaCopy)}</div>
         <div class="inline-actions">
           ${
             isAdmin()
               ? customerPortalActionButton({
                   action: "publish-estimate",
-                  label: "Publish to portal",
+                  label: publishLabel,
                   targetType: "estimate",
                   targetId: lead.id,
                   leadId: lead.id,
@@ -9207,6 +10580,7 @@ async function markInvoicePaid() {
     "Invoice marked paid",
     `${invoice.invoiceNumber} was marked paid for ${formatCurrency(invoice.subtotal || 0)}${invoice.paymentMethod ? ` via ${invoice.paymentMethod}` : ""}.`,
   );
+  await syncProjectFinancialSnapshot(project.id, { projectData: project });
 
   showToast("Invoice marked paid and payment recorded.");
 }
@@ -9373,7 +10747,7 @@ function renderLeadJobSummary(lead) {
   }
 
   refs.leadJobSummary.innerHTML = `
-        <div><strong>Job status:</strong> ${escapeHtml(project.status === "completed" ? "Completed" : "In Progress")}</div>
+        <div><strong>Job status:</strong> ${escapeHtml(JOB_STATUS_META[project.status] || "In Progress")}</div>
         <div><strong>Contract value:</strong> ${escapeHtml(formatCurrency(projectRevenueValue(project)))}</div>
         <div><strong>Client paid:</strong> ${escapeHtml(formatCurrency(firstFiniteNumber(projectFinancials(project).totalPayments, 0)))}</div>
         <div><strong>Profit tracked:</strong> ${escapeHtml(formatCurrency(firstFiniteNumber(projectFinancials(project).projectedGrossProfit, projectFinancials(project).profit, 0)))}</div>
@@ -9399,10 +10773,13 @@ function renderLeadDetail() {
     );
     refs.leadDocumentSummary.innerHTML = "";
     renderEmptyList(
-      refs.leadDocumentList,
+    refs.leadDocumentList,
       "Select or save a lead to manage shared documents.",
     );
     refs.leadDocumentForm.querySelector("button").disabled = true;
+    if (refs.leadArchiveButton) {
+      refs.leadArchiveButton.disabled = true;
+    }
     refs.leadRecordEmpty.hidden = false;
     refs.leadRecordShell.hidden = true;
     return;
@@ -9468,6 +10845,9 @@ function renderLeadDetail() {
   refs.leadTaskDrawerButton.disabled = !lead.id;
   refs.leadMarkWonButton.disabled = !lead.id;
   refs.leadMarkLostButton.disabled = !lead.id;
+  if (refs.leadArchiveButton) {
+    refs.leadArchiveButton.disabled = !lead.id || !isAdmin();
+  }
 
   if (!refs.leadDocumentDate.value) {
     refs.leadDocumentDate.value = todayDateInputValue();
@@ -9642,8 +11022,8 @@ function setCustomerPortalPreviewLink(contact = null) {
   refs.customerPortalPreviewLink.hidden = !href;
   refs.customerPortalPreviewLink.href = href || "#";
   refs.customerPortalPreviewLink.textContent = safeString(contact?.authUid)
-    ? "Login as customer"
-    : "Preview customer portal";
+    ? "Open client portal"
+    : "Open portal invite";
 }
 
 function resetCustomerPortalContactForm() {
@@ -10966,6 +12346,103 @@ function renderPortalQueuePanel() {
   refs.portalQueueList.innerHTML = queueCards.join("");
 }
 
+function renderTrashPanel() {
+  if (!refs.trashSummary || !refs.trashList) {
+    return;
+  }
+
+  if (!isAdmin()) {
+    refs.trashSummary.innerHTML = "";
+    refs.trashList.innerHTML = "";
+    return;
+  }
+
+  const archivedLeads = archivedRecords(state.leads);
+  const archivedProjects = archivedRecords(state.projects);
+  const archivedEvents = archivedRecords(state.calendarEvents);
+  const trashItems = [
+    ...archivedLeads.map((lead) => ({
+      type: "lead",
+      id: lead.id,
+      title: lead.clientName || lead.projectAddress || "Archived lead",
+      copy: lead.projectType || lead.clientPhone || "Lead archived",
+      archivedAt: lead.archivedAt,
+      archivedByName: lead.archivedByName,
+      reason: lead.archiveReason,
+      pill: "Lead",
+    })),
+    ...archivedProjects.map((project) => ({
+      type: "project",
+      id: project.id,
+      title: project.clientName || project.projectAddress || "Archived job",
+      copy: project.projectType || project.customerName || "Job archived",
+      archivedAt: project.archivedAt,
+      archivedByName: project.archivedByName,
+      reason: project.archiveReason,
+      pill: "Job",
+    })),
+    ...archivedEvents.map((event) => ({
+      type: "calendarEvent",
+      id: event.id,
+      title: event.title || event.clientTitle || "Archived calendar event",
+      copy: calendarEventRelationLabel(event),
+      archivedAt: event.archivedAt,
+      archivedByName: event.archivedByName,
+      reason: event.archiveReason,
+      pill: "Calendar",
+    })),
+  ].sort((left, right) => toMillis(right.archivedAt) - toMillis(left.archivedAt));
+
+  refs.trashSummary.innerHTML = [
+    { label: "Archived leads", value: String(archivedLeads.length) },
+    { label: "Archived jobs", value: String(archivedProjects.length) },
+    { label: "Archived events", value: String(archivedEvents.length) },
+  ]
+    .map(
+      (item) => `
+        <article class="summary-card">
+          <span>${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+        </article>
+      `,
+    )
+    .join("");
+
+  if (!trashItems.length) {
+    renderEmptyList(refs.trashList, "Trash is empty. Archived records will appear here.");
+    return;
+  }
+
+  refs.trashList.innerHTML = trashItems
+    .map(
+      (item) => `
+        <article class="trash-card">
+          <div>
+            <div class="record-topline">
+              <span class="mini-pill">${escapeHtml(item.pill)}</span>
+              <span class="mini-pill">${escapeHtml(item.archivedAt ? formatDateTime(item.archivedAt) : "Archived")}</span>
+            </div>
+            <h3>${escapeHtml(item.title)}</h3>
+            <p>${escapeHtml(item.copy)}</p>
+            <div class="record-meta">
+              <div>${escapeHtml(item.archivedByName ? `Archived by ${item.archivedByName}` : "Archived by staff")}</div>
+              <div>${escapeHtml(item.reason || "No reason entered")}</div>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="secondary-button"
+            data-trash-restore="${escapeHtml(item.type)}"
+            data-trash-id="${escapeHtml(item.id)}"
+          >
+            Restore
+          </button>
+        </article>
+      `,
+    )
+    .join("");
+}
+
 function renderCustomerList() {
   const customers = filteredCustomers();
 
@@ -11208,8 +12685,8 @@ function renderCustomerDetail() {
         stackCardButton({
           title: project.clientName || "Unnamed job",
           copy: project.projectAddress || "Address pending",
-          pill: project.status === "completed" ? "Completed" : "In Progress",
-          secondaryPill: formatCurrency(project.jobValue || 0),
+          pill: JOB_STATUS_META[project.status] || "In Progress",
+          secondaryPill: formatCurrency(projectRevenueValue(project)),
           dataAttrs: {
             "data-open-project": project.id,
             "data-open-view": "jobs-view",
@@ -11313,8 +12790,8 @@ function renderJobMetrics() {
   );
 
   renderMetricStrip(refs.jobMetrics, [
-    { label: "In progress", value: inProgress },
-    { label: "Completed", value: completed },
+    { label: "Open jobs", value: inProgress },
+    { label: "Finished jobs", value: completed },
     { label: "Contract revenue", value: formatCurrency(totalRevenue) },
     { label: "Payments received", value: formatCurrency(totalPayments) },
   ]);
@@ -11332,26 +12809,357 @@ function renderJobList() {
     .map((project) => {
       const financials = projectFinancials(project);
       const billingState = projectBillingState(project);
-      const kindLabel = projectKindLabel(project);
+      const kindLabel = projectWorkflowLabel(project);
+      const openTasks = relatedTasksForEntity("projectId", project.id).filter(
+        (task) => !taskIsCompleted(task),
+      );
+      const statusLabel = JOB_STATUS_META[project.status] || "In Progress";
       return `
-            <button type="button" class="record-button ${project.id === state.selectedProjectId ? "is-selected" : ""}" data-project-id="${escapeHtml(project.id)}">
-                <div class="record-topline">
-                    <span class="mini-pill">${escapeHtml(JOB_STATUS_META[project.status] || "In Progress")}</span>
-                    <span class="mini-pill">${escapeHtml(kindLabel)}</span>
-                    <span class="mini-pill">${escapeHtml(project.projectType || "Project")}</span>
-                    ${billingState ? `<span class="mini-pill">${escapeHtml(billingState.label)}</span>` : ""}
+            <button type="button" class="record-button job-record-card ${project.id === state.selectedProjectId ? "is-selected" : ""}" data-project-id="${escapeHtml(project.id)}">
+                <div class="job-card-main">
+                    <div>
+                        <div class="record-topline">
+                            <span class="mini-pill">${escapeHtml(statusLabel)}</span>
+                            <span class="mini-pill">${escapeHtml(kindLabel)}</span>
+                            ${billingState ? `<span class="mini-pill">${escapeHtml(billingState.label)}</span>` : ""}
+                        </div>
+                        <span class="record-title">${escapeHtml(project.clientName || "Unnamed job")}</span>
+                        <p class="record-copy">${escapeHtml(project.projectAddress || "Address pending")}</p>
+                    </div>
+                    <span class="job-open-affordance">Open workspace</span>
                 </div>
-                <span class="record-title">${escapeHtml(project.clientName || "Unnamed job")}</span>
-                <p class="record-copy">${escapeHtml(project.projectAddress || "Address pending")}</p>
+                <div class="job-card-kpis">
+                    <span><strong>${escapeHtml(formatCurrency(projectRevenueValue(project)))}</strong> Contract</span>
+                    <span><strong>${escapeHtml(formatCurrency(firstFiniteNumber(financials.balanceRemaining, project.balanceRemaining, 0)))}</strong> Balance</span>
+                    <span><strong>${escapeHtml(formatCurrency(firstFiniteNumber(financials.projectedGrossProfit, financials.profit, 0)))}</strong> Profit</span>
+                    <span><strong>${escapeHtml(String(openTasks.length))}</strong> Open tasks</span>
+                </div>
                 <div class="record-meta">
                     <div>${escapeHtml(project.customerName || "No linked customer")}</div>
-                    <div>Revenue ${escapeHtml(formatCurrency(projectRevenueValue(project)))}</div>
-                    <div>Balance ${escapeHtml(formatCurrency(firstFiniteNumber(financials.balanceRemaining, project.balanceRemaining, 0)))}</div>
-                    <div>Profit ${escapeHtml(formatCurrency(firstFiniteNumber(financials.projectedGrossProfit, financials.profit, 0)))}</div>
+                    <div>${escapeHtml(project.projectType || "Project scope not set")}</div>
                 </div>
             </button>
         `;
     })
+    .join("");
+}
+
+function calendarStatusLabel(status) {
+  return CALENDAR_STATUS_META[safeString(status || "scheduled")] || "Scheduled";
+}
+
+function calendarTypeLabel(type) {
+  return CALENDAR_TYPE_META[safeString(type || "job_work")] || "Job work";
+}
+
+function calendarEventRelationLabel(event) {
+  const project = event.projectId
+    ? state.projects.find((item) => item.id === event.projectId)
+    : null;
+  const lead = event.leadId
+    ? state.leads.find((item) => item.id === event.leadId)
+    : null;
+  const customer = event.customerId
+    ? state.customers.find((item) => item.id === event.customerId)
+    : null;
+
+  return (
+    project?.projectAddress ||
+    project?.clientName ||
+    lead?.projectAddress ||
+    lead?.clientName ||
+    customer?.name ||
+    "No linked record"
+  );
+}
+
+function calendarAssignedStaffLabel(event) {
+  const assignedUids = Array.isArray(event.assignedStaffUids)
+    ? event.assignedStaffUids
+    : [];
+  const names = assignedUids
+    .map((uid) => {
+      const member = state.staffRoster.find((item) => item.uid === uid);
+      return member?.displayName || member?.email || "";
+    })
+    .filter(Boolean);
+
+  if (names.length) {
+    return names.slice(0, 3).join(", ");
+  }
+
+  return event.assignedStaffNames?.slice?.(0, 3)?.join(", ") || "Unassigned";
+}
+
+function renderCalendarFilterOptions() {
+  if (!refs.calendarStaffFilter || !refs.calendarProjectFilter) {
+    return;
+  }
+
+  const staffOptions = [`<option value="">All staff</option>`].concat(
+    activeStaffOptions().map(
+      (member) => `
+        <option value="${escapeHtml(member.uid)}">${escapeHtml(member.displayName || member.email || "Staff member")}</option>
+      `,
+    ),
+  );
+  refs.calendarStaffFilter.innerHTML = staffOptions.join("");
+  refs.calendarStaffFilter.value = activeStaffOptions().some(
+    (member) => member.uid === state.calendarStaffUid,
+  )
+    ? state.calendarStaffUid
+    : "";
+
+  refs.calendarProjectFilter.innerHTML = [`<option value="">All jobs</option>`]
+    .concat(
+      visibleProjects().map(
+        (project) => `
+          <option value="${escapeHtml(project.id)}">${escapeHtml(project.clientName || project.projectAddress || "Unnamed job")}</option>
+        `,
+      ),
+    )
+    .join("");
+  refs.calendarProjectFilter.value = visibleProjects().some(
+    (project) => project.id === state.calendarProjectId,
+  )
+    ? state.calendarProjectId
+    : "";
+}
+
+function renderCalendarFormOptions() {
+  if (!refs.calendarLinkedProjectSelect) {
+    return;
+  }
+
+  const selectedProjectId =
+    refs.calendarLinkedProjectSelect.value || state.calendarProjectId || "";
+  refs.calendarLinkedProjectSelect.innerHTML = [
+    `<option value="">No linked job</option>`,
+  ]
+    .concat(
+      visibleProjects().map(
+        (project) => `
+          <option value="${escapeHtml(project.id)}">${escapeHtml(project.clientName || project.projectAddress || "Unnamed job")}</option>
+        `,
+      ),
+    )
+    .join("");
+  refs.calendarLinkedProjectSelect.value = visibleProjects().some(
+    (project) => project.id === selectedProjectId,
+  )
+    ? selectedProjectId
+    : "";
+
+  const selectedLeadId = refs.calendarLinkedLeadSelect.value || "";
+  refs.calendarLinkedLeadSelect.innerHTML = [`<option value="">No linked lead</option>`]
+    .concat(
+      visibleLeads().map(
+        (lead) => `
+          <option value="${escapeHtml(lead.id)}">${escapeHtml(lead.clientName || lead.projectAddress || "Unnamed lead")}</option>
+        `,
+      ),
+    )
+    .join("");
+  refs.calendarLinkedLeadSelect.value = visibleLeads().some(
+    (lead) => lead.id === selectedLeadId,
+  )
+    ? selectedLeadId
+    : "";
+
+  const selectedCustomerId = refs.calendarLinkedCustomerSelect.value || "";
+  refs.calendarLinkedCustomerSelect.innerHTML = [
+    `<option value="">No linked customer</option>`,
+  ]
+    .concat(
+      visibleCustomers().map(
+        (customer) => `
+          <option value="${escapeHtml(customer.id)}">${escapeHtml(customer.name || customer.primaryEmail || "Unnamed customer")}</option>
+        `,
+      ),
+    )
+    .join("");
+  refs.calendarLinkedCustomerSelect.value = visibleCustomers().some(
+    (customer) => customer.id === selectedCustomerId,
+  )
+    ? selectedCustomerId
+    : "";
+
+  const selectedStaffUids = new Set(
+    Array.from(refs.calendarAssignedStaffSelect.selectedOptions || []).map(
+      (option) => option.value,
+    ),
+  );
+  refs.calendarAssignedStaffSelect.innerHTML = activeStaffOptions()
+    .map(
+      (member) => `
+        <option value="${escapeHtml(member.uid)}">${escapeHtml(member.displayName || member.email || "Staff member")}</option>
+      `,
+    )
+    .join("");
+  Array.from(refs.calendarAssignedStaffSelect.options || []).forEach(
+    (option) => {
+      option.selected = selectedStaffUids.has(option.value);
+    },
+  );
+}
+
+function renderCalendarMetrics() {
+  const events = visibleCalendarEvents();
+  const today = events.filter((event) => isSameDay(event.startAt, new Date()));
+  const upcoming = events.filter(
+    (event) => calendarEventStartMillis(event) >= Date.now(),
+  );
+  const clientVisible = events.filter((event) => event.clientVisible === true);
+  const needsAttention = events.filter(
+    (event) => safeString(event.status) === "needs_attention",
+  );
+
+  renderMetricStrip(refs.calendarMetrics, [
+    { label: "Today", value: today.length },
+    { label: "Upcoming", value: upcoming.length },
+    { label: "Client-visible", value: clientVisible.length },
+    { label: "Needs attention", value: needsAttention.length },
+  ]);
+}
+
+function renderCalendarList() {
+  const events = filteredCalendarEvents();
+  if (!events.length) {
+    renderEmptyList(
+      refs.calendarList,
+      "No schedule events match the current filters.",
+    );
+    return;
+  }
+
+  refs.calendarList.innerHTML = events
+    .map((event) => {
+      const relationLabel = calendarEventRelationLabel(event);
+      const projectButton = event.projectId
+        ? `<button type="button" class="ghost-button" data-open-project="${escapeHtml(event.projectId)}" data-open-view="jobs-view">Open job</button>`
+        : "";
+      const leadButton =
+        !event.projectId && event.leadId
+          ? `<button type="button" class="ghost-button" data-open-lead="${escapeHtml(event.leadId)}" data-open-view="leads-view">Open lead</button>`
+          : "";
+      const archiveButton = isAdmin()
+        ? `<button type="button" class="danger-link" data-calendar-archive="${escapeHtml(event.id)}">Archive event</button>`
+        : "";
+      return `
+        <article class="calendar-event-card">
+          <div class="calendar-event-time">
+            <strong>${escapeHtml(formatDateTime(event.startAt))}</strong>
+            <span>${escapeHtml(event.endAt ? `Ends ${formatDateTime(event.endAt)}` : event.allDay ? "All day" : "No end time")}</span>
+          </div>
+          <div class="calendar-event-body">
+            <div class="record-topline">
+              <span class="mini-pill">${escapeHtml(calendarTypeLabel(event.type))}</span>
+              <span class="mini-pill">${escapeHtml(calendarStatusLabel(event.status))}</span>
+              ${event.clientVisible ? `<span class="mini-pill">Client-visible</span>` : ""}
+            </div>
+            <h3>${escapeHtml(event.title || event.clientTitle || "Scheduled event")}</h3>
+            <p>${escapeHtml(event.internalNote || event.clientNote || relationLabel)}</p>
+            <div class="record-meta">
+              <div>${escapeHtml(relationLabel)}</div>
+              <div>${escapeHtml(calendarAssignedStaffLabel(event))}</div>
+            </div>
+            <div class="inline-actions calendar-event-actions">
+              ${projectButton}
+              ${leadButton}
+              ${archiveButton}
+            </div>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderCalendarView() {
+  if (!refs.calendarMetrics) {
+    return;
+  }
+  refs.calendarScopeFilter.value = state.calendarScope;
+  refs.calendarStatusFilter.value = state.calendarStatus;
+  renderCalendarFilterOptions();
+  renderCalendarFormOptions();
+  if (!refs.calendarStartInput.value) {
+    refs.calendarStartInput.value = formatDateInputValue(new Date());
+  }
+  if (
+    !Array.from(refs.calendarAssignedStaffSelect.selectedOptions || []).length &&
+    state.profile?.uid
+  ) {
+    Array.from(refs.calendarAssignedStaffSelect.options || []).forEach(
+      (option) => {
+        option.selected = option.value === state.profile.uid;
+      },
+    );
+  }
+  refs.calendarClientVisibleInput.disabled = !isAdmin();
+  refs.calendarClientTitleInput.disabled = !isAdmin();
+  refs.calendarClientNoteInput.disabled = !isAdmin();
+  renderCalendarMetrics();
+  renderCalendarList();
+}
+
+function renderJobCalendarPanel(project) {
+  if (!refs.jobCalendarSummary || !refs.jobCalendarList) {
+    return;
+  }
+  if (!project?.id) {
+    refs.jobCalendarSummary.innerHTML = "";
+    renderEmptyList(refs.jobCalendarList, "Select a job to see its schedule.");
+    return;
+  }
+
+  const events = calendarEventsForProject(project.id);
+  const upcoming = events.filter(
+    (event) => calendarEventStartMillis(event) >= Date.now(),
+  );
+  const clientVisible = events.filter((event) => event.clientVisible === true);
+  const nextEvent = upcoming[0] || null;
+
+  refs.jobCalendarSummary.innerHTML = [
+    { label: "Upcoming", value: String(upcoming.length) },
+    { label: "Client-visible", value: String(clientVisible.length) },
+    {
+      label: "Next event",
+      value: nextEvent ? formatDateTime(nextEvent.startAt) : "Not scheduled",
+    },
+  ]
+    .map(
+      (item) => `
+        <article class="summary-card">
+          <span>${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+        </article>
+      `,
+    )
+    .join("");
+
+  if (!events.length) {
+    renderEmptyList(
+      refs.jobCalendarList,
+      "No events yet. Add crew work, appointments, milestones, inspections, or client updates from Calendar.",
+    );
+    return;
+  }
+
+  refs.jobCalendarList.innerHTML = events
+    .slice(0, 5)
+    .map(
+      (event) => `
+        <article class="timeline-item">
+          <strong>${escapeHtml(event.title || event.clientTitle || "Scheduled event")}</strong>
+          <p>${escapeHtml(calendarTypeLabel(event.type))} · ${escapeHtml(calendarStatusLabel(event.status))}</p>
+          <div class="timeline-meta">
+            ${escapeHtml(formatDateTime(event.startAt))}
+            ${event.clientVisible ? " · Client-visible" : ""}
+          </div>
+        </article>
+      `,
+    )
     .join("");
 }
 
@@ -11411,6 +13219,89 @@ function normaliseAssignedProjectWorkers(project) {
     }));
 }
 
+function calculateProjectFinancialSnapshot({
+  baseContractValue = 0,
+  assignedWorkers = [],
+  expenses = [],
+  payments = [],
+  changeOrders = [],
+  storedFinancials = {},
+} = {}) {
+  const safeBaseContractValue = firstFiniteNumber(
+    baseContractValue,
+    storedFinancials.baseContractValue,
+    0,
+  );
+  const approvedChangeOrdersTotal = changeOrders
+    .filter(
+      (changeOrder) =>
+        normaliseChangeOrderStatus(changeOrder?.status) === "approved",
+    )
+    .reduce((sum, changeOrder) => sum + toNumber(changeOrder.amount), 0);
+  const totalContractRevenue = safeBaseContractValue + approvedChangeOrdersTotal;
+  const totalExpenses = expenses.reduce(
+    (sum, expense) => sum + toNumber(expense.amount),
+    0,
+  );
+  const totalPayments = payments.reduce(
+    (sum, payment) => sum + toNumber(payment.amount),
+    0,
+  );
+  const rawProfit = totalContractRevenue - totalExpenses;
+  const distributableProfit = Math.max(rawProfit, 0);
+  const companyShare = distributableProfit * 0.5;
+  const workerPool = distributableProfit * 0.5;
+  const cashPosition = totalPayments - totalExpenses;
+  const balanceRemaining = totalContractRevenue - totalPayments;
+  const team = Array.isArray(assignedWorkers) ? assignedWorkers : [];
+  const totalPercent = team.reduce((sum, worker) => sum + toNumber(worker.percent), 0);
+  const workerBreakdown = team.map((worker, index) => {
+    let effectivePercent = toNumber(worker.percent);
+
+    if (team.length === 1 && totalPercent <= 0) {
+      effectivePercent = 100;
+    } else if (totalPercent > 0) {
+      effectivePercent = (toNumber(worker.percent) / totalPercent) * 100;
+    }
+
+    return {
+      uid: safeString(worker.uid || `worker-${index + 1}`),
+      name: safeString(worker.name || worker.email || "Assigned worker"),
+      email: safeString(worker.email),
+      percent: Number(effectivePercent.toFixed(2)),
+      amount: Number(((workerPool * effectivePercent) / 100).toFixed(2)),
+    };
+  });
+
+  return {
+    ...storedFinancials,
+    baseContractValue: Number(safeBaseContractValue.toFixed(2)),
+    approvedChangeOrdersTotal: Number(approvedChangeOrdersTotal.toFixed(2)),
+    totalContractRevenue: Number(totalContractRevenue.toFixed(2)),
+    totalExpenses: Number(totalExpenses.toFixed(2)),
+    totalPayments: Number(totalPayments.toFixed(2)),
+    profit: Number(rawProfit.toFixed(2)),
+    projectedGrossProfit: Number(rawProfit.toFixed(2)),
+    distributableProfit: Number(distributableProfit.toFixed(2)),
+    cashPosition: Number(cashPosition.toFixed(2)),
+    balanceRemaining: Number(balanceRemaining.toFixed(2)),
+    companyShare: Number(companyShare.toFixed(2)),
+    workerPool: Number(workerPool.toFixed(2)),
+    workerBreakdown,
+  };
+}
+
+function initialProjectFinancials(baseContractValue = 0, assignedWorkers = []) {
+  return calculateProjectFinancialSnapshot({
+    baseContractValue,
+    assignedWorkers,
+    expenses: [],
+    payments: [],
+    changeOrders: [],
+    storedFinancials: {},
+  });
+}
+
 function selectedProjectFinancialsReady(project) {
   return Boolean(
     project?.id &&
@@ -11427,75 +13318,108 @@ function computeSelectedProjectFinancials(project) {
     return storedFinancials;
   }
 
-  const baseContractValue = firstFiniteNumber(
-    project?.baseContractValue,
-    storedFinancials.baseContractValue,
-    project?.jobValue,
-    0,
-  );
-  const approvedChangeOrdersTotal = state.projectChangeOrders
-    .filter(
-      (changeOrder) => normaliseChangeOrderStatus(changeOrder.status) === "approved",
-    )
-    .reduce((sum, changeOrder) => sum + toNumber(changeOrder.amount), 0);
-  const totalContractRevenue = baseContractValue + approvedChangeOrdersTotal;
-  const totalExpenses = state.projectExpenses.reduce(
-    (sum, expense) => sum + toNumber(expense.amount),
-    0,
-  );
-  const totalPayments = state.projectPayments.reduce(
-    (sum, payment) => sum + toNumber(payment.amount),
-    0,
-  );
-  const rawProfit = totalContractRevenue - totalExpenses;
-  const distributableProfit = Math.max(rawProfit, 0);
-  const companyShare = distributableProfit * 0.5;
-  const workerPool = distributableProfit * 0.5;
-  const cashPosition = totalPayments - totalExpenses;
-  const balanceRemaining = totalContractRevenue - totalPayments;
-  const assignedWorkers = normaliseAssignedProjectWorkers(project);
-  const totalPercent = assignedWorkers.reduce(
-    (sum, worker) => sum + worker.percent,
-    0,
-  );
-  const workerBreakdown = assignedWorkers.map((worker, index) => {
-    let effectivePercent = worker.percent;
-
-    if (assignedWorkers.length === 1 && totalPercent <= 0) {
-      effectivePercent = 100;
-    } else if (totalPercent > 0) {
-      effectivePercent = (worker.percent / totalPercent) * 100;
-    }
-
-    return {
-      uid: worker.uid || `worker-${index + 1}`,
-      name: worker.name || worker.email || "Assigned worker",
-      email: worker.email,
-      percent: Number(effectivePercent.toFixed(2)),
-      amount: Number(((workerPool * effectivePercent) / 100).toFixed(2)),
-    };
+  return calculateProjectFinancialSnapshot({
+    baseContractValue: firstFiniteNumber(
+      project?.baseContractValue,
+      storedFinancials.baseContractValue,
+      project?.jobValue,
+      0,
+    ),
+    assignedWorkers: normaliseAssignedProjectWorkers(project),
+    expenses: state.projectExpenses,
+    payments: state.projectPayments,
+    changeOrders: state.projectChangeOrders,
+    storedFinancials,
   });
-
-  return {
-    ...storedFinancials,
-    baseContractValue: Number(baseContractValue.toFixed(2)),
-    approvedChangeOrdersTotal: Number(approvedChangeOrdersTotal.toFixed(2)),
-    totalContractRevenue: Number(totalContractRevenue.toFixed(2)),
-    totalExpenses: Number(totalExpenses.toFixed(2)),
-    totalPayments: Number(totalPayments.toFixed(2)),
-    profit: Number(rawProfit.toFixed(2)),
-    projectedGrossProfit: Number(rawProfit.toFixed(2)),
-    distributableProfit: Number(distributableProfit.toFixed(2)),
-    cashPosition: Number(cashPosition.toFixed(2)),
-    balanceRemaining: Number(balanceRemaining.toFixed(2)),
-    companyShare: Number(companyShare.toFixed(2)),
-    workerPool: Number(workerPool.toFixed(2)),
-    workerBreakdown,
-  };
 }
 
 function projectFinancials(project) {
   return computeSelectedProjectFinancials(project);
+}
+
+async function loadProjectDetailDocs(projectId, childCollection) {
+  const snapshot = await getDocs(
+    collection(state.db, "projects", projectId, childCollection),
+  );
+  return snapshot.docs.map(normaliseFirestoreDoc);
+}
+
+async function syncProjectFinancialSnapshot(
+  projectId,
+  {
+    projectData = null,
+    baseContractValue = null,
+    assignedWorkers = null,
+    expenses = null,
+    payments = null,
+    changeOrders = null,
+  } = {},
+) {
+  if (!projectId) {
+    return null;
+  }
+
+  let project =
+    projectData ||
+    (state.selectedProjectId === projectId ? currentProject() : null) ||
+    state.projects.find((entry) => entry.id === projectId) ||
+    null;
+
+  if (!project) {
+    const projectSnapshot = await getDoc(doc(state.db, "projects", projectId));
+    if (!projectSnapshot.exists()) {
+      return null;
+    }
+    project = normaliseFirestoreDoc(projectSnapshot);
+  }
+
+  const resolvedExpenses = Array.isArray(expenses)
+    ? expenses
+    : state.selectedProjectId === projectId && state.projectDetailLoaded.expenses
+      ? state.projectExpenses
+      : await loadProjectDetailDocs(projectId, "expenses");
+  const resolvedPayments = Array.isArray(payments)
+    ? payments
+    : state.selectedProjectId === projectId && state.projectDetailLoaded.payments
+      ? state.projectPayments
+      : await loadProjectDetailDocs(projectId, "payments");
+  const resolvedChangeOrders = Array.isArray(changeOrders)
+    ? changeOrders
+    : state.selectedProjectId === projectId &&
+        state.projectDetailLoaded.changeOrders
+      ? state.projectChangeOrders
+      : await loadProjectDetailDocs(projectId, "changeOrders");
+  const resolvedAssignedWorkers = Array.isArray(assignedWorkers)
+    ? assignedWorkers
+    : normaliseAssignedProjectWorkers(project);
+  const resolvedBaseContractValue = firstFiniteNumber(
+    baseContractValue,
+    project?.baseContractValue,
+    project?.financials?.baseContractValue,
+    project?.jobValue,
+    0,
+  );
+  const financials = calculateProjectFinancialSnapshot({
+    baseContractValue: resolvedBaseContractValue,
+    assignedWorkers: resolvedAssignedWorkers,
+    expenses: resolvedExpenses,
+    payments: resolvedPayments,
+    changeOrders: resolvedChangeOrders,
+    storedFinancials: project?.financials || {},
+  });
+
+  await updateDoc(doc(state.db, "projects", projectId), {
+    baseContractValue: financials.baseContractValue,
+    approvedChangeOrdersTotal: financials.approvedChangeOrdersTotal,
+    totalContractRevenue: financials.totalContractRevenue,
+    cashPosition: financials.cashPosition,
+    balanceRemaining: financials.balanceRemaining,
+    jobValue: financials.totalContractRevenue,
+    financials,
+    updatedAt: serverTimestamp(),
+  });
+
+  return financials;
 }
 
 function isServiceOrderProject(project) {
@@ -11517,6 +13441,18 @@ function projectKindLabel(project) {
   return isServiceOrderProject(project)
     ? JOB_KIND_META.service_order
     : JOB_KIND_META.standard;
+}
+
+function projectWorkflowLabel(project) {
+  if (!project) {
+    return JOB_KIND_META.standard;
+  }
+
+  if (isServiceOrderProject(project)) {
+    return JOB_KIND_META.service_order;
+  }
+
+  return safeString(project.leadId) ? "Lead-linked job" : "Direct job";
 }
 
 function projectBillingState(project, invoices = null) {
@@ -11612,6 +13548,76 @@ function renderJobOwnerOptions(project) {
     .join("");
 }
 
+function renderJobCustomerOptions(project) {
+  const currentCustomerId = safeString(project?.customerId);
+  const currentCustomer =
+    currentCustomerId &&
+    state.customers.find((customer) => customer.id === currentCustomerId);
+
+  if (!isAdmin()) {
+    refs.jobCustomerSelect.innerHTML = currentCustomerId
+      ? `<option value="${escapeHtml(currentCustomerId)}">${escapeHtml(currentCustomer?.name || project?.customerName || "Linked customer")}</option>`
+      : `<option value="">No linked customer</option>`;
+    refs.jobCustomerSelect.disabled = true;
+    return;
+  }
+
+  const customers = sortByUpdatedDesc(state.customers);
+  const missingCurrentOption =
+    currentCustomerId &&
+    !customers.some((customer) => customer.id === currentCustomerId)
+      ? `
+            <option value="${escapeHtml(currentCustomerId)}" selected>
+                ${escapeHtml(currentCustomer?.name || project?.customerName || "Linked customer")}
+            </option>
+        `
+      : "";
+
+  refs.jobCustomerSelect.disabled = false;
+  refs.jobCustomerSelect.innerHTML = [
+    `<option value="">No linked customer</option>`,
+    missingCurrentOption,
+    customers
+      .map(
+        (customer) => `
+            <option value="${escapeHtml(customer.id)}" ${customer.id === currentCustomerId ? "selected" : ""}>
+                ${escapeHtml(`${customer.name || "Unnamed customer"} · ${customer.primaryPhone || customer.primaryEmail || customer.primaryAddress || "No contact info"}`)}
+            </option>
+        `,
+      )
+      .join(""),
+  ].join("");
+
+  refs.jobCustomerSelect.value = currentCustomerId || "";
+}
+
+function applyJobCustomerSelection(customerId) {
+  if (!isAdmin()) {
+    return;
+  }
+
+  const customer = customerId
+    ? state.customers.find((item) => item.id === customerId)
+    : null;
+  if (!customer) {
+    return;
+  }
+
+  refs.jobClientNameInput.value = customer.name || refs.jobClientNameInput.value;
+
+  if (!safeString(refs.jobClientPhoneInput.value)) {
+    refs.jobClientPhoneInput.value = customer.primaryPhone || "";
+  }
+
+  if (!safeString(refs.jobClientEmailInput.value)) {
+    refs.jobClientEmailInput.value = customer.primaryEmail || "";
+  }
+
+  if (!safeString(refs.jobProjectAddressInput.value)) {
+    refs.jobProjectAddressInput.value = customer.primaryAddress || "";
+  }
+}
+
 function renderJobRecordContext(project) {
   if (!project) {
     refs.jobRecordContext.innerHTML = "";
@@ -11653,11 +13659,12 @@ function renderJobRecordContext(project) {
     }),
     buildContextCard({
       label: "Linked lead",
-      title:
-        linkedLead?.clientName || linkedLead?.projectAddress || "Original lead",
+      title: linkedLead
+        ? linkedLead.clientName || linkedLead.projectAddress || "Original lead"
+        : "No linked lead",
       meta: linkedLead
         ? `${STATUS_META[linkedLead.status] || "Lead"} · ${formatCurrency(linkedLead.estimateSubtotal || 0)} estimate`
-        : "This job was created from a won lead.",
+        : "This job was created directly from the jobs workspace.",
       dataAttrs: linkedLead
         ? {
             "data-open-lead": linkedLead.id,
@@ -11677,10 +13684,12 @@ function renderJobRecordContext(project) {
     }),
     buildContextCard({
       label: "Job type",
-      title: projectKindLabel(project),
+      title: projectWorkflowLabel(project),
       meta: isServiceOrderProject(project)
         ? `${SERVICE_PAYMENT_RULE_META[project.paymentRequirement] || "Upfront required"} · ${billingState?.label || SERVICE_BILLING_META.awaiting_payment}`
-        : "Operational job converted from a won lead.",
+        : linkedLead
+          ? "Operational job converted from a won lead."
+          : "Operational job created directly in the jobs workspace.",
       muted: true,
     }),
     buildContextCard({
@@ -11756,7 +13765,7 @@ function renderJobOverviewSummary(project) {
   refs.jobOverviewSummary.innerHTML = [
     {
       label: "Job kind",
-      value: projectKindLabel(project),
+      value: projectWorkflowLabel(project),
     },
     {
       label: "Lead owner",
@@ -11801,6 +13810,161 @@ function renderJobOverviewSummary(project) {
     .join("");
 }
 
+function renderJobEstimatePanel(project) {
+  if (!project) {
+    refs.jobEstimateSummary.innerHTML = "";
+    refs.jobEstimateStatus.innerHTML =
+      "Select a job first to load the original estimate.";
+    refs.jobEstimatePreview.innerHTML = `<div class="empty-note">Select a job to review the original estimate.</div>`;
+    refs.jobEstimateActions.innerHTML = "";
+    return;
+  }
+
+  const linkedLead = leadForProject(project);
+  const estimate = state.projectLeadEstimate;
+  const share = pickCurrentEstimateShare(state.projectLeadEstimateShares);
+  const hasEstimate = Boolean(linkedLead?.hasEstimate || estimate);
+  const shareUrl = estimateShareUrl(share?.id);
+  const signedPdfUrl =
+    safeString(share?.status) === "signed" ? estimateShareAgreementUrl(share?.id) : "";
+  const previewLead =
+    linkedLead || {
+      clientName: project.clientName,
+      projectAddress: project.projectAddress,
+      projectType: project.projectType,
+    };
+  const lineItems = Array.isArray(estimate?.lineItems) ? estimate.lineItems : [];
+  const scopeCount = state.projectScopeItems.length;
+  const importedScopeCopy = scopeCount
+    ? `${scopeCount} scope item${scopeCount === 1 ? "" : "s"} already imported into this job tracker.`
+    : "Scope tracker has not imported the estimate lines yet.";
+
+  refs.jobEstimateSummary.innerHTML = [
+    {
+      label: "Estimate total",
+      value: formatCurrency(
+        firstFiniteNumber(estimate?.subtotal, linkedLead?.estimateSubtotal, 0),
+      ),
+    },
+    {
+      label: "Portal state",
+      value: share
+        ? estimateShareStatusLabel(share)
+        : hasEstimate
+          ? "Draft only"
+          : "Missing",
+    },
+    {
+      label: "Line items",
+      value: String(lineItems.length || 0),
+    },
+    {
+      label: "Job scope import",
+      value: scopeCount ? "Imported" : "Not imported",
+    },
+  ]
+    .map(
+      (item) => `
+        <article class="summary-card">
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.value)}</strong>
+        </article>
+    `,
+    )
+    .join("");
+
+  if (!linkedLead?.id) {
+    refs.jobEstimateStatus.innerHTML = `
+        <strong>No original estimate on this job</strong>
+        <div>This job was created directly in the jobs workspace, so there is no lead estimate attached to compare against here.</div>
+    `;
+    refs.jobEstimatePreview.innerHTML = `<div class="empty-note">Direct jobs do not start with a lead estimate. Use the overview, financials, invoices, and scope tabs to manage the work from here.</div>`;
+    refs.jobEstimateActions.innerHTML = `
+        <article class="simple-item">
+            <strong>Direct job workflow</strong>
+            <p>This job was opened without a lead first, so there is no estimate handoff history. You can still run status updates, billing, expenses, documents, and scope tracking from this record.</p>
+        </article>
+    `;
+    return;
+  }
+
+  refs.jobEstimateStatus.innerHTML = hasEstimate
+    ? `
+        <strong>${escapeHtml(estimate?.subject || linkedLead.estimateTitle || "Original estimate available")}</strong>
+        <div>${escapeHtml(
+          share
+            ? `${estimateShareStatusLabel(share)} in the client portal. ${importedScopeCopy}`
+            : `Internal estimate only. ${importedScopeCopy}`,
+        )}</div>
+    `
+    : `
+        <strong>No saved estimate yet</strong>
+        <div>This linked lead has not saved an estimate yet, so the job is running without an original proposal snapshot here.</div>
+    `;
+
+  refs.jobEstimatePreview.innerHTML =
+    estimate && linkedLead
+      ? buildEstimatePreviewHtml(previewLead, estimate)
+      : `<div class="empty-note">The linked lead exists, but no full estimate draft is loaded yet. Open the lead workspace to create or refresh the estimate.</div>`;
+
+  refs.jobEstimateActions.innerHTML = [
+    `
+        <article class="simple-item">
+            <strong>Source lead record</strong>
+            <p>Open the original lead workspace when you need to revise scope, publish a new client estimate, or compare this job against the first proposal.</p>
+            <div class="simple-meta">${escapeHtml(
+              `${linkedLead.clientName || linkedLead.projectAddress || "Linked lead"} · ${STATUS_META[linkedLead.status] || "Lead"}`,
+            )}</div>
+            <div class="inline-actions">
+                <button type="button" class="secondary-button" data-open-lead="${escapeHtml(linkedLead.id)}" data-open-view="leads-view">
+                    Open lead workspace
+                </button>
+            </div>
+        </article>
+    `,
+    `
+        <article class="simple-item">
+            <strong>Client-facing version</strong>
+            <p>${
+              shareUrl
+                ? escapeHtml(
+                    safeString(share?.status) === "signed"
+                      ? "The client already signed this estimate record. You can open the archived client-facing page or the signed PDF."
+                      : "This estimate already has a client-facing version. Open it directly when you need to confirm what the client sees.",
+                  )
+                : escapeHtml(
+                    "No client-facing estimate link is active right now. Publish from the lead if you need a new client review link.",
+                  )
+            }</p>
+            <div class="simple-meta">${escapeHtml(
+              share
+                ? `${estimateShareStatusLabel(share)} · ${formatDateTime(share.updatedAt || share.createdAt)}`
+                : "Lead estimate only",
+            )}</div>
+            <div class="inline-actions">
+                ${
+                  shareUrl
+                    ? `<a class="ghost-button" href="${escapeHtml(shareUrl)}" target="_blank" rel="noreferrer">Open client view</a>`
+                    : ""
+                }
+                ${
+                  signedPdfUrl
+                    ? `<a class="ghost-button" href="${escapeHtml(signedPdfUrl)}" target="_blank" rel="noreferrer">Signed PDF</a>`
+                    : ""
+                }
+            </div>
+        </article>
+    `,
+    `
+        <article class="simple-item">
+            <strong>Estimate-to-job handoff</strong>
+            <p>Use the estimate tab to keep change orders, scope tracking, and billing anchored to the original proposal instead of reconstructing it from memory.</p>
+            <div class="simple-meta">${escapeHtml(importedScopeCopy)}</div>
+        </article>
+    `,
+  ].join("");
+}
+
 function renderJobTabState() {
   refs.jobTabButtons.forEach((button) => {
     button.classList.toggle(
@@ -11822,6 +13986,7 @@ function renderJobTabState() {
 function openJobTab(tab, focusTarget = null) {
   state.activeJobTab = tab;
   renderJobTabState();
+  syncLeadRouteState();
   const activeButton = refs.jobTabButtons.find(
     (button) => button.dataset.jobTab === tab,
   );
@@ -11906,15 +14071,44 @@ function renderChangeOrderList() {
   renderSimpleEntries(
     refs.changeOrderList,
     state.projectChangeOrders,
-    (changeOrder) => `
+    (changeOrder) => {
+      const signed = changeOrderIsSigned(changeOrder);
+      const published = changeOrderIsPublished(changeOrder);
+      const canEdit = isAdmin() && !published && !signed;
+      const canDelete = isAdmin() && !signed;
+      const meta = [
+        CHANGE_ORDER_STATUS_META[changeOrder.status] || "Draft",
+        published ? "Client approval live" : "",
+        signed ? "Client approved and signed" : "",
+        formatDateOnly(changeOrder.relatedDate || changeOrder.createdAt),
+      ].filter(Boolean);
+
+      return `
         <article class="simple-item">
             <strong>${escapeHtml(changeOrder.title || "Change order")} · ${escapeHtml(formatCurrency(changeOrder.amount || 0))}</strong>
             <p>${escapeHtml(changeOrder.note || "")}</p>
-            <div class="simple-meta">
-                ${escapeHtml(CHANGE_ORDER_STATUS_META[changeOrder.status] || "Draft")} · ${escapeHtml(formatDateOnly(changeOrder.relatedDate || changeOrder.createdAt))}
-            </div>
+            <div class="simple-meta">${meta.map((item) => escapeHtml(item)).join(" · ")}</div>
+            ${
+              canEdit || canDelete
+                ? `
+                    <div class="inline-actions">
+                        ${
+                          canEdit
+                            ? `<button type="button" class="ghost-button" data-project-change-order-edit="${escapeHtml(changeOrder.id)}">Edit</button>`
+                            : ""
+                        }
+                        ${
+                          canDelete
+                            ? `<button type="button" class="ghost-button" data-project-change-order-delete="${escapeHtml(changeOrder.id)}">Delete</button>`
+                            : ""
+                        }
+                    </div>
+                `
+                : ""
+            }
         </article>
-    `,
+    `;
+    },
     "No change orders recorded yet.",
   );
 }
@@ -11925,6 +14119,8 @@ function renderExpenseList() {
     state.projectExpenses,
     (expense) => {
       const href = documentHref(expense);
+      const lockedVendorBill = safeString(expense.source) === "vendor_bill";
+      const canManage = isAdmin() && !lockedVendorBill;
       return `
             <article class="simple-item">
                 <strong>${escapeHtml(expense.category || "Expense")} · ${escapeHtml(formatCurrency(expense.amount || 0))}</strong>
@@ -11935,6 +14131,16 @@ function renderExpenseList() {
                     ${expense.receiptTitle ? ` · Receipt: ${escapeHtml(expense.receiptTitle)}` : ""}
                 </div>
                 ${href ? `<div class="simple-meta"><a href="${escapeHtml(href)}" target="_blank" rel="noreferrer">Open receipt</a></div>` : ""}
+                ${
+                  canManage
+                    ? `
+                        <div class="inline-actions">
+                            <button type="button" class="ghost-button" data-project-expense-edit="${escapeHtml(expense.id)}">Edit</button>
+                            <button type="button" class="ghost-button" data-project-expense-delete="${escapeHtml(expense.id)}">Delete</button>
+                        </div>
+                    `
+                    : ""
+                }
             </article>
         `;
     },
@@ -12375,12 +14581,25 @@ function renderJobDocumentList() {
 
 function renderJobDetail() {
   const project = currentProject();
+  refs.jobsView.classList.toggle("is-job-workspace-active", Boolean(project));
 
   if (!project) {
+    resetChangeOrderForm();
+    resetExpenseForm();
     refs.jobRecordTitle.textContent = "Select a job";
+    if (refs.jobWorkspaceMeta) {
+      refs.jobWorkspaceMeta.textContent =
+        "Open a job to manage scope, client updates, billing, expenses, documents, and payout history in one focused workspace.";
+    }
     refs.jobRecordBadge.textContent = "No job selected";
     refs.jobRecordBadge.className = "status-pill neutral";
     refs.jobRecordContext.innerHTML = "";
+    renderJobCalendarPanel(null);
+    refs.jobEstimateSummary.innerHTML = "";
+    refs.jobEstimateStatus.innerHTML =
+      "Select a job first to load the original estimate.";
+    refs.jobEstimatePreview.innerHTML = `<div class="empty-note">Select a job to review the original estimate.</div>`;
+    refs.jobEstimateActions.innerHTML = "";
     refs.jobScopeSummary.innerHTML = "";
     refs.jobScopeImportButton.hidden = true;
     refs.jobInvoiceSummary.innerHTML = "";
@@ -12392,6 +14611,23 @@ function renderJobDetail() {
       refs.jobDocumentList,
       "Select a job to load shared documents.",
     );
+    if (refs.jobGenerateCloseoutButton) {
+      refs.jobGenerateCloseoutButton.disabled = true;
+      refs.jobGenerateCloseoutButton.textContent = "Create closeout PDF";
+    }
+    if (refs.jobDeleteButton) {
+      refs.jobDeleteButton.disabled = true;
+    }
+    refs.jobCustomerSelect.innerHTML = `<option value="">No linked customer</option>`;
+    refs.jobCustomerSelect.disabled = true;
+    refs.jobBaseContractInput.value = "";
+    refs.jobClientNameInput.value = "";
+    refs.jobClientPhoneInput.value = "";
+    refs.jobClientEmailInput.value = "";
+    refs.jobProjectTypeInput.value = "";
+    refs.jobProjectAddressInput.value = "";
+    refs.jobTotalRevenueDisplay.value = "";
+    refs.jobLinkedLeadDisplay.value = "";
     refs.jobPhaseLabelInput.value = "";
     refs.jobTargetWindowInput.value = "";
     refs.jobTargetDateInput.value = "";
@@ -12411,6 +14647,15 @@ function renderJobDetail() {
   refs.jobRecordEmpty.hidden = true;
   refs.jobRecordShell.hidden = false;
   refs.jobRecordTitle.textContent = project.clientName || "Unnamed job";
+  if (refs.jobWorkspaceMeta) {
+    refs.jobWorkspaceMeta.textContent = [
+      project.projectAddress || "Address pending",
+      project.projectType || projectWorkflowLabel(project),
+      project.customerName || "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
   refs.jobRecordBadge.textContent = [
     JOB_STATUS_META[project.status] || "In Progress",
     isServiceOrderProject(project) ? "Service order" : "",
@@ -12427,37 +14672,72 @@ function renderJobDetail() {
       0,
   );
   refs.jobBaseContractInput.readOnly = !isAdmin();
-  refs.jobCustomerDisplay.value = project.customerName || "No linked customer";
-  refs.jobAddressDisplay.value = project.projectAddress || "";
+  renderJobCustomerOptions(project);
+  refs.jobClientNameInput.value = project.clientName || "";
+  refs.jobClientPhoneInput.value = project.clientPhone || "";
+  refs.jobClientEmailInput.value = project.clientEmail || "";
+  refs.jobProjectTypeInput.value = project.projectType || "";
+  refs.jobProjectAddressInput.value = project.projectAddress || "";
   refs.jobTotalRevenueDisplay.value = formatCurrency(
     projectRevenueValue(project),
   );
   refs.jobLinkedLeadDisplay.value =
     linkedLead?.clientName ||
     linkedLead?.projectAddress ||
-    "Lead record linked automatically from won conversion";
+    "No linked lead. This job was created directly in Jobs.";
   refs.jobPhaseLabelInput.value = project.phaseLabel || "";
   refs.jobTargetWindowInput.value = project.targetWindow || "";
   refs.jobTargetDateInput.value = formatDateOnlyInputValue(project.targetDate);
   refs.jobNextStepInput.value = project.nextStep || "";
   refs.jobSharedStatusNoteInput.value = project.sharedStatusNote || "";
   refs.jobPlanningNotesInput.value = project.planningNotes || "";
-  refs.jobPhaseLabelInput.readOnly = !isAdmin();
-  refs.jobTargetWindowInput.readOnly = !isAdmin();
-  refs.jobTargetDateInput.disabled = !isAdmin();
-  refs.jobNextStepInput.readOnly = !isAdmin();
-  refs.jobSharedStatusNoteInput.readOnly = !isAdmin();
-  refs.jobPlanningNotesInput.readOnly = !isAdmin();
+  refs.jobClientNameInput.readOnly = !isAdmin();
+  refs.jobClientPhoneInput.readOnly = !isAdmin();
+  refs.jobClientEmailInput.readOnly = !isAdmin();
+  refs.jobProjectTypeInput.readOnly = !isAdmin();
+  refs.jobProjectAddressInput.readOnly = !isAdmin();
+  refs.jobPhaseLabelInput.readOnly = false;
+  refs.jobTargetWindowInput.readOnly = false;
+  refs.jobTargetDateInput.disabled = false;
+  refs.jobNextStepInput.readOnly = false;
+  refs.jobSharedStatusNoteInput.readOnly = false;
+  refs.jobPlanningNotesInput.readOnly = false;
   renderJobOwnerOptions(project);
   renderWorkerAssignments(project);
   renderJobRecordContext(project);
   renderJobSummaryStrip(project);
   renderJobOverviewSummary(project);
+  renderJobCalendarPanel(project);
+  renderJobEstimatePanel(project);
   renderRevenueSummary(project);
   renderChangeOrderList();
   renderExpenseReceiptOptions();
   renderExpenseVendorOptions();
   renderExpenseList();
+  if (
+    state.editingChangeOrderId &&
+    !state.projectChangeOrders.some(
+      (changeOrder) => changeOrder.id === state.editingChangeOrderId,
+    )
+  ) {
+    resetChangeOrderForm();
+  } else if (!state.editingChangeOrderId) {
+    setActionButtonLabel(refs.changeOrderSubmitButton, "Save change order");
+    if (refs.changeOrderResetButton) {
+      refs.changeOrderResetButton.hidden = true;
+    }
+  }
+  if (
+    state.editingExpenseId &&
+    !state.projectExpenses.some((expense) => expense.id === state.editingExpenseId)
+  ) {
+    resetExpenseForm();
+  } else if (!state.editingExpenseId) {
+    setActionButtonLabel(refs.expenseSubmitButton, "Add expense");
+    if (refs.expenseResetButton) {
+      refs.expenseResetButton.hidden = true;
+    }
+  }
   renderPaymentList();
   renderInvoicePanel(project);
   renderJobScopeSummary(project);
@@ -12475,6 +14755,22 @@ function renderJobDetail() {
   renderJobDocumentList();
   renderJobTabState();
   refs.jobOpenLeadButton.hidden = !project.leadId;
+  refs.jobOpenEstimateButton.disabled = !project.leadId;
+  refs.jobEstimateOpenLeadButton.disabled = !project.leadId;
+  refs.jobEstimateDownloadButton.disabled =
+    !project.leadId || !Boolean(state.projectLeadEstimate);
+  if (refs.jobGenerateCloseoutButton) {
+    refs.jobGenerateCloseoutButton.disabled = !project.id;
+    refs.jobGenerateCloseoutButton.textContent =
+      safeString(project.status) !== "completed"
+        ? "Mark complete first"
+        : projectIsPaidInFull(project)
+          ? "Create closeout PDF"
+          : "Record final payment first";
+  }
+  if (refs.jobDeleteButton) {
+    refs.jobDeleteButton.disabled = !project.id || !isAdmin();
+  }
 
   if (!refs.changeOrderDate.value) {
     refs.changeOrderDate.value = todayDateInputValue();
@@ -12818,7 +15114,7 @@ function renderVendorSummary(vendor, rollup) {
       stackCardButton({
         title: project.clientName || "Job",
         copy: project.projectAddress || "Address pending",
-        pill: project.status === "completed" ? "Completed" : "In Progress",
+        pill: JOB_STATUS_META[project.status] || "In Progress",
         secondaryPill: formatCurrency(projectRevenueValue(project)),
         dataAttrs: {
           "data-open-project": project.id,
@@ -13610,12 +15906,14 @@ function renderAll() {
   renderJobMetrics();
   renderJobList();
   renderJobDetail();
+  renderCalendarView();
   renderVendorMetrics();
   renderVendorList();
   renderVendorDetail();
   renderServiceTemplateManager();
   renderTemplateForm();
   renderPortalQueuePanel();
+  renderTrashPanel();
   renderStaffWorkloadPanel();
   renderStaffList();
   if (state.drawer.type) {
@@ -13680,6 +15978,108 @@ async function apiPost(path, body) {
   }
 }
 
+async function writeArchiveAction({
+  recordType,
+  recordId,
+  action,
+  reason = "",
+}) {
+  return apiPost("/api/staff/archive-record", {
+    recordType,
+    recordId,
+    action,
+    reason,
+  });
+}
+
+async function archiveCurrentLead() {
+  const lead = currentLead();
+  if (!lead?.id || !isAdmin()) {
+    return;
+  }
+
+  const reason = window.prompt(
+    `Archive lead "${lead.clientName || lead.projectAddress || "this lead"}"?\n\nReason for the audit log:`,
+    "No longer active",
+  );
+  if (reason === null) {
+    return;
+  }
+
+  await writeArchiveAction({
+    recordType: "lead",
+    recordId: lead.id,
+    action: "archive",
+    reason,
+  });
+  state.selectedLeadId = null;
+  state.leadWorkspaceOpen = false;
+  subscribeLeadDetail();
+  renderAll();
+  showToast("Lead archived. You can restore it from Admin / More.");
+}
+
+async function archiveCurrentProject() {
+  const project = currentProject();
+  if (!project?.id || !isAdmin()) {
+    return;
+  }
+
+  const reason = window.prompt(
+    `Archive job "${project.projectAddress || project.clientName || "this job"}"?\n\nReason for the audit log:`,
+    "Closed or no longer active",
+  );
+  if (reason === null) {
+    return;
+  }
+
+  await writeArchiveAction({
+    recordType: "project",
+    recordId: project.id,
+    action: "archive",
+    reason,
+  });
+  clearSelectedProjectWorkspace();
+  renderAll();
+  showToast("Job archived. You can restore it from Admin / More.");
+}
+
+async function archiveCalendarEvent(eventId) {
+  if (!eventId || !isAdmin()) {
+    return;
+  }
+
+  const event = state.calendarEvents.find((item) => item.id === eventId);
+  const reason = window.prompt(
+    `Archive event "${event?.title || event?.clientTitle || "this event"}"?\n\nReason for the audit log:`,
+    "No longer needed",
+  );
+  if (reason === null) {
+    return;
+  }
+
+  await writeArchiveAction({
+    recordType: "calendarEvent",
+    recordId: eventId,
+    action: "archive",
+    reason,
+  });
+  showToast("Calendar event archived.");
+}
+
+async function restoreArchivedRecord(recordType, recordId) {
+  if (!recordType || !recordId || !isAdmin()) {
+    return;
+  }
+
+  await writeArchiveAction({
+    recordType,
+    recordId,
+    action: "restore",
+  });
+  showToast("Record restored.");
+}
+
 function selectLead(
   leadId,
   { openWorkspace = true, preserveTab = false, historyMode = "push" } = {},
@@ -13730,11 +16130,9 @@ function selectProject(projectId, { historyMode = "push" } = {}) {
   subscribeProjectDetail();
   renderAll();
   syncLeadRouteState({ historyMode });
-  if (isMobileViewport()) {
-    window.requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-  }
+  window.requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
 }
 
 function selectProjectInvoice(invoiceId, { openTab = true } = {}) {
@@ -14137,6 +16535,26 @@ function subscribeBaseData() {
       },
       (error) => {
         handleBaseSubscriptionError("Task data", error);
+      },
+    ),
+  );
+
+  const calendarSource = isAdmin()
+    ? collection(state.db, "calendarEvents")
+    : query(
+        collection(state.db, "calendarEvents"),
+        where("assignedStaffUids", "array-contains", state.profile.uid),
+      );
+
+  state.unsubs.base.push(
+    onSnapshot(
+      calendarSource,
+      (snapshot) => {
+        state.calendarEvents = snapshot.docs.map(normaliseFirestoreDoc);
+        renderAll();
+      },
+      (error) => {
+        handleBaseSubscriptionError("Calendar data", error);
       },
     ),
   );
@@ -14673,8 +17091,14 @@ function subscribeProjectDetail() {
   state.projectNotes = [];
   state.projectActivities = [];
   state.projectLeadActivities = [];
+  state.projectLeadEstimate = null;
+  state.projectLeadEstimateShares = [];
   state.projectInvoiceDraft = null;
   state.selectedProjectInvoiceId = null;
+  state.editingChangeOrderId = null;
+  state.editingExpenseId = null;
+  resetChangeOrderForm();
+  resetExpenseForm();
 
   if (!state.selectedProjectId) {
     renderJobDetail();
@@ -14897,6 +17321,47 @@ function subscribeProjectDetail() {
   if (linkedLeadId) {
     state.unsubs.projectDetail.push(
       onSnapshot(
+        doc(state.db, "estimates", linkedLeadId),
+        (snapshot) => {
+          state.projectLeadEstimate = snapshot.exists()
+            ? normaliseFirestoreDoc(snapshot)
+            : null;
+          renderJobDetail();
+        },
+        (error) => {
+          handleDetailSubscriptionError("Original estimate", error, () => {
+            state.projectLeadEstimate = null;
+            renderJobDetail();
+          });
+        },
+      ),
+    );
+
+    state.unsubs.projectDetail.push(
+      onSnapshot(
+        query(
+          collection(state.db, "estimateShares"),
+          where("leadId", "==", linkedLeadId),
+        ),
+        (snapshot) => {
+          state.projectLeadEstimateShares = snapshot.docs
+            .map((entry) => hydrateEstimateShare(entry))
+            .filter(
+              (share) => safeString(share.type || "estimate") === "estimate",
+            );
+          renderJobDetail();
+        },
+        (error) => {
+          handleDetailSubscriptionError("Estimate publishing", error, () => {
+            state.projectLeadEstimateShares = [];
+            renderJobDetail();
+          });
+        },
+      ),
+    );
+
+    state.unsubs.projectDetail.push(
+      onSnapshot(
         collection(state.db, "leads", linkedLeadId, "activities"),
         (snapshot) => {
           state.projectLeadActivities = snapshot.docs
@@ -14978,6 +17443,8 @@ async function bootstrapFirebase() {
         state.projectDocuments = [];
         state.leadDocuments = [];
         state.customerDocuments = [];
+        state.projectLeadEstimate = null;
+        state.projectLeadEstimateShares = [];
         state.customerPortalContacts = [];
         state.customerPortalEstimateShares = [];
         state.customerPortalInvoices = [];
@@ -14990,6 +17457,8 @@ async function bootstrapFirebase() {
         state.projectActivities = [];
         state.projectLeadActivities = [];
         state.projectInvoiceDraft = null;
+        state.editingChangeOrderId = null;
+        state.editingExpenseId = null;
         state.portalQueueEstimateShares = [];
         state.portalQueueInvoices = [];
         state.portalQueueThreads = [];
@@ -15033,7 +17502,10 @@ async function bootstrapFirebase() {
         subscribeBaseData();
         renderAll();
       } catch (error) {
-        showAuthShell(error.message || "Could not verify this staff account.");
+        console.error("Staff session verification failed.", error);
+        showAuthShell(
+          authErrorMessage("Could not verify this staff account.", error),
+        );
         await signOut(state.auth);
       }
     });
@@ -15498,6 +17970,95 @@ async function saveExpenseDrawer(event) {
   switchView("jobs-view");
   openJobTab("financials", refs.expenseList);
   showToast("Expense added.");
+}
+
+async function saveJobDrawer(event) {
+  event.preventDefault();
+
+  if (!isAdmin()) {
+    showToast("Only admins can create jobs directly.", "error");
+    return;
+  }
+
+  const draft = collectDrawerJobDraftFromInputs();
+  const clientName = safeString(draft.clientName);
+  if (!clientName) {
+    showToast("Client name is required.", "error");
+    return;
+  }
+
+  const ownerUid =
+    safeString(draft.assignedLeadOwnerUid) ||
+    preferredLeadAssignee()?.uid ||
+    state.profile?.uid ||
+    "";
+  const assignedWorkers = buildAssignedWorkersFromSelectedUids(
+    draft.assignedWorkerUids || [],
+    ownerUid,
+  );
+  const linkedCustomer = await resolveJobDrawerCustomerLink({
+    ...draft,
+    assignedLeadOwnerUid: ownerUid,
+  });
+  const baseContractValue = toNumber(draft.baseContractValue);
+  const financials = initialProjectFinancials(baseContractValue, assignedWorkers);
+  const projectRef = doc(collection(state.db, "projects"));
+
+  await setDoc(
+    projectRef,
+    {
+      id: projectRef.id,
+      leadId: null,
+      customerId: linkedCustomer?.id || null,
+      customerName: linkedCustomer?.name || clientName,
+      clientName,
+      clientPhone: safeString(draft.clientPhone),
+      clientEmail: safeString(draft.clientEmail),
+      projectAddress: safeString(draft.clientAddress),
+      projectType: safeString(draft.projectType),
+      jobKind: "standard",
+      status: draft.status || "planning",
+      baseContractValue: financials.baseContractValue,
+      approvedChangeOrdersTotal: financials.approvedChangeOrdersTotal,
+      totalContractRevenue: financials.totalContractRevenue,
+      cashPosition: financials.cashPosition,
+      balanceRemaining: financials.balanceRemaining,
+      jobValue: financials.totalContractRevenue,
+      assignedLeadOwnerUid: ownerUid || null,
+      assignedWorkers,
+      assignedWorkerIds: assignedWorkers.map((worker) => worker.uid).filter(Boolean),
+      allowedStaffUids: uniqueValues([
+        state.profile?.uid || "",
+        ownerUid,
+        ...assignedWorkers.map((worker) => worker.uid),
+      ]),
+      commissionLocked: false,
+      lockedCommissionSnapshot: null,
+      phaseLabel: JOB_STATUS_META[draft.status] || "Planning",
+      targetWindow: "",
+      targetDate: null,
+      nextStep: "",
+      sharedStatusNote: "",
+      planningNotes: safeString(draft.planningNotes),
+      financials,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  await addProjectActivityEntry(
+    projectRef.id,
+    "system",
+    "Job created directly",
+    "A standard job was created directly from the jobs workspace without a lead conversion.",
+  );
+
+  closeDrawer();
+  switchView("jobs-view");
+  selectProject(projectRef.id, { historyMode: "replace" });
+  openJobTab("overview", refs.jobClientNameInput);
+  showToast("Job created.");
 }
 
 async function saveServiceOrderDrawer(event) {
@@ -16351,6 +18912,56 @@ function syncLeadEstimateShareState(leadId, shares = []) {
   return state.estimateShare;
 }
 
+function applySelectedLeadEstimateShareState(
+  leadId,
+  incomingShare = null,
+  { removeShareId = "" } = {},
+) {
+  if (state.selectedLeadId !== leadId) {
+    return null;
+  }
+
+  const incomingShareId = safeString(incomingShare?.id);
+  const nextShares = state.leadEstimateShares
+    .filter(
+      (share) =>
+        safeString(share.id) !== safeString(removeShareId) &&
+        safeString(share.id) !== incomingShareId,
+    )
+    .map((share) => {
+      if (
+        incomingShare &&
+        safeString(incomingShare.status) === "active" &&
+        safeString(share.status) === "active"
+      ) {
+        return {
+          ...share,
+          status: "replaced",
+          portalVisible: false,
+          visibleInPortal: false,
+          replacedAt:
+            incomingShare.publishedAt ||
+            incomingShare.updatedAt ||
+            new Date().toISOString(),
+          updatedAt:
+            incomingShare.updatedAt ||
+            incomingShare.publishedAt ||
+            share.updatedAt,
+        };
+      }
+      return share;
+    });
+
+  if (incomingShare) {
+    nextShares.push({
+      ...incomingShare,
+      shareUrl: incomingShare.shareUrl || estimateShareUrl(incomingShare.id),
+    });
+  }
+
+  return syncLeadEstimateShareState(leadId, nextShares);
+}
+
 async function refreshEstimateShareState(leadId = state.selectedLeadId) {
   if (!state.currentUser || !leadId) {
     state.leadEstimateShares = [];
@@ -16397,9 +19008,8 @@ async function createEstimateShareLink() {
     leadId: lead.id,
   });
 
-  state.estimateShare = response.share || (await fetchCurrentEstimateShare(lead.id));
-
-  renderEstimateSharePanel(lead);
+  applySelectedLeadEstimateShareState(lead.id, response.share || null);
+  await refreshEstimateShareState(lead.id);
   showToast("Client estimate link created.");
 }
 
@@ -16436,9 +19046,8 @@ async function revokeEstimateShareLink() {
     shareId: state.estimateShare.id,
   });
 
-  state.estimateShare = response.share || (await fetchCurrentEstimateShare(lead.id));
-
-  renderEstimateSharePanel(lead);
+  applySelectedLeadEstimateShareState(lead.id, response.share || null);
+  await refreshEstimateShareState(lead.id);
   showToast("Estimate link revoked.");
 }
 
@@ -16468,6 +19077,9 @@ async function deleteEstimateShareLink(leadId, shareId) {
   });
 
   if (state.selectedLeadId === leadId) {
+    applySelectedLeadEstimateShareState(leadId, null, {
+      removeShareId: shareId,
+    });
     await refreshEstimateShareState(leadId);
   }
 
@@ -16480,13 +19092,14 @@ async function publishCustomerEstimateFromLead(leadId) {
     return;
   }
 
-  await apiPost("/api/staff/estimate-share", {
+  const response = await apiPost("/api/staff/estimate-share", {
     action: "create",
     type: "estimate",
     leadId,
   });
 
   if (state.selectedLeadId === leadId) {
+    applySelectedLeadEstimateShareState(leadId, response.share || null);
     await refreshEstimateShareState(leadId);
   }
 
@@ -17189,6 +19802,76 @@ function collectAssignedWorkers(project) {
   });
 }
 
+function buildAssignedWorkersFromSelectedUids(selectedUids = [], ownerUid = "") {
+  const uids = uniqueValues([ownerUid, ...selectedUids].filter(Boolean));
+  return uids
+    .map((uid, index) => {
+      const member = activeStaffOptions().find((staff) => staff.uid === uid);
+      if (!member) {
+        return null;
+      }
+
+      return {
+        uid: member.uid || "",
+        name: member.displayName || member.email || "Assigned worker",
+        email: member.email || "",
+        percent: uid === ownerUid || (!ownerUid && index === 0) ? 100 : 0,
+      };
+    })
+    .filter(Boolean);
+}
+
+async function resolveJobDrawerCustomerLink(draft) {
+  const selectedCustomer = draft.customerId
+    ? state.customers.find((customer) => customer.id === draft.customerId) ||
+      null
+    : null;
+
+  if (selectedCustomer?.id) {
+    return writeCustomerFromClientRecord(
+      doc(state.db, "customers", selectedCustomer.id),
+      {
+        customerName: selectedCustomer.name,
+        clientName: draft.clientName,
+        clientEmail: draft.clientEmail,
+        clientPhone: draft.clientPhone,
+        projectAddress: draft.clientAddress,
+      },
+      selectedCustomer,
+    );
+  }
+
+  const matches = matchingCustomersForClientRecord({
+    clientName: draft.clientName,
+    clientEmail: draft.clientEmail,
+    clientPhone: draft.clientPhone,
+    projectAddress: draft.clientAddress,
+  });
+
+  if (matches.length > 1) {
+    throw new Error(
+      "Multiple customer matches were found. Pick the correct customer account before creating this job.",
+    );
+  }
+
+  const matchedCustomer = matches[0] || null;
+  const customerRef = matchedCustomer
+    ? doc(state.db, "customers", matchedCustomer.id)
+    : doc(collection(state.db, "customers"));
+
+  return writeCustomerFromClientRecord(
+    customerRef,
+    {
+      customerName: matchedCustomer?.name || draft.clientName,
+      clientName: draft.clientName,
+      clientEmail: draft.clientEmail,
+      clientPhone: draft.clientPhone,
+      projectAddress: draft.clientAddress,
+    },
+    matchedCustomer || {},
+  );
+}
+
 function selectedReceiptDocument() {
   const receiptId = refs.expenseReceiptSelect.value || "";
   return receiptId
@@ -17210,14 +19893,245 @@ function renderExpenseVendorOptions(
   renderVendorSelectOptions(refs.expenseVendorSelect, selectedVendorId);
 }
 
+function resetChangeOrderForm() {
+  state.editingChangeOrderId = null;
+  refs.changeOrderForm?.reset();
+  refs.changeOrderStatus.value = "draft";
+  refs.changeOrderDate.value = todayDateInputValue();
+  setActionButtonLabel(refs.changeOrderSubmitButton, "Save change order");
+  if (refs.changeOrderResetButton) {
+    refs.changeOrderResetButton.hidden = true;
+  }
+}
+
+function startChangeOrderEdit(changeOrder) {
+  if (!changeOrder?.id) {
+    showToast("Change order not found.", "error");
+    return;
+  }
+
+  if (changeOrderIsPublished(changeOrder) || changeOrderIsSigned(changeOrder)) {
+    showToast(
+      "Unpublish or replace this change order before editing the client-facing record.",
+      "error",
+    );
+    return;
+  }
+
+  state.editingChangeOrderId = changeOrder.id;
+  refs.changeOrderTitle.value = changeOrder.title || "";
+  refs.changeOrderAmount.value = toNumber(changeOrder.amount || 0);
+  refs.changeOrderStatus.value =
+    normaliseChangeOrderStatus(changeOrder.status) || "draft";
+  refs.changeOrderDate.value = formatDateOnlyInputValue(
+    changeOrder.relatedDate || changeOrder.createdAt,
+  );
+  refs.changeOrderNote.value = changeOrder.note || "";
+  setActionButtonLabel(refs.changeOrderSubmitButton, "Save changes");
+  if (refs.changeOrderResetButton) {
+    refs.changeOrderResetButton.hidden = false;
+  }
+  openJobTab("financials", refs.changeOrderTitle);
+}
+
+function resetExpenseForm() {
+  state.editingExpenseId = null;
+  refs.expenseForm?.reset();
+  refs.expenseDate.value = todayDateInputValue();
+  renderExpenseVendorOptions("");
+  setActionButtonLabel(refs.expenseSubmitButton, "Add expense");
+  if (refs.expenseResetButton) {
+    refs.expenseResetButton.hidden = true;
+  }
+}
+
+function startExpenseEdit(expense) {
+  if (!expense?.id) {
+    showToast("Expense not found.", "error");
+    return;
+  }
+
+  if (safeString(expense.source) === "vendor_bill") {
+    showToast(
+      "This expense is mirrored from vendor payables. Edit it from the vendor bill instead.",
+      "error",
+    );
+    return;
+  }
+
+  state.editingExpenseId = expense.id;
+  refs.expenseAmount.value = toNumber(expense.amount || 0);
+  refs.expenseDate.value = formatDateOnlyInputValue(
+    expense.relatedDate || expense.createdAt,
+  );
+  refs.expenseCategory.value = expense.category || "";
+  refs.expenseVendor.value = expense.vendor || "";
+  renderExpenseVendorOptions(expense.vendorId || "");
+  refs.expenseVendorSelect.value = expense.vendorId || "";
+  refs.expenseReceiptSelect.value = expense.receiptDocumentId || "";
+  refs.expenseNote.value = expense.note || "";
+  setActionButtonLabel(refs.expenseSubmitButton, "Save expense changes");
+  if (refs.expenseResetButton) {
+    refs.expenseResetButton.hidden = false;
+  }
+  openJobTab("financials", refs.expenseAmount);
+}
+
+async function deleteCurrentProject() {
+  return archiveCurrentProject();
+}
+
+function resetCalendarEventForm(seed = {}) {
+  if (!refs.calendarEventForm) {
+    return;
+  }
+  refs.calendarEventForm.reset();
+  refs.calendarTypeSelect.value = seed.type || "job_work";
+  refs.calendarEventStatusSelect.value = seed.status || "scheduled";
+  refs.calendarLinkedProjectSelect.value =
+    seed.projectId || state.calendarProjectId || "";
+  refs.calendarLinkedLeadSelect.value = seed.leadId || "";
+  refs.calendarLinkedCustomerSelect.value = seed.customerId || "";
+  refs.calendarClientVisibleInput.checked = false;
+  refs.calendarStartInput.value = formatDateInputValue(seed.startAt || new Date());
+  refs.calendarEndInput.value = "";
+  Array.from(refs.calendarAssignedStaffSelect.options || []).forEach(
+    (option) => {
+      option.selected = seed.assignedStaffUids?.includes(option.value) || false;
+    },
+  );
+}
+
+async function saveCalendarEvent(event) {
+  event.preventDefault();
+
+  const title = refs.calendarTitleInput.value.trim();
+  const startAt = parseDateInput(refs.calendarStartInput.value);
+  const endAt = parseDateInput(refs.calendarEndInput.value);
+  const projectId = refs.calendarLinkedProjectSelect.value || "";
+  const leadId = refs.calendarLinkedLeadSelect.value || "";
+  const project = projectId
+    ? state.projects.find((item) => item.id === projectId) || null
+    : null;
+  const lead = leadId
+    ? state.leads.find((item) => item.id === leadId) || null
+    : null;
+  const selectedCustomerId = refs.calendarLinkedCustomerSelect.value || "";
+  const customerId =
+    project?.customerId || lead?.customerId || selectedCustomerId || "";
+  const selectedStaffUids = uniqueValues(
+    Array.from(refs.calendarAssignedStaffSelect.selectedOptions || []).map(
+      (option) => option.value,
+    ),
+  );
+  const assignedStaffUids = isAdmin()
+    ? selectedStaffUids
+    : uniqueValues([state.profile?.uid]);
+  const assignedStaffNames = assignedStaffUids
+    .map((uid) => {
+      const member =
+        state.staffRoster.find((item) => item.uid === uid) ||
+        activeStaffOptions().find((item) => item.uid === uid);
+      return member?.displayName || member?.email || "";
+    })
+    .filter(Boolean);
+  const clientVisible = isAdmin()
+    ? refs.calendarClientVisibleInput.checked
+    : false;
+
+  if (!title) {
+    showToast("Add an event title.", "error");
+    return;
+  }
+
+  if (!startAt) {
+    showToast("Add a valid start date and time.", "error");
+    return;
+  }
+
+  if (endAt && endAt.getTime() < startAt.getTime()) {
+    showToast("End time must be after start time.", "error");
+    return;
+  }
+
+  if (!assignedStaffUids.length) {
+    showToast("Assign at least one staff member.", "error");
+    return;
+  }
+
+  await addDoc(collection(state.db, "calendarEvents"), {
+    title,
+    type: refs.calendarTypeSelect.value || "job_work",
+    status: refs.calendarEventStatusSelect.value || "scheduled",
+    startAt,
+    endAt,
+    allDay: refs.calendarAllDayInput.checked,
+    projectId,
+    leadId,
+    customerId,
+    assignedStaffUids,
+    assignedStaffNames,
+    clientVisible,
+    clientTitle: refs.calendarClientTitleInput.value.trim(),
+    clientNote: refs.calendarClientNoteInput.value.trim(),
+    internalNote: refs.calendarInternalNoteInput.value.trim(),
+    createdByUid: state.profile?.uid || "",
+    createdByName: state.profile?.displayName || state.profile?.email || "",
+    updatedByUid: state.profile?.uid || "",
+    updatedByName: state.profile?.displayName || state.profile?.email || "",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  resetCalendarEventForm({ projectId: state.calendarProjectId });
+  showToast("Calendar event saved.");
+}
+
 async function saveProject(event) {
   event.preventDefault();
   const project = currentProject();
-  if (!project || !isAdmin()) return;
+  if (!project) return;
 
+  if (!isAdmin()) {
+    await updateDoc(doc(state.db, "projects", project.id), {
+      phaseLabel: refs.jobPhaseLabelInput.value.trim(),
+      targetWindow: refs.jobTargetWindowInput.value.trim(),
+      targetDate: parseDateOnlyInput(refs.jobTargetDateInput.value),
+      nextStep: refs.jobNextStepInput.value.trim(),
+      sharedStatusNote: refs.jobSharedStatusNoteInput.value.trim(),
+      planningNotes: refs.jobPlanningNotesInput.value.trim(),
+      updatedAt: serverTimestamp(),
+    });
+    await addDoc(collection(state.db, "projects", project.id, "activities"), {
+      activityType: "system",
+      title: "Job updates saved",
+      body: "Operational job notes and client-facing schedule details were updated.",
+      actorName: state.profile?.displayName || state.profile?.email || "Team",
+      actorUid: state.profile?.uid || "",
+      actorRole: state.profile?.role || "employee",
+      createdAt: serverTimestamp(),
+    });
+    showToast("Job updates saved.");
+    return;
+  }
+
+  const customerId = refs.jobCustomerSelect.value || null;
+  const selectedCustomer = customerId
+    ? state.customers.find((customer) => customer.id === customerId) || null
+    : null;
+  if (customerId && !selectedCustomer) {
+    showToast("The selected customer is no longer available.", "error");
+    return;
+  }
   const ownerUid = refs.jobOwnerSelect.value || null;
   const nextStatus = refs.jobStatusSelect.value || "in_progress";
   const nextBaseContractValue = toNumber(refs.jobBaseContractInput.value);
+  const nextClientName =
+    refs.jobClientNameInput.value.trim() || selectedCustomer?.name || "";
+  const nextClientPhone = refs.jobClientPhoneInput.value.trim();
+  const nextClientEmail = refs.jobClientEmailInput.value.trim();
+  const nextProjectType = refs.jobProjectTypeInput.value.trim();
+  const nextProjectAddress = refs.jobProjectAddressInput.value.trim();
   const nextPhaseLabel = refs.jobPhaseLabelInput.value.trim();
   const nextTargetWindow = refs.jobTargetWindowInput.value.trim();
   const nextTargetDate = parseDateOnlyInput(refs.jobTargetDateInput.value);
@@ -17225,8 +20139,10 @@ async function saveProject(event) {
   const nextSharedStatusNote = refs.jobSharedStatusNoteInput.value.trim();
   const nextPlanningNotes = refs.jobPlanningNotesInput.value.trim();
   const assignedWorkers = collectAssignedWorkers(project);
+  let linkedCustomer = null;
 
   const allowedStaffUids = uniqueValues([
+    state.profile?.uid || "",
     ownerUid,
     ...assignedWorkers.map((worker) => worker.uid),
   ]);
@@ -17240,10 +20156,36 @@ async function saveProject(event) {
     return;
   }
 
+  if (!nextClientName) {
+    showToast("Client name is required.", "error");
+    return;
+  }
+
+  if (selectedCustomer?.id) {
+    linkedCustomer = await writeCustomerFromClientRecord(
+      doc(state.db, "customers", selectedCustomer.id),
+      {
+        customerName: selectedCustomer.name,
+        clientName: nextClientName,
+        clientEmail: nextClientEmail,
+        clientPhone: nextClientPhone,
+        projectAddress: nextProjectAddress,
+      },
+      selectedCustomer,
+    );
+  }
+
   await updateDoc(doc(state.db, "projects", project.id), {
     status: nextStatus,
     baseContractValue: nextBaseContractValue,
     jobValue: nextBaseContractValue,
+    customerId: linkedCustomer?.id || customerId || null,
+    customerName: linkedCustomer?.name || selectedCustomer?.name || "",
+    clientName: nextClientName,
+    clientPhone: nextClientPhone,
+    clientEmail: nextClientEmail,
+    projectType: nextProjectType,
+    projectAddress: nextProjectAddress,
     assignedLeadOwnerUid: ownerUid,
     assignedWorkers,
     assignedWorkerIds: assignedWorkers
@@ -17259,6 +20201,12 @@ async function saveProject(event) {
     updatedAt: serverTimestamp(),
   });
 
+  const syncedFinancials = await syncProjectFinancialSnapshot(project.id, {
+    projectData: project,
+    baseContractValue: nextBaseContractValue,
+    assignedWorkers,
+  });
+
   const previousBaseContractValue = toNumber(
     project.baseContractValue ||
       project.financials?.baseContractValue ||
@@ -17266,6 +20214,25 @@ async function saveProject(event) {
       0,
   );
   const activityWrites = [];
+  const nextCustomerId = linkedCustomer?.id || customerId || null;
+  const nextCustomerName = linkedCustomer?.name || selectedCustomer?.name || "";
+  const customerChanged =
+    safeString(project.customerId) !== safeString(nextCustomerId) ||
+    safeString(project.customerName) !== safeString(nextCustomerName);
+  const previousClientProfileKey = JSON.stringify({
+    clientName: safeString(project.clientName),
+    clientPhone: safeString(project.clientPhone),
+    clientEmail: safeString(project.clientEmail),
+    projectType: safeString(project.projectType),
+    projectAddress: safeString(project.projectAddress),
+  });
+  const nextClientProfileKey = JSON.stringify({
+    clientName: nextClientName,
+    clientPhone: nextClientPhone,
+    clientEmail: nextClientEmail,
+    projectType: nextProjectType,
+    projectAddress: nextProjectAddress,
+  });
 
   if (previousBaseContractValue !== nextBaseContractValue) {
     activityWrites.push(
@@ -17285,6 +20252,17 @@ async function saveProject(event) {
         "status",
         "Job status updated",
         `Status moved from ${JOB_STATUS_META[project.status] || "In Progress"} to ${JOB_STATUS_META[nextStatus] || "In Progress"}.`,
+      ),
+    );
+  }
+
+  if (customerChanged || previousClientProfileKey !== nextClientProfileKey) {
+    activityWrites.push(
+      addProjectActivityEntry(
+        project.id,
+        "client",
+        "Client details updated",
+        `${nextClientName || "This job"} now points to ${nextCustomerName || "no linked customer"} with refreshed contact and property details.`,
       ),
     );
   }
@@ -17358,8 +20336,40 @@ async function saveProject(event) {
     );
   }
 
+  if (nextStatus === "completed" && !project.commissionLocked && syncedFinancials) {
+    await updateDoc(doc(state.db, "projects", project.id), {
+      commissionLocked: true,
+      lockedCommissionSnapshot: {
+        totalContractRevenue: firstFiniteNumber(
+          syncedFinancials.totalContractRevenue,
+          0,
+        ),
+        projectedGrossProfit: firstFiniteNumber(
+          syncedFinancials.projectedGrossProfit,
+          syncedFinancials.profit,
+          0,
+        ),
+        workerPool: firstFiniteNumber(syncedFinancials.workerPool, 0),
+        companyShare: firstFiniteNumber(syncedFinancials.companyShare, 0),
+        workerBreakdown: Array.isArray(syncedFinancials.workerBreakdown)
+          ? syncedFinancials.workerBreakdown
+          : [],
+        lockedAt: new Date(),
+      },
+      updatedAt: serverTimestamp(),
+    });
+    activityWrites.push(
+      addProjectActivityEntry(
+        project.id,
+        "commission",
+        "Commission locked",
+        "This job was marked completed, so the current payout snapshot was locked for payroll history.",
+      ),
+    );
+  }
+
   const clientPortalMessage =
-    safeString(project.customerId) && (clientFacingChanged || statusChanged)
+    safeString(nextCustomerId) && (clientFacingChanged || statusChanged)
       ? buildClientPortalProjectUpdateMessage({
           project,
           nextStatus,
@@ -17374,7 +20384,7 @@ async function saveProject(event) {
   if (clientPortalMessage) {
     activityWrites.push(
       postCustomerPortalThreadUpdateSafe({
-        customerId: project.customerId,
+        customerId: nextCustomerId,
         projectId: project.id,
         body: clientPortalMessage,
       }),
@@ -17382,11 +20392,7 @@ async function saveProject(event) {
   }
 
   await Promise.all(activityWrites);
-  showToast(
-    nextStatus === "completed"
-      ? "Job saved. Commission will lock after sync."
-      : "Job setup saved.",
-  );
+  showToast(nextStatus === "completed" ? "Job completed and locked." : "Job setup saved.");
 }
 
 async function addExpense(event) {
@@ -17408,6 +20414,50 @@ async function addExpense(event) {
   const relatedDate = parseDateOnlyInput(refs.expenseDate.value) || new Date();
   const receiptDocument = selectedReceiptDocument();
 
+  if (state.editingExpenseId) {
+    const existing =
+      state.projectExpenses.find((expense) => expense.id === state.editingExpenseId) ||
+      null;
+    if (!existing) {
+      resetExpenseForm();
+      showToast("That expense is no longer available.", "error");
+      return;
+    }
+    if (safeString(existing.source) === "vendor_bill") {
+      showToast(
+        "This expense is mirrored from vendor payables. Edit it from the vendor bill instead.",
+        "error",
+      );
+      return;
+    }
+
+    await updateDoc(
+      doc(state.db, "projects", project.id, "expenses", state.editingExpenseId),
+      {
+        amount,
+        category,
+        vendorId: selectedVendor?.id || null,
+        vendor,
+        note,
+        relatedDate,
+        receiptDocumentId: receiptDocument?.id || null,
+        receiptTitle: receiptDocument?.title || "",
+        receiptUrl: documentHref(receiptDocument),
+        updatedAt: serverTimestamp(),
+      },
+    );
+    await addProjectActivityEntry(
+      project.id,
+      "expense",
+      "Expense updated",
+      `${formatCurrency(amount)} expense updated for ${category}${vendor ? ` with ${vendor}` : ""}.`,
+    );
+    await syncProjectFinancialSnapshot(project.id, { projectData: project });
+    resetExpenseForm();
+    showToast("Expense updated.");
+    return;
+  }
+
   await createProjectExpenseEntry({
     projectId: project.id,
     amount,
@@ -17418,10 +20468,8 @@ async function addExpense(event) {
     relatedDate,
     receiptDocument,
   });
-
-  refs.expenseForm.reset();
-  refs.expenseDate.value = todayDateInputValue();
-  renderExpenseVendorOptions("");
+  await syncProjectFinancialSnapshot(project.id, { projectData: project });
+  resetExpenseForm();
   showToast("Expense added.");
 }
 
@@ -17461,6 +20509,7 @@ async function addPayment(event) {
     "Client payment recorded",
     `${formatCurrency(amount)} logged as ${PAYMENT_TYPE_META[paymentType] || "payment"}${method ? ` via ${method}` : ""}.`,
   );
+  await syncProjectFinancialSnapshot(project.id, { projectData: project });
   showToast("Payment recorded.");
 }
 
@@ -17483,6 +20532,56 @@ async function addChangeOrder(event) {
     return;
   }
 
+  const note = refs.changeOrderNote.value.trim();
+  const relatedDate = parseDateOnlyInput(refs.changeOrderDate.value) || new Date();
+
+  if (state.editingChangeOrderId) {
+    const existing =
+      state.projectChangeOrders.find(
+        (changeOrder) => changeOrder.id === state.editingChangeOrderId,
+      ) || null;
+    if (!existing) {
+      resetChangeOrderForm();
+      showToast("That change order is no longer available.", "error");
+      return;
+    }
+    if (changeOrderIsPublished(existing) || changeOrderIsSigned(existing)) {
+      showToast(
+        "Unpublish or replace this change order before editing the client-facing record.",
+        "error",
+      );
+      return;
+    }
+
+    await updateDoc(
+      doc(
+        state.db,
+        "projects",
+        project.id,
+        "changeOrders",
+        state.editingChangeOrderId,
+      ),
+      {
+        title,
+        amount,
+        status,
+        note,
+        relatedDate,
+        updatedAt: serverTimestamp(),
+      },
+    );
+    await addProjectActivityEntry(
+      project.id,
+      "change_order",
+      "Change order updated",
+      `${title} was updated to ${formatCurrency(amount)} and marked ${CHANGE_ORDER_STATUS_META[status] || "Draft"}.`,
+    );
+    await syncProjectFinancialSnapshot(project.id, { projectData: project });
+    resetChangeOrderForm();
+    showToast("Change order updated.");
+    return;
+  }
+
   await addDoc(collection(state.db, "projects", project.id, "changeOrders"), {
     projectId: project.id,
     leadId: safeString(project.leadId),
@@ -17493,7 +20592,7 @@ async function addChangeOrder(event) {
     title,
     amount,
     status,
-    note: refs.changeOrderNote.value.trim(),
+    note,
     portalShareId: null,
     portalStatus: "draft",
     portalVisible: false,
@@ -17502,23 +20601,112 @@ async function addChangeOrder(event) {
     signerName: "",
     signerEmail: "",
     signerRole: "",
-    relatedDate: parseDateOnlyInput(refs.changeOrderDate.value) || new Date(),
+    relatedDate,
     createdByUid: state.profile.uid,
     createdByName: state.profile.displayName,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
 
-  refs.changeOrderForm.reset();
-  refs.changeOrderStatus.value = "draft";
-  refs.changeOrderDate.value = todayDateInputValue();
+  resetChangeOrderForm();
   await addProjectActivityEntry(
     project.id,
     "change_order",
     "Change order added",
     `${title} for ${formatCurrency(amount)} is marked ${CHANGE_ORDER_STATUS_META[status] || "Draft"}.`,
   );
+  await syncProjectFinancialSnapshot(project.id, { projectData: project });
   showToast("Change order saved.");
+}
+
+async function deleteProjectExpense(expenseId) {
+  const project = currentProject();
+  if (!project || !isAdmin() || !expenseId) {
+    return;
+  }
+
+  const expense =
+    state.projectExpenses.find((entry) => entry.id === expenseId) || null;
+  if (!expense) {
+    showToast("Expense not found.", "error");
+    return;
+  }
+
+  if (safeString(expense.source) === "vendor_bill") {
+    showToast(
+      "This expense is mirrored from vendor payables. Delete the vendor bill instead.",
+      "error",
+    );
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Delete the ${expense.category || "expense"} for ${formatCurrency(expense.amount || 0)}?`,
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  await deleteDoc(doc(state.db, "projects", project.id, "expenses", expense.id));
+  await addProjectActivityEntry(
+    project.id,
+    "expense",
+    "Expense deleted",
+    `${formatCurrency(expense.amount || 0)} expense removed from the job total.`,
+  );
+  await syncProjectFinancialSnapshot(project.id, { projectData: project });
+  if (state.editingExpenseId === expense.id) {
+    resetExpenseForm();
+  }
+  showToast("Expense deleted.");
+}
+
+async function deleteProjectChangeOrder(changeOrderId) {
+  const project = currentProject();
+  if (!project || !isAdmin() || !changeOrderId) {
+    return;
+  }
+
+  const changeOrder =
+    state.projectChangeOrders.find((entry) => entry.id === changeOrderId) || null;
+  if (!changeOrder) {
+    showToast("Change order not found.", "error");
+    return;
+  }
+
+  if (changeOrderIsSigned(changeOrder)) {
+    showToast(
+      "Signed change orders should stay in the job history. Void it instead of deleting it.",
+      "error",
+    );
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Delete "${changeOrder.title || "this change order"}" for ${formatCurrency(changeOrder.amount || 0)}?`,
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  if (safeString(changeOrder.portalShareId)) {
+    await deleteDoc(doc(state.db, "estimateShares", changeOrder.portalShareId));
+  }
+
+  await deleteDoc(
+    doc(state.db, "projects", project.id, "changeOrders", changeOrder.id),
+  );
+  await addProjectActivityEntry(
+    project.id,
+    "change_order",
+    "Change order deleted",
+    `${changeOrder.title || "Change order"} was removed from the project revenue plan.`,
+  );
+  await syncProjectFinancialSnapshot(project.id, { projectData: project });
+  if (state.editingChangeOrderId === changeOrder.id) {
+    resetChangeOrderForm();
+  }
+  showToast("Change order deleted.");
 }
 
 async function addJobNote(event) {
@@ -17645,13 +20833,14 @@ async function handleCustomerPortalPublishingAction(button) {
   }
 
   if (action === "revoke-estimate") {
-    await apiPost("/api/staff/estimate-share", {
+    const response = await apiPost("/api/staff/estimate-share", {
       action: "revoke",
       type: "estimate",
       leadId,
       shareId: targetId,
     });
     if (state.selectedLeadId === leadId) {
+      applySelectedLeadEstimateShareState(leadId, response.share || null);
       await refreshEstimateShareState(leadId);
     }
     showToast("Estimate removed from active client approval.");
@@ -17997,6 +21186,11 @@ function handleCommandAction(target) {
     return;
   }
 
+  if (command === "start-job-draft") {
+    openJobDrawer();
+    return;
+  }
+
   if (command === "start-service-order") {
     openServiceOrderDrawer();
     return;
@@ -18213,6 +21407,9 @@ function bindRecordDocumentListActions(container, resolveItems) {
 
 function bindUi() {
   refs.signInButton.addEventListener("click", async () => {
+    refs.signInButton.disabled = true;
+    refs.authFeedback.textContent = "Opening Google sign-in...";
+
     try {
       await signInWithPopup(state.auth, state.provider);
     } catch (error) {
@@ -18224,6 +21421,14 @@ function bindUi() {
         return;
       }
 
+      console.error("Google sign-in could not start.", error);
+      refs.signInButton.disabled = false;
+      showAuthShell(
+        authErrorMessage(
+          "Google sign-in could not start. Please refresh and try again.",
+          error,
+        ),
+      );
       showToast("Google sign-in could not start.", "error");
     }
   });
@@ -18292,7 +21497,11 @@ function bindUi() {
   });
 
   refs.jobMobileBackButton.addEventListener("click", () => {
-    clearMobileDetailForView("jobs-view");
+    closeJobWorkspace();
+  });
+
+  refs.jobWorkspaceBackButton?.addEventListener("click", () => {
+    closeJobWorkspace();
   });
 
   refs.vendorMobileBackButton.addEventListener("click", () => {
@@ -18331,9 +21540,11 @@ function bindUi() {
     refs.leadTaskList,
     refs.customerTaskList,
     refs.jobTaskList,
+    refs.jobCalendarList,
     refs.staffWorkloadList,
     refs.portalQueueList,
     refs.notificationList,
+    refs.calendarList,
     refs.vendorRecordContext,
     refs.vendorJobList,
     refs.vendorBillList,
@@ -18352,6 +21563,25 @@ function bindUi() {
 
       handleRecordOpen(button);
     });
+  });
+
+  refs.calendarList?.addEventListener("click", (event) => {
+    const archiveButton = event.target.closest("[data-calendar-archive]");
+    if (!archiveButton) return;
+    archiveCalendarEvent(archiveButton.dataset.calendarArchive).catch((error) =>
+      showToast(error.message || "Could not archive calendar event.", "error"),
+    );
+  });
+
+  refs.trashList?.addEventListener("click", (event) => {
+    const restoreButton = event.target.closest("[data-trash-restore]");
+    if (!restoreButton) return;
+    restoreArchivedRecord(
+      restoreButton.dataset.trashRestore,
+      restoreButton.dataset.trashId,
+    ).catch((error) =>
+      showToast(error.message || "Could not restore this record.", "error"),
+    );
   });
 
   refs.taskSearchInput.addEventListener("input", (event) => {
@@ -18405,6 +21635,10 @@ function bindUi() {
     const drawerAction = button.dataset.drawerAction;
     if (drawerAction === "expense") {
       openExpenseDrawer();
+      return;
+    }
+    if (drawerAction === "job") {
+      openJobDrawer();
       return;
     }
     if (drawerAction === "service-order") {
@@ -18592,6 +21826,12 @@ function bindUi() {
     if (!lead) return;
     moveLeadToStatus(lead, "closed_won", { source: "button" }).catch((error) =>
       showToast(error.message, "error"),
+    );
+  });
+
+  refs.leadArchiveButton?.addEventListener("click", () => {
+    archiveCurrentLead().catch((error) =>
+      showToast(error.message || "Could not archive this lead.", "error"),
     );
   });
 
@@ -18897,12 +22137,75 @@ function bindUi() {
 
   bindRefEvent("jobSearchInput", "job-search-input", "input", (event) => {
     state.jobSearch = event.target.value || "";
-    renderJobList();
+    if (!syncSelectedProjectWithJobFilters()) {
+      renderJobList();
+    }
   });
 
   bindRefEvent("jobStatusFilter", "job-status-filter", "change", (event) => {
     state.jobStatus = event.target.value;
-    renderJobList();
+    if (!syncSelectedProjectWithJobFilters()) {
+      renderJobList();
+    }
+  });
+
+  bindRefEvent(
+    "calendarScopeFilter",
+    "calendar-scope-filter",
+    "change",
+    (event) => {
+      state.calendarScope = event.target.value || "upcoming";
+      renderCalendarView();
+    },
+  );
+
+  bindRefEvent(
+    "calendarStatusFilter",
+    "calendar-status-filter",
+    "change",
+    (event) => {
+      state.calendarStatus = event.target.value || "all";
+      renderCalendarView();
+    },
+  );
+
+  bindRefEvent(
+    "calendarStaffFilter",
+    "calendar-staff-filter",
+    "change",
+    (event) => {
+      state.calendarStaffUid = event.target.value || "";
+      renderCalendarView();
+    },
+  );
+
+  bindRefEvent(
+    "calendarProjectFilter",
+    "calendar-project-filter",
+    "change",
+    (event) => {
+      state.calendarProjectId = event.target.value || "";
+      renderCalendarView();
+    },
+  );
+
+  bindRefEvent(
+    "calendarEventForm",
+    "calendar-event-form",
+    "submit",
+    (event) => {
+      saveCalendarEvent(event).catch((error) =>
+        showToast(error.message || "Could not save calendar event.", "error"),
+      );
+    },
+  );
+
+  bindRefEvent("calendarResetButton", "calendar-reset-button", "click", () => {
+    resetCalendarEventForm({ projectId: state.calendarProjectId });
+  });
+
+  bindRefEvent("jobNewButton", "job-new-button", "click", () => {
+    openJobDrawer();
   });
 
   bindRefEvent(
@@ -18967,6 +22270,85 @@ function bindUi() {
     if (!project?.leadId) return;
     selectLead(project.leadId);
     switchView("leads-view");
+  });
+
+  bindRefEvent(
+    "jobOpenEstimateButton",
+    "job-open-estimate-button",
+    "click",
+    () => {
+      if (!currentProject()) {
+        showToast("Select a job first.", "error");
+        return;
+      }
+      openJobTab("estimate", refs.jobEstimatePreview);
+    },
+  );
+
+  bindRefEvent(
+    "jobEstimateOpenLeadButton",
+    "job-estimate-open-lead-button",
+    "click",
+    () => {
+      const project = currentProject();
+      if (!project?.leadId) {
+        showToast("This job does not have a linked lead estimate yet.", "error");
+        return;
+      }
+      selectLead(project.leadId, { preserveTab: true, openWorkspace: true });
+      switchView("leads-view");
+      openLeadTab("estimate", refs.estimateSubject);
+    },
+  );
+
+  bindRefEvent(
+    "jobEstimateDownloadButton",
+    "job-estimate-download-button",
+    "click",
+    () => {
+      const project = currentProject();
+      if (!project?.leadId) {
+        showToast("This job does not have a linked estimate to download.", "error");
+        return;
+      }
+      downloadEstimatePdfForLead(project.leadId).catch((error) =>
+        showToast(error.message, "error"),
+      );
+    },
+  );
+
+  bindRefEvent("jobEstimateActions", "job-estimate-actions", "click", (event) => {
+    const leadButton = event.target.closest("[data-open-lead]");
+    if (!leadButton) return;
+    selectLead(leadButton.dataset.openLead, {
+      openWorkspace: true,
+      preserveTab: true,
+    });
+    switchView(leadButton.dataset.openView || "leads-view");
+    openLeadTab("estimate", refs.estimateSubject);
+  });
+
+  bindRefEvent(
+    "jobCalendarFocusButton",
+    "job-calendar-focus-button",
+    "click",
+    () => {
+      const project = currentProject();
+      if (!project?.id) {
+        showToast("Select a job first.", "error");
+        return;
+      }
+      state.calendarProjectId = project.id;
+      state.calendarScope = "all";
+      switchView("calendar-view");
+      renderAll();
+    },
+  );
+
+  bindRefEvent("jobDeleteButton", "job-delete-button", "click", () => {
+    archiveCurrentProject().catch((error) =>
+      showToast(error.message || "Could not archive this job.", "error"),
+    );
   });
 
   bindRefEvent("jobAddExpenseButton", "job-add-expense-button", "click", () => {
@@ -19046,6 +22428,17 @@ function bindUi() {
     },
   );
 
+  bindRefEvent(
+    "jobGenerateCloseoutButton",
+    "job-generate-closeout-button",
+    "click",
+    () => {
+      createJobCloseoutPacket().catch((error) =>
+        showToast(error.message, "error"),
+      );
+    },
+  );
+
   bindRefEvent("jobAddNoteButton", "job-add-note-button", "click", () => {
     if (!currentProject()) {
       showToast("Select a job first.", "error");
@@ -19064,6 +22457,13 @@ function bindUi() {
   bindRefEvent("expenseForm", "expense-form", "submit", (event) => {
     addExpense(event).catch((error) => showToast(error.message, "error"));
   });
+
+  bindRefEvent(
+    "expenseResetButton",
+    "expense-reset-button",
+    "click",
+    resetExpenseForm,
+  );
 
   bindRefEvent("expenseVendorSelect", "expense-vendor-select", "change", () => {
     const vendor = selectedExpenseVendor();
@@ -19196,6 +22596,57 @@ function bindUi() {
 
   bindRefEvent("changeOrderForm", "change-order-form", "submit", (event) => {
     addChangeOrder(event).catch((error) => showToast(error.message, "error"));
+  });
+
+  bindRefEvent(
+    "changeOrderResetButton",
+    "change-order-reset-button",
+    "click",
+    resetChangeOrderForm,
+  );
+
+  bindRefEvent("changeOrderList", "change-order-list", "click", (event) => {
+    const editButton = event.target.closest("[data-project-change-order-edit]");
+    if (editButton) {
+      const changeOrder =
+        state.projectChangeOrders.find(
+          (entry) => entry.id === editButton.dataset.projectChangeOrderEdit,
+        ) || null;
+      if (changeOrder) {
+        startChangeOrderEdit(changeOrder);
+      }
+      return;
+    }
+
+    const deleteButton = event.target.closest(
+      "[data-project-change-order-delete]",
+    );
+    if (deleteButton) {
+      deleteProjectChangeOrder(
+        deleteButton.dataset.projectChangeOrderDelete,
+      ).catch((error) => showToast(error.message, "error"));
+    }
+  });
+
+  bindRefEvent("expenseList", "expense-list", "click", (event) => {
+    const editButton = event.target.closest("[data-project-expense-edit]");
+    if (editButton) {
+      const expense =
+        state.projectExpenses.find(
+          (entry) => entry.id === editButton.dataset.projectExpenseEdit,
+        ) || null;
+      if (expense) {
+        startExpenseEdit(expense);
+      }
+      return;
+    }
+
+    const deleteButton = event.target.closest("[data-project-expense-delete]");
+    if (deleteButton) {
+      deleteProjectExpense(deleteButton.dataset.projectExpenseDelete).catch(
+        (error) => showToast(error.message, "error"),
+      );
+    }
   });
 
   bindRefEvent("jobNoteForm", "job-note-form", "submit", (event) => {
@@ -19334,6 +22785,10 @@ function bindUi() {
     saveLeadDrawer(event).catch((error) => showToast(error.message, "error"));
   });
 
+  refs.drawerJobForm.addEventListener("submit", (event) => {
+    saveJobDrawer(event).catch((error) => showToast(error.message, "error"));
+  });
+
   refs.drawerCustomerForm.addEventListener("submit", (event) => {
     saveCustomerDrawer(event).catch((error) =>
       showToast(error.message, "error"),
@@ -19430,6 +22885,61 @@ function bindUi() {
   refs.drawerServiceStaffGrid.addEventListener("change", () => {
     state.drawer.serviceOrderDraft = collectDrawerServiceOrderDraftFromInputs();
     renderDrawerServiceContext();
+  });
+
+  refs.drawerJobCustomerSearch.addEventListener("input", (event) => {
+    state.drawer.jobDraft = {
+      ...collectDrawerJobDraftFromInputs(),
+      customerSearch: event.target.value || "",
+    };
+    renderDrawerJobCustomerOptions();
+  });
+
+  refs.drawerJobCustomerSelect.addEventListener("change", (event) => {
+    applyDrawerJobCustomerSelection(event.target.value || "");
+  });
+
+  refs.drawerJobOwner.addEventListener("change", () => {
+    const currentDraft = collectDrawerJobDraftFromInputs();
+    const ownerUid = refs.drawerJobOwner.value || "";
+    state.drawer.jobDraft = {
+      ...currentDraft,
+      assignedLeadOwnerUid: ownerUid,
+      assignedWorkerUids: uniqueValues([
+        ownerUid,
+        ...selectedDrawerJobWorkerUids(),
+      ]),
+    };
+    renderDrawerJob();
+  });
+
+  refs.drawerJobStaffGrid.addEventListener("change", () => {
+    state.drawer.jobDraft = collectDrawerJobDraftFromInputs();
+    renderDrawerJobContext();
+  });
+
+  [
+    refs.drawerJobClientName,
+    refs.drawerJobProjectType,
+    refs.drawerJobClientPhone,
+    refs.drawerJobClientEmail,
+    refs.drawerJobClientAddress,
+    refs.drawerJobBaseContract,
+    refs.drawerJobStatus,
+    refs.drawerJobPlanningNotes,
+  ].forEach((field) => {
+    field.addEventListener("input", () => {
+      state.drawer.jobDraft = collectDrawerJobDraftFromInputs();
+      renderDrawerJobContext();
+    });
+    field.addEventListener("change", () => {
+      state.drawer.jobDraft = collectDrawerJobDraftFromInputs();
+      renderDrawerJobContext();
+    });
+  });
+
+  refs.jobCustomerSelect.addEventListener("change", (event) => {
+    applyJobCustomerSelection(event.target.value || "");
   });
 
   refs.drawerTaskLinkedType.addEventListener("change", () => {

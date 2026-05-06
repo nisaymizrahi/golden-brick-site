@@ -116,6 +116,13 @@
         ]
       }
     ],
+    "redirects": [
+      {
+        "source": "/full-renovation-philadelphia/index.html",
+        "destination": "/full-renovation-philadelphia",
+        "type": 301
+      }
+    ],
     "rewrites": [
       {
         "source": "/client/**",
@@ -143,6 +150,13 @@
         "source": "/api/staff/lead-customer-link",
         "function": {
           "functionId": "syncLeadCustomerLink",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/staff/archive-record",
+        "function": {
+          "functionId": "clientPortalApi",
           "region": "us-central1"
         }
       },

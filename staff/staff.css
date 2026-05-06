@@ -1,20 +1,20 @@
 :root {
-  --crm-bg: #f3ede3;
-  --crm-shell: #fbf8f2;
-  --crm-panel: #fffdf9;
-  --crm-panel-soft: #f5efe6;
-  --crm-ink: #1a1510;
-  --crm-copy: #5f5549;
-  --crm-copy-soft: #7d7265;
-  --crm-line: rgba(70, 53, 34, 0.12);
-  --crm-line-strong: rgba(70, 53, 34, 0.2);
-  --crm-brand: #c5a059;
-  --crm-brand-deep: #8b6427;
-  --crm-brand-soft: rgba(197, 160, 89, 0.12);
+  --crm-bg: #f5f6f3;
+  --crm-shell: #fbfbf8;
+  --crm-panel: #ffffff;
+  --crm-panel-soft: #f1f3ee;
+  --crm-ink: #171a17;
+  --crm-copy: #596057;
+  --crm-copy-soft: #747d72;
+  --crm-line: rgba(31, 39, 32, 0.12);
+  --crm-line-strong: rgba(31, 39, 32, 0.22);
+  --crm-brand: #c9a24d;
+  --crm-brand-deep: #7f5b18;
+  --crm-brand-soft: rgba(201, 162, 77, 0.13);
   --crm-success: #2f6b45;
   --crm-danger: #8b3a31;
-  --crm-shadow: 0 24px 50px rgba(26, 21, 16, 0.08);
-  --crm-radius: 24px;
+  --crm-shadow: 0 18px 44px rgba(23, 26, 23, 0.08);
+  --crm-radius: 10px;
   --crm-app-height: 100dvh;
   --crm-mobile-tab-height: 78px;
   --crm-safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -32,10 +32,10 @@ body {
   background:
     radial-gradient(
       circle at top left,
-      rgba(255, 249, 240, 0.9),
+      rgba(255, 255, 255, 0.92),
       transparent 34%
     ),
-    linear-gradient(180deg, #f8f2e7 0%, #f3ede3 100%);
+    linear-gradient(180deg, #f8f8f4 0%, #edf0ea 100%);
   color: var(--crm-ink);
   font-family: "Manrope", sans-serif;
 }
@@ -338,6 +338,7 @@ a {
 
 .staff-main {
   padding: 28px;
+  min-width: 0;
 }
 
 .workspace-header {
@@ -559,6 +560,19 @@ a {
   align-items: start;
 }
 
+.job-workspace-grid {
+  transition: grid-template-columns 0.22s ease;
+}
+
+.is-job-workspace-active .job-workspace-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.is-job-workspace-active > .metrics-strip,
+.is-job-workspace-active .job-list-panel {
+  display: none;
+}
+
 .lead-workspace {
   display: grid;
   gap: 18px;
@@ -616,6 +630,19 @@ a {
 
 .record-panel {
   min-height: 740px;
+}
+
+.job-workspace-panel {
+  overflow: clip;
+}
+
+.is-job-workspace-active .job-workspace-panel {
+  min-height: calc(100vh - 178px);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 246, 0.96)),
+    var(--crm-panel);
+  border-color: rgba(31, 39, 32, 0.1);
+  box-shadow: 0 24px 70px rgba(23, 26, 23, 0.1);
 }
 
 .toolbar {
@@ -725,7 +752,7 @@ a {
 .simple-item,
 .worker-row {
   width: 100%;
-  padding: 16px;
+  padding: 18px;
   background: var(--crm-panel);
   border: 1px solid transparent;
   box-shadow: 0 12px 24px rgba(26, 21, 16, 0.05);
@@ -786,7 +813,65 @@ a {
 .simple-item strong {
   display: block;
   margin: 0 0 6px;
-  font-size: 0.98rem;
+  font-size: 1.04rem;
+  line-height: 1.22;
+}
+
+.job-record-card {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border-color: rgba(31, 39, 32, 0.08);
+  box-shadow: 0 14px 32px rgba(23, 26, 23, 0.06);
+}
+
+.job-record-card .record-title {
+  font-size: clamp(1.08rem, 1.4vw, 1.32rem);
+  line-height: 1.18;
+}
+
+.job-card-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.job-open-affordance {
+  align-self: start;
+  padding: 8px 10px;
+  background: rgba(23, 26, 23, 0.06);
+  color: var(--crm-ink);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.job-card-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.job-card-kpis span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  background: rgba(241, 243, 238, 0.78);
+  color: var(--crm-copy-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.job-card-kpis strong {
+  color: var(--crm-ink);
+  font-size: 1rem;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .record-copy,
@@ -801,7 +886,8 @@ a {
 
 .record-copy {
   margin: 0 0 10px;
-  font-size: 0.94rem;
+  font-size: 0.96rem;
+  line-height: 1.5;
 }
 
 .record-meta,
@@ -960,8 +1046,37 @@ a {
   color: var(--crm-copy);
 }
 
+.job-workspace-panel .panel-head {
+  align-items: flex-start;
+  padding: 26px 28px 0;
+}
+
+.job-workspace-panel .panel-head-mobile-copy {
+  gap: 14px;
+}
+
+.job-workspace-panel .panel-head h2 {
+  max-width: 18ch;
+  font-size: clamp(2rem, 3.6vw, 4rem);
+  line-height: 0.98;
+}
+
+.job-workspace-panel .panel-head p {
+  margin: 8px 0 0;
+  max-width: 76ch;
+  color: var(--crm-copy);
+}
+
+.job-workspace-back {
+  width: fit-content;
+}
+
+#jobs-view:not(.is-job-workspace-active) .job-workspace-back {
+  display: none;
+}
+
 .job-record-shell {
-  gap: 20px;
+  gap: 22px;
 }
 
 .lead-overview-stack {
@@ -1310,7 +1425,7 @@ a {
 
 .job-summary-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 12px;
 }
 
@@ -1323,13 +1438,55 @@ a {
 }
 
 .job-summary-strip .finance-card strong {
-  font-size: 1.44rem;
+  font-size: clamp(1.4rem, 2vw, 2rem);
+  line-height: 1.05;
+}
+
+.job-estimate-summary {
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+}
+
+.job-estimate-status {
+  display: grid;
+  gap: 6px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 252, 246, 0.98),
+    rgba(245, 237, 224, 0.92)
+  );
+  border-color: rgba(197, 160, 89, 0.18);
+}
+
+.job-estimate-status strong {
+  color: var(--crm-ink);
+  font-size: 1rem;
+}
+
+.job-estimate-status div {
+  color: var(--crm-copy);
+  line-height: 1.55;
+}
+
+.job-estimate-preview-shell {
+  padding: 18px;
+  background: rgba(255, 253, 249, 0.9);
+  border: 1px solid rgba(70, 53, 34, 0.08);
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58);
+}
+
+.job-estimate-actions {
+  gap: 12px;
 }
 
 .two-column-detail {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.is-job-workspace-active .two-column-detail {
+  gap: 18px;
 }
 
 .estimate-workspace {
@@ -1342,8 +1499,15 @@ a {
 
 .subpanel {
   padding: 18px;
-  background: rgba(245, 239, 230, 0.74);
-  border: 1px solid rgba(70, 53, 34, 0.08);
+  background: rgba(247, 248, 244, 0.82);
+  border: 1px solid rgba(31, 39, 32, 0.08);
+}
+
+.is-job-workspace-active .subpanel {
+  padding: 22px;
+  background: rgba(255, 255, 255, 0.86);
+  border-color: rgba(31, 39, 32, 0.1);
+  box-shadow: 0 12px 30px rgba(23, 26, 23, 0.045);
 }
 
 .team-ops-panel {
@@ -1599,6 +1763,26 @@ a {
   );
   border-bottom: 1px solid rgba(70, 53, 34, 0.08);
   backdrop-filter: blur(12px);
+}
+
+.is-job-workspace-active .job-tab-strip {
+  flex-wrap: nowrap;
+  gap: 10px;
+  margin: 0 -28px;
+  padding: 14px 28px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.is-job-workspace-active .job-tab-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.is-job-workspace-active .tab-button {
+  min-height: 46px;
+  padding: 0 16px;
+  background: rgba(23, 26, 23, 0.04);
+  white-space: nowrap;
 }
 
 .tab-pane {
@@ -2812,6 +2996,33 @@ a {
     margin-bottom: 14px;
   }
 
+  .job-card-main,
+  .job-card-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .job-open-affordance {
+    width: fit-content;
+  }
+
+  .job-workspace-panel .panel-head {
+    padding: 18px 18px 0;
+  }
+
+  .job-workspace-panel .panel-head h2 {
+    max-width: none;
+    font-size: clamp(1.8rem, 11vw, 2.8rem);
+  }
+
+  .job-workspace-back {
+    display: none;
+  }
+
+  .is-job-workspace-active .job-tab-strip {
+    margin: 0 -18px;
+    padding: 12px 18px;
+  }
+
   .metric-card {
     padding: 12px 14px;
     box-shadow: none;
@@ -2828,7 +3039,16 @@ a {
   }
 
   .record-context-strip {
-    grid-template-columns: 1fr;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(170px, 78vw);
+    grid-template-columns: none;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  .record-context-strip::-webkit-scrollbar {
+    display: none;
   }
 
   .toolbar {
@@ -2893,7 +3113,6 @@ a {
   }
 
   .finance-summary.finance-summary-compact,
-  .job-overview-summary,
   .job-invoice-summary,
   .job-document-summary,
   .lead-document-summary,
@@ -2902,6 +3121,23 @@ a {
   .vendor-summary-grid,
   .team-workload-summary {
     grid-template-columns: 1fr;
+  }
+
+  .job-summary-strip,
+  .job-overview-summary,
+  .job-estimate-summary {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(165px, 72vw);
+    grid-template-columns: none;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  .job-summary-strip::-webkit-scrollbar,
+  .job-overview-summary::-webkit-scrollbar,
+  .job-estimate-summary::-webkit-scrollbar {
+    display: none;
   }
 
   .subpanel-head-split,
@@ -3061,6 +3297,106 @@ a {
       rgba(247, 240, 229, 0),
       rgba(247, 240, 229, 0.96) 28%
     );
+  }
+}
+
+.calendar-workspace-grid {
+  align-items: start;
+}
+
+.calendar-list,
+.calendar-mini-list,
+.trash-list {
+  gap: 12px;
+}
+
+.calendar-event-card,
+.trash-card {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.35fr) 1fr;
+  gap: 16px;
+  padding: 18px;
+  background: var(--crm-panel);
+  border: 1px solid var(--crm-line);
+  box-shadow: 0 12px 24px rgba(26, 21, 16, 0.05);
+}
+
+.calendar-event-time {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  color: var(--crm-copy);
+}
+
+.calendar-event-time strong,
+.trash-card h3 {
+  color: var(--crm-ink);
+}
+
+.calendar-event-body {
+  display: grid;
+  gap: 10px;
+}
+
+.calendar-event-body h3,
+.trash-card h3 {
+  margin: 0;
+}
+
+.calendar-event-actions {
+  margin-top: 4px;
+}
+
+.danger-zone {
+  border-color: rgba(139, 58, 49, 0.22);
+  background: linear-gradient(135deg, rgba(139, 58, 49, 0.08), #fffaf1);
+}
+
+.danger-button,
+.danger-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid rgba(139, 58, 49, 0.28);
+  background: rgba(139, 58, 49, 0.1);
+  color: var(--crm-danger);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.danger-button:hover,
+.danger-link:hover {
+  transform: translateY(-1px);
+  border-color: rgba(139, 58, 49, 0.5);
+  background: rgba(139, 58, 49, 0.16);
+}
+
+.danger-link {
+  min-height: 38px;
+  background: transparent;
+}
+
+.trash-card {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.compact-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 780px) {
+  .calendar-event-card,
+  .trash-card {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-summary {
+    grid-template-columns: 1fr;
   }
 }
 

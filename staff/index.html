@@ -15,7 +15,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link
       rel="stylesheet"
-      href="/staff/staff.css?v=20260408-service-orders-2"
+      href="/staff/staff.css?v=20260429-staff-workspace-1"
     />
   </head>
   <body>
@@ -88,25 +88,25 @@
               class="nav-button is-active"
               data-view="today-view"
             >
-              Today
-            </button>
-            <button type="button" class="nav-button" data-view="tasks-view">
-              Tasks
+              Dashboard
             </button>
             <button type="button" class="nav-button" data-view="leads-view">
               Leads
             </button>
-            <button type="button" class="nav-button" data-view="customers-view">
-              Customers
-            </button>
             <button type="button" class="nav-button" data-view="jobs-view">
               Jobs
             </button>
-            <button type="button" class="nav-button" data-view="vendors-view">
-              Vendors
+            <button type="button" class="nav-button" data-view="calendar-view">
+              Calendar
+            </button>
+            <button type="button" class="nav-button" data-view="customers-view">
+              Customers
+            </button>
+            <button type="button" class="nav-button" data-view="tasks-view">
+              Tasks
             </button>
             <button type="button" class="nav-button" data-view="staff-view">
-              Staff
+              Admin / More
             </button>
           </nav>
 
@@ -766,6 +766,24 @@
                             </div>
                             <div class="detail-summary" id="lead-meta"></div>
                           </section>
+
+                          <section class="subpanel danger-zone admin-only">
+                            <div class="subpanel-head">
+                              <h3>Danger zone</h3>
+                              <p>
+                                Archive leads instead of deleting them so the
+                                team can restore a record if it was closed by
+                                mistake.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              class="danger-button"
+                              id="lead-archive-button"
+                            >
+                              Archive lead
+                            </button>
+                          </section>
                         </div>
                       </div>
 
@@ -1342,11 +1360,12 @@
                   <section class="subpanel customer-portal-panel">
                     <div class="subpanel-head subpanel-head-split">
                       <div>
-                        <h3>Client portal access</h3>
+                        <h3>Client portal team access</h3>
                         <p>
-                          Invite approved customer contacts into the client
-                          portal so they can review estimates, invoices,
-                          documents, project updates, and messages in one place.
+                          Invite multiple approved customer contacts into the
+                          same client portal account so owners, partners, and
+                          read-only teammates can each keep their own login,
+                          role, and activity history.
                         </p>
                       </div>
                       <a
@@ -1369,10 +1388,11 @@
                         id="customer-portal-contact-form"
                       >
                         <div class="subpanel-head compact">
-                          <h4>Portal contact</h4>
+                          <h4>Team access contact</h4>
                           <p>
-                            Create or update the invite contact, then copy a
-                            secure link for the customer to claim access.
+                            Create or update one approved login at a time, then
+                            copy the secure invite or login link for that
+                            person.
                           </p>
                         </div>
                         <div class="form-grid two">
@@ -1427,11 +1447,11 @@
 
                       <section class="subpanel">
                         <div class="subpanel-head compact">
-                          <h4>Portal contacts</h4>
+                          <h4>Approved contacts</h4>
                           <p>
-                            Claimed contacts can log in anytime. Invited
-                            contacts keep a secure claim link until you revoke
-                            or disable access.
+                            Each approved contact keeps a separate login,
+                            current status, and access trail under the same
+                            customer account.
                           </p>
                         </div>
                         <div
@@ -1731,12 +1751,12 @@
           <section class="view mobile-master-detail" id="jobs-view" hidden>
             <div class="metrics-strip" id="job-metrics"></div>
 
-            <div class="workspace-grid">
-              <section class="panel list-panel">
+            <div class="workspace-grid job-workspace-grid">
+              <section class="panel list-panel job-list-panel">
                 <div class="panel-head">
                   <div>
                     <span class="panel-kicker">Operations</span>
-                    <h2>Jobs</h2>
+                    <h2>Job command center</h2>
                   </div>
                   <div class="toolbar">
                     <input
@@ -1745,10 +1765,17 @@
                       placeholder="Search client, address, project type"
                     />
                     <select id="job-status-filter">
-                      <option value="active">Active jobs</option>
-                      <option value="completed">Completed jobs</option>
+                      <option value="active">Open jobs</option>
+                      <option value="completed">Finished jobs</option>
                       <option value="all">All visible jobs</option>
                     </select>
+                    <button
+                      type="button"
+                      class="secondary-button admin-only"
+                      id="job-new-button"
+                    >
+                      New job
+                    </button>
                     <button
                       type="button"
                       class="secondary-button admin-only"
@@ -1763,7 +1790,7 @@
                 </div>
               </section>
 
-              <section class="panel record-panel">
+              <section class="panel record-panel job-workspace-panel">
                 <div class="panel-head">
                   <div class="panel-head-mobile-copy">
                     <button
@@ -1774,9 +1801,21 @@
                     >
                       Back
                     </button>
+                    <button
+                      type="button"
+                      class="ghost-button job-workspace-back"
+                      id="job-workspace-back-button"
+                    >
+                      Back to jobs
+                    </button>
                     <div>
-                      <span class="panel-kicker">Job record</span>
+                      <span class="panel-kicker">Job workspace</span>
                       <h2 id="job-record-title">Select a job</h2>
+                      <p id="job-workspace-meta">
+                        Open a job to manage scope, client updates, billing,
+                        expenses, documents, and payout history in one focused
+                        workspace.
+                      </p>
                     </div>
                   </div>
                   <span class="status-pill neutral" id="job-record-badge"
@@ -1785,8 +1824,9 @@
                 </div>
 
                 <div class="empty-state" id="job-record-empty">
-                  When a lead is won, the job becomes the operational record for
-                  staffing, expenses, payments, margin, and worker payout.
+                  Jobs can come from won leads or be created directly here for
+                  projects that need operations, billing, and margin tracking
+                  right away.
                 </div>
 
                 <div
@@ -1798,9 +1838,9 @@
                     <button
                       type="submit"
                       form="job-core-form"
-                      class="primary-button admin-only"
+                      class="primary-button"
                     >
-                      Save job setup
+                      Save job updates
                     </button>
                     <button
                       type="button"
@@ -1851,6 +1891,13 @@
                     >
                       Open linked lead
                     </button>
+                    <button
+                      type="button"
+                      class="secondary-button"
+                      id="job-open-estimate-button"
+                    >
+                      View estimate
+                    </button>
                   </div>
 
                   <div
@@ -1869,6 +1916,13 @@
                       data-job-tab="overview"
                     >
                       Overview
+                    </button>
+                    <button
+                      type="button"
+                      class="tab-button"
+                      data-job-tab="estimate"
+                    >
+                      Estimate
                     </button>
                     <button
                       type="button"
@@ -1929,7 +1983,9 @@
                           <label>
                             <span>Job status</span>
                             <select id="job-status-select">
+                              <option value="planning">Planning</option>
                               <option value="in_progress">In Progress</option>
+                              <option value="on_hold">On Hold</option>
                               <option value="completed">Completed</option>
                             </select>
                           </label>
@@ -1950,21 +2006,43 @@
 
                         <div class="form-grid three">
                           <label>
-                            <span>Linked customer</span>
+                            <span>Customer account</span>
+                            <select id="job-customer-select"></select>
+                          </label>
+                          <label>
+                            <span>Client name</span>
+                            <input type="text" id="job-client-name-input" />
+                          </label>
+                          <label>
+                            <span>Project type</span>
                             <input
                               type="text"
-                              id="job-customer-display"
-                              disabled
+                              id="job-project-type-input"
+                              placeholder="Kitchen, full rehab, investor turn, office build-out"
                             />
+                          </label>
+                        </div>
+
+                        <div class="form-grid three">
+                          <label>
+                            <span>Client phone</span>
+                            <input type="text" id="job-client-phone-input" />
+                          </label>
+                          <label>
+                            <span>Client email</span>
+                            <input type="email" id="job-client-email-input" />
                           </label>
                           <label>
                             <span>Project address</span>
                             <input
                               type="text"
-                              id="job-address-display"
-                              disabled
+                              id="job-project-address-input"
+                              placeholder="Jobsite or property address"
                             />
                           </label>
+                        </div>
+
+                        <div class="form-grid two">
                           <label>
                             <span>Total contract revenue</span>
                             <input
@@ -2078,7 +2156,114 @@
                           </div>
                           <div class="stack-list" id="job-task-list"></div>
                         </section>
+
+                        <section class="subpanel job-calendar-panel">
+                          <div class="subpanel-head subpanel-head-split">
+                            <div>
+                              <h3>Job schedule</h3>
+                              <p>
+                                Upcoming appointments, crew work, inspections,
+                                deliveries, and client-visible updates for this
+                                job.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              class="secondary-button"
+                              id="job-calendar-focus-button"
+                            >
+                              Open calendar
+                            </button>
+                          </div>
+                          <div
+                            class="summary-grid compact-summary"
+                            id="job-calendar-summary"
+                          ></div>
+                          <div
+                            class="stack-list calendar-mini-list"
+                            id="job-calendar-list"
+                          ></div>
+                        </section>
+
+                        <section class="subpanel danger-zone admin-only">
+                          <div class="subpanel-head">
+                            <h3>Danger zone</h3>
+                            <p>
+                              Archive finished or mistaken jobs instead of hard
+                              deleting them. Archived jobs move to Trash and can
+                              be restored by an admin.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            class="danger-button"
+                            id="job-delete-button"
+                          >
+                            Archive job
+                          </button>
+                        </section>
                       </div>
+                    </div>
+                  </div>
+
+                  <div class="tab-pane" id="job-tab-estimate">
+                    <div class="two-column-detail estimate-workspace">
+                      <section class="subpanel">
+                        <div class="subpanel-head subpanel-head-split">
+                          <div>
+                            <h3>Original estimate</h3>
+                            <p>
+                              Keep the original proposal visible inside the job
+                              record so scope, billing, and client updates stay
+                              tied back to the same starting number.
+                            </p>
+                          </div>
+                          <div class="inline-actions">
+                            <button
+                              type="button"
+                              class="secondary-button"
+                              id="job-estimate-open-lead-button"
+                            >
+                              Open lead estimate
+                            </button>
+                            <button
+                              type="button"
+                              class="ghost-button"
+                              id="job-estimate-download-button"
+                            >
+                              Download estimate PDF
+                            </button>
+                          </div>
+                        </div>
+
+                        <div
+                          class="summary-grid job-estimate-summary"
+                          id="job-estimate-summary"
+                        ></div>
+                        <div
+                          class="detail-summary job-estimate-status"
+                          id="job-estimate-status"
+                        ></div>
+                        <div
+                          class="job-estimate-preview-shell"
+                          id="job-estimate-preview"
+                        ></div>
+                      </section>
+
+                      <section class="subpanel">
+                        <div class="subpanel-head">
+                          <h3>Estimate handoff</h3>
+                          <p>
+                            Open the linked lead, compare change orders against
+                            the original scope, and keep invoice lines grounded
+                            in the first estimate the client saw.
+                          </p>
+                        </div>
+                        <div
+                          class="stack-list job-estimate-actions"
+                          id="job-estimate-actions"
+                        ></div>
+                      </section>
                     </div>
                   </div>
 
@@ -2156,9 +2341,23 @@
                             Employees and admins assigned to this job can log
                             change orders here.
                           </div>
-                          <button type="submit" class="primary-button">
-                            Save change order
-                          </button>
+                          <div class="inline-actions">
+                            <button
+                              type="submit"
+                              class="primary-button"
+                              id="change-order-submit-button"
+                            >
+                              Save change order
+                            </button>
+                            <button
+                              type="button"
+                              class="ghost-button"
+                              id="change-order-reset-button"
+                              hidden
+                            >
+                              Cancel edit
+                            </button>
+                          </div>
                         </form>
 
                         <div class="stack-list" id="change-order-list"></div>
@@ -2282,9 +2481,23 @@
                             placeholder="What was this expense for and where does it sit in the job?"
                           ></textarea>
                         </label>
-                        <button type="submit" class="primary-button">
-                          Add expense
-                        </button>
+                        <div class="inline-actions">
+                          <button
+                            type="submit"
+                            class="primary-button"
+                            id="expense-submit-button"
+                          >
+                            Add expense
+                          </button>
+                          <button
+                            type="button"
+                            class="ghost-button"
+                            id="expense-reset-button"
+                            hidden
+                          >
+                            Cancel edit
+                          </button>
+                        </div>
                       </form>
                       <div class="stack-list" id="expense-list"></div>
                     </section>
@@ -2696,14 +2909,25 @@
                   <div class="tab-pane" id="job-tab-documents">
                     <div class="two-column-detail">
                       <section class="subpanel">
-                        <div class="subpanel-head">
-                          <h3>Document center</h3>
-                          <p>
-                            Store agreements, receipts, permits, invoices, and
-                            closeout files in the shared record so the same
-                            document stays visible on the job, lead, and
-                            customer card.
-                          </p>
+                        <div class="subpanel-head subpanel-head-split">
+                          <div>
+                            <h3>Document center</h3>
+                            <p>
+                              Store agreements, receipts, permits, invoices, and
+                              closeout files in the shared record so the same
+                              document stays visible on the job, lead, and
+                              customer card.
+                            </p>
+                          </div>
+                          <div class="inline-actions">
+                            <button
+                              type="button"
+                              class="secondary-button"
+                              id="job-generate-closeout-button"
+                            >
+                              Create closeout PDF
+                            </button>
+                          </div>
                         </div>
                         <div
                           class="summary-grid job-document-summary"
@@ -2795,6 +3019,201 @@
                     </div>
                   </div>
                 </div>
+              </section>
+            </div>
+          </section>
+
+          <section class="view" id="calendar-view" hidden>
+            <div class="metrics-strip" id="calendar-metrics"></div>
+
+            <div class="workspace-grid calendar-workspace-grid">
+              <section class="panel list-panel calendar-list-panel">
+                <div class="panel-head">
+                  <div>
+                    <span class="panel-kicker">Schedule</span>
+                    <h2>Team calendar</h2>
+                  </div>
+                  <div class="toolbar">
+                    <select id="calendar-scope-filter">
+                      <option value="upcoming">Upcoming</option>
+                      <option value="today">Today</option>
+                      <option value="week">Next 7 days</option>
+                      <option value="past">Past</option>
+                      <option value="all">All active events</option>
+                    </select>
+                    <select id="calendar-status-filter">
+                      <option value="all">All statuses</option>
+                      <option value="scheduled">Scheduled</option>
+                      <option value="confirmed">Confirmed</option>
+                      <option value="needs_attention">Needs attention</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                    <select id="calendar-staff-filter">
+                      <option value="">All staff</option>
+                    </select>
+                    <select id="calendar-project-filter">
+                      <option value="">All jobs</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="panel-body">
+                  <div class="record-list calendar-list" id="calendar-list"></div>
+                </div>
+              </section>
+
+              <section class="panel record-panel calendar-editor-panel">
+                <div class="panel-head">
+                  <div>
+                    <span class="panel-kicker">Create schedule</span>
+                    <h2>Calendar event</h2>
+                    <p>
+                      Add crew work, estimate appointments, inspections,
+                      deliveries, milestones, or client-visible schedule notes.
+                    </p>
+                  </div>
+                </div>
+
+                <form class="stack-form record-shell" id="calendar-event-form">
+                  <div class="form-grid two">
+                    <label>
+                      <span>Event title</span>
+                      <input
+                        type="text"
+                        id="calendar-title-input"
+                        placeholder="Kitchen demo, estimate appointment, inspection"
+                        required
+                      />
+                    </label>
+                    <label>
+                      <span>Event type</span>
+                      <select id="calendar-type-select">
+                        <option value="job_work">Job work</option>
+                        <option value="estimate_appointment">
+                          Estimate appointment
+                        </option>
+                        <option value="milestone">Milestone</option>
+                        <option value="inspection">Inspection</option>
+                        <option value="delivery">Delivery</option>
+                        <option value="client_update">Client update</option>
+                        <option value="internal">Internal</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div class="form-grid three">
+                    <label>
+                      <span>Status</span>
+                      <select id="calendar-event-status-select">
+                        <option value="scheduled">Scheduled</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="needs_attention">Needs attention</option>
+                        <option value="completed">Completed</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Start</span>
+                      <input
+                        type="datetime-local"
+                        id="calendar-start-input"
+                        required
+                      />
+                    </label>
+                    <label>
+                      <span>End</span>
+                      <input type="datetime-local" id="calendar-end-input" />
+                    </label>
+                  </div>
+
+                  <label class="checkbox-row">
+                    <input type="checkbox" id="calendar-all-day-input" />
+                    <span>All-day event</span>
+                  </label>
+
+                  <div class="form-grid two">
+                    <label>
+                      <span>Linked job</span>
+                      <select id="calendar-linked-project-select">
+                        <option value="">No linked job</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Linked lead</span>
+                      <select id="calendar-linked-lead-select">
+                        <option value="">No linked lead</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div class="form-grid two">
+                    <label>
+                      <span>Linked customer</span>
+                      <select id="calendar-linked-customer-select">
+                        <option value="">No linked customer</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Assigned staff</span>
+                      <select id="calendar-assigned-staff-select" multiple></select>
+                    </label>
+                  </div>
+
+                  <section class="client-status-editor">
+                    <div class="subpanel-head compact">
+                      <h4>Client portal visibility</h4>
+                      <p>
+                        Only events marked client-visible will appear in the
+                        customer portal. Internal notes stay private.
+                      </p>
+                    </div>
+                    <label class="checkbox-row">
+                      <input
+                        type="checkbox"
+                        id="calendar-client-visible-input"
+                      />
+                      <span>Show this event in the client portal</span>
+                    </label>
+                    <div class="form-grid two">
+                      <label>
+                        <span>Client title</span>
+                        <input
+                          type="text"
+                          id="calendar-client-title-input"
+                          placeholder="What the customer should see"
+                        />
+                      </label>
+                      <label>
+                        <span>Client note</span>
+                        <input
+                          type="text"
+                          id="calendar-client-note-input"
+                          placeholder="Short, friendly schedule note"
+                        />
+                      </label>
+                    </div>
+                  </section>
+
+                  <label>
+                    <span>Internal note</span>
+                    <textarea
+                      id="calendar-internal-note-input"
+                      rows="5"
+                      placeholder="Crew notes, access details, materials, inspection requirements, or handoff notes."
+                    ></textarea>
+                  </label>
+
+                  <div class="inline-actions">
+                    <button type="submit" class="primary-button">
+                      Save event
+                    </button>
+                    <button
+                      type="button"
+                      class="ghost-button"
+                      id="calendar-reset-button"
+                    >
+                      Clear event
+                    </button>
+                  </div>
+                </form>
               </section>
             </div>
           </section>
@@ -3407,8 +3826,8 @@
               <section class="panel record-panel">
                 <div class="panel-head">
                   <div>
-                    <span class="panel-kicker">Settings</span>
-                    <h2>Staff access and estimate template</h2>
+                    <span class="panel-kicker">Admin / More</span>
+                    <h2>Operations settings and safety</h2>
                   </div>
                 </div>
 
@@ -3430,6 +3849,25 @@
                       <div
                         class="record-list portal-queue-list"
                         id="portal-queue-list"
+                      ></div>
+                    </section>
+
+                    <section class="subpanel trash-panel">
+                      <div class="subpanel-head">
+                        <h3>Trash and restore</h3>
+                        <p>
+                          Archived leads, jobs, and calendar events are hidden
+                          from daily operations but kept here so admins can
+                          restore records safely.
+                        </p>
+                      </div>
+                      <div
+                        class="summary-grid team-workload-summary"
+                        id="trash-summary"
+                      ></div>
+                      <div
+                        class="record-list trash-list"
+                        id="trash-list"
                       ></div>
                     </section>
 
@@ -3750,7 +4188,14 @@
           class="mobile-tab-button is-active"
           data-mobile-view="today-view"
         >
-          <span>Today</span>
+          <span>Home</span>
+        </button>
+        <button
+          type="button"
+          class="mobile-tab-button"
+          data-mobile-view="leads-view"
+        >
+          <span>Leads</span>
         </button>
         <button
           type="button"
@@ -3762,16 +4207,9 @@
         <button
           type="button"
           class="mobile-tab-button"
-          data-mobile-view="vendors-view"
+          data-mobile-view="calendar-view"
         >
-          <span>Vendors</span>
-        </button>
-        <button
-          type="button"
-          class="mobile-tab-button"
-          data-mobile-view="tasks-view"
-        >
-          <span>Tasks</span>
+          <span>Calendar</span>
         </button>
         <button
           type="button"
@@ -3813,9 +4251,9 @@
                 <button
                   type="button"
                   class="drawer-menu-button"
-                  data-drawer-view="leads-view"
+                  data-drawer-view="tasks-view"
                 >
-                  Leads
+                  Tasks
                 </button>
                 <button
                   type="button"
@@ -3829,7 +4267,14 @@
                   class="drawer-menu-button"
                   data-drawer-view="staff-view"
                 >
-                  Staff
+                  Admin / More
+                </button>
+                <button
+                  type="button"
+                  class="drawer-menu-button"
+                  data-drawer-view="vendors-view"
+                >
+                  Vendors
                 </button>
               </div>
             </div>
@@ -3998,6 +4443,125 @@
               <div class="inline-actions">
                 <button type="submit" class="primary-button">
                   Create lead
+                </button>
+                <button type="button" class="ghost-button drawer-cancel-button">
+                  Cancel
+                </button>
+              </div>
+            </form>
+
+            <form
+              class="stack-form drawer-form"
+              id="drawer-job-form"
+              hidden
+            >
+              <div class="subpanel-head">
+                <h3>New job</h3>
+                <p>
+                  Create an operational project record directly from the jobs
+                  workspace when there is no lead to convert first.
+                </p>
+              </div>
+
+              <div class="form-grid two">
+                <label>
+                  <span>Search existing customer</span>
+                  <input
+                    type="search"
+                    id="drawer-job-customer-search"
+                    placeholder="Search by name, phone, email, or address"
+                  />
+                </label>
+                <label>
+                  <span>Existing customer</span>
+                  <select id="drawer-job-customer-select"></select>
+                </label>
+              </div>
+
+              <div class="form-grid two">
+                <label>
+                  <span>Client name</span>
+                  <input type="text" id="drawer-job-client-name" required />
+                </label>
+                <label>
+                  <span>Project type</span>
+                  <input
+                    type="text"
+                    id="drawer-job-project-type"
+                    placeholder="Bathroom, full rehab, investor turn"
+                  />
+                </label>
+              </div>
+
+              <div class="form-grid two">
+                <label>
+                  <span>Client phone</span>
+                  <input type="text" id="drawer-job-client-phone" />
+                </label>
+                <label>
+                  <span>Client email</span>
+                  <input type="email" id="drawer-job-client-email" />
+                </label>
+              </div>
+
+              <div class="form-grid two">
+                <label>
+                  <span>Property / job address</span>
+                  <input
+                    type="text"
+                    id="drawer-job-client-address"
+                    placeholder="Jobsite or property address"
+                  />
+                </label>
+                <label>
+                  <span>Starting contract value</span>
+                  <input
+                    type="number"
+                    id="drawer-job-base-contract"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                  />
+                </label>
+              </div>
+
+              <div class="form-grid two">
+                <label>
+                  <span>Job status</span>
+                  <select id="drawer-job-status">
+                    <option value="planning">Planning</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="on_hold">On Hold</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Lead owner</span>
+                  <select id="drawer-job-owner"></select>
+                </label>
+              </div>
+
+              <label>
+                <span>Support staff</span>
+                <div
+                  class="checkbox-grid service-order-staff-grid"
+                  id="drawer-job-staff-grid"
+                ></div>
+              </label>
+
+              <label>
+                <span>Internal planning notes</span>
+                <textarea
+                  id="drawer-job-planning-notes"
+                  rows="4"
+                  placeholder="Planning notes, timeline, scope direction, access details, or next internal steps."
+                ></textarea>
+              </label>
+
+              <div class="detail-summary" id="drawer-job-context"></div>
+
+              <div class="inline-actions">
+                <button type="submit" class="primary-button">
+                  Create job
                 </button>
                 <button type="button" class="ghost-button drawer-cancel-button">
                   Cancel
@@ -4314,7 +4878,7 @@
 
     <script
       type="module"
-      src="/staff/staff.js?v=20260408-service-orders-2"
+      src="/staff/staff.js?v=20260429-staff-jobsview-fix-1"
     ></script>
   </body>
 </html>

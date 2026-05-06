@@ -86,6 +86,69 @@ service cloud.firestore {
       );
     }
 
+    function employeeCanUpdateProjectOps() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        "phaseLabel",
+        "targetWindow",
+        "targetDate",
+        "nextStep",
+        "sharedStatusNote",
+        "planningNotes",
+        "updatedAt"
+      ]);
+    }
+
+    function canReadCalendarEvent(eventData) {
+      return isAdmin() || (
+        isActiveStaff() && (
+          listHas(eventData.assignedStaffUids, request.auth.uid) || (
+            eventData.projectId is string &&
+            eventData.projectId != "" &&
+            exists(/databases/$(database)/documents/projects/$(eventData.projectId)) &&
+            canReadProject(get(/databases/$(database)/documents/projects/$(eventData.projectId)).data)
+          ) || (
+            eventData.leadId is string &&
+            eventData.leadId != "" &&
+            exists(/databases/$(database)/documents/leads/$(eventData.leadId)) &&
+            canReadLead(get(/databases/$(database)/documents/leads/$(eventData.leadId)).data)
+          ) || (
+            eventData.customerId is string &&
+            eventData.customerId != "" &&
+            exists(/databases/$(database)/documents/customers/$(eventData.customerId)) &&
+            canReadCustomer(get(/databases/$(database)/documents/customers/$(eventData.customerId)).data)
+          )
+        )
+      );
+    }
+
+    function employeeCanCreateCalendarEvent() {
+      return isActiveStaff() &&
+        request.resource.data.assignedStaffUids is list &&
+        request.resource.data.assignedStaffUids.hasAny([request.auth.uid]) &&
+        request.resource.data.clientVisible != true;
+    }
+
+    function employeeCanUpdateCalendarEvent() {
+      return canReadCalendarEvent(resource.data) &&
+        request.resource.data.assignedStaffUids == resource.data.assignedStaffUids &&
+        request.resource.data.clientVisible == resource.data.clientVisible &&
+        request.resource.data.projectId == resource.data.projectId &&
+        request.resource.data.leadId == resource.data.leadId &&
+        request.resource.data.customerId == resource.data.customerId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "title",
+          "type",
+          "status",
+          "startAt",
+          "endAt",
+          "allDay",
+          "internalNote",
+          "updatedAt",
+          "updatedByUid",
+          "updatedByName"
+        ]);
+    }
+
     function canReadVendorDocument(documentData) {
       return isAdmin() || (
         isActiveStaff() &&
@@ -189,7 +252,10 @@ service cloud.firestore {
         request.resource.data.assignedToName == resource.data.assignedToName &&
         request.resource.data.assignedToEmail == resource.data.assignedToEmail &&
         request.resource.data.customerId == resource.data.customerId &&
-        request.resource.data.customerName == resource.data.customerName
+        request.resource.data.customerName == resource.data.customerName &&
+        request.resource.data.archivedAt == resource.data.archivedAt &&
+        request.resource.data.archivedByUid == resource.data.archivedByUid &&
+        request.resource.data.archiveReason == resource.data.archiveReason
       );
       allow delete: if isAdmin();
 
@@ -327,6 +393,18 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /calendarEvents/{eventId} {
+      allow get: if canReadCalendarEvent(resource.data);
+      allow list: if isAdmin() || (
+        isActiveStaff() &&
+        resource.data.assignedStaffUids is list &&
+        resource.data.assignedStaffUids.hasAny([request.auth.uid])
+      );
+      allow create: if isAdmin() || employeeCanCreateCalendarEvent();
+      allow update: if isAdmin() || employeeCanUpdateCalendarEvent();
+      allow delete: if isAdmin();
+    }
+
     match /projects/{projectId} {
       allow get: if canReadProject(resource.data);
       allow list: if isAdmin() || (
@@ -334,7 +412,11 @@ service cloud.firestore {
         resource.data.allowedStaffUids is list &&
         resource.data.allowedStaffUids.hasAny([request.auth.uid])
       );
-      allow create, update, delete: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        canReadProject(resource.data) &&
+        employeeCanUpdateProjectOps()
+      );
 
       match /expenses/{expenseId} {
         allow read: if canReadProject(get(/databases/$(database)/documents/projects/$(projectId)).data);

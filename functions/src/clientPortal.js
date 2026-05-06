@@ -139,6 +139,148 @@ function buildClientPortalApi({
     return payload;
   }
 
+  function portalError(message, status = 500) {
+    const error = new Error(message);
+    error.status = status;
+    return error;
+  }
+
+  function archiveRecordConfig(recordType) {
+    if (recordType === "lead") {
+      return {
+        collection: "leads",
+        label: "Lead",
+        activityCollection: "activities",
+      };
+    }
+
+    if (recordType === "project") {
+      return {
+        collection: "projects",
+        label: "Job",
+        activityCollection: "activities",
+      };
+    }
+
+    if (recordType === "calendarEvent") {
+      return {
+        collection: "calendarEvents",
+        label: "Calendar event",
+        activityCollection: "",
+      };
+    }
+
+    throw portalError("Unsupported archive record type.", 400);
+  }
+
+  function archiveActor(staff = {}) {
+    return {
+      uid: safeString(staff.profile?.uid),
+      name: safeString(staff.profile?.displayName || staff.profile?.email),
+      role: safeString(staff.profile?.role || "employee"),
+    };
+  }
+
+  async function writeArchiveActivity({
+    config,
+    recordRef,
+    action,
+    reason,
+    staff,
+  }) {
+    if (!config.activityCollection) {
+      return;
+    }
+
+    const actor = archiveActor(staff);
+    const title =
+      action === "restore"
+        ? `${config.label} restored`
+        : `${config.label} archived`;
+    const body =
+      action === "restore"
+        ? "This record was restored from Trash."
+        : reason
+          ? `Archived reason: ${reason}`
+          : "This record was archived and moved to Trash.";
+
+    await recordRef.collection(config.activityCollection).add({
+      activityType: "system",
+      title,
+      body,
+      actorName: actor.name || "Team",
+      actorUid: actor.uid,
+      actorRole: actor.role,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  }
+
+  async function mutateArchiveRecord(payload = {}, staff = {}) {
+    if (staff.profile?.role !== "admin") {
+      throw portalError("Only admins can archive or restore records.", 403);
+    }
+
+    const recordType = safeString(payload.recordType);
+    const recordId = safeString(payload.recordId);
+    const action = safeString(payload.action || "archive");
+    const reason = safeString(payload.reason).slice(0, 500);
+
+    if (!recordId) {
+      throw portalError("recordId is required.", 400);
+    }
+
+    if (action !== "archive" && action !== "restore") {
+      throw portalError("Unsupported archive action.", 400);
+    }
+
+    const config = archiveRecordConfig(recordType);
+    const recordRef = db.collection(config.collection).doc(recordId);
+    const recordSnap = await recordRef.get();
+    if (!recordSnap.exists) {
+      throw portalError(`${config.label} not found.`, 404);
+    }
+
+    const actor = archiveActor(staff);
+    const updatePayload =
+      action === "restore"
+        ? {
+            archivedAt: null,
+            archivedByUid: null,
+            archivedByName: "",
+            archiveReason: "",
+            restoredAt: FieldValue.serverTimestamp(),
+            restoredByUid: actor.uid,
+            restoredByName: actor.name,
+            updatedAt: FieldValue.serverTimestamp(),
+          }
+        : {
+            archivedAt: FieldValue.serverTimestamp(),
+            archivedByUid: actor.uid,
+            archivedByName: actor.name,
+            archiveReason: reason,
+            restoredAt: null,
+            restoredByUid: null,
+            restoredByName: "",
+            updatedAt: FieldValue.serverTimestamp(),
+          };
+
+    await recordRef.set(updatePayload, { merge: true });
+    await writeArchiveActivity({
+      config,
+      recordRef,
+      action,
+      reason,
+      staff,
+    });
+
+    return {
+      ok: true,
+      recordType,
+      recordId,
+      action,
+    };
+  }
+
   function requestProtocol(request) {
     return (
       safeString(
@@ -237,6 +379,15 @@ function buildClientPortalApi({
     }
 
     return "not_invited";
+  }
+
+  function portalContactCanAutoClaim(contactData = {}) {
+    if (contactData.disabledAt || contactData.revokedAt) {
+      return false;
+    }
+
+    const status = inviteStatusLabel(contactData);
+    return status === "invited" || status === "claimed";
   }
 
   function buildClientAcceptUrl(request, token) {
@@ -357,6 +508,7 @@ function buildClientPortalApi({
     projectData = {},
     invoices = [],
     payments = [],
+    scheduleEvents = [],
   ) {
     const activeInvoices = invoices.filter(
       (invoice) => safeString(invoice.status) !== "paid",
@@ -390,6 +542,21 @@ function buildClientPortalApi({
       latestPaymentAt: serialiseDateValue(
         latestPayment?.relatedDate || latestPayment?.createdAt,
       ),
+      scheduleEvents,
+    };
+  }
+
+  function buildClientScheduleEventPayload(event = {}) {
+    return {
+      id: safeString(event.id),
+      projectId: safeString(event.projectId),
+      title: safeString(event.clientTitle || event.title || "Project update"),
+      note: safeString(event.clientNote),
+      type: safeString(event.type || "job_work"),
+      status: safeString(event.status || "scheduled"),
+      startAt: serialiseDateValue(event.startAt),
+      endAt: serialiseDateValue(event.endAt),
+      allDay: event.allDay === true,
     };
   }
 
@@ -667,12 +834,197 @@ function buildClientPortalApi({
     return admin.auth().verifyIdToken(matches[1]);
   }
 
+  async function findPortalContactByEmail(email, uid = "") {
+    const normalisedEmail = normaliseEmail(email);
+    if (!normalisedEmail) {
+      return null;
+    }
+
+    const contactsSnap = await db
+      .collectionGroup("contacts")
+      .where("email", "==", normalisedEmail)
+      .get();
+
+    const candidates = contactsSnap.docs
+      .map((snapshot) => {
+        const data = snapshot.data() || {};
+        const customerId = safeString(snapshot.ref.parent?.parent?.id);
+        return {
+          id: snapshot.id,
+          ref: snapshot.ref,
+          customerId,
+          data,
+        };
+      })
+      .filter(
+        (entry) =>
+          entry.customerId && portalContactCanAutoClaim(entry.data),
+      );
+
+    if (!candidates.length) {
+      return null;
+    }
+
+    const exactUidMatches = candidates.filter(
+      (entry) => safeString(entry.data.authUid) === safeString(uid),
+    );
+    if (exactUidMatches.length === 1) {
+      return exactUidMatches[0];
+    }
+
+    const unclaimedMatches = candidates.filter(
+      (entry) => !safeString(entry.data.authUid),
+    );
+    if (unclaimedMatches.length === 1) {
+      return unclaimedMatches[0];
+    }
+
+    if (candidates.length === 1) {
+      return candidates[0];
+    }
+
+    const error = new Error(
+      "This email is tied to more than one client portal contact. Use the invite link Golden Brick sent you or ask the team to confirm which portal contact should log in.",
+    );
+    error.status = 409;
+    throw error;
+  }
+
+  async function autoProvisionClientAccess(decoded) {
+    const email = normaliseEmail(decoded.email);
+    if (!email) {
+      return null;
+    }
+
+    const matchedContact = await findPortalContactByEmail(email, decoded.uid);
+    if (!matchedContact) {
+      return null;
+    }
+
+    const customerId = safeString(matchedContact.customerId);
+    const contactId = safeString(matchedContact.id);
+    const contactData = matchedContact.data || {};
+    const [customerSnap, existingUserSnap] = await Promise.all([
+      customerRef(customerId).get(),
+      clientUserRef(decoded.uid).get(),
+    ]);
+
+    if (!customerSnap.exists) {
+      const error = new Error(
+        "The linked customer portal record could not be found.",
+      );
+      error.status = 404;
+      throw error;
+    }
+
+    const priorAuthUid = safeString(contactData.authUid);
+    const nextRole = normalisePortalRole(
+      contactData.role || contactData.accessScope,
+    );
+    const batch = db.batch();
+
+    if (priorAuthUid && priorAuthUid !== safeString(decoded.uid)) {
+      batch.set(
+        clientUserRef(priorAuthUid),
+        {
+          status: "replaced",
+          replacedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
+
+    batch.set(
+      clientUserRef(decoded.uid),
+      {
+        uid: decoded.uid,
+        customerId,
+        contactId,
+        email,
+        role: nextRole,
+        accessScope: portalAccessScopeForRole(nextRole),
+        displayName: safeString(
+          decoded.name || contactData.name || decoded.email,
+        ),
+        status: "active",
+        lastLoginAt: FieldValue.serverTimestamp(),
+        createdAt: existingUserSnap.exists
+          ? existingUserSnap.data()?.createdAt || FieldValue.serverTimestamp()
+          : FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    batch.set(
+      contactRef(customerId, contactId),
+      {
+        authUid: decoded.uid,
+        inviteStatus: "claimed",
+        inviteToken: "",
+        inviteUrl: "",
+        claimedAt: contactData.claimedAt || FieldValue.serverTimestamp(),
+        lastLoginAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    await batch.commit();
+    await ensurePortalThread(customerId, null);
+
+    const refreshedContactSnap = await contactRef(customerId, contactId).get();
+    return {
+      clientUser: {
+        uid: decoded.uid,
+        ...(existingUserSnap.exists ? existingUserSnap.data() || {} : {}),
+        customerId,
+        contactId,
+        email,
+        role: nextRole,
+        accessScope: portalAccessScopeForRole(nextRole),
+        displayName: safeString(
+          decoded.name || contactData.name || decoded.email,
+        ),
+        status: "active",
+      },
+      customerId,
+      contactId,
+      contactData: refreshedContactSnap.data() || contactData,
+      customerData: customerSnap.data() || {},
+    };
+  }
+
   async function verifyClientRequest(request) {
     const decoded = await verifyBearerToken(request);
     const email = normaliseEmail(decoded.email);
     const userSnap = await clientUserRef(decoded.uid).get();
+    let userData = userSnap.exists ? userSnap.data() || {} : null;
 
-    if (!userSnap.exists) {
+    if (
+      !userData ||
+      !safeString(userData.customerId) ||
+      !safeString(userData.contactId)
+    ) {
+      const repairedProfile = await autoProvisionClientAccess(decoded);
+      if (repairedProfile) {
+        return {
+          decoded,
+          clientUser: repairedProfile.clientUser,
+          customerId: repairedProfile.customerId,
+          contactId: repairedProfile.contactId,
+          contactRef: contactRef(
+            repairedProfile.customerId,
+            repairedProfile.contactId,
+          ),
+          contactData: repairedProfile.contactData,
+          customerData: repairedProfile.customerData,
+        };
+      }
+    }
+
+    if (!userData) {
       const error = new Error(
         "This account does not have client portal access yet.",
       );
@@ -680,7 +1032,6 @@ function buildClientPortalApi({
       throw error;
     }
 
-    const userData = userSnap.data() || {};
     if (safeString(userData.status || "active") !== "active") {
       const error = new Error("This client portal account is not active.");
       error.status = 403;
@@ -957,10 +1308,31 @@ function buildClientPortalApi({
     };
   }
 
+  async function loadCustomerScheduleEvents(customerId) {
+    const snapshot = await db
+      .collection("calendarEvents")
+      .where("customerId", "==", customerId)
+      .get();
+
+    return snapshot.docs
+      .map((entry) => ({
+        id: entry.id,
+        ...entry.data(),
+      }))
+      .filter((event) => !event.archivedAt && event.clientVisible === true)
+      .map((event) => buildClientScheduleEventPayload(event))
+      .filter((event) => safeString(event.projectId))
+      .sort((left, right) => {
+        return normaliseMillis(left.startAt) - normaliseMillis(right.startAt);
+      });
+  }
+
   async function loadCustomerJobs(customerId) {
     const billing = await loadCustomerBilling(customerId);
+    const scheduleEvents = await loadCustomerScheduleEvents(customerId);
     const invoiceMap = new Map();
     const paymentMap = new Map();
+    const scheduleMap = new Map();
 
     billing.invoices.forEach((invoice) => {
       const list = invoiceMap.get(invoice.projectId) || [];
@@ -974,6 +1346,12 @@ function buildClientPortalApi({
       paymentMap.set(payment.projectId, list);
     });
 
+    scheduleEvents.forEach((event) => {
+      const list = scheduleMap.get(event.projectId) || [];
+      list.push(event);
+      scheduleMap.set(event.projectId, list);
+    });
+
     return {
       jobs: billing.projects
         .map((project) => {
@@ -981,6 +1359,7 @@ function buildClientPortalApi({
             project,
             invoiceMap.get(project.id) || [],
             paymentMap.get(project.id) || [],
+            scheduleMap.get(project.id) || [],
           );
         })
         .sort((left, right) => {
@@ -1790,6 +2169,14 @@ function buildClientPortalApi({
             staff,
           });
           respondJson(response, result.status, result.payload);
+          return;
+        }
+
+        if (request.method === "POST" && resource === "archive-record") {
+          const staff = await verifyStaffRequest(request);
+          const payload = parseRequestPayload(request);
+          const result = await mutateArchiveRecord(payload, staff);
+          respondJson(response, 200, result);
           return;
         }
 

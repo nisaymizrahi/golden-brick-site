@@ -14,12 +14,12 @@
     <meta property="og:title" content="Free Consultation | Golden Brick Construction">
     <meta property="og:description" content="Request a free consultation from Golden Brick Construction for Philadelphia-area renovations, bathrooms, kitchens, full gut rehab, investor projects, and new construction.">
     <meta property="og:url" content="https://www.goldenbrickc.com/contact.html">
-    <meta property="og:image" content="https://www.goldenbrickc.com/images/projects/site/occupied-home-structural-work.jpg">
-    <meta property="og:image:alt" content="Golden Brick Construction project site">
+    <meta property="og:image" content="https://www.goldenbrickc.com/images/projects/site/photo-refresh/occupied-home-protection.jpg">
+    <meta property="og:image:alt" content="Protected occupied-home renovation with ceiling work underway">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Free Consultation | Golden Brick Construction">
     <meta name="twitter:description" content="Request a free consultation from Golden Brick Construction for Philadelphia-area renovations, bathrooms, kitchens, full gut rehab, investor projects, and new construction.">
-    <meta name="twitter:image" content="https://www.goldenbrickc.com/images/projects/site/occupied-home-structural-work.jpg">
+    <meta name="twitter:image" content="https://www.goldenbrickc.com/images/projects/site/photo-refresh/occupied-home-protection.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="style.css">
@@ -33,23 +33,115 @@
     <script type="application/ld+json">
         {
             "@context": "https://schema.org",
-            "@type": "ContactPage",
-            "name": "Contact Golden Brick Construction",
-            "url": "https://www.goldenbrickc.com/contact.html",
-            "about": {
-                "@type": "Organization",
-                "@id": "https://www.goldenbrickc.com/#organization",
-                "name": "Golden Brick Construction",
-                "telephone": "+1-267-715-5557",
-                "email": "info@goldenbrickc.com"
-            }
+            "@graph": [
+                {
+                    "@type": "ContactPage",
+                    "@id": "https://www.goldenbrickc.com/contact.html#webpage",
+                    "name": "Contact Golden Brick Construction",
+                    "url": "https://www.goldenbrickc.com/contact.html"
+                },
+                {
+                    "@type": "GeneralContractor",
+                    "@id": "https://www.goldenbrickc.com/#organization",
+                    "name": "Golden Brick Construction",
+                    "url": "https://www.goldenbrickc.com/",
+                    "telephone": "+1-267-715-5557",
+                    "email": "info@goldenbrickc.com",
+                    "areaServed": [
+                        {
+                            "@type": "City",
+                            "name": "Philadelphia"
+                        },
+                        {
+                            "@type": "AdministrativeArea",
+                            "name": "Bucks County, PA"
+                        },
+                        {
+                            "@type": "AdministrativeArea",
+                            "name": "Montgomery County, PA"
+                        },
+                        {
+                            "@type": "AdministrativeArea",
+                            "name": "Delaware County, PA"
+                        },
+                        {
+                            "@type": "Place",
+                            "name": "Main Line, PA"
+                        }
+                    ]
+                },
+                {
+                    "@type": "BreadcrumbList",
+                    "@id": "https://www.goldenbrickc.com/contact.html#breadcrumb",
+                    "itemListElement": [
+                        {
+                            "@type": "ListItem",
+                            "position": 1,
+                            "name": "Home",
+                            "item": "https://www.goldenbrickc.com/"
+                        },
+                        {
+                            "@type": "ListItem",
+                            "position": 2,
+                            "name": "Contact",
+                            "item": "https://www.goldenbrickc.com/contact.html"
+                        }
+                    ]
+                },
+                {
+                    "@type": "FAQPage",
+                    "@id": "https://www.goldenbrickc.com/contact.html#faq",
+                    "mainEntity": [
+                        {
+                            "@type": "Question",
+                            "name": "What details should I include in my quote request?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "The most useful details are the property address, project type, rooms involved, goals, your ideal timeline, and whether the property is owner-occupied, vacant, an investment, or under contract."
+                            }
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "Do you work with both homeowners and investors?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "Yes. We support homeowners, investors, and developers. The more clearly you explain the project goals in the form, the easier it is for us to route the inquiry well."
+                            }
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "Do you only work in Philadelphia?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "No. We serve Philadelphia and nearby Pennsylvania suburbs including Bucks County, Montgomery County, Delaware County, and the Main Line."
+                            }
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "What happens after I submit the form?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "Your inquiry goes into the review process so the team can look at the scope, property, and fit before following up. We may contact you by phone, text, or email about your request and free consultation using the information you provide."
+                            }
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "Can I call instead of using the form?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "Yes. If the project is easier to explain by phone, call (267) 715-5557. The form is still the best option when you want to include written scope details."
+                            }
+                        }
+                    ]
+                }
+            ]
         }
     </script>
     <style>
         .contact-hero {
             background:
-                linear-gradient(rgba(15,12,9,0.56), rgba(15,12,9,0.66)),
-                url('images/projects/site/occupied-home-structural-work.jpg') center 42%/cover;
+                linear-gradient(90deg, rgba(15,12,9,0.72), rgba(15,12,9,0.46)),
+                url('images/projects/site/photo-refresh/occupied-home-protection.jpg') center 42%/cover;
             min-height: 58vh;
             display: flex;
             align-items: center;
@@ -538,11 +630,16 @@
     <main id="main-content">
     <header class="contact-hero">
         <div class="hero-content">
+            <nav class="breadcrumbs" aria-label="Breadcrumb">
+                <a href="/">Home</a>
+                <span>/</span>
+                <span aria-current="page">Contact</span>
+            </nav>
             <span class="hero-subtitle">Free Consultation For Philadelphia Renovation Projects</span>
             <h1>Request a Free Consultation</h1>
             <p>
-                Call us now or send the details below. We work with homeowners, investors, and developers on bathrooms, kitchens,
-                full gut rehabs, investment property renovations, and new construction across Philadelphia and surrounding suburbs.
+                Call us now or send the details below. We work with homeowners on kitchens, bathrooms, full-home renovations,
+                additions, basements, exterior updates, and select investor rehabs across Philadelphia and surrounding suburbs.
             </p>
 
             <div class="contact-actions">
@@ -558,6 +655,14 @@
         </div>
     </header>
 
+    <div class="proof-photo-strip" aria-label="Golden Brick project photos">
+        <img src="images/projects/site/photo-refresh/finished-kitchen-white.jpg" alt="Finished kitchen with white cabinetry and stainless appliances">
+        <img src="images/projects/site/photo-refresh/finished-bath-green.jpg" alt="Finished green tile bathroom with glass shower">
+        <img src="images/projects/site/photo-refresh/rowhome-exterior-work.jpg" alt="Philadelphia rowhome exterior work in progress">
+        <img src="images/projects/site/photo-refresh/kitchen-install-underway.jpg" alt="Kitchen installation underway with floor protection">
+        <img src="images/projects/site/photo-refresh/finished-bedroom-light.jpg" alt="Finished bedroom with light flooring and clean trim">
+    </div>
+
     <section class="contact-main">
         <div class="contact-grid">
             <div class="contact-info">
@@ -565,7 +670,7 @@
                 <div class="gold-line"></div>
                 <p>
                     Golden Brick Construction is a Philadelphia-area general contractor focused on
-                    serious residential renovations and development projects. Whether you’re planning
+                    serious residential renovations and select development projects. Whether you’re planning
                     a kitchen remodel, bathroom remodel, full home renovation, full gut rehab, or
                     new construction project, we’re ready to learn more through a free consultation.
                 </p>
@@ -729,6 +834,44 @@
         </div>
     </section>
 
+    <section class="client-testimonials client-testimonials--white">
+        <div class="testimonials-shell">
+            <div class="testimonials-head">
+                <div>
+                    <span class="section-kicker">What Clients Say</span>
+                        <h2>Useful Consultations Start With Trust</h2>
+                        <p>
+                            Short client reviews shown with first names only before you decide to reach out.
+                        </p>
+                    </div>
+                <div class="review-source-note">A better first call starts when you can already see the work, the process, and the way clients describe the team.</div>
+            </div>
+
+            <div class="testimonials-grid">
+                <article class="testimonial-card">
+                    <div class="testimonial-stars" aria-label="5 star review">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <blockquote>Thank you for the professional work on my home rehab. Very recommend working with the team. Thank you.</blockquote>
+                    <footer>Sam</footer>
+                </article>
+                <article class="testimonial-card">
+                    <div class="testimonial-stars" aria-label="5 star review">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <blockquote>Beautiful job. Quick response, great workers. Would definitely use again.</blockquote>
+                    <footer>William</footer>
+                </article>
+                <article class="testimonial-card">
+                    <div class="testimonial-stars" aria-label="5 star review">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <blockquote>Lovely working with Nisay, who built me this beautiful half bathroom and more work at my house. Very recommended!</blockquote>
+                    <footer>Tonia</footer>
+                </article>
+                <article class="testimonial-card">
+                    <div class="testimonial-stars" aria-label="5 star review">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <blockquote>Amazing transformation of my home. From careful material selection to on-time execution, everything was flawless.</blockquote>
+                    <footer>Ron</footer>
+                </article>
+            </div>
+        </div>
+    </section>
+
     <section class="faq-section">
         <div class="faq-shell">
             <div class="faq-intro">
@@ -764,6 +907,62 @@
                     <summary>Can I call instead of using the form?</summary>
                     <p>Yes. If the project is easier to explain by phone, call <a href="tel:2677155557">(267) 715-5557</a>. The form is still the best option when you want to include written scope details.</p>
                 </details>
+            </div>
+        </div>
+    </section>
+
+    <section class="resource-section">
+        <div class="resource-shell">
+            <div class="resource-intro">
+                <span class="section-kicker">Choose Your Best Starting Page</span>
+                <h2>Popular Public Pages Homeowners Open Before Reaching Out</h2>
+                <p>
+                    If you are still sorting out what kind of remodel you need, these pages break the work into clearer scopes before you submit the form.
+                </p>
+            </div>
+
+            <div class="resource-grid">
+                <article class="resource-card">
+                    <span class="resource-tag">Philadelphia Home Remodeling Contractor</span>
+                    <h3>Home Remodeling Hub</h3>
+                    <p>Use the main homeowner hub if you want the broadest view of kitchens, bathrooms, basements, additions, and whole-home work.</p>
+                    <a href="/philadelphia-home-remodeling-contractor" class="text-link">Explore Home Remodeling</a>
+                </article>
+
+                <article class="resource-card">
+                    <span class="resource-tag">Full Home Renovation Philadelphia</span>
+                    <h3>Full Home Renovations</h3>
+                    <p>For bigger house-wide scopes where sequencing, occupied-home planning, and closeout all matter.</p>
+                    <a href="/full-renovation-philadelphia" class="text-link">Explore Full Renovations</a>
+                </article>
+
+                <article class="resource-card">
+                    <span class="resource-tag">Home Additions Philadelphia</span>
+                    <h3>Home Additions</h3>
+                    <p>See how we frame addition projects that touch design, permits, structural work, and finished-space integration.</p>
+                    <a href="/home-additions-philadelphia" class="text-link">Explore Home Additions</a>
+                </article>
+
+                <article class="resource-card">
+                    <span class="resource-tag">Basement Finishing Philadelphia</span>
+                    <h3>Basement Finishing</h3>
+                    <p>Basement scopes usually need a tighter conversation around utilities, moisture, and layout than people expect.</p>
+                    <a href="/basement-finishing-philadelphia" class="text-link">Explore Basement Finishing</a>
+                </article>
+
+                <article class="resource-card">
+                    <span class="resource-tag">Philadelphia Permits Guide</span>
+                    <h3>Permits and Planning</h3>
+                    <p>Read the permit guide if you want a clearer picture of the approvals that can affect renovation timing in Philadelphia.</p>
+                    <a href="/permits-for-philadelphia-home-renovations" class="text-link">Read the Permit Guide</a>
+                </article>
+
+                <article class="resource-card">
+                    <span class="resource-tag">Philadelphia Renovation Timing</span>
+                    <h3>How Long Remodels Take</h3>
+                    <p>Use the timing guide when schedule is the biggest question holding the project back from a real conversation.</p>
+                    <a href="/how-long-does-a-philadelphia-remodel-take" class="text-link">Read the Timing Guide</a>
+                </article>
             </div>
         </div>
     </section>

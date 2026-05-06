@@ -371,12 +371,37 @@
     });
   }
 
-  const currentPath = window.location.pathname.split("/").pop() || "index.html";
+  function normalizeSitePath(value) {
+    if (!value) return null;
+
+    let url;
+
+    try {
+      url = new URL(value, window.location.origin);
+    } catch (error) {
+      return null;
+    }
+
+    if (url.origin !== window.location.origin) return null;
+
+    let pathname = url.pathname || "/";
+    pathname = pathname.replace(/\/index\.html$/, "/");
+
+    if (pathname !== "/" && pathname.endsWith("/")) {
+      pathname = pathname.slice(0, -1);
+    }
+
+    return pathname || "/";
+  }
+
+  const currentPath = normalizeSitePath(window.location.pathname) || "/";
   document.querySelectorAll(".nav-links a").forEach(function (link) {
     const href = link.getAttribute("href");
-    if (!href || href.indexOf(".html") === -1) return;
+    const linkPath = normalizeSitePath(href);
 
-    if (href === currentPath) {
+    if (!linkPath) return;
+
+    if (linkPath === currentPath) {
       link.setAttribute("aria-current", "page");
     } else {
       link.removeAttribute("aria-current");
@@ -476,6 +501,10 @@
     ".footer-column",
     ".resource-card",
     ".faq-item",
+    ".seo-panel",
+    ".seo-card",
+    ".seo-link-card",
+    ".seo-photo-card",
   ];
 
   const targets = document.querySelectorAll(revealSelectors.join(","));

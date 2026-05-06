@@ -84,9 +84,10 @@ const state = {
   currentUser: null,
   claimInFlight: false,
   loadingPortal: false,
-  selectedView: "dashboard",
+  selectedView: "jobs",
   selectedThreadId: null,
   selectedProjectId: "",
+  openJobId: "",
   selectedDocumentFilter: "all",
   portal: {
     bootstrap: null,
@@ -179,6 +180,7 @@ const refs = {
   jobsProjectSwitcherWrap: document.getElementById(
     "jobs-project-switcher-wrap",
   ),
+  jobsMobileBackButton: document.getElementById("jobs-mobile-back-button"),
   jobsList: document.getElementById("jobs-list"),
 
   billingSummaryStrip: document.getElementById("billing-summary-strip"),
@@ -582,6 +584,33 @@ function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+function isMobileViewport() {
+  return window.matchMedia("(max-width: 860px)").matches;
+}
+
+function defaultPortalView() {
+  return isMobileViewport() ? "jobs" : "dashboard";
+}
+
+function normalisePortalView(view) {
+  return APP_VIEWS[view] ? view : defaultPortalView();
+}
+
+function applyPortalAppStateFromLocation() {
+  const params = new URLSearchParams(window.location.search);
+  state.selectedView = normalisePortalView(params.get("view"));
+  state.openJobId = safeString(params.get("job"));
+}
+
+function portalAppSearch() {
+  const params = new URLSearchParams();
+  params.set("view", normalisePortalView(state.selectedView));
+  if (safeString(state.selectedView) === "jobs" && safeString(state.openJobId)) {
+    params.set("job", state.openJobId);
+  }
+  return params.toString();
+}
+
 function routeFromPath() {
   const segments = window.location.pathname.split("/").filter(Boolean);
   if (segments[0] !== "client") return "login";
@@ -597,7 +626,8 @@ function routePath(route) {
   if (route === "login") {
     return "/client/login";
   }
-  return "/client/";
+  const search = portalAppSearch();
+  return search ? `/client/?${search}` : "/client/";
 }
 
 function setPath(route, { replace = false } = {}) {
@@ -698,7 +728,17 @@ function ensureSelectedProject({ includeCompleted = false } = {}) {
 
   if (!jobs.length) {
     state.selectedProjectId = "";
+    state.openJobId = "";
     return;
+  }
+
+  if (state.openJobId) {
+    const explicit = everyJob.find((job) => job.id === state.openJobId) || null;
+    if (explicit) {
+      state.selectedProjectId = explicit.id;
+      return;
+    }
+    state.openJobId = "";
   }
 
   const selectedExistsAnywhere = everyJob.some(
@@ -1548,21 +1588,69 @@ function renderEstimates() {
 
 function renderJobsView() {
   const jobs = orderedJobs();
+  const isMobile = isMobileViewport();
+  const selectedJob =
+    jobs.find((job) => job.id === (state.openJobId || state.selectedProjectId)) ||
+    null;
+  const showingDetail = Boolean(isMobile && state.openJobId && selectedJob);
+
   renderProjectSwitcher(refs.jobsProjectSwitcherWrap, {
     headline: "Portfolio focus",
     detail:
       "Select a property to bring its timeline, shared updates, and progress photos to the top. Completed jobs stay here for reference too.",
     jobs,
   });
+  refs.jobsProjectSwitcherWrap.hidden = showingDetail;
+  refs.jobsMobileBackButton.hidden = !showingDetail;
 
   if (!jobs.length) {
+    refs.jobsList.classList.remove("is-mobile-picker-list");
     refs.jobsList.innerHTML = emptyNote(
       "No active jobs are linked to this portal account yet.",
     );
     return;
   }
 
-  refs.jobsList.innerHTML = jobs
+  if (isMobile && !showingDetail) {
+    refs.jobsList.classList.add("is-mobile-picker-list");
+    refs.jobsList.innerHTML = jobs
+      .map((job) => {
+        const status = statusPillMeta(job.status);
+        const latestUpdateAt = jobUpdateTimestamp(job);
+        const scheduleEvents = Array.isArray(job.scheduleEvents)
+          ? job.scheduleEvents
+          : [];
+        const nextSchedule = scheduleEvents.find(
+          (entry) => toMillis(entry.startAt) >= Date.now(),
+        );
+        return `
+            <button
+                type="button"
+                class="record-link job-mobile-picker"
+                data-project-select="${escapeHtml(job.id)}"
+                data-open-job-detail="true"
+            >
+                <div class="job-mobile-picker-head">
+                    <div>
+                        <span>${escapeHtml(job.projectType || "Project update")}</span>
+                        <strong>${escapeHtml(job.address || "Project address pending")}</strong>
+                    </div>
+                    <span class="${status.className}">${escapeHtml(status.label)}</span>
+                </div>
+                <p class="record-copy">${escapeHtml(job.nextStep || jobNarrative(job))}</p>
+                <div class="job-mobile-picker-meta">
+                    <span>${escapeHtml(job.phaseLabel || "Planning and construction")}</span>
+                    <span>${escapeHtml(nextSchedule?.startAt ? `Next: ${formatDateTime(nextSchedule.startAt)}` : latestUpdateAt ? formatDateTime(latestUpdateAt) : "Awaiting update")}</span>
+                </div>
+            </button>
+        `;
+      })
+      .join("");
+    return;
+  }
+
+  refs.jobsList.classList.remove("is-mobile-picker-list");
+  refs.jobsList.innerHTML = (showingDetail ? [selectedJob] : jobs)
     .map((job) => {
       const status = statusPillMeta(job.status);
       const isSelected = job.id === state.selectedProjectId;
@@ -1575,6 +1663,12 @@ function renderJobsView() {
       const otherDocumentCount = Math.max(allDocuments.length - photos.length, 0);
       const latestUpdateAt = jobUpdateTimestamp(job);
       const isCompleted = safeString(job.status) === "completed";
+      const scheduleEvents = Array.isArray(job.scheduleEvents)
+        ? job.scheduleEvents
+        : [];
+      const upcomingSchedule = scheduleEvents.filter(
+        (entry) => !entry.startAt || toMillis(entry.startAt) >= Date.now(),
+      );
 
       return `
             <article class="record-link timeline-card">
@@ -1612,6 +1706,36 @@ function renderJobsView() {
                     <span>${escapeHtml(`${photos.length} photo${photos.length === 1 ? "" : "s"} shared`)}</span>
                     <span>${escapeHtml(`${allDocuments.length} shared file${allDocuments.length === 1 ? "" : "s"}`)}</span>
                 </div>
+                <section class="job-update-section job-schedule-section">
+                    <div class="section-heading">
+                        <h3>Project schedule</h3>
+                        <p>Client-visible appointments, milestones, crew windows, inspections, and deliveries for this job.</p>
+                    </div>
+                    <div class="stack-list job-schedule-stack">
+                        ${
+                          scheduleEvents.length
+                            ? scheduleEvents
+                                .slice(0, 6)
+                                .map(
+                                  (entry) => `
+                                <article class="schedule-item">
+                                    <span>${escapeHtml(entry.startAt ? formatDateTime(entry.startAt) : "Date pending")}</span>
+                                    <strong>${escapeHtml(entry.title || "Scheduled update")}</strong>
+                                    <p>${escapeHtml(entry.note || (entry.endAt ? `Ends ${formatDateTime(entry.endAt)}` : "Golden Brick will update this event if the schedule changes."))}</p>
+                                    <div class="record-meta">
+                                        <span>${escapeHtml(entry.status || "scheduled")}</span>
+                                        <span>${escapeHtml(entry.allDay ? "All day" : upcomingSchedule[0]?.id === entry.id ? "Next schedule item" : "Client-visible")}</span>
+                                    </div>
+                                </article>
+                            `,
+                                )
+                                .join("")
+                            : emptyNote(
+                                "No client-visible schedule events have been posted for this property yet.",
+                              )
+                        }
+                    </div>
+                </section>
                 ${
                   isCompleted
                     ? `
@@ -2198,7 +2322,9 @@ function renderPortalShell() {
   const help = state.portal.bootstrap?.help || {};
   refs.callHelpButton.href = helpButtonHref(help);
   refs.callHelpButton.textContent = help.phone || "Call Golden Brick";
-  refs.mobileCallHelpButton.href = helpButtonHref(help);
+  if (refs.mobileCallHelpButton) {
+    refs.mobileCallHelpButton.href = helpButtonHref(help);
+  }
 
   refs.viewButtons.forEach((button) => {
     button.classList.toggle(
@@ -2216,9 +2342,19 @@ function renderPortalShell() {
   document.title = `${activeMeta.title} | Golden Brick Client Portal`;
 }
 
-function openView(view) {
-  state.selectedView = APP_VIEWS[view] ? view : "dashboard";
+function openView(view, { historyMode = "push", preserveMobileJob = false } = {}) {
+  state.selectedView = normalisePortalView(view);
+  if (
+    isMobileViewport() &&
+    state.selectedView === "jobs" &&
+    !preserveMobileJob
+  ) {
+    state.openJobId = "";
+  }
   renderPortalShell();
+  if (state.currentUser && state.route === "app") {
+    setPath("app", { replace: historyMode !== "push" });
+  }
   if (state.selectedView === "messages") {
     void markThreadReadIfNeeded(state.selectedThreadId);
   }
@@ -2228,14 +2364,33 @@ function openView(view) {
   });
 }
 
-function setSelectedProject(projectId) {
+function setSelectedProject(
+  projectId,
+  { historyMode = "replace", openOnMobile = false } = {},
+) {
   if (projectId === "all") {
     const first = activeJobs()[0];
     state.selectedProjectId = first?.id || "";
+    state.openJobId = "";
   } else {
     state.selectedProjectId = projectId;
+    if (openOnMobile && isMobileViewport()) {
+      state.openJobId = projectId;
+    }
   }
   renderPortalShell();
+  if (state.currentUser && state.route === "app") {
+    setPath("app", { replace: historyMode !== "push" });
+  }
+}
+
+function closeMobileJobDetail({ historyMode = "push" } = {}) {
+  state.openJobId = "";
+  ensureSelectedProject({ includeCompleted: true });
+  renderPortalShell();
+  if (state.currentUser && state.route === "app") {
+    setPath("app", { replace: historyMode !== "push" });
+  }
 }
 
 function setSelectedDocumentFilter(filterKey) {
@@ -2627,11 +2782,23 @@ function bindEvents() {
       return;
     }
 
+    const detailButton = event.target.closest("[data-open-job-detail]");
+    if (detailButton) {
+      const projectId = safeString(detailButton.dataset.projectSelect);
+      if (projectId) {
+        setSelectedProject(projectId, {
+          historyMode: "push",
+          openOnMobile: true,
+        });
+      }
+      return;
+    }
+
     const viewButton = event.target.closest("[data-job-view-target]");
     if (viewButton) {
       const projectId = safeString(viewButton.dataset.projectSelect);
       if (projectId) {
-        setSelectedProject(projectId);
+        setSelectedProject(projectId, { historyMode: "replace" });
       }
       openView(viewButton.dataset.jobViewTarget);
       return;
@@ -2639,7 +2806,13 @@ function bindEvents() {
 
     const projectButton = event.target.closest("[data-project-select]");
     if (!projectButton) return;
-    setSelectedProject(projectButton.dataset.projectSelect);
+    setSelectedProject(projectButton.dataset.projectSelect, {
+      historyMode: "replace",
+    });
+  });
+
+  refs.jobsMobileBackButton.addEventListener("click", () => {
+    closeMobileJobDetail();
   });
 
   refs.documentsFilterBar.addEventListener("click", (event) => {
@@ -2676,6 +2849,9 @@ function bindEvents() {
     state.inviteToken = safeString(
       new URLSearchParams(window.location.search).get("token"),
     );
+    if (state.route === "app") {
+      applyPortalAppStateFromLocation();
+    }
     if (state.route === "accept") {
       state.authMode = "create";
       void loadInvitePreview();
@@ -2697,6 +2873,12 @@ async function bootstrap() {
   state.inviteToken = safeString(
     new URLSearchParams(window.location.search).get("token"),
   );
+  if (state.route === "app") {
+    applyPortalAppStateFromLocation();
+  } else {
+    state.selectedView = defaultPortalView();
+    state.openJobId = "";
+  }
   state.authMode = state.route === "accept" ? "create" : "sign-in";
 
   if (state.route === "accept") {

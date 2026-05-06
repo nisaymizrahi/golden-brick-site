@@ -1076,6 +1076,33 @@ img {
   gap: 16px;
 }
 
+.jobs-mobile-back-button {
+  margin-bottom: 14px;
+}
+
+.timeline-list.is-mobile-picker-list {
+  gap: 10px;
+}
+
+.job-mobile-picker {
+  gap: 12px;
+}
+
+.job-mobile-picker-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.job-mobile-picker-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  color: var(--portal-copy-soft);
+  font-size: 0.82rem;
+}
+
 .timeline-card {
   display: grid;
   gap: 14px;
@@ -1446,7 +1473,6 @@ img {
   .invite-preview-grid,
   .trust-strip,
   .auth-steps,
-  .summary-strip,
   .summary-strip-compact,
   .account-summary-grid,
   .spotlight-grid,
@@ -1463,11 +1489,16 @@ img {
   }
 
   .portal-header {
-    gap: 14px;
+    gap: 10px;
+    padding: 14px 16px 10px;
   }
 
   .portal-header-copy {
-    gap: 8px;
+    gap: 6px;
+  }
+
+  .summary-strip {
+    display: none;
   }
 
   .portal-main {
@@ -1482,12 +1513,12 @@ img {
   }
 
   .panel-head {
-    padding-top: 18px;
+    padding-top: 16px;
   }
 
   .panel-body,
   .hero-panel {
-    padding-bottom: 18px;
+    padding-bottom: 16px;
   }
 
   .summary-card strong {
@@ -1558,9 +1589,60 @@ img {
   }
 }
 
+.job-schedule-section {
+  border-top: 1px solid rgba(70, 51, 32, 0.12);
+  padding-top: 18px;
+}
+
+.job-schedule-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.schedule-item {
+  padding: 16px;
+  background: rgba(200, 161, 90, 0.08);
+  border: 1px solid rgba(200, 161, 90, 0.2);
+}
+
+.schedule-item span {
+  display: inline-flex;
+  margin-bottom: 6px;
+  color: var(--portal-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.schedule-item strong {
+  display: block;
+  color: var(--portal-ink);
+}
+
+.schedule-item p {
+  margin: 8px 0 0;
+  color: var(--portal-muted);
+}
+
 @media (max-width: 620px) {
   .portal-header h1 {
-    font-size: 1.95rem;
+    font-size: 1.8rem;
+  }
+
+  .panel-controls {
+    width: 100%;
+  }
+
+  .jobs-mobile-back-button,
+  .project-select-button,
+  .filter-button {
+    width: 100%;
+  }
+
+  .job-mobile-picker-head,
+  .record-link-row {
+    display: grid;
   }
 
   .hero-panel-primary h2 {

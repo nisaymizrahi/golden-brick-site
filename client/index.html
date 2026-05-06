@@ -13,7 +13,7 @@
       rel="stylesheet"
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="stylesheet" href="/client/client.css?v=20260408-portal-2" />
+    <link rel="stylesheet" href="/client/client.css?v=20260425-jobs-portal-1" />
   </head>
   <body>
     <div class="client-page">
@@ -279,15 +279,15 @@
             >
               Dashboard
             </button>
+            <button type="button" class="nav-button" data-portal-view="jobs">
+              Jobs
+            </button>
             <button
               type="button"
               class="nav-button"
               data-portal-view="estimates"
             >
               Estimates
-            </button>
-            <button type="button" class="nav-button" data-portal-view="jobs">
-              Jobs
             </button>
             <button type="button" class="nav-button" data-portal-view="billing">
               Billing
@@ -493,8 +493,9 @@
                     <span class="panel-kicker">Jobs</span>
                     <h2>Project timeline and next steps</h2>
                     <p>
-                      See the clearest client-facing update for each active
-                      property, including phase, next step, and target timing.
+                      Open each property below to see its current phase, next
+                      step, shared files, billing context, and the latest client
+                      update in one place.
                     </p>
                   </div>
                   <div
@@ -503,6 +504,14 @@
                   ></div>
                 </div>
                 <div class="panel-body">
+                  <button
+                    type="button"
+                    class="ghost-button jobs-mobile-back-button"
+                    id="jobs-mobile-back-button"
+                    hidden
+                  >
+                    Back to jobs
+                  </button>
                   <div class="stack-list timeline-list" id="jobs-list"></div>
                 </div>
               </section>
@@ -684,10 +693,10 @@
           <nav class="mobile-nav" aria-label="Client navigation">
             <button
               type="button"
-              class="mobile-nav-button is-active"
-              data-portal-view="dashboard"
+              class="mobile-nav-button"
+              data-portal-view="jobs"
             >
-              Home
+              Jobs
             </button>
             <button
               type="button"
@@ -699,9 +708,9 @@
             <button
               type="button"
               class="mobile-nav-button"
-              data-portal-view="jobs"
+              data-portal-view="billing"
             >
-              Jobs
+              Billing
             </button>
             <button
               type="button"
@@ -710,12 +719,13 @@
             >
               Messages
             </button>
-            <a
-              class="mobile-call-button"
-              id="mobile-call-help-button"
-              href="tel:+12677155557"
-              >Call</a
+            <button
+              type="button"
+              class="mobile-nav-button"
+              data-portal-view="account"
             >
+              Account
+            </button>
           </nav>
         </div>
       </div>
@@ -723,6 +733,6 @@
       <div class="toast-stack" id="toast-stack"></div>
     </div>
 
-    <script type="module" src="/client/client.js?v=20260408-portal-2"></script>
+    <script type="module" src="/client/client.js?v=20260425-jobs-portal-1"></script>
   </body>
 </html>
