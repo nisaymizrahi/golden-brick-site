@@ -23,6 +23,15 @@
     "public": ".",
     "headers": [
       {
+        "source": "**/*.@(jpg|jpeg|png|webp|svg)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
         "source": "/staff",
         "headers": [
           {
@@ -118,8 +127,93 @@
     ],
     "redirects": [
       {
+        "source": "/basement-finishing-philadelphia/index.html",
+        "destination": "/basement-finishing-philadelphia/",
+        "type": 301
+      },
+      {
+        "source": "/bathroom-remodel-cost-philadelphia/index.html",
+        "destination": "/bathroom-remodel-cost-philadelphia/",
+        "type": 301
+      },
+      {
+        "source": "/bucks-county-home-renovation-contractor/index.html",
+        "destination": "/bucks-county-home-renovation-contractor/",
+        "type": 301
+      },
+      {
+        "source": "/delaware-county-home-renovation-contractor/index.html",
+        "destination": "/delaware-county-home-renovation-contractor/",
+        "type": 301
+      },
+      {
+        "source": "/fix-and-flip-contractor-philadelphia/index.html",
+        "destination": "/fix-and-flip-contractor-philadelphia/",
+        "type": 301
+      },
+      {
+        "source": "/full-home-renovation-cost-philadelphia/index.html",
+        "destination": "/full-home-renovation-cost-philadelphia/",
+        "type": 301
+      },
+      {
         "source": "/full-renovation-philadelphia/index.html",
-        "destination": "/full-renovation-philadelphia",
+        "destination": "/full-renovation-philadelphia/",
+        "type": 301
+      },
+      {
+        "source": "/home-additions-philadelphia/index.html",
+        "destination": "/home-additions-philadelphia/",
+        "type": 301
+      },
+      {
+        "source": "/how-long-does-a-philadelphia-remodel-take/index.html",
+        "destination": "/how-long-does-a-philadelphia-remodel-take/",
+        "type": 301
+      },
+      {
+        "source": "/investment-property-construction-due-diligence/index.html",
+        "destination": "/investment-property-construction-due-diligence/",
+        "type": 301
+      },
+      {
+        "source": "/kitchen-remodel-cost-philadelphia/index.html",
+        "destination": "/kitchen-remodel-cost-philadelphia/",
+        "type": 301
+      },
+      {
+        "source": "/main-line-home-renovation-contractor/index.html",
+        "destination": "/main-line-home-renovation-contractor/",
+        "type": 301
+      },
+      {
+        "source": "/montgomery-county-home-renovation-contractor/index.html",
+        "destination": "/montgomery-county-home-renovation-contractor/",
+        "type": 301
+      },
+      {
+        "source": "/multifamily-renovation-contractor-philadelphia/index.html",
+        "destination": "/multifamily-renovation-contractor-philadelphia/",
+        "type": 301
+      },
+      {
+        "source": "/permits-for-philadelphia-home-renovations/index.html",
+        "destination": "/permits-for-philadelphia-home-renovations/",
+        "type": 301
+      },
+      {
+        "source": "/philadelphia-home-remodeling-contractor/index.html",
+        "destination": "/philadelphia-home-remodeling-contractor/",
+        "type": 301
+      },
+      {
+        "source": "/philadelphia-rowhome-renovation-guide/index.html",
+        "destination": "/philadelphia-rowhome-renovation-guide/",
+        "type": 301
+      },
+      {
+        "source": "/rental-rehab-contractor-philadelphia/index.html",
+        "destination": "/rental-rehab-contractor-philadelphia/",
         "type": 301
       }
     ],
@@ -245,6 +339,7 @@
       "**/output/**",
       ".DS_Store",
       "**/.DS_Store",
+      "images/**/*.pdf",
       "images/projects/in-progress/**",
       "images/projects/completed/**",
       "images/projects/README.md",

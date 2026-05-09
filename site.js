@@ -2,7 +2,122 @@
   const nav = document.querySelector(".navbar");
   const toggle = document.querySelector(".mobile-menu-toggle");
   const menu = document.querySelector(".nav-links");
+  const serviceLinks = [
+    {
+      label: "Residential Services",
+      href: "/residential.html",
+      description: "Kitchens, baths, additions, basements, and full-home work",
+    },
+    {
+      label: "Kitchen Remodeling",
+      href: "/kitchen-remodeling-philadelphia.html",
+      description: "Layout, cabinetry, flooring, lighting, and finish coordination",
+    },
+    {
+      label: "Bathroom Remodeling",
+      href: "/bathroom-remodeling-philadelphia.html",
+      description: "Tile, showers, tubs, vanities, fixtures, and closeout",
+    },
+    {
+      label: "Full Home Renovation",
+      href: "/full-renovation-philadelphia/",
+      description: "Large scopes, permits, sequencing, and managed execution",
+    },
+    {
+      label: "Full Gut Rehab",
+      href: "/full-gut-rehab-philadelphia.html",
+      description: "Investor and deep residential rehab project support",
+    },
+    {
+      label: "Home Additions",
+      href: "/home-additions-philadelphia/",
+      description: "Rear additions, expansions, structure, and permitting",
+    },
+    {
+      label: "Basement Finishing",
+      href: "/basement-finishing-philadelphia/",
+      description: "Lower-level living space, offices, guest rooms, and build-outs",
+    },
+  ];
+  const socialLinks = [
+    {
+      label: "Instagram",
+      network: "instagram",
+      url: "https://www.instagram.com/goldenbrickc?igsh=eDF5aXJycG03dHkz&utm_source=qr",
+    },
+    {
+      label: "Facebook",
+      network: "facebook",
+      url: "https://www.facebook.com/share/1QMzpcQzGT/?mibextid=wwXIfr",
+    },
+  ];
   window.dataLayer = window.dataLayer || [];
+
+  function ensureServicesDropdown() {
+    if (!menu || menu.querySelector('[data-services-dropdown="true"]')) return;
+
+    const listItem = document.createElement("li");
+    const button = document.createElement("button");
+    const dropdown = document.createElement("div");
+    const dropdownId = "services-menu";
+
+    listItem.className = "nav-dropdown";
+    listItem.dataset.servicesDropdown = "true";
+
+    button.type = "button";
+    button.className = "nav-dropdown-toggle";
+    button.setAttribute("aria-expanded", "false");
+    button.setAttribute("aria-controls", dropdownId);
+    button.textContent = "Services";
+
+    dropdown.className = "nav-dropdown-menu";
+    dropdown.id = dropdownId;
+
+    serviceLinks.forEach(function (service) {
+      const link = document.createElement("a");
+      const label = document.createElement("span");
+      const description = document.createElement("small");
+
+      link.href = service.href;
+      label.textContent = service.label;
+      description.textContent = service.description;
+
+      link.appendChild(label);
+      link.appendChild(description);
+      dropdown.appendChild(link);
+    });
+
+    listItem.appendChild(button);
+    listItem.appendChild(dropdown);
+
+    const residentialItem = menu.querySelector('a[href$="residential.html"]')
+      ? menu.querySelector('a[href$="residential.html"]').closest("li")
+      : null;
+    const investorItem = menu.querySelector('a[href$="investors.html"]')
+      ? menu.querySelector('a[href$="investors.html"]').closest("li")
+      : null;
+    const aboutItem = menu.querySelector('a[href$="about.html"]')
+      ? menu.querySelector('a[href$="about.html"]').closest("li")
+      : null;
+    const quoteItem = menu.querySelector(".btn-nav")
+      ? menu.querySelector(".btn-nav").closest("li")
+      : null;
+
+    if (residentialItem && residentialItem.parentNode === menu) {
+      residentialItem.insertAdjacentElement("afterend", listItem);
+      return;
+    }
+
+    const beforeItem = investorItem || aboutItem || quoteItem;
+    if (beforeItem && beforeItem.parentNode === menu) {
+      menu.insertBefore(listItem, beforeItem);
+      return;
+    }
+
+    menu.appendChild(listItem);
+  }
+
+  ensureServicesDropdown();
 
   function ensureClientPortalNavLink() {
     if (!menu || menu.querySelector('[data-client-portal-link="true"]')) return;
@@ -30,6 +145,30 @@
   }
 
   ensureClientPortalNavLink();
+
+  function ensureFooterSocialLinks() {
+    document.querySelectorAll("footer .footer-left").forEach(function (footerLeft) {
+      if (footerLeft.querySelector(".footer-social-links")) return;
+
+      const socialWrap = document.createElement("div");
+      socialWrap.className = "footer-social-links";
+      socialWrap.setAttribute("aria-label", "Golden Brick social media links");
+
+      socialLinks.forEach(function (social) {
+        const link = document.createElement("a");
+        link.href = social.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.dataset.socialNetwork = social.network;
+        link.textContent = social.label;
+        socialWrap.appendChild(link);
+      });
+
+      footerLeft.appendChild(socialWrap);
+    });
+  }
+
+  ensureFooterSocialLinks();
 
   function trackSiteEvent(name, params) {
     const payload = Object.assign(
@@ -336,12 +475,39 @@
     document.body.classList.toggle("menu-open", isOpen);
   }
 
+  function setDropdownState(dropdownItem, isOpen) {
+    if (!dropdownItem) return;
+
+    const dropdownToggle = dropdownItem.querySelector(".nav-dropdown-toggle");
+    if (!dropdownToggle) return;
+
+    dropdownItem.classList.toggle("is-open", isOpen);
+    dropdownToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  }
+
+  function closeDropdowns() {
+    document.querySelectorAll(".nav-dropdown.is-open").forEach(function (dropdownItem) {
+      setDropdownState(dropdownItem, false);
+    });
+  }
+
   function closeMenu() {
     setMenuState(false);
+    closeDropdowns();
   }
 
   if (toggle && menu) {
     setMenuState(false);
+
+    menu.querySelectorAll(".nav-dropdown-toggle").forEach(function (dropdownToggle) {
+      dropdownToggle.addEventListener("click", function () {
+        const dropdownItem = dropdownToggle.closest(".nav-dropdown");
+        const isOpen = dropdownItem && dropdownItem.classList.contains("is-open");
+
+        closeDropdowns();
+        setDropdownState(dropdownItem, !isOpen);
+      });
+    });
 
     toggle.addEventListener("click", function () {
       setMenuState(!menu.classList.contains("is-open"));
@@ -352,9 +518,14 @@
     });
 
     document.addEventListener("click", function (event) {
-      if (window.innerWidth > 900 || !nav) return;
+      if (!nav) return;
       if (!nav.contains(event.target)) {
-        closeMenu();
+        if (window.innerWidth <= 900) {
+          closeMenu();
+          return;
+        }
+
+        closeDropdowns();
       }
     });
 
@@ -367,6 +538,7 @@
     window.addEventListener("resize", function () {
       if (window.innerWidth > 900) {
         closeMenu();
+        closeDropdowns();
       }
     });
   }
@@ -408,6 +580,15 @@
     }
   });
 
+  document.querySelectorAll(".nav-dropdown").forEach(function (dropdownItem) {
+    const dropdownToggle = dropdownItem.querySelector(".nav-dropdown-toggle");
+    const hasCurrentLink = Boolean(dropdownItem.querySelector('a[aria-current="page"]'));
+
+    if (dropdownToggle) {
+      dropdownToggle.classList.toggle("is-current", hasCurrentLink);
+    }
+  });
+
   const yearTarget = document.querySelector("[data-current-year]");
   if (yearTarget) {
     yearTarget.textContent = String(new Date().getFullYear());
@@ -435,6 +616,15 @@
       trackSiteEvent("email_click", {
         contact_method: "email",
         link_text: label || href,
+      });
+      return;
+    }
+
+    if (link.closest(".footer-social-links")) {
+      trackSiteEvent("social_click", {
+        network: link.dataset.socialNetwork || label.toLowerCase(),
+        link_text: label || href,
+        destination: href,
       });
       return;
     }

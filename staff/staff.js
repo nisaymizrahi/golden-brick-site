@@ -2007,7 +2007,7 @@ function normaliseStaffRole(value) {
 
 function normaliseStaffProfile(user, source = {}) {
   return {
-    uid: safeString(source.uid || user?.uid),
+    uid: safeString(user?.uid || source.uid),
     email: safeString(source.email || user?.email).toLowerCase(),
     displayName: safeString(
       source.displayName || user?.displayName || user?.email,
@@ -4114,9 +4114,10 @@ function renderDrawerMenu() {
     subtitle:
       "Jump to the rest of the CRM without wrestling with the desktop sidebar.",
     items: [
-      { label: "Leads", view: "leads-view" },
+      { label: "Tasks", view: "tasks-view" },
       { label: "Customers", view: "customers-view" },
-      { label: "Staff", view: "staff-view" },
+      { label: "Vendors", view: "vendors-view" },
+      { label: "Admin / More", view: "staff-view" },
     ],
   });
 }

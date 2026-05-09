@@ -65,5 +65,10 @@ node_modules/
 # dotenv environment variables file
 .env
 
+# macOS metadata and private image-folder documents
+.DS_Store
+**/.DS_Store
+images/**/*.pdf
+
 # dataconnect generated files
 .dataconnect
