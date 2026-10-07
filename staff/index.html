@@ -15,7 +15,21 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link
       rel="stylesheet"
-      href="/staff/staff.css?v=20260429-staff-workspace-1"
+      href="/staff/staff.css?v=20260731-payment-receipts-1"
+    />
+    <link
+      rel="stylesheet"
+      href="/staff/payment-receipt.css?v=20260731-payment-receipts-1"
+    />
+    <link rel="stylesheet" href="/staff/staff-workspace.css?v=20260714-5" />
+    <link
+      rel="stylesheet"
+      href="/staff/staff-redesign.css?v=20260727-mobile-records-1"
+    />
+    <link
+      id="client-portal-workspace-styles"
+      rel="stylesheet"
+      href="/staff/client-portal-workspace.css?v=20260731-client-preview-1"
     />
   </head>
   <body>
@@ -83,34 +97,64 @@
           </div>
 
           <nav class="sidebar-nav" aria-label="Staff navigation">
-            <button
-              type="button"
-              class="nav-button is-active"
-              data-view="today-view"
-            >
-              Dashboard
-            </button>
-            <button type="button" class="nav-button" data-view="leads-view">
-              Leads
-            </button>
-            <button type="button" class="nav-button" data-view="jobs-view">
-              Jobs
-            </button>
-            <button type="button" class="nav-button" data-view="calendar-view">
-              Calendar
-            </button>
-            <button type="button" class="nav-button" data-view="customers-view">
-              Customers
-            </button>
-            <button type="button" class="nav-button" data-view="vendors-view">
-              Vendors
-            </button>
-            <button type="button" class="nav-button" data-view="tasks-view">
-              Tasks
-            </button>
-            <button type="button" class="nav-button" data-view="staff-view">
-              Admin / More
-            </button>
+            <div class="nav-group">
+              <span class="nav-group-label">Work</span>
+              <button
+                type="button"
+                class="nav-button is-active"
+                data-view="today-view"
+              >
+                Today
+              </button>
+              <button type="button" class="nav-button" data-view="tasks-view">
+                My Tasks
+              </button>
+              <button
+                type="button"
+                class="nav-button"
+                data-view="calendar-view"
+              >
+                Calendar
+              </button>
+            </div>
+
+            <div class="nav-group">
+              <span class="nav-group-label">Business</span>
+              <button type="button" class="nav-button" data-view="leads-view">
+                Pipeline
+              </button>
+              <button type="button" class="nav-button" data-view="jobs-view">
+                Projects
+              </button>
+              <button
+                type="button"
+                class="nav-button"
+                data-view="customers-view"
+              >
+                Investors &amp; Clients
+              </button>
+            </div>
+
+            <div class="nav-group">
+              <span class="nav-group-label">Operations</span>
+              <button type="button" class="nav-button" data-view="vendors-view">
+                Vendors
+              </button>
+            </div>
+
+            <div class="nav-group admin-only">
+              <span class="nav-group-label">Administration</span>
+              <button
+                type="button"
+                class="nav-button"
+                data-view="site-projects-view"
+              >
+                Website Projects
+              </button>
+              <button type="button" class="nav-button" data-view="staff-view">
+                Team &amp; Settings
+              </button>
+            </div>
           </nav>
 
           <section class="sidebar-card">
@@ -138,6 +182,24 @@
               </p>
             </div>
             <div class="workspace-tools">
+              <button
+                type="button"
+                class="ghost-button workspace-jump-button"
+                id="workspace-jump-button"
+                aria-haspopup="dialog"
+                aria-controls="workspace-jump-dialog"
+                aria-expanded="false"
+              >
+                Jump to
+                <span class="keyboard-hint" aria-hidden="true">⌘K</span>
+              </button>
+              <button
+                type="button"
+                class="primary-button workspace-create-button"
+                id="workspace-create-button"
+              >
+                New
+              </button>
               <div class="segmented-control" id="today-scope-toggle" hidden>
                 <button
                   type="button"
@@ -202,60 +264,64 @@
           <section class="view is-active" id="today-view">
             <div class="metrics-strip" id="today-metrics"></div>
 
-            <div class="today-grid">
-              <section class="panel today-panel">
+            <div class="today-workspace">
+              <section class="panel today-priority-panel">
                 <div class="panel-head">
                   <div>
-                    <span class="panel-kicker">Tasks</span>
-                    <h2>Overdue</h2>
+                    <span class="panel-kicker">Priority queue</span>
+                    <h2>Needs action</h2>
+                    <p>Work the most time-sensitive items before opening the full pipeline.</p>
                   </div>
                 </div>
-                <div class="panel-body">
-                  <div class="stack-list" id="today-overdue-list"></div>
+                <div class="panel-body today-priority-list">
+                  <section class="today-queue-section is-urgent">
+                    <div class="today-queue-heading">
+                      <div>
+                        <span>Tasks</span>
+                        <h3>Overdue</h3>
+                      </div>
+                    </div>
+                    <div class="stack-list" id="today-overdue-list"></div>
+                  </section>
+
+                  <section class="today-queue-section">
+                    <div class="today-queue-heading">
+                      <div>
+                        <span>Tasks</span>
+                        <h3>Due today</h3>
+                      </div>
+                    </div>
+                    <div class="stack-list" id="today-due-today-list"></div>
+                  </section>
+
+                  <section class="today-queue-section">
+                    <div class="today-queue-heading">
+                      <div>
+                        <span>Pipeline</span>
+                        <h3>New leads</h3>
+                      </div>
+                    </div>
+                    <div class="stack-list" id="today-new-leads-list"></div>
+                  </section>
+
+                  <section class="today-queue-section">
+                    <div class="today-queue-heading">
+                      <div>
+                        <span>Estimates</span>
+                        <h3>Needs review</h3>
+                      </div>
+                    </div>
+                    <div class="stack-list" id="today-estimates-list"></div>
+                  </section>
                 </div>
               </section>
 
-              <section class="panel today-panel">
+              <section class="panel today-project-panel">
                 <div class="panel-head">
                   <div>
-                    <span class="panel-kicker">Tasks</span>
-                    <h2>Due today</h2>
-                  </div>
-                </div>
-                <div class="panel-body">
-                  <div class="stack-list" id="today-due-today-list"></div>
-                </div>
-              </section>
-
-              <section class="panel today-panel">
-                <div class="panel-head">
-                  <div>
-                    <span class="panel-kicker">Leads</span>
-                    <h2>New unworked leads</h2>
-                  </div>
-                </div>
-                <div class="panel-body">
-                  <div class="stack-list" id="today-new-leads-list"></div>
-                </div>
-              </section>
-
-              <section class="panel today-panel">
-                <div class="panel-head">
-                  <div>
-                    <span class="panel-kicker">Estimates</span>
-                    <h2>Needs review</h2>
-                  </div>
-                </div>
-                <div class="panel-body">
-                  <div class="stack-list" id="today-estimates-list"></div>
-                </div>
-              </section>
-
-              <section class="panel today-panel today-panel-wide">
-                <div class="panel-head">
-                  <div>
-                    <span class="panel-kicker">Jobs</span>
-                    <h2>Active jobs needing attention</h2>
+                    <span class="panel-kicker">Projects</span>
+                    <h2>Needs attention</h2>
+                    <p>Active properties with a next step, balance, or delivery issue to resolve.</p>
                   </div>
                 </div>
                 <div class="panel-body">
@@ -329,7 +395,7 @@
                 </div>
 
                 <div class="record-shell" id="task-detail-shell" hidden>
-                  <form class="stack-form" id="task-form">
+                  <form class="stack-form" id="task-form" novalidate>
                     <div class="form-grid two">
                       <label>
                         <span>Task title</span>
@@ -341,7 +407,7 @@
                       </label>
                     </div>
 
-                    <div class="form-grid three">
+                    <div class="form-grid two">
                       <label>
                         <span>Status</span>
                         <select id="task-status-select">
@@ -359,11 +425,80 @@
                           <option value="low">Low</option>
                         </select>
                       </label>
-                      <label>
-                        <span>Due date</span>
-                        <input type="datetime-local" id="task-due-input" />
-                      </label>
                     </div>
+
+                    <fieldset
+                      class="task-schedule-picker"
+                      data-task-schedule-picker="main"
+                    >
+                      <legend>Follow-up date &amp; time</legend>
+                      <div class="task-schedule-fields">
+                        <label>
+                          <span>Date</span>
+                          <div class="task-date-control">
+                            <input type="date" id="task-due-date" />
+                            <button
+                              type="button"
+                              class="ghost-button task-calendar-button"
+                              data-task-calendar-target="main"
+                            >
+                              Open calendar
+                            </button>
+                          </div>
+                        </label>
+                        <label>
+                          <span>Time</span>
+                          <select id="task-due-time" data-task-time-select>
+                            <option value="09:00">9:00 AM</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div
+                        class="task-schedule-shortcuts"
+                        aria-label="Follow-up date shortcuts"
+                      >
+                        <button
+                          type="button"
+                          data-task-schedule-target="main"
+                          data-task-schedule-preset="later_today"
+                        >
+                          Later today
+                        </button>
+                        <button
+                          type="button"
+                          data-task-schedule-target="main"
+                          data-task-schedule-preset="tomorrow"
+                        >
+                          Tomorrow 9 AM
+                        </button>
+                        <button
+                          type="button"
+                          data-task-schedule-target="main"
+                          data-task-schedule-preset="next_workday"
+                        >
+                          Next workday
+                        </button>
+                        <button
+                          type="button"
+                          data-task-schedule-target="main"
+                          data-task-schedule-preset="next_week"
+                        >
+                          Next week
+                        </button>
+                        <button
+                          type="button"
+                          data-task-schedule-target="main"
+                          data-task-schedule-preset="clear"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <p
+                        class="task-schedule-preview"
+                        id="task-due-preview"
+                        aria-live="polite"
+                      ></p>
+                    </fieldset>
 
                     <div class="form-grid two">
                       <label>
@@ -566,7 +701,7 @@
                     </button>
                     <button
                       type="button"
-                      class="secondary-button admin-only"
+                      class="secondary-button"
                       id="estimate-ai-button"
                     >
                       Draft estimate
@@ -739,9 +874,16 @@
                             <textarea
                               id="lead-notes-input"
                               rows="5"
-                              placeholder="Scope, investment goals, timing, occupancy, access, pricing posture, and fit notes."
+                              placeholder="Scope, investment goals, timing, occupancy, access, budget direction, and fit notes."
                             ></textarea>
                           </label>
+
+                          <div class="form-save-bar">
+                            <span>Save after changing lead details.</span>
+                            <button type="submit" class="primary-button">
+                              Save lead changes
+                            </button>
+                          </div>
                         </form>
 
                         <div class="lead-overview-rail">
@@ -804,7 +946,7 @@
                           <textarea
                             id="lead-planning-notes-input"
                             rows="8"
-                            placeholder="Internal plan for this lead: sequencing, pricing posture, deal considerations, scope risks, follow-up approach, and team notes."
+                            placeholder="Internal plan for this lead: sequencing, budget direction, deal considerations, scope risks, follow-up approach, and team notes."
                           ></textarea>
                         </label>
                       </section>
@@ -819,24 +961,24 @@
                           <p>
                             Build one polished working proposal per lead, with
                             Golden Brick's standard terms always included before
-                            you download the client-facing PDF.
+                            you download the branded PDF.
                           </p>
                         </div>
 
                         <section
                           class="estimate-share-panel"
                           aria-labelledby="estimate-share-heading"
+                          id="estimate-share-panel"
                         >
                           <div class="subpanel-head subpanel-head-split">
                             <div>
                               <h4 id="estimate-share-heading">
-                                Client share link
+                                Review &amp; publish
                               </h4>
                               <p>
-                                Generate a private estimate page the client can
-                                review, agree to terms, and sign. A completed
-                                signature files the signed agreement straight
-                                into the job documents.
+                                Save the estimate currently shown for this lead,
+                                then publish that exact saved version to the
+                                connected client.
                               </p>
                             </div>
                             <span
@@ -845,12 +987,38 @@
                               >Not shared</span
                             >
                           </div>
+                          <div class="estimate-workflow-status">
+                            <div>
+                              <span>Estimate belongs to</span>
+                              <strong id="estimate-workflow-identity"
+                                >Select a lead</strong
+                              >
+                            </div>
+                            <span
+                              class="estimate-save-state"
+                              id="estimate-save-state"
+                              data-state="loading"
+                              aria-live="polite"
+                              >Loading</span
+                            >
+                          </div>
+                          <p
+                            class="estimate-workflow-message"
+                            id="estimate-workflow-message"
+                            aria-live="polite"
+                          >
+                            Loading the draft saved for this lead.
+                          </p>
+                          <div
+                            class="estimate-publish-preflight"
+                            id="estimate-publish-preflight"
+                            aria-live="polite"
+                          ></div>
                           <div
                             class="estimate-share-meta"
                             id="estimate-share-meta"
                           >
-                            Save the estimate first, then create the secure
-                            client link.
+                            No client version has been published for this lead.
                           </div>
                           <label class="estimate-share-link-field">
                             <span>Client link</span>
@@ -867,7 +1035,7 @@
                               class="secondary-button admin-only"
                               id="estimate-share-create-button"
                             >
-                              Create share link
+                              Save &amp; publish exact version
                             </button>
                             <button
                               type="button"
@@ -892,10 +1060,10 @@
                         >
                           <div class="subpanel-head compact">
                             <h4 id="lead-estimate-client-heading">
-                              Client sees
+                              Published records
                             </h4>
                             <p>
-                              Track every client-facing estimate record for this
+                              Track every published estimate record for this
                               lead, including drafts, live signature requests,
                               and signed or removed versions.
                             </p>
@@ -913,13 +1081,6 @@
                         <div class="inline-actions">
                           <button
                             type="button"
-                            class="ghost-button admin-only"
-                            id="estimate-add-line-button"
-                          >
-                            Add line item
-                          </button>
-                          <button
-                            type="button"
                             class="ghost-button"
                             id="estimate-copy-button"
                           >
@@ -934,7 +1095,7 @@
                           </button>
                         </div>
                         <p class="estimate-editor-helper">
-                          Download PDF creates the client-ready proposal file
+                          Download PDF creates the polished proposal file
                           with Golden Brick branding, standard terms, and your
                           project-specific scope notes.
                         </p>
@@ -953,9 +1114,62 @@
                           <textarea
                             id="estimate-body"
                             rows="7"
-                            placeholder="Scope, pricing posture, and next step."
+                            placeholder="Scope, budget direction, and next step."
                           ></textarea>
                         </label>
+
+                        <section
+                          class="subpanel estimate-agreement-detail-panel"
+                          aria-labelledby="estimate-agreement-detail-heading"
+                        >
+                          <div class="subpanel-head compact">
+                            <h4 id="estimate-agreement-detail-heading">
+                              Agreement details
+                            </h4>
+                            <p>
+                              Fill these in before sending a signature link so
+                              the estimate can become a cleaner Pennsylvania
+                              home improvement agreement record.
+                            </p>
+                          </div>
+                          <div class="form-grid two">
+                            <label>
+                              <span>Approximate start date</span>
+                              <input type="date" id="estimate-start-date" />
+                            </label>
+                            <label>
+                              <span>Approximate completion date</span>
+                              <input
+                                type="date"
+                                id="estimate-completion-date"
+                              />
+                            </label>
+                          </div>
+                          <label>
+                            <span>Deposit / payment terms</span>
+                            <textarea
+                              id="estimate-payment-schedule"
+                              rows="4"
+                              placeholder="Leave blank for the standard no-deposit disclosure, or list the exact deposit and payment milestones for this estimate."
+                            ></textarea>
+                          </label>
+                          <label>
+                            <span>Special-order material advance</span>
+                            <textarea
+                              id="estimate-special-order-materials"
+                              rows="3"
+                              placeholder="Leave blank if there is no special-order material advance, or list the material and separate advance amount."
+                            ></textarea>
+                          </label>
+                          <label>
+                            <span>Known subcontractors at signing</span>
+                            <textarea
+                              id="estimate-known-subcontractors"
+                              rows="3"
+                              placeholder="Name, address, and phone for any subcontractor known before signing. Leave blank if none are known yet."
+                            ></textarea>
+                          </label>
+                        </section>
 
                         <section
                           class="estimate-standard-terms-panel"
@@ -978,7 +1192,7 @@
                         </section>
 
                         <label>
-                          <span>Project-specific assumptions / exclusions</span>
+                          <span>Project notes and exclusions</span>
                           <textarea
                             id="estimate-assumptions"
                             rows="5"
@@ -988,8 +1202,17 @@
 
                         <div class="line-items-panel">
                           <div class="line-items-head">
-                            <span>Line items</span>
-                            <strong id="estimate-subtotal">$0.00</strong>
+                            <div>
+                              <span>Line items</span>
+                              <strong id="estimate-subtotal">$0.00</strong>
+                            </div>
+                            <button
+                              type="button"
+                              class="ghost-button estimate-line-add-button"
+                              id="estimate-add-line-button"
+                            >
+                              Add line item
+                            </button>
                           </div>
                           <div
                             class="line-items-list"
@@ -997,10 +1220,35 @@
                           ></div>
                         </div>
 
+                        <div class="estimate-mobile-footer">
+                          <button
+                            type="button"
+                            class="ghost-button"
+                            id="estimate-mobile-add-line-button"
+                          >
+                            Add line
+                          </button>
+                          <button
+                            type="submit"
+                            class="primary-button"
+                            data-estimate-save-button
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            class="secondary-button"
+                            id="estimate-mobile-download-button"
+                          >
+                            PDF
+                          </button>
+                        </div>
+
                         <div class="inline-actions">
                           <button
                             type="submit"
-                            class="primary-button admin-only"
+                            class="primary-button"
+                            data-estimate-save-button
                           >
                             Save estimate
                           </button>
@@ -1008,13 +1256,22 @@
                       </form>
 
                       <section class="subpanel estimate-preview-panel">
-                        <div class="subpanel-head">
-                          <h3>Proposal preview</h3>
-                          <p>
-                            Review the polished client-facing proposal here
-                            before downloading the PDF you plan to send to the
-                            client.
-                          </p>
+                        <div class="subpanel-head subpanel-head-split">
+                          <div>
+                            <h3>Proposal preview</h3>
+                            <p>
+                              Review the polished proposal before
+                              downloading the PDF.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            class="ghost-button estimate-preview-toggle"
+                            id="estimate-preview-toggle"
+                            aria-expanded="true"
+                          >
+                            Hide preview
+                          </button>
                         </div>
                         <div
                           class="estimate-preview"
@@ -1126,7 +1383,7 @@
                               type="checkbox"
                               id="lead-document-client-visible"
                             />
-                            <span>Visible in client portal</span>
+                            <span>Visible in secure portal</span>
                           </label>
                           <button type="submit" class="primary-button">
                             Save document
@@ -1363,10 +1620,10 @@
                   <section class="subpanel customer-portal-panel">
                     <div class="subpanel-head subpanel-head-split">
                       <div>
-                        <h3>Client portal team access</h3>
+                        <h3>Secure portal team access</h3>
                         <p>
                           Invite multiple approved customer contacts into the
-                          same client portal account so owners, partners, and
+                          same secure portal account so owners, partners, and
                           read-only teammates can each keep their own login,
                           role, and activity history.
                         </p>
@@ -1481,9 +1738,9 @@
                           <div class="subpanel-head compact">
                             <h4>Estimates</h4>
                             <p>
-                              Publish a signable estimate version, replace old
-                              unsigned versions, or archive what the client no
-                              longer needs to see.
+                              Open the correct lead to review and publish its
+                              exact estimate. Versions without both project
+                              dates remain review-only until republished.
                             </p>
                           </div>
                           <div
@@ -1600,7 +1857,7 @@
                             <textarea
                               id="customer-portal-message-body"
                               rows="5"
-                              placeholder="Write a clear client-facing update, answer, or next-step note."
+                              placeholder="Write a clear shared update, answer, or next-step note."
                             ></textarea>
                           </label>
                           <button type="submit" class="primary-button">
@@ -1688,7 +1945,7 @@
                             type="checkbox"
                             id="customer-document-client-visible"
                           />
-                          <span>Visible in client portal</span>
+                          <span>Visible in secure portal</span>
                         </label>
                         <button type="submit" class="primary-button">
                           Save document
@@ -1708,7 +1965,11 @@
                     </div>
                   </section>
 
-                  <form class="stack-form subpanel" id="customer-task-form">
+                  <form
+                    class="stack-form subpanel"
+                    id="customer-task-form"
+                    novalidate
+                  >
                     <div class="subpanel-head">
                       <h3>Create customer task</h3>
                       <p>
@@ -1724,11 +1985,7 @@
                         placeholder="Review next property, schedule scope walk, update pricing"
                       />
                     </label>
-                    <div class="form-grid three">
-                      <label>
-                        <span>Due date</span>
-                        <input type="datetime-local" id="customer-task-due" />
-                      </label>
+                    <div class="form-grid two">
                       <label>
                         <span>Priority</span>
                         <select id="customer-task-priority">
@@ -1742,6 +1999,81 @@
                         <select id="customer-task-assignee"></select>
                       </label>
                     </div>
+                    <fieldset
+                      class="task-schedule-picker"
+                      data-task-schedule-picker="customer"
+                    >
+                      <legend>Follow-up date &amp; time</legend>
+                      <div class="task-schedule-fields">
+                        <label>
+                          <span>Date</span>
+                          <div class="task-date-control">
+                            <input type="date" id="customer-task-due-date" />
+                            <button
+                              type="button"
+                              class="ghost-button task-calendar-button"
+                              data-task-calendar-target="customer"
+                            >
+                              Open calendar
+                            </button>
+                          </div>
+                        </label>
+                        <label>
+                          <span>Time</span>
+                          <select
+                            id="customer-task-due-time"
+                            data-task-time-select
+                          >
+                            <option value="09:00">9:00 AM</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div
+                        class="task-schedule-shortcuts"
+                        aria-label="Follow-up date shortcuts"
+                      >
+                        <button
+                          type="button"
+                          data-task-schedule-target="customer"
+                          data-task-schedule-preset="later_today"
+                        >
+                          Later today
+                        </button>
+                        <button
+                          type="button"
+                          data-task-schedule-target="customer"
+                          data-task-schedule-preset="tomorrow"
+                        >
+                          Tomorrow 9 AM
+                        </button>
+                        <button
+                          type="button"
+                          data-task-schedule-target="customer"
+                          data-task-schedule-preset="next_workday"
+                        >
+                          Next workday
+                        </button>
+                        <button
+                          type="button"
+                          data-task-schedule-target="customer"
+                          data-task-schedule-preset="next_week"
+                        >
+                          Next week
+                        </button>
+                        <button
+                          type="button"
+                          data-task-schedule-target="customer"
+                          data-task-schedule-preset="clear"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <p
+                        class="task-schedule-preview"
+                        id="customer-task-due-preview"
+                        aria-live="polite"
+                      ></p>
+                    </fieldset>
                     <button type="submit" class="primary-button">
                       Create task
                     </button>
@@ -1755,11 +2087,11 @@
             <div class="metrics-strip" id="job-metrics"></div>
 
             <div class="workspace-grid job-workspace-grid">
-              <section class="panel list-panel job-list-panel">
+              <section class="panel list-panel job-list-panel project-browser-panel">
                 <div class="panel-head">
                   <div>
                     <span class="panel-kicker">Operations</span>
-                    <h2>Job command center</h2>
+                    <h2 id="job-list-heading">Active projects</h2>
                   </div>
                   <div class="toolbar">
                     <input
@@ -1767,11 +2099,28 @@
                       id="job-search-input"
                       placeholder="Search client, address, project type"
                     />
-                    <select id="job-status-filter">
-                      <option value="active">Open jobs</option>
-                      <option value="completed">Finished jobs</option>
-                      <option value="all">All visible jobs</option>
-                    </select>
+                    <div
+                      class="project-status-tabs"
+                      role="group"
+                      aria-label="Choose active or completed projects"
+                    >
+                      <button
+                        type="button"
+                        class="project-status-tab is-active"
+                        data-job-status-filter="active"
+                        aria-pressed="true"
+                      >
+                        Active jobs
+                      </button>
+                      <button
+                        type="button"
+                        class="project-status-tab"
+                        data-job-status-filter="completed"
+                        aria-pressed="false"
+                      >
+                        Completed jobs
+                      </button>
+                    </div>
                     <button
                       type="button"
                       class="secondary-button admin-only"
@@ -1821,9 +2170,25 @@
                       </p>
                     </div>
                   </div>
-                  <span class="status-pill neutral" id="job-record-badge"
-                    >No job selected</span
-                  >
+                  <div class="job-workspace-controls">
+                    <label class="job-project-switcher">
+                      <span>Switch project</span>
+                      <select id="job-project-switcher-select"></select>
+                    </label>
+                    <label class="job-status-control admin-only">
+                      <span>Change status</span>
+                      <select id="job-status-select">
+                        <option value="planning">Planning</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="on_hold">On Hold</option>
+                        <option value="completed">Completed</option>
+                      </select>
+                      <small>Saves immediately</small>
+                    </label>
+                    <span class="status-pill neutral" id="job-record-badge"
+                      >No job selected</span
+                    >
+                  </div>
                 </div>
 
                 <div class="empty-state" id="job-record-empty">
@@ -1855,52 +2220,73 @@
                     <button
                       type="button"
                       class="secondary-button"
-                      id="job-add-change-order-button"
+                      id="job-add-calendar-button"
                     >
-                      Add change order
+                      Add calendar event
                     </button>
-                    <button
-                      type="button"
-                      class="secondary-button admin-only"
-                      id="job-add-payment-button"
-                    >
-                      Record payment
-                    </button>
-                    <button
-                      type="button"
-                      class="secondary-button admin-only"
-                      id="job-add-invoice-button"
-                    >
-                      New invoice
-                    </button>
-                    <button
-                      type="button"
-                      class="secondary-button"
-                      id="job-add-document-button"
-                    >
-                      Add document
-                    </button>
-                    <button
-                      type="button"
-                      class="ghost-button"
-                      id="job-add-note-button"
-                    >
-                      Add note
-                    </button>
-                    <button
-                      type="button"
-                      class="ghost-button"
-                      id="job-open-lead-button"
-                    >
-                      Open linked lead
-                    </button>
-                    <button
-                      type="button"
-                      class="secondary-button"
-                      id="job-open-estimate-button"
-                    >
-                      View estimate
-                    </button>
+                    <details class="record-more-menu">
+                      <summary aria-label="More project actions">
+                        More actions
+                      </summary>
+                      <div class="record-more-menu-panel">
+                        <button
+                          type="button"
+                          class="secondary-button"
+                          id="job-add-change-order-button"
+                        >
+                          Add change order
+                        </button>
+                        <button
+                          type="button"
+                          class="secondary-button admin-only"
+                          id="job-add-payment-button"
+                        >
+                          Record payment
+                        </button>
+                        <button
+                          type="button"
+                          class="secondary-button admin-only"
+                          id="job-add-invoice-button"
+                        >
+                          New invoice
+                        </button>
+                        <button
+                          type="button"
+                          class="secondary-button"
+                          id="job-add-document-button"
+                        >
+                          Add document
+                        </button>
+                        <button
+                          type="button"
+                          class="ghost-button"
+                          id="job-add-note-button"
+                        >
+                          Add note
+                        </button>
+                        <button
+                          type="button"
+                          class="ghost-button"
+                          id="job-open-lead-button"
+                        >
+                          Open linked lead
+                        </button>
+                        <button
+                          type="button"
+                          class="secondary-button"
+                          id="job-open-estimate-button"
+                        >
+                          View estimate
+                        </button>
+                        <button
+                          type="button"
+                          class="primary-button job-complete-button admin-only"
+                          id="job-complete-button"
+                        >
+                          Mark job complete
+                        </button>
+                      </div>
+                    </details>
                   </div>
 
                   <div
@@ -1911,64 +2297,208 @@
 
                   <div
                     class="tab-strip job-tab-strip"
-                    aria-label="Job record tabs"
+                    aria-label="Project workspace areas"
                   >
-                    <button
-                      type="button"
-                      class="tab-button"
-                      data-job-tab="overview"
-                    >
-                      Overview
-                    </button>
-                    <button
-                      type="button"
-                      class="tab-button"
-                      data-job-tab="estimate"
-                    >
-                      Estimate
-                    </button>
-                    <button
-                      type="button"
-                      class="tab-button is-active"
-                      data-job-tab="financials"
-                    >
-                      Financials
-                    </button>
-                    <button
-                      type="button"
-                      class="tab-button"
-                      data-job-tab="invoices"
-                    >
-                      Invoices
-                    </button>
-                    <button
-                      type="button"
-                      class="tab-button"
-                      data-job-tab="scope"
-                    >
-                      Scope
-                    </button>
-                    <button
-                      type="button"
-                      class="tab-button"
-                      data-job-tab="team"
-                    >
-                      Team &amp; Commission
-                    </button>
-                    <button
-                      type="button"
-                      class="tab-button"
-                      data-job-tab="history"
-                    >
-                      History
-                    </button>
-                    <button
-                      type="button"
-                      class="tab-button"
-                      data-job-tab="documents"
-                    >
-                      Documents
-                    </button>
+                    <div class="job-area-group" data-job-area="overview">
+                      <button
+                        type="button"
+                        class="tab-button"
+                        data-job-tab="overview"
+                      >
+                        Overview
+                      </button>
+                    </div>
+
+                    <div class="job-area-group" data-job-area="work">
+                      <button
+                        type="button"
+                        class="tab-button is-active"
+                        data-job-tab="work"
+                      >
+                        Work &amp; Schedule
+                      </button>
+                      <details class="job-area-more">
+                        <summary aria-label="More work and schedule areas">+</summary>
+                        <div class="job-area-menu">
+                          <button
+                            type="button"
+                            class="tab-button"
+                            data-job-tab="team"
+                          >
+                            Team &amp; Payouts
+                          </button>
+                        </div>
+                      </details>
+                    </div>
+
+                    <div class="job-area-group" data-job-area="scope">
+                      <button
+                        type="button"
+                        class="tab-button"
+                        data-job-tab="scope"
+                      >
+                        Scope &amp; Estimate
+                      </button>
+                      <details class="job-area-more">
+                        <summary aria-label="More scope and estimate areas">+</summary>
+                        <div class="job-area-menu">
+                          <button
+                            type="button"
+                            class="tab-button"
+                            data-job-tab="estimate"
+                          >
+                            Original Estimate
+                          </button>
+                        </div>
+                      </details>
+                    </div>
+
+                    <div class="job-area-group" data-job-area="financials">
+                      <button
+                        type="button"
+                        class="tab-button"
+                        data-job-tab="financials"
+                      >
+                        Financials
+                      </button>
+                      <details class="job-area-more">
+                        <summary aria-label="More financial areas">+</summary>
+                        <div class="job-area-menu">
+                          <button
+                            type="button"
+                            class="tab-button"
+                            data-job-tab="invoices"
+                          >
+                            Invoices &amp; Receipts
+                          </button>
+                        </div>
+                      </details>
+                    </div>
+
+                    <div class="job-area-group" data-job-area="files">
+                      <button
+                        type="button"
+                        class="tab-button"
+                        data-job-tab="documents"
+                      >
+                        Files &amp; Activity
+                      </button>
+                      <details class="job-area-more">
+                        <summary aria-label="More file and activity areas">+</summary>
+                        <div class="job-area-menu">
+                          <button
+                            type="button"
+                            class="tab-button"
+                            data-job-tab="history"
+                          >
+                            Notes &amp; History
+                          </button>
+                        </div>
+                      </details>
+                    </div>
+                  </div>
+
+                  <div class="tab-pane is-active" id="job-tab-work">
+                    <div class="job-work-mobile-stack">
+                      <section class="subpanel job-work-panel">
+                        <div class="subpanel-head subpanel-head-split">
+                          <div>
+                            <h3>Work today</h3>
+                            <p>
+                              Update the client, log the next step, add costs,
+                              and keep the job moving from one mobile-first
+                              workspace.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            class="secondary-button"
+                            data-command="job-update-client"
+                          >
+                            Update client
+                          </button>
+                        </div>
+                        <div
+                          class="summary-grid job-work-summary"
+                          id="job-work-summary"
+                        ></div>
+                        <div class="job-work-action-grid">
+                          <button
+                            type="button"
+                            class="primary-button"
+                            data-command="start-expense-draft"
+                          >
+                            Add expense
+                          </button>
+                          <button
+                            type="button"
+                            class="secondary-button"
+                            data-command="log-communication"
+                          >
+                            Log communication
+                          </button>
+                          <button
+                            type="button"
+                            class="secondary-button"
+                            data-command="job-create-task"
+                          >
+                            Add task
+                          </button>
+                          <button
+                            type="button"
+                            class="ghost-button"
+                            data-command="job-add-document"
+                          >
+                            Add document
+                          </button>
+                        </div>
+                      </section>
+
+                      <section class="subpanel">
+                        <div class="subpanel-head subpanel-head-split">
+                          <div>
+                            <h3>Open tasks</h3>
+                            <p>Current job tasks assigned to the team.</p>
+                          </div>
+                          <button
+                            type="button"
+                            class="secondary-button"
+                            data-command="job-create-task"
+                          >
+                            Add task
+                          </button>
+                        </div>
+                        <div class="stack-list" id="job-work-task-list"></div>
+                      </section>
+
+                      <section class="subpanel">
+                        <div class="subpanel-head subpanel-head-split">
+                          <div>
+                            <h3>Schedule</h3>
+                            <p>Upcoming job events and client-visible dates.</p>
+                          </div>
+                          <button
+                            type="button"
+                            class="secondary-button"
+                            id="job-work-calendar-button"
+                          >
+                            Add event
+                          </button>
+                        </div>
+                        <div class="stack-list" id="job-work-schedule-list"></div>
+                      </section>
+
+                      <section class="subpanel">
+                        <div class="subpanel-head">
+                          <h3>Quick financials</h3>
+                          <p>Contract, payments, expenses, and remaining balance.</p>
+                        </div>
+                        <div
+                          class="finance-summary finance-summary-compact"
+                          id="job-work-financials"
+                        ></div>
+                      </section>
+                    </div>
                   </div>
 
                   <div class="tab-pane" id="job-tab-overview">
@@ -1977,21 +2507,12 @@
                         <div class="subpanel-head">
                           <h3>Job overview</h3>
                           <p>
-                            Keep the base contract, job status, lead owner, and
-                            linked records in one operational setup panel.
+                            Keep the base contract, lead owner, and linked
+                            records in one operational setup panel.
                           </p>
                         </div>
 
-                        <div class="form-grid three">
-                          <label>
-                            <span>Job status</span>
-                            <select id="job-status-select">
-                              <option value="planning">Planning</option>
-                              <option value="in_progress">In Progress</option>
-                              <option value="on_hold">On Hold</option>
-                              <option value="completed">Completed</option>
-                            </select>
-                          </label>
+                        <div class="form-grid two">
                           <label>
                             <span>Base contract value</span>
                             <input
@@ -2076,7 +2597,7 @@
 
                         <section class="client-status-editor">
                           <div class="subpanel-head compact">
-                            <h4>Client-facing portal update</h4>
+                            <h4>Shared portal update</h4>
                             <p>
                               These fields shape what the customer sees on the
                               portal job card and dashboard.
@@ -2119,10 +2640,17 @@
                             <textarea
                               id="job-shared-status-note-input"
                               rows="4"
-                              placeholder="Short client-facing update that explains where the project stands and what comes next."
+                              placeholder="Short shared update that explains where the project stands and what comes next."
                             ></textarea>
                           </label>
                         </section>
+
+                        <div class="form-save-bar">
+                          <span>Save after changing project details.</span>
+                          <button type="submit" class="primary-button">
+                            Save project changes
+                          </button>
+                        </div>
                       </form>
 
                       <div class="job-overview-rail">
@@ -2390,7 +2918,7 @@
                               <input type="date" id="payment-date" />
                             </label>
                           </div>
-                          <div class="form-grid two">
+                          <div class="form-grid three">
                             <label>
                               <span>Type</span>
                               <select id="payment-type">
@@ -2408,6 +2936,14 @@
                                 placeholder="ACH, check, cash, wire"
                               />
                             </label>
+                            <label>
+                              <span>Reference</span>
+                              <input
+                                type="text"
+                                id="payment-reference"
+                                placeholder="Check number or transaction ID"
+                              />
+                            </label>
                           </div>
                           <label>
                             <span>Payment note</span>
@@ -2417,6 +2953,44 @@
                               placeholder="Deposit, draw, final balance, or payment details."
                             ></textarea>
                           </label>
+                          <div class="payment-receipt-options">
+                            <div class="payment-receipt-options-head">
+                              <div>
+                                <strong>Receipt options</strong>
+                                <p>
+                                  Create a branded PDF now or share it through
+                                  the linked client portal.
+                                </p>
+                              </div>
+                            </div>
+                            <div class="payment-receipt-options-grid">
+                              <label class="payment-receipt-option">
+                                <input
+                                  type="checkbox"
+                                  id="payment-generate-receipt"
+                                  checked
+                                />
+                                <span class="payment-receipt-option-copy">
+                                  <strong>Generate receipt</strong>
+                                  <small>Download the PDF after recording.</small>
+                                </span>
+                              </label>
+                              <label class="payment-receipt-option">
+                                <input
+                                  type="checkbox"
+                                  id="payment-send-receipt"
+                                />
+                                <span class="payment-receipt-option-copy">
+                                  <strong>Send to client</strong>
+                                  <small>Save it to Documents and share it in the secure portal.</small>
+                                </span>
+                              </label>
+                            </div>
+                            <p
+                              class="payment-receipt-delivery-copy"
+                              id="payment-receipt-delivery-copy"
+                            ></p>
+                          </div>
                           <button type="submit" class="primary-button">
                             Record payment
                           </button>
@@ -2540,7 +3114,7 @@
                         <div class="subpanel-head">
                           <h3>Current invoice</h3>
                           <p>
-                            Keep the invoice client-facing and clean: clear
+                            Keep the invoice clear and polished: clear
                             summary, flexible detail fields, line items, and
                             payment status tied back to job financials.
                           </p>
@@ -2591,6 +3165,13 @@
                           </button>
                           <button
                             type="button"
+                            class="secondary-button admin-only"
+                            id="invoice-send-receipt-button"
+                          >
+                            Save/send receipt
+                          </button>
+                          <button
+                            type="button"
                             class="primary-button admin-only"
                             id="invoice-mark-paid-button"
                           >
@@ -2600,7 +3181,7 @@
                         <p class="estimate-editor-helper">
                           Download invoice PDF creates the client-ready billing
                           file. Mark paid records the payment against the job
-                          and unlocks a branded receipt download for the client.
+                          and can save or share a branded receipt for the client.
                         </p>
                         <div
                           class="detail-summary invoice-billing-state"
@@ -2760,7 +3341,7 @@
                         <div class="subpanel-head">
                           <h3>Invoice preview</h3>
                           <p>
-                            Review the polished client-facing invoice or paid
+                            Review the polished invoice or paid
                             receipt before downloading the PDF you plan to send.
                           </p>
                         </div>
@@ -3000,7 +3581,7 @@
                               type="checkbox"
                               id="job-document-client-visible"
                             />
-                            <span>Visible in client portal</span>
+                            <span>Visible in secure portal</span>
                           </label>
                           <button type="submit" class="primary-button">
                             Save document
@@ -3076,6 +3657,39 @@
                   </div>
                 </div>
 
+                <section
+                  class="google-calendar-connection"
+                  id="google-calendar-connection"
+                >
+                  <div>
+                    <span class="panel-kicker">Personal integration</span>
+                    <h3 id="google-calendar-status-title">
+                      Google Calendar not connected
+                    </h3>
+                    <p id="google-calendar-status-copy">
+                      Connect once to automatically add assigned tasks and
+                      schedule events to your Google Calendar.
+                    </p>
+                  </div>
+                  <div class="inline-actions">
+                    <button
+                      type="button"
+                      class="primary-button"
+                      id="google-calendar-connect-button"
+                    >
+                      Connect Google Calendar
+                    </button>
+                    <button
+                      type="button"
+                      class="ghost-button"
+                      id="google-calendar-disconnect-button"
+                      hidden
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+                </section>
+
                 <form class="stack-form record-shell" id="calendar-event-form">
                   <div class="form-grid two">
                     <label>
@@ -3134,24 +3748,24 @@
 
                   <div class="form-grid two">
                     <label>
-                      <span>Linked job</span>
-                      <select id="calendar-linked-project-select">
-                        <option value="">No linked job</option>
+                      <span>Client</span>
+                      <select id="calendar-linked-customer-select">
+                        <option value="">No linked client</option>
                       </select>
                     </label>
                     <label>
-                      <span>Linked lead</span>
-                      <select id="calendar-linked-lead-select">
-                        <option value="">No linked lead</option>
+                      <span>Project address</span>
+                      <select id="calendar-linked-project-select">
+                        <option value="">No linked project</option>
                       </select>
                     </label>
                   </div>
 
                   <div class="form-grid two">
                     <label>
-                      <span>Linked customer</span>
-                      <select id="calendar-linked-customer-select">
-                        <option value="">No linked customer</option>
+                      <span>Linked lead</span>
+                      <select id="calendar-linked-lead-select">
+                        <option value="">No linked lead</option>
                       </select>
                     </label>
                     <label>
@@ -3162,7 +3776,7 @@
 
                   <section class="client-status-editor">
                     <div class="subpanel-head compact">
-                      <h4>Client portal visibility</h4>
+                      <h4>Secure portal visibility</h4>
                       <p>
                         Only events marked client-visible will appear in the
                         customer portal. Internal notes stay private.
@@ -3173,7 +3787,7 @@
                         type="checkbox"
                         id="calendar-client-visible-input"
                       />
-                      <span>Show this event in the client portal</span>
+                      <span>Show this event in the secure portal</span>
                     </label>
                     <div class="form-grid two">
                       <label>
@@ -3511,9 +4125,16 @@
                           <textarea
                             id="vendor-notes-input"
                             rows="6"
-                            placeholder="Trade specialties, responsiveness, pricing posture, account details, and internal notes."
+                            placeholder="Trade specialties, responsiveness, budget direction, account details, and internal notes."
                           ></textarea>
                         </label>
+
+                        <div class="form-save-bar admin-only">
+                          <span>Save after changing vendor details.</span>
+                          <button type="submit" class="primary-button">
+                            Save vendor changes
+                          </button>
+                        </div>
                       </form>
 
                       <section class="subpanel">
@@ -3812,6 +4433,191 @@
             </div>
           </section>
 
+          <section class="view" id="site-projects-view" hidden>
+            <div class="metrics-strip" id="site-project-summary"></div>
+
+            <div class="workspace-grid site-project-workspace">
+              <section class="panel list-panel">
+                <div class="panel-head">
+                  <div>
+                    <span class="panel-kicker">Public site</span>
+                    <h2>Project feed</h2>
+                  </div>
+                </div>
+                <div class="panel-body">
+                  <div class="toolbar site-project-toolbar">
+                    <input
+                      type="search"
+                      id="site-project-search"
+                      placeholder="Search public projects"
+                    />
+                    <select id="site-project-filter">
+                      <option value="all">All projects</option>
+                      <option value="upcoming">In Progress</option>
+                      <option value="finished">Finished</option>
+                      <option value="published">Published</option>
+                      <option value="draft">Drafts</option>
+                    </select>
+                    <button
+                      type="button"
+                      class="primary-button"
+                      id="site-project-new-button"
+                    >
+                      New project
+                    </button>
+                  </div>
+                  <div class="record-list" id="site-project-list"></div>
+                </div>
+              </section>
+
+              <section class="panel record-panel">
+                <div class="panel-head">
+                  <div>
+                    <span class="panel-kicker">Investor proof</span>
+                    <h2 id="site-project-form-heading">Project details</h2>
+                  </div>
+                  <a
+                    href="/projects.html"
+                    class="ghost-button"
+                    id="site-project-open-page"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View page
+                  </a>
+                </div>
+
+                <div class="record-shell">
+                  <div class="app-banner" id="site-project-feedback" hidden></div>
+
+                  <div class="empty-state" id="site-project-admin-message" hidden>
+                    Site projects are managed by admins. Public visitors only
+                    see published records with neighborhood-level details.
+                  </div>
+
+                  <form class="stack-form site-project-form" id="site-project-form">
+                    <div class="form-grid two">
+                      <label>
+                        <span>Title</span>
+                        <input
+                          type="text"
+                          id="site-project-title"
+                          placeholder="South Philly rental rehab"
+                          required
+                        />
+                      </label>
+                      <label>
+                        <span>Status</span>
+                        <select id="site-project-status">
+                          <option value="upcoming">In Progress</option>
+                          <option value="finished">Finished</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <div class="form-grid three">
+                      <label>
+                        <span>Neighborhood / area</span>
+                        <input
+                          type="text"
+                          id="site-project-neighborhood"
+                          placeholder="Point Breeze"
+                        />
+                      </label>
+                      <label>
+                        <span>Project type</span>
+                        <input
+                          type="text"
+                          id="site-project-type"
+                          placeholder="Rental rehab"
+                        />
+                      </label>
+                      <label>
+                        <span>Sort order</span>
+                        <input
+                          type="number"
+                          id="site-project-sort-order"
+                          min="0"
+                          step="1"
+                          placeholder="10"
+                        />
+                      </label>
+                    </div>
+
+                    <label>
+                      <span>Description</span>
+                      <textarea
+                        id="site-project-description"
+                        rows="5"
+                        placeholder="Short public description focused on the scope, investor goal, and finish quality."
+                      ></textarea>
+                    </label>
+
+                    <label class="checkbox-row">
+                      <input type="checkbox" id="site-project-published" />
+                      <span>Publish on public Projects page</span>
+                    </label>
+
+                    <section class="subpanel site-project-photo-panel">
+                      <div class="subpanel-head">
+                        <h3>Photos</h3>
+                        <p>
+                          Upload only approved public photos. Exact addresses
+                          and private client details should stay out of titles,
+                          descriptions, and image names.
+                        </p>
+                      </div>
+
+                      <div class="form-grid two">
+                        <label>
+                          <span>Cover photo</span>
+                          <input
+                            type="file"
+                            id="site-project-cover-file"
+                            accept="image/*"
+                          />
+                        </label>
+                        <label>
+                          <span>Gallery photos</span>
+                          <input
+                            type="file"
+                            id="site-project-gallery-files"
+                            accept="image/*"
+                            multiple
+                          />
+                        </label>
+                      </div>
+
+                      <div class="site-project-cover-preview" id="site-project-cover-preview"></div>
+                      <div class="site-project-gallery-preview" id="site-project-gallery-preview"></div>
+                    </section>
+
+                    <div class="inline-actions">
+                      <button type="submit" class="primary-button">
+                        Save project
+                      </button>
+                      <button
+                        type="button"
+                        class="ghost-button"
+                        id="site-project-reset-button"
+                      >
+                        Clear form
+                      </button>
+                      <button
+                        type="button"
+                        class="danger-button"
+                        id="site-project-delete-button"
+                        hidden
+                      >
+                        Delete project
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </section>
+            </div>
+          </section>
+
           <section class="view" id="staff-view" hidden>
             <div class="workspace-grid">
               <section class="panel list-panel">
@@ -3836,9 +4642,43 @@
 
                 <div class="record-shell">
                   <div class="admin-only" id="staff-admin-shell">
+                    <nav
+                      class="admin-section-nav"
+                      aria-label="Settings sections"
+                    >
+                      <button
+                        type="button"
+                        class="admin-section-button is-active"
+                        data-admin-section="team"
+                      >
+                        Team access
+                      </button>
+                      <button
+                        type="button"
+                        class="admin-section-button"
+                        data-admin-section="portal"
+                      >
+                        Client portal
+                      </button>
+                      <button
+                        type="button"
+                        class="admin-section-button"
+                        data-admin-section="templates"
+                      >
+                        Templates
+                      </button>
+                      <button
+                        type="button"
+                        class="admin-section-button"
+                        data-admin-section="archive"
+                      >
+                        Archive
+                      </button>
+                    </nav>
+
                     <section class="subpanel portal-queue-panel">
                       <div class="subpanel-head">
-                        <h3>Client portal queue</h3>
+                        <h3>Secure portal queue</h3>
                         <p>
                           Stay ahead of estimate approvals, unpaid invoices,
                           unread client replies, and portal access issues from
@@ -3947,6 +4787,14 @@
                         >
                           Clear form
                         </button>
+                        <button
+                          type="button"
+                          class="danger-button"
+                          id="staff-delete-button"
+                          hidden
+                        >
+                          Delete employee
+                        </button>
                       </div>
                     </form>
 
@@ -3992,7 +4840,7 @@
                               />
                             </label>
                             <label>
-                              <span>Client-facing title</span>
+                              <span>Displayed title</span>
                               <input
                                 type="text"
                                 id="service-template-client-title"
@@ -4128,11 +4976,11 @@
                         <textarea id="template-terms" rows="5"></textarea>
                       </label>
                       <div class="subpanel-head compact">
-                        <h4>Client agreement copy</h4>
+                        <h4>Authorization copy</h4>
                         <p>
-                          This copy appears beneath the estimate on the client
-                          share page and is frozen into the archived agreement
-                          exactly as written when the client signs.
+                          This copy appears beneath the estimate on the
+                          signature page and is frozen into the archived
+                          agreement exactly as written when signed.
                         </p>
                       </div>
                       <label>
@@ -4153,6 +5001,14 @@
                           rows="6"
                         ></textarea>
                       </label>
+                      <label>
+                        <span>Contractor business address</span>
+                        <input
+                          type="text"
+                          id="template-contractor-address"
+                          placeholder="5635 Chester Ave, Philadelphia, PA 19143"
+                        />
+                      </label>
                       <button type="submit" class="primary-button">
                         Save template
                       </button>
@@ -4170,15 +5026,56 @@
         </main>
       </div>
 
-      <button
-        type="button"
-        class="mobile-create-fab"
-        id="mobile-create-fab"
-        aria-label="Open quick create menu"
+      <div
+        class="mobile-action-dock"
+        id="mobile-action-dock"
+        aria-label="Mobile quick actions"
         hidden
       >
-        +
-      </button>
+        <button
+          type="button"
+          class="mobile-dock-button is-primary"
+          data-mobile-context-action="add-lead"
+        >
+          Lead
+        </button>
+        <button
+          type="button"
+          class="mobile-dock-button"
+          data-mobile-context-action="add-expense"
+        >
+          Expense
+        </button>
+        <button
+          type="button"
+          class="mobile-dock-button"
+          data-mobile-context-action="add-task"
+        >
+          Task
+        </button>
+        <button
+          type="button"
+          class="mobile-dock-button"
+          data-mobile-context-action="log-communication"
+        >
+          Log
+        </button>
+        <button
+          type="button"
+          class="mobile-dock-button"
+          data-mobile-context-action="job-update-client"
+          hidden
+        >
+          Update
+        </button>
+        <button
+          type="button"
+          class="mobile-dock-button is-menu"
+          id="mobile-create-fab"
+        >
+          Quick add
+        </button>
+      </div>
 
       <nav
         class="mobile-tab-bar"
@@ -4224,9 +5121,86 @@
         </button>
       </nav>
 
+      <div
+        class="workspace-jump-backdrop"
+        id="workspace-jump-backdrop"
+        hidden
+      ></div>
+
+      <aside
+        class="workspace-jump-dialog"
+        id="workspace-jump-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="workspace-jump-title"
+        hidden
+      >
+        <div class="workspace-jump-head">
+          <div>
+            <span class="panel-kicker">Navigate</span>
+            <h2 id="workspace-jump-title">Jump to a workspace</h2>
+          </div>
+          <button
+            type="button"
+            class="ghost-button"
+            id="workspace-jump-close"
+          >
+            Close
+          </button>
+        </div>
+        <label class="workspace-jump-search">
+          <span class="sr-only">Filter workspaces</span>
+          <input
+            type="search"
+            id="workspace-jump-search"
+            placeholder="Search workspaces"
+            autocomplete="off"
+          />
+        </label>
+        <div class="workspace-jump-results" id="workspace-jump-results">
+          <button type="button" data-jump-view="today-view" data-jump-search="today home priority queue">
+            <span>Work</span><strong>Today</strong>
+          </button>
+          <button type="button" data-jump-view="tasks-view" data-jump-search="tasks follow up assignments">
+            <span>Work</span><strong>My Tasks</strong>
+          </button>
+          <button type="button" data-jump-view="calendar-view" data-jump-search="calendar schedule events inspections deliveries">
+            <span>Work</span><strong>Calendar</strong>
+          </button>
+          <button type="button" data-jump-view="leads-view" data-jump-search="pipeline leads estimates opportunities">
+            <span>Business</span><strong>Pipeline</strong>
+          </button>
+          <button type="button" data-jump-view="jobs-view" data-jump-search="projects jobs properties renovations">
+            <span>Business</span><strong>Projects</strong>
+          </button>
+          <button type="button" data-jump-view="customers-view" data-jump-search="investors clients customers contacts">
+            <span>Business</span><strong>Investors &amp; Clients</strong>
+          </button>
+          <button type="button" data-jump-view="vendors-view" data-jump-search="vendors trades payables subcontractors">
+            <span>Operations</span><strong>Vendors</strong>
+          </button>
+          <button type="button" class="admin-only" data-jump-view="site-projects-view" data-jump-search="website public projects portfolio">
+            <span>Administration</span><strong>Website Projects</strong>
+          </button>
+          <button type="button" class="admin-only" data-jump-view="staff-view" data-jump-search="staff team settings templates archive">
+            <span>Administration</span><strong>Team &amp; Settings</strong>
+          </button>
+        </div>
+        <p class="workspace-jump-empty" id="workspace-jump-empty" hidden>
+          No workspace matches that search.
+        </p>
+      </aside>
+
       <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
 
-      <aside class="entity-drawer" id="entity-drawer" hidden aria-hidden="true">
+      <aside
+        class="entity-drawer"
+        id="entity-drawer"
+        role="dialog"
+        aria-labelledby="drawer-title"
+        hidden
+        aria-hidden="true"
+      >
         <div class="drawer-shell">
           <div class="drawer-head">
             <div>
@@ -4437,7 +5411,7 @@
                 <textarea
                   id="drawer-lead-notes"
                   rows="5"
-                  placeholder="Fast intake notes, investor goals, timing, occupancy, and pricing posture."
+                  placeholder="Fast intake notes, investor goals, timing, occupancy, and budget direction."
                 ></textarea>
               </label>
 
@@ -4820,17 +5794,18 @@
               </div>
             </form>
 
-            <form class="stack-form drawer-form" id="drawer-task-form" hidden>
+            <form
+              class="stack-form drawer-form"
+              id="drawer-task-form"
+              hidden
+              novalidate
+            >
               <label>
                 <span>Task title</span>
                 <input type="text" id="drawer-task-title" required />
               </label>
 
-              <div class="form-grid three">
-                <label>
-                  <span>Due date</span>
-                  <input type="datetime-local" id="drawer-task-due" />
-                </label>
+              <div class="form-grid two">
                 <label>
                   <span>Assignee</span>
                   <select id="drawer-task-assignee"></select>
@@ -4844,6 +5819,79 @@
                   </select>
                 </label>
               </div>
+
+              <fieldset
+                class="task-schedule-picker"
+                data-task-schedule-picker="drawer"
+              >
+                <legend>Follow-up date &amp; time</legend>
+                <div class="task-schedule-fields">
+                  <label>
+                    <span>Date</span>
+                    <div class="task-date-control">
+                      <input type="date" id="drawer-task-due-date" />
+                      <button
+                        type="button"
+                        class="ghost-button task-calendar-button"
+                        data-task-calendar-target="drawer"
+                      >
+                        Open calendar
+                      </button>
+                    </div>
+                  </label>
+                  <label>
+                    <span>Time</span>
+                    <select id="drawer-task-due-time" data-task-time-select>
+                      <option value="09:00">9:00 AM</option>
+                    </select>
+                  </label>
+                </div>
+                <div
+                  class="task-schedule-shortcuts"
+                  aria-label="Follow-up date shortcuts"
+                >
+                  <button
+                    type="button"
+                    data-task-schedule-target="drawer"
+                    data-task-schedule-preset="later_today"
+                  >
+                    Later today
+                  </button>
+                  <button
+                    type="button"
+                    data-task-schedule-target="drawer"
+                    data-task-schedule-preset="tomorrow"
+                  >
+                    Tomorrow 9 AM
+                  </button>
+                  <button
+                    type="button"
+                    data-task-schedule-target="drawer"
+                    data-task-schedule-preset="next_workday"
+                  >
+                    Next workday
+                  </button>
+                  <button
+                    type="button"
+                    data-task-schedule-target="drawer"
+                    data-task-schedule-preset="next_week"
+                  >
+                    Next week
+                  </button>
+                  <button
+                    type="button"
+                    data-task-schedule-target="drawer"
+                    data-task-schedule-preset="clear"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <p
+                  class="task-schedule-preview"
+                  id="drawer-task-due-preview"
+                  aria-live="polite"
+                ></p>
+              </fieldset>
 
               <div class="form-grid two">
                 <label>
@@ -4872,6 +5920,149 @@
                 </button>
               </div>
             </form>
+
+            <form
+              class="stack-form drawer-form"
+              id="drawer-communication-form"
+              hidden
+            >
+              <div class="subpanel-head">
+                <h3>Log communication</h3>
+                <p>
+                  Record every call, text, email, site visit, or client update
+                  so the next person knows exactly what happened.
+                </p>
+              </div>
+
+              <div class="form-grid two">
+                <label>
+                  <span>Search record</span>
+                  <input
+                    type="search"
+                    id="drawer-communication-record-search"
+                    placeholder="Search client, property, phone, or email"
+                  />
+                </label>
+                <label>
+                  <span>Record type</span>
+                  <select id="drawer-communication-linked-type">
+                    <option value="lead">Lead</option>
+                    <option value="project">Job</option>
+                  </select>
+                </label>
+              </div>
+
+              <label>
+                <span>Lead / job</span>
+                <select id="drawer-communication-linked-record" required></select>
+              </label>
+
+              <div
+                class="detail-summary"
+                id="drawer-communication-context"
+              ></div>
+
+              <div class="form-grid three">
+                <label>
+                  <span>Type</span>
+                  <select id="drawer-communication-type">
+                    <option value="call">Call</option>
+                    <option value="text">Text</option>
+                    <option value="email">Email</option>
+                    <option value="site_visit">Site visit</option>
+                    <option value="client_message">Client message</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Direction</span>
+                  <select id="drawer-communication-direction">
+                    <option value="outbound">Outbound</option>
+                    <option value="inbound">Inbound</option>
+                    <option value="internal">Internal</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Date / time</span>
+                  <input
+                    type="datetime-local"
+                    id="drawer-communication-happened-at"
+                  />
+                </label>
+              </div>
+
+              <div class="form-grid two">
+                <label>
+                  <span>Contact name</span>
+                  <input
+                    type="text"
+                    id="drawer-communication-contact-name"
+                    placeholder="Client, investor, agent, vendor, inspector"
+                  />
+                </label>
+                <label>
+                  <span>Contact method</span>
+                  <input
+                    type="text"
+                    id="drawer-communication-contact-method"
+                    placeholder="Phone number, email, in person"
+                  />
+                </label>
+              </div>
+
+              <label>
+                <span>What happened</span>
+                <textarea
+                  id="drawer-communication-body"
+                  rows="5"
+                  placeholder="What was discussed, what was promised, what changed, and what details matter for the next staff member."
+                  required
+                ></textarea>
+              </label>
+
+              <label>
+                <span>Outcome / next step</span>
+                <input
+                  type="text"
+                  id="drawer-communication-outcome"
+                  placeholder="Waiting on photos, estimate review, site visit booked"
+                />
+              </label>
+
+              <div class="form-grid two">
+                <label class="checkbox-row">
+                  <input
+                    type="checkbox"
+                    id="drawer-communication-follow-up-required"
+                  />
+                  <span>Create follow-up task</span>
+                </label>
+                <label>
+                  <span>Follow-up due</span>
+                  <input
+                    type="datetime-local"
+                    id="drawer-communication-follow-up-at"
+                  />
+                </label>
+              </div>
+
+              <label class="checkbox-row">
+                <input
+                  type="checkbox"
+                  id="drawer-communication-client-visible"
+                />
+                <span>Mark as client-visible context</span>
+              </label>
+
+              <div class="inline-actions">
+                <button type="submit" class="primary-button">
+                  Save communication
+                </button>
+                <button type="button" class="ghost-button drawer-cancel-button">
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </aside>
@@ -4881,7 +6072,15 @@
 
     <script
       type="module"
-      src="/staff/staff.js?v=20260509-vendors-nav-1"
+      src="/staff/staff.js?v=20260731-payment-receipts-1"
+    ></script>
+    <script
+      type="module"
+      src="/staff/site-projects.js?v=20260511-site-projects-4"
+    ></script>
+    <script
+      type="module"
+      src="/staff/staff-experience.js?v=20260731-client-preview-1"
     ></script>
   </body>
 </html>

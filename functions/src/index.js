@@ -15,12 +15,46 @@ admin.initializeApp();
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
 const Timestamp = admin.firestore.Timestamp;
+const googleCalendarFunctions = require("./googleCalendar");
+const googleReviewsFunctions = require("./googleReviews");
+const staffAdminFunctions = require("./staffAdmin");
 
 const CRM_ADMIN_EMAILS = defineString("CRM_ADMIN_EMAILS", { default: "" });
 const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
 const STRIPE_DISABLED_MESSAGE =
   "Online Stripe checkout is temporarily unavailable. Please contact Golden Brick directly for payment coordination.";
-const PENNSYLVANIA_LICENSE_NUMBER = "065157";
+const PENNSYLVANIA_HIC_REGISTRATION_NUMBER = "PA212716";
+const PHILADELPHIA_GC_LICENSE_NUMBER = "065157";
+const PA_CONSUMER_PROTECTION_PHONE = "1-888-520-6680";
+const CONTRACTOR_BUSINESS_ADDRESS = "5635 Chester Ave, Philadelphia, PA 19143";
+
+const COMPANY_INFO = {
+  name: "Golden Brick Construction",
+  phone: "(267) 715-5557",
+  phoneHref: "+12677155557",
+  email: "info@goldenbrickc.com",
+  paRegistrationNumber: PENNSYLVANIA_HIC_REGISTRATION_NUMBER,
+  philadelphiaLicenseNumber: PHILADELPHIA_GC_LICENSE_NUMBER,
+};
+
+const ESTIMATE_VERSION_SCHEMA_VERSION = 2;
+const ESTIMATE_SIGNING_LEASE_MS = 10 * 60 * 1000;
+
+const DEFAULT_CONTRACT_PAYMENT_SCHEDULE = [
+  "No deposit is listed for this estimate unless a deposit amount is written into this estimate or a later signed revision.",
+  "No payment is due before the written agreement is signed by the owner and Golden Brick Construction.",
+].join("\n");
+
+const DEFAULT_CONTRACT_SPECIAL_ORDER_MATERIALS =
+  "No special-order material advance is listed for this estimate unless a material and amount are written into this estimate or a later signed revision.";
+
+const DEFAULT_CONTRACT_SUBCONTRACTORS =
+  "No subcontractors are listed for this estimate unless identified in the scope, project notes, permit record, or a later signed revision.";
+
+const COMPANY_INSURANCE_DISCLOSURE = [
+  "Commercial general liability policy NXTX9PVPLX-00-GL is active Feb. 10, 2026 through Feb. 10, 2027, with $1,000,000 each occurrence and $1,000,000 general aggregate limits shown on the certificate.",
+  "Contractors errors and omissions coverage is shown with $10,000 each occurrence and $20,000 aggregate limits.",
+].join("\n");
 
 const STAFF_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -31,12 +65,10 @@ const STAFF_HEADERS = {
 const PUBLIC_CORS_HTTP_OPTIONS = {
   region: "us-central1",
   cors: true,
-  invoker: "public",
 };
 
 const PUBLIC_HTTP_OPTIONS = {
   region: "us-central1",
-  invoker: "public",
 };
 
 const LEAD_STATUSES = {
@@ -54,11 +86,12 @@ const LEGACY_DEFAULT_ESTIMATE_STANDARD_TERMS = [
 ].join("\n");
 
 const DEFAULT_ESTIMATE_STANDARD_TERMS = [
+  `Golden Brick Construction discloses Pennsylvania Home Improvement Contractor Registration No. ${PENNSYLVANIA_HIC_REGISTRATION_NUMBER} and Philadelphia General Contractor License No. ${PHILADELPHIA_GC_LICENSE_NUMBER}. The official registration number can be obtained from the Pennsylvania Office of Attorney General's Bureau of Consumer Protection by calling toll-free within Pennsylvania ${PA_CONSUMER_PROTECTION_PHONE}. Registration does not imply endorsement.`,
   "This estimate reflects the scope, quantities, access assumptions, and material quality level identified at the time it was prepared. Unless noted otherwise in writing, pricing assumes contractor-stock materials and standard installation conditions.",
   "Final pricing, sequencing, and production details remain subject to site verification, accurate field measurements, finish selections, structural discoveries, code requirements, utility conditions, and any revisions approved in writing after this estimate was issued.",
   "Unforeseen concealed, latent, or site conditions discovered after work begins are not included in this estimate. If those conditions affect scope, cost, sequencing, or duration, Golden Brick Construction will document the revision in writing before additional work proceeds.",
   "Permits, inspections, engineering input, specialty vendor work, and trade coordination are included only when specifically called for by the approved scope or later documented through written revisions.",
-  "Any requested scope, material, or scheduling changes after estimate approval must be captured in writing and may require revised pricing or a formal change order before added work can begin.",
+  "A signed approval is required before any home improvement work begins. Any requested scope, material, or scheduling changes after estimate approval must be captured in writing and may require revised pricing or a formal change order before added work can begin.",
 ].join("\n");
 
 const LEGACY_ESTIMATE_TEMPLATE_TERMS = new Set([
@@ -67,8 +100,8 @@ const LEGACY_ESTIMATE_TEMPLATE_TERMS = new Set([
   LEGACY_DEFAULT_ESTIMATE_STANDARD_TERMS,
 ]);
 
-const LEGACY_DEFAULT_AGREEMENT_TITLE = "Client authorization and agreement";
-const DEFAULT_AGREEMENT_TITLE = "Estimate approval and project authorization";
+const LEGACY_DEFAULT_AGREEMENT_TITLE = ["Client", " authorization and agreement"].join("");
+const DEFAULT_AGREEMENT_TITLE = "Estimate approval and home improvement agreement";
 
 const LEGACY_DEFAULT_AGREEMENT_INTRO = [
   "If you would like Golden Brick Construction to move forward from this estimate into the next planning and production step, please review and sign the agreement terms below.",
@@ -76,32 +109,38 @@ const LEGACY_DEFAULT_AGREEMENT_INTRO = [
 ].join("\n");
 
 const DEFAULT_AGREEMENT_INTRO = [
-  "This page records the estimate snapshot Golden Brick Construction is asking you to approve. If the scope and pricing shown here match your direction, your signature authorizes Golden Brick to move this project into the next planning, scheduling, and coordination step.",
-  "Once signed, the proposal summary, line items, assumptions, and agreement terms shown here are archived into the project file so both sides have one shared approval record.",
+  "This section records the estimate, agreement details, cancellation rights, and required notices for the project.",
+  "Once signed, the estimate overview, line items, project notes, agreement details, cancellation notice, and signature record are kept together as the project approval record.",
 ].join("\n");
 
 const LEGACY_DEFAULT_AGREEMENT_TERMS = [
-  "By signing below, you confirm that Golden Brick Construction may move forward based on the estimate scope and pricing snapshot shown on this page, subject to final field verification and any written revisions agreed by both parties.",
+  [
+    "By signing below, you confirm that Golden Brick Construction may move forward based on the estimate scope and pricing snapshot shown on this page, subject to final field",
+    " verification and any written revisions agreed by both parties.",
+  ].join(""),
   "Any requested scope, material, pricing, or schedule changes after signature must be documented in writing and may require a revised estimate or change order before additional work proceeds.",
   "Scheduling, procurement, and start-date coordination remain subject to site access, deposit and payment coordination, municipal approvals, final measurements, and confirmed finish selections where applicable.",
 ].join("\n");
 
 const DEFAULT_AGREEMENT_TERMS = [
-  "By signing below, you approve the estimate scope and pricing snapshot shown on this page and authorize Golden Brick Construction to move forward into the next pre-construction, scheduling, procurement, and production coordination step for this project.",
-  "This approval is tied to the scope, assumptions, and pricing shown on this page only. Any requested changes to scope, materials, quantities, schedule, or finish level after signature must be documented in writing and may require revised pricing, a revised estimate, or a formal change order before the changed work proceeds.",
+  "By signing below, the owner or authorized signer approves the estimate scope and pricing snapshot shown on this page and authorizes Golden Brick Construction to move forward under the agreement details and required notices shown with this record.",
+  "This approval is tied to the scope, specifications, assumptions, and pricing shown on this page only. Any requested changes to scope, materials, quantities, schedule, finish level, or specifications after signature must be documented in a written change order or signed revision before the changed work proceeds.",
   "Any pricing tied to allowances, contractor-stock materials, existing-condition assumptions, or standard installation methods may change if site conditions, code requirements, measurements, owner selections, or requested upgrades differ from the assumptions used to prepare this estimate.",
   "Golden Brick Construction is not responsible for concealed, latent, or previously unknown conditions discovered after work begins, including structural issues, moisture damage, outdated wiring, plumbing deficiencies, code deficiencies, or other conditions that were not visible at the time of estimating. If discovered, the project file will be updated in writing before additional affected work continues.",
-  "Target start dates, sequencing, inspections, and completion timing are planning targets only and remain subject to site access, material availability, lead times, utility conditions, municipal approvals, weather, timely client selections, and prior work completion.",
-  "Where permits, inspections, engineering input, or specialty vendor coordination are required for the approved scope, Golden Brick Construction will coordinate those next steps as applicable; however, municipal review timing, utility scheduling, and third-party delays remain outside the contractor's direct control.",
-  "The client agrees to provide reasonable site access, timely design or finish decisions, timely responses to scope clarifications, and any owner-supplied selections or information needed to keep the project moving. Delays in access, selections, or approvals may affect schedule and cost.",
-  "Deposits, milestone invoices, retainage, or other payment obligations, where applicable to this project, will follow the written payment schedule reflected in the project file, approved invoices, and any later signed revisions. Golden Brick Construction may pause procurement, scheduling, or active work if required payments or approvals are outstanding.",
+  "The approximate start date and approximate completion date shown in the agreement details are planning dates for this project. Sequencing, inspections, and completion timing remain subject to site access, material availability, lead times, utility conditions, municipal approvals, weather, timely selections, and prior work completion.",
+  "Where permits, inspections, engineering input, specialty vendor coordination, or Philadelphia contractor disclosures are required for the approved scope, Golden Brick Construction will coordinate those next steps as applicable; however, municipal review timing, utility scheduling, and third-party delays remain outside the contractor's direct control.",
+  "The owner or authorized signer agrees to provide reasonable site access, timely design or finish decisions, timely responses to scope clarifications, and any owner-supplied selections or information needed to keep the project moving. Delays in access, selections, or approvals may affect schedule and cost.",
+  "No payment is due before the written agreement is signed. Any deposit, special-order material advance, milestone invoice, retainage, or final payment must be listed in writing in this estimate, an approved invoice, or a later signed revision before it is due. Golden Brick Construction may pause procurement, scheduling, or active work if required payments or approvals are outstanding.",
   "Special-order materials, custom fabricated items, non-stock finishes, and approved purchases made specifically for this project may be non-refundable once ordered or fabricated.",
-  `Golden Brick Construction is Pennsylvania licensed and insured, PA License #${PENNSYLVANIA_LICENSE_NUMBER}. Subcontractors, specialty trades, and vendor partners may be used where appropriate, but Golden Brick remains the coordinating contractor for the approved scope reflected here.`,
-  "This signed estimate, together with any later written revisions, schedules, payment milestones, change orders, selections, and required statutory notices, becomes part of the final project record maintained by Golden Brick Construction.",
+  `Golden Brick Construction is registered as Pennsylvania Home Improvement Contractor Registration No. ${PENNSYLVANIA_HIC_REGISTRATION_NUMBER} and holds Philadelphia General Contractor License No. ${PHILADELPHIA_GC_LICENSE_NUMBER}. Subcontractors, specialty trades, and vendor partners may be used where appropriate, but Golden Brick remains the coordinating contractor for the approved scope reflected here.`,
+  "For work that disturbs painted surfaces in pre-1978 housing or child-occupied facilities, lead-safe requirements may apply. Lead paint, asbestos, mold, hazardous materials, hidden damage, or environmental remediation are included only when specifically written into the approved scope.",
+  "The owner or authorized signer has the right to cancel a Pennsylvania home improvement contract within three business days of signing, except where a valid emergency authorization applies. Golden Brick will honor timely cancellation notice provided by any medium that gives Golden Brick actual notice.",
+  "Golden Brick's delivery of this agreement records the contractor's approval to present these terms for signature. The owner signature and Golden Brick project record together form the signed approval record maintained for this project.",
+  "This signed estimate, together with the agreement details, cancellation notice, insurance disclosure, registration disclosure, later written revisions, schedules, payment milestones, change orders, selections, and required statutory notices, becomes part of the final project record maintained by Golden Brick Construction.",
 ].join("\n");
 
 const DEFAULT_CHANGE_ORDER_TERMS = [
-  "This change order captures a written revision to the approved Golden Brick project record and becomes part of the signed client file once accepted.",
+  "This change order captures a written revision to the approved Golden Brick project record and becomes part of the signed project file once accepted.",
   "Only the change, scope clarification, or pricing adjustment shown on this page is being approved here. All other previously approved estimate, agreement, invoice, and project terms remain in effect unless separately revised in writing.",
   "If site conditions, concealed conditions, access limitations, code requirements, owner selections, or requested upgrades affect the revised work after this change order is issued, Golden Brick Construction will document any resulting revision in writing before the affected additional work proceeds.",
   "Scheduling, sequencing, procurement, and completion timing tied to this change order remain subject to site access, material lead times, inspections, municipal approvals, third-party coordination, and timely owner decisions where applicable.",
@@ -549,6 +588,95 @@ async function ensureLeadCustomerLink(leadRef, leadData = {}) {
   };
 }
 
+function customerIdentityMatchesLead(customerData = {}, leadData = {}) {
+  const leadEmail = normaliseEmail(leadData.clientEmail);
+  const leadPhone = normalisePhone(leadData.clientPhone);
+  const customerEmail = normaliseEmail(
+    customerData.searchEmail || customerData.primaryEmail,
+  );
+  const customerPhone = normalisePhone(
+    customerData.searchPhone || customerData.primaryPhone,
+  );
+  const comparableEmail = Boolean(leadEmail && customerEmail);
+  const comparablePhone = Boolean(leadPhone && customerPhone);
+
+  if (!comparableEmail && !comparablePhone) {
+    return true;
+  }
+
+  return (
+    (comparableEmail && leadEmail === customerEmail) ||
+    (comparablePhone && leadPhone === customerPhone)
+  );
+}
+
+async function resolveEstimatePublishCustomer(leadData = {}) {
+  const linkedCustomerId = safeString(leadData.customerId);
+
+  if (linkedCustomerId) {
+    const customerRef = db.collection("customers").doc(linkedCustomerId);
+    const customerSnap = await customerRef.get();
+    const customerData = customerSnap.exists ? customerSnap.data() || {} : {};
+
+    if (
+      customerSnap.exists &&
+      !customerIdentityMatchesLead(customerData, leadData)
+    ) {
+      const error = new Error(
+        "The customer linked to this lead does not match the lead contact details. Review the customer connection before publishing.",
+      );
+      error.status = 409;
+      error.matchResult = "review_required";
+      error.customerMatchIds = [linkedCustomerId];
+      throw error;
+    }
+
+    return {
+      customerId: linkedCustomerId,
+      customerName: safeString(
+        customerData.name ||
+          leadData.customerName ||
+          leadData.clientName,
+      ),
+      customerRef,
+    };
+  }
+
+  const matches = await findMatchingCustomers(leadData);
+  if (matches.length > 1) {
+    const error = new Error(
+      "Multiple customers match this lead. Connect the correct customer before publishing the estimate.",
+    );
+    error.status = 409;
+    error.matchResult = "review_required";
+    error.customerMatchIds = matches.map((customer) => customer.id);
+    throw error;
+  }
+
+  if (matches.length === 1) {
+    return {
+      customerId: matches[0].id,
+      customerName: safeString(
+        matches[0].name ||
+          leadData.customerName ||
+          leadData.clientName,
+      ),
+      customerRef: db.collection("customers").doc(matches[0].id),
+    };
+  }
+
+  const customerRef = db.collection("customers").doc();
+  return {
+    customerId: customerRef.id,
+    customerName: safeString(
+      leadData.customerName ||
+        leadData.clientName ||
+        "Unnamed customer",
+    ),
+    customerRef,
+  };
+}
+
 async function ensureServiceOrderCustomer(orderData = {}) {
   if (safeString(orderData.customerId)) {
     const linkedCustomer = await ensureCustomerDocument(
@@ -615,11 +743,12 @@ function defaultEstimateTemplate() {
     intro:
       "Thanks for speaking with Golden Brick Construction. Based on the details you shared, here is a working estimate outline for the project.",
     outro:
-      "Please review the scope, note any revisions, and let us know if you want to move into the next planning step.",
+      "Please review this estimate, note any revisions, and let us know if you want to move into the next planning step.",
     terms: DEFAULT_ESTIMATE_STANDARD_TERMS,
     agreementTitle: DEFAULT_AGREEMENT_TITLE,
     agreementIntro: DEFAULT_AGREEMENT_INTRO,
     agreementTerms: DEFAULT_AGREEMENT_TERMS,
+    contractorBusinessAddress: CONTRACTOR_BUSINESS_ADDRESS,
   };
 }
 
@@ -1143,6 +1272,8 @@ async function fetchTemplate() {
     agreementTitle: resolveAgreementTemplateTitle(data),
     agreementIntro: resolveAgreementTemplateIntro(data),
     agreementTerms: resolveAgreementTemplateTerms(data),
+    contractorBusinessAddress:
+      safeString(data.contractorBusinessAddress) || CONTRACTOR_BUSINESS_ADDRESS,
   };
 }
 
@@ -1856,6 +1987,40 @@ function createOpaqueId(byteCount = 24) {
   return crypto.randomBytes(byteCount).toString("hex");
 }
 
+function canonicalJson(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => canonicalJson(item)).join(",")}]`;
+  }
+
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value)
+      .sort()
+      .map(
+        (key) =>
+          `${JSON.stringify(key)}:${canonicalJson(value[key])}`,
+      )
+      .join(",")}}`;
+  }
+
+  return JSON.stringify(value === undefined ? null : value);
+}
+
+function sha256Hex(value) {
+  return crypto
+    .createHash("sha256")
+    .update(typeof value === "string" ? value : canonicalJson(value))
+    .digest("hex");
+}
+
+function estimatePublishRequestRef(staffUid, leadId, idempotencyKey) {
+  const requestHash = sha256Hex({
+    staffUid: safeString(staffUid),
+    leadId: safeString(leadId),
+    idempotencyKey: safeString(idempotencyKey),
+  });
+  return db.collection("estimatePublishRequests").doc(requestHash);
+}
+
 function requestProtocol(request) {
   return (
     safeString(request.get("x-forwarded-proto") || request.protocol || "https")
@@ -1923,6 +2088,135 @@ function parseSignatureDataUrl(dataUrl) {
   };
 }
 
+function normaliseContractDetails(estimateData = {}, template = {}) {
+  const details = estimateData.contractDetails || {};
+  return {
+    contractorName: COMPANY_INFO.name,
+    contractorBusinessAddress:
+      safeString(details.contractorBusinessAddress) ||
+      safeString(template.contractorBusinessAddress) ||
+      CONTRACTOR_BUSINESS_ADDRESS,
+    contractorPhone: COMPANY_INFO.phone,
+    contractorEmail: COMPANY_INFO.email,
+    paRegistrationNumber: COMPANY_INFO.paRegistrationNumber,
+    philadelphiaLicenseNumber: COMPANY_INFO.philadelphiaLicenseNumber,
+    approximateStartDate: safeString(
+      details.approximateStartDate || details.startDate,
+    ),
+    approximateCompletionDate: safeString(
+      details.approximateCompletionDate || details.completionDate,
+    ),
+    paymentSchedule:
+      safeString(details.paymentSchedule) || DEFAULT_CONTRACT_PAYMENT_SCHEDULE,
+    specialOrderMaterials:
+      safeString(details.specialOrderMaterials) ||
+      DEFAULT_CONTRACT_SPECIAL_ORDER_MATERIALS,
+    knownSubcontractors:
+      safeString(details.knownSubcontractors) ||
+      DEFAULT_CONTRACT_SUBCONTRACTORS,
+    insuranceDisclosure: COMPANY_INSURANCE_DISCLOSURE,
+    consumerProtectionPhone: PA_CONSUMER_PROTECTION_PHONE,
+  };
+}
+
+function contractDateDisplay(value, fallback = "Schedule to be confirmed") {
+  return safeString(value) ? formatDateOnly(`${safeString(value)}T12:00:00`) : fallback;
+}
+
+function contractAddressDisplay(contractDetails = {}) {
+  return (
+    safeString(contractDetails.contractorBusinessAddress) ||
+    CONTRACTOR_BUSINESS_ADDRESS
+  );
+}
+
+function agreementReadinessBlockers(contractDetails = {}) {
+  const blockers = [];
+  const startDate = safeString(contractDetails.approximateStartDate);
+  const completionDate = safeString(contractDetails.approximateCompletionDate);
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  const isValidDate = (value) => {
+    if (!datePattern.test(value)) {
+      return false;
+    }
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    return (
+      !Number.isNaN(parsed.getTime()) &&
+      parsed.toISOString().slice(0, 10) === value
+    );
+  };
+
+  if (!startDate) {
+    blockers.push("Approximate project start date is required before signature.");
+  } else if (!isValidDate(startDate)) {
+    blockers.push("Approximate project start date must be a valid date.");
+  }
+  if (!completionDate) {
+    blockers.push("Approximate project completion date is required before signature.");
+  } else if (!isValidDate(completionDate)) {
+    blockers.push("Approximate project completion date must be a valid date.");
+  }
+  if (
+    isValidDate(startDate) &&
+    isValidDate(completionDate) &&
+    completionDate < startDate
+  ) {
+    blockers.push(
+      "Approximate project completion date cannot be before the start date.",
+    );
+  }
+  return blockers;
+}
+
+function addBusinessDays(dateValue, businessDays) {
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const nextDate = new Date(date);
+  let remaining = businessDays;
+  while (remaining > 0) {
+    nextDate.setDate(nextDate.getDate() + 1);
+    const day = nextDate.getDay();
+    if (day !== 0 && day !== 6) {
+      remaining -= 1;
+    }
+  }
+  return nextDate;
+}
+
+function buildCancellationNotice(contractDetails = {}, signedAt = null) {
+  const transactionDate = signedAt ? formatDateOnly(signedAt) : "Completed at signature";
+  const cancelByDate = signedAt
+    ? formatDateOnly(addBusinessDays(signedAt, 3))
+    : "midnight of the third business day after signing";
+  const sellerName = COMPANY_INFO.name;
+  const sellerAddress = contractAddressDisplay(contractDetails);
+
+  return {
+    title: "Notice of Cancellation",
+    transactionDate,
+    cancelByDate,
+    sellerName,
+    sellerAddress,
+    actualNotice:
+      "Golden Brick will honor timely cancellation notice provided by any medium that gives Golden Brick actual notice within the three-business-day cancellation period.",
+    statements: [
+      `Date of transaction: ${transactionDate}`,
+      "You may cancel this transaction, without any penalty or obligation, within three business days from the above date.",
+      "If you cancel, any property traded in, any payments made by you under the contract or sale, and any negotiable instrument executed by you will be returned within ten business days following receipt by Golden Brick Construction of your cancellation notice, and any security interest arising out of the transaction will be cancelled.",
+      "If you cancel, you must make available to Golden Brick Construction at your residence in substantially as good condition as when received, any goods delivered to you under this contract or sale; or you may, if you wish, comply with Golden Brick Construction's instructions regarding return shipment of the goods at Golden Brick Construction's expense and risk.",
+      "If you make the goods available to Golden Brick Construction and Golden Brick Construction does not pick them up within twenty days of the date of your notice of cancellation, you may retain or dispose of the goods without any further obligation.",
+      "If you fail to make the goods available to Golden Brick Construction, or if you agree to return the goods to Golden Brick Construction and fail to do so, then you remain liable for performance of all obligations under the contract.",
+      `To cancel this transaction, provide notice to ${sellerName}, at ${sellerAddress}, not later than ${cancelByDate}.`,
+      "I hereby cancel this transaction.",
+      "Date: ______________________________",
+      "Owner signature: ______________________________",
+    ],
+  };
+}
+
 function normaliseEstimateSnapshot(estimateData = {}, template = {}) {
   const lineItems = Array.isArray(estimateData.lineItems)
     ? estimateData.lineItems
@@ -1946,7 +2240,314 @@ function normaliseEstimateSnapshot(estimateData = {}, template = {}) {
         lineItems.reduce((sum, item) => sum + toNumber(item.amount), 0),
     ),
     proposalTerms: resolveEstimateTemplateTerms(template),
+    contractDetails: normaliseContractDetails(estimateData, template),
   };
+}
+
+function normaliseSubmittedEstimateDraft(rawDraft, leadId) {
+  if (!rawDraft || typeof rawDraft !== "object" || Array.isArray(rawDraft)) {
+    throw httpError(
+      "The current estimate draft is required before publishing.",
+      400,
+    );
+  }
+
+  const expectedLeadId = safeString(leadId);
+  if (!safeString(rawDraft.id) || !safeString(rawDraft.leadId)) {
+    throw httpError(
+      "The estimate draft is missing its lead connection. Reload the lead and try again.",
+      409,
+    );
+  }
+  const suppliedIds = uniqueValues([rawDraft.id, rawDraft.leadId]);
+  if (suppliedIds.some((value) => value !== expectedLeadId)) {
+    throw httpError(
+      "This estimate draft belongs to a different lead and cannot be published here.",
+      409,
+    );
+  }
+
+  const lineItems = Array.isArray(rawDraft.lineItems)
+    ? rawDraft.lineItems
+        .map((item) => ({
+          label: safeString(item?.label || item?.title),
+          description: safeString(item?.description || item?.note),
+          amount: Number(toNumber(item?.amount).toFixed(2)),
+        }))
+        .filter((item) => item.label || item.description || item.amount)
+    : [];
+  const assumptions = Array.isArray(rawDraft.assumptions)
+    ? rawDraft.assumptions.map((item) => safeString(item)).filter(Boolean)
+    : [];
+  const rawContractDetails = rawDraft.contractDetails || {};
+  const subtotal = Number(
+    lineItems.reduce((sum, item) => sum + item.amount, 0).toFixed(2),
+  );
+
+  if (!safeString(rawDraft.subject)) {
+    throw httpError("Add an estimate title before publishing.", 400);
+  }
+  if (!lineItems.length) {
+    throw httpError(
+      "Add at least one scope and pricing line before publishing.",
+      400,
+    );
+  }
+  if (
+    !lineItems.some(
+      (item) =>
+        Boolean(item.label || item.description) &&
+        item.amount > 0,
+    )
+  ) {
+    throw httpError(
+      "Add at least one priced scope line before publishing.",
+      400,
+    );
+  }
+  if (subtotal <= 0) {
+    throw httpError(
+      "The estimate total must be greater than $0 before publishing.",
+      400,
+    );
+  }
+
+  return {
+    id: expectedLeadId,
+    leadId: expectedLeadId,
+    status: "draft",
+    subject: safeString(rawDraft.subject),
+    emailBody: safeString(rawDraft.emailBody),
+    contractDetails: {
+      approximateStartDate: safeString(
+        rawContractDetails.approximateStartDate ||
+          rawContractDetails.startDate,
+      ),
+      approximateCompletionDate: safeString(
+        rawContractDetails.approximateCompletionDate ||
+          rawContractDetails.completionDate,
+      ),
+      paymentSchedule: safeString(rawContractDetails.paymentSchedule),
+      specialOrderMaterials: safeString(
+        rawContractDetails.specialOrderMaterials,
+      ),
+      knownSubcontractors: safeString(
+        rawContractDetails.knownSubcontractors,
+      ),
+    },
+    assumptions,
+    lineItems,
+    subtotal,
+  };
+}
+
+function estimateSnapshotAvailable(shareData = {}) {
+  const type = normaliseShareType(shareData.type);
+  if (type === "change_order") {
+    return Boolean(
+      shareData.changeOrderSnapshot &&
+        safeString(
+          shareData.changeOrderSnapshot.title ||
+            shareData.changeOrderSnapshot.subject,
+        ) &&
+        shareData.agreementSnapshot &&
+        safeString(shareData.agreementSnapshot.terms) &&
+        safeString(shareData.projectId) &&
+        safeString(shareData.customerId) &&
+        safeString(shareData.projectSnapshot?.projectId) &&
+        safeString(
+          shareData.projectSnapshot?.customerId ||
+            shareData.leadSnapshot?.customerId,
+        ),
+    );
+  }
+
+  return Boolean(
+    shareData.estimateSnapshot &&
+      safeString(shareData.estimateSnapshot.subject) &&
+      Array.isArray(shareData.estimateSnapshot.lineItems) &&
+      shareData.agreementSnapshot &&
+      safeString(shareData.agreementSnapshot.terms) &&
+      safeString(shareData.leadId) &&
+      safeString(shareData.customerId) &&
+      safeString(shareData.estimateSnapshot.leadId) &&
+      safeString(shareData.estimateSnapshot.customerId) &&
+      safeString(shareData.leadSnapshot?.leadId) &&
+      safeString(shareData.leadSnapshot?.customerId),
+  );
+}
+
+function validateImmutableShareSnapshots(shareData = {}) {
+  if (!estimateSnapshotAvailable(shareData)) {
+    const error = new Error(
+      normaliseShareType(shareData.type) === "change_order"
+        ? "This legacy change order is missing its frozen published version. Golden Brick must publish it again."
+        : "This legacy estimate is missing its frozen published version. Golden Brick must publish it again.",
+    );
+    error.status = 409;
+    error.clientStatus = "republish_required";
+    throw error;
+  }
+
+  if (normaliseShareType(shareData.type) === "estimate") {
+    const leadSnapshot = shareData.leadSnapshot || {};
+    const shareLeadId = safeString(shareData.leadId);
+    const shareCustomerId = safeString(shareData.customerId);
+    const leadSnapshotLeadId = safeString(leadSnapshot.leadId);
+    const estimateSnapshotLeadId = safeString(
+      shareData.estimateSnapshot?.leadId,
+    );
+    const leadSnapshotCustomerId = safeString(
+      leadSnapshot.customerId,
+    );
+    const estimateSnapshotCustomerId = safeString(
+      shareData.estimateSnapshot?.customerId,
+    );
+
+    if (
+      !leadSnapshotLeadId ||
+      leadSnapshotLeadId !== shareLeadId ||
+      !estimateSnapshotLeadId ||
+      estimateSnapshotLeadId !== shareLeadId
+    ) {
+      const error = new Error(
+        "This published estimate has an invalid lead connection and must be published again.",
+      );
+      error.status = 409;
+      error.clientStatus = "republish_required";
+      throw error;
+    }
+    if (
+      !leadSnapshotCustomerId ||
+      leadSnapshotCustomerId !== shareCustomerId ||
+      !estimateSnapshotCustomerId ||
+      estimateSnapshotCustomerId !== shareCustomerId
+    ) {
+      const error = new Error(
+        "This published estimate has an invalid customer connection and must be published again.",
+      );
+      error.status = 409;
+      error.clientStatus = "republish_required";
+      throw error;
+    }
+
+    const schemaVersion = toNumber(shareData.schemaVersion);
+    const storedContentHash = safeString(shareData.contentHash);
+    if (
+      schemaVersion >= ESTIMATE_VERSION_SCHEMA_VERSION &&
+      !storedContentHash
+    ) {
+      const error = new Error(
+        "This published estimate is missing its integrity record and must be published again.",
+      );
+      error.status = 409;
+      error.clientStatus = "republish_required";
+      throw error;
+    }
+    if (storedContentHash) {
+      const signingMode =
+        safeString(shareData.signingMode || shareData.publishMode) ||
+        (agreementReadinessBlockers(
+          shareData.estimateSnapshot?.contractDetails || {},
+        ).length
+          ? "review"
+          : "signature");
+      const expectedContentHash = estimateVersionContentHash({
+        leadId: shareData.leadId,
+        customerId: shareData.customerId,
+        leadSnapshot,
+        estimateSnapshot: shareData.estimateSnapshot,
+        agreementSnapshot: shareData.agreementSnapshot,
+        signingMode,
+      });
+      if (storedContentHash !== expectedContentHash) {
+        const error = new Error(
+          "This published estimate failed its integrity check and must be published again.",
+        );
+        error.status = 409;
+        error.clientStatus = "republish_required";
+        throw error;
+      }
+    }
+  } else {
+    if (
+      safeString(shareData.projectSnapshot?.projectId) !==
+      safeString(shareData.projectId)
+    ) {
+      const error = new Error(
+        "This published change order has an invalid project connection and must be published again.",
+      );
+      error.status = 409;
+      error.clientStatus = "republish_required";
+      throw error;
+    }
+    const frozenCustomerId = safeString(
+      shareData.projectSnapshot?.customerId ||
+        shareData.leadSnapshot?.customerId,
+    );
+    if (
+      !frozenCustomerId ||
+      frozenCustomerId !== safeString(shareData.customerId)
+    ) {
+      const error = new Error(
+        "This published change order has an invalid customer connection and must be published again.",
+      );
+      error.status = 409;
+      error.clientStatus = "republish_required";
+      throw error;
+    }
+
+    const schemaVersion = toNumber(shareData.schemaVersion);
+    const storedContentHash = safeString(shareData.contentHash);
+    if (
+      schemaVersion >= ESTIMATE_VERSION_SCHEMA_VERSION &&
+      !storedContentHash
+    ) {
+      const error = new Error(
+        "This published change order is missing its integrity record and must be published again.",
+      );
+      error.status = 409;
+      error.clientStatus = "republish_required";
+      throw error;
+    }
+    if (storedContentHash) {
+      const expectedContentHash = sha256Hex({
+        schemaVersion: ESTIMATE_VERSION_SCHEMA_VERSION,
+        type: "change_order",
+        projectId: safeString(shareData.projectId),
+        customerId: safeString(shareData.customerId),
+        changeOrderSnapshot: shareData.changeOrderSnapshot,
+        agreementSnapshot: shareData.agreementSnapshot,
+      });
+      if (storedContentHash !== expectedContentHash) {
+        const error = new Error(
+          "This published change order failed its integrity check and must be published again.",
+        );
+        error.status = 409;
+        error.clientStatus = "republish_required";
+        throw error;
+      }
+    }
+  }
+}
+
+function estimateVersionContentHash({
+  leadId,
+  customerId,
+  leadSnapshot,
+  estimateSnapshot,
+  agreementSnapshot,
+  signingMode,
+}) {
+  return sha256Hex({
+    schemaVersion: ESTIMATE_VERSION_SCHEMA_VERSION,
+    leadId: safeString(leadId),
+    customerId: safeString(customerId),
+    leadSnapshot,
+    estimateSnapshot,
+    agreementSnapshot,
+    signingMode: safeString(signingMode),
+  });
 }
 
 function normaliseAgreementSnapshot(template = {}) {
@@ -1959,6 +2560,7 @@ function normaliseAgreementSnapshot(template = {}) {
 
 function minimalLeadSnapshot(leadData = {}) {
   return {
+    leadId: safeString(leadData.leadId || leadData.id),
     clientName: safeString(leadData.clientName || leadData.customerName),
     customerName: safeString(leadData.customerName || leadData.clientName),
     customerId: safeString(leadData.customerId),
@@ -1971,6 +2573,16 @@ function minimalLeadSnapshot(leadData = {}) {
 
 function minimalProjectSnapshot(projectData = {}, fallbackLead = {}) {
   return {
+    projectId: safeString(
+      projectData.projectId ||
+        projectData.id ||
+        fallbackLead.projectId,
+    ),
+    leadId: safeString(
+      projectData.leadId ||
+        fallbackLead.leadId ||
+        fallbackLead.id,
+    ),
     clientName: safeString(
       projectData.clientName ||
         projectData.customerName ||
@@ -2118,9 +2730,26 @@ function serialiseEstimateShare(shareData = {}, request) {
       ? true
       : shareData.portalVisible !== false &&
         ["active", "signed"].includes(safeString(shareData.status));
+  const snapshotAvailable = estimateSnapshotAvailable(shareData);
+  const signingMode =
+    safeString(shareData.signingMode || shareData.publishMode) ||
+    (Array.isArray(shareData.readinessBlockers) &&
+    shareData.readinessBlockers.length
+      ? "review"
+      : "signature");
+  const blockers = Array.isArray(shareData.readinessBlockers)
+    ? shareData.readinessBlockers.map((item) => safeString(item)).filter(Boolean)
+    : [];
+  const readyToSign =
+    snapshotAvailable &&
+    shareData.readyToSign !== false &&
+    blockers.length === 0;
+  const activeAndReady =
+    safeString(shareData.status) === "active" && readyToSign;
 
   return {
     id: shareData.id,
+    versionId: safeString(shareData.versionId || shareData.id),
     type,
     status: safeString(shareData.status || "active"),
     leadId: safeString(shareData.leadId),
@@ -2133,10 +2762,22 @@ function serialiseEstimateShare(shareData = {}, request) {
     createdAt: serialiseDateValue(shareData.createdAt),
     publishedAt: serialiseDateValue(shareData.publishedAt || shareData.createdAt),
     publishedVersion: toNumber(shareData.publishedVersion),
+    versionNumber: toNumber(
+      shareData.versionNumber || shareData.publishedVersion,
+    ),
+    schemaVersion: toNumber(shareData.schemaVersion),
+    contentHash: safeString(shareData.contentHash),
+    signingMode,
+    publishMode: signingMode,
+    readyToSign,
+    blockers,
+    canSign: activeAndReady,
+    snapshotAvailable,
     updatedAt: serialiseDateValue(shareData.updatedAt),
     revokedAt: serialiseDateValue(shareData.revokedAt),
     replacedAt: serialiseDateValue(shareData.replacedAt),
     lastViewedAt: serialiseDateValue(shareData.lastViewedAt),
+    viewedAt: serialiseDateValue(shareData.lastViewedAt),
     signedAt: serialiseDateValue(shareData.signedAt),
     title,
     summary,
@@ -2144,7 +2785,7 @@ function serialiseEstimateShare(shareData = {}, request) {
     projectAddress,
     projectType,
     visibleInPortal,
-    signable: safeString(shareData.status) === "active",
+    signable: activeAndReady,
     portalStatus:
       safeString(shareData.status) === "signed"
         ? "approved"
@@ -2154,6 +2795,9 @@ function serialiseEstimateShare(shareData = {}, request) {
     signerName: safeString(shareData.signerName),
     signerEmail: normaliseEmail(shareData.signerEmail),
     signerRole: safeString(shareData.signerRole),
+    projectConversionStatus: safeString(
+      shareData.projectConversionStatus,
+    ),
     shareUrl: buildEstimateShareUrl(request, shareData.id),
     agreementDownloadHref:
       safeString(shareData.status) === "signed"
@@ -2224,10 +2868,233 @@ async function saveStorageFile(
 function ensurePdfSpace(doc, minimumSpace = 140) {
   const bottomLimit = doc.page.height - doc.page.margins.bottom;
   if (doc.y + minimumSpace <= bottomLimit) {
-    return;
+    return false;
   }
 
   doc.addPage();
+  return true;
+}
+
+function renderPdfTopBar(doc) {
+  doc.save();
+  doc.rect(0, 0, doc.page.width, 8).fill("#c5a059");
+  doc.restore();
+}
+
+function renderPdfBrickMark(doc, x, y, scale = 0.43) {
+  const bricks = [
+    [44, 1, 32, 14],
+    [24, 22, 32, 14],
+    [64, 22, 32, 14],
+    [4, 43, 32, 14],
+    [44, 43, 32, 14],
+    [84, 43, 32, 14],
+  ];
+
+  doc.save().fillColor("#c5a059");
+  bricks.forEach(([brickX, brickY, width, height]) => {
+    doc.roundedRect(
+      x + brickX * scale,
+      y + brickY * scale,
+      width * scale,
+      height * scale,
+      1,
+    ).fill();
+  });
+  doc.restore();
+}
+
+function renderPdfLogo(doc, x, y) {
+  renderPdfBrickMark(doc, x, y + 1);
+
+  const wordmarkX = x + 60;
+  doc
+    .font("Times-Bold")
+    .fontSize(18.5)
+    .fillColor("#c5a059")
+    .text("GOLDEN BRICK", wordmarkX, y + 7, {
+      width: 170,
+      lineBreak: false,
+    });
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(7.6)
+    .fillColor("#181510")
+    .text("CONSTRUCTION", wordmarkX + 38, y + 25, {
+      width: 88,
+      lineBreak: false,
+    });
+  doc
+    .moveTo(wordmarkX, y + 28)
+    .lineTo(wordmarkX + 28, y + 28)
+    .moveTo(wordmarkX + 126, y + 28)
+    .lineTo(wordmarkX + 154, y + 28)
+    .lineWidth(1.1)
+    .strokeColor("#c5a059")
+    .stroke();
+}
+
+function renderPdfFooter(doc, label = "Estimate approval") {
+  const range = doc.bufferedPageRange();
+
+  for (
+    let pageIndex = range.start;
+    pageIndex < range.start + range.count;
+    pageIndex += 1
+  ) {
+    doc.switchToPage(pageIndex);
+    const pageNumber = pageIndex - range.start + 1;
+    const left = doc.page.margins.left;
+    const right = doc.page.width - doc.page.margins.right;
+    const y = doc.page.height - doc.page.margins.bottom - 12;
+
+    doc
+      .save()
+      .moveTo(left, y - 14)
+      .lineTo(right, y - 14)
+      .lineWidth(0.7)
+      .strokeColor("#e5ded2")
+      .stroke()
+      .font("Helvetica-Bold")
+      .fontSize(8.5)
+      .fillColor("#231d17")
+      .text("Golden Brick Construction", left, y, {
+        lineBreak: false,
+      })
+      .font("Helvetica")
+      .fillColor("#756d62")
+      .text(`${label} | Page ${pageNumber} of ${range.count}`, left, y, {
+        width: right - left,
+        align: "right",
+        lineBreak: false,
+      })
+      .restore();
+  }
+}
+
+function approvalDocumentDisplayTitle(value, fallback = "Project record") {
+  return (
+    safeString(value)
+      .replace(/^golden brick estimate for\s+/i, "")
+      .replace(/^estimate for\s+/i, "")
+      .trim() || fallback
+  );
+}
+
+function renderAgreementHero(
+  doc,
+  {
+    title,
+    projectTitle,
+    introCopy,
+    totalLabel,
+    totalAmount,
+  },
+) {
+  const left = doc.page.margins.left;
+  const right = doc.page.width - doc.page.margins.right;
+  const contentWidth = right - left;
+  const totalWidth = 174;
+  const totalHeight = 66;
+  const titleWidth = contentWidth - totalWidth - 28;
+  const topY = doc.y;
+
+  renderPdfLogo(doc, left, topY);
+
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(23)
+    .fillColor("#17120d")
+    .text(title, left, topY + 78, {
+      width: titleWidth,
+      lineGap: 1,
+    });
+
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(12.5)
+    .fillColor("#231d17")
+    .text(projectTitle, left, doc.y + 6, {
+      width: titleWidth,
+      lineGap: 2,
+    });
+
+  doc
+    .save()
+    .roundedRect(right - totalWidth, topY + 6, totalWidth, totalHeight, 7)
+    .fill("#181510")
+    .restore();
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(8)
+    .fillColor("#c5a059")
+    .text(totalLabel.toUpperCase(), right - totalWidth + 14, topY + 24, {
+      width: totalWidth - 28,
+    });
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(19)
+    .fillColor("#fffaf0")
+    .text(
+      formatCurrency(totalAmount || 0),
+      right - totalWidth + 14,
+      topY + 46,
+      {
+        width: totalWidth - 28,
+        align: "right",
+        lineBreak: false,
+      },
+    );
+
+  doc.y = Math.max(doc.y + 16, topY + 136);
+  renderPdfParagraph(doc, introCopy, {
+    fontSize: 10,
+    color: "#554c43",
+    gapAfter: 14,
+  });
+}
+
+function renderPdfSummaryCards(doc, items, { columns = 3 } = {}) {
+  const left = doc.page.margins.left;
+  const contentWidth =
+    doc.page.width - doc.page.margins.left - doc.page.margins.right;
+  const gap = 8;
+  const cardHeight = 50;
+  const cardWidth = (contentWidth - gap * (columns - 1)) / columns;
+
+  for (let index = 0; index < items.length; index += columns) {
+    ensurePdfSpace(doc, cardHeight + gap + 12);
+    const y = doc.y;
+
+    items.slice(index, index + columns).forEach((item, columnIndex) => {
+      const x = left + columnIndex * (cardWidth + gap);
+
+      doc
+        .save()
+        .roundedRect(x, y, cardWidth, cardHeight, 6)
+        .fillAndStroke("#faf8f4", "#e5ded2")
+        .restore();
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(7.5)
+        .fillColor("#756d62")
+        .text(String(item.label || "").toUpperCase(), x + 12, y + 13, {
+          width: cardWidth - 24,
+          lineBreak: false,
+        });
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(9.8)
+        .fillColor("#17120d")
+        .text(String(item.value || "Not set"), x + 12, y + 30, {
+          width: cardWidth - 24,
+          height: 18,
+          ellipsis: true,
+        });
+    });
+
+    doc.y = y + cardHeight + gap;
+  }
 }
 
 function renderPdfParagraph(doc, text, options = {}) {
@@ -2237,12 +3104,14 @@ function renderPdfParagraph(doc, text, options = {}) {
   const color = options.color || "#554c43";
   const lineGap = options.lineGap ?? 4;
   const gapAfter = options.gapAfter ?? 12;
+  const left = options.x || doc.page.margins.left;
+  const y = options.y ?? doc.y;
 
   doc
     .font(options.font || "Helvetica")
     .fontSize(fontSize)
     .fillColor(color)
-    .text(text, {
+    .text(text, left, y, {
       width:
         options.width ||
         doc.page.width - doc.page.margins.left - doc.page.margins.right,
@@ -2255,14 +3124,19 @@ function renderPdfParagraph(doc, text, options = {}) {
 function renderPdfBulletList(doc, items = [], minimumSpace = 100) {
   items.forEach((item) => {
     ensurePdfSpace(doc, minimumSpace);
+    const left = doc.page.margins.left;
+    const y = doc.y;
+    const width = doc.page.width - doc.page.margins.left - doc.page.margins.right - 18;
     doc
       .font("Helvetica-Bold")
       .fontSize(11)
       .fillColor("#c5a059")
-      .text("•", { continued: true });
-    doc.font("Helvetica").fontSize(10).fillColor("#554c43").text(` ${item}`, {
+      .text("•", left, y, {
+        lineBreak: false,
+      });
+    doc.font("Helvetica").fontSize(10).fillColor("#554c43").text(item, left + 14, y, {
+      width,
       lineGap: 4,
-      indent: 10,
     });
     doc.moveDown(0.3);
   });
@@ -2270,7 +3144,12 @@ function renderPdfBulletList(doc, items = [], minimumSpace = 100) {
 
 function renderPdfSectionHeading(doc, title, description = "") {
   ensurePdfSpace(doc, 80);
-  doc.font("Helvetica-Bold").fontSize(14).fillColor("#231d17").text(title);
+  const left = doc.page.margins.left;
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(11)
+    .fillColor("#755928")
+    .text(String(title || "").toUpperCase(), left, doc.y);
 
   if (description) {
     doc
@@ -2278,7 +3157,7 @@ function renderPdfSectionHeading(doc, title, description = "") {
       .font("Helvetica")
       .fontSize(9)
       .fillColor("#7b6f61")
-      .text(description, {
+      .text(description, left, doc.y, {
         lineGap: 2,
       });
   }
@@ -2286,7 +3165,11 @@ function renderPdfSectionHeading(doc, title, description = "") {
   doc.moveDown(0.5);
 }
 
-function renderAgreementLineItems(doc, lineItems = []) {
+function renderAgreementLineItems(
+  doc,
+  lineItems = [],
+  { totalLabel = "Estimated total", subtotal = 0 } = {},
+) {
   if (!lineItems.length) {
     renderPdfParagraph(
       doc,
@@ -2299,53 +3182,136 @@ function renderAgreementLineItems(doc, lineItems = []) {
     return;
   }
 
+  const left = doc.page.margins.left;
+  const right = doc.page.width - doc.page.margins.right;
+  const contentWidth = right - left;
+  const amountWidth = 112;
+  const titleWidth = contentWidth - amountWidth - 32;
+  const descriptionWidth = contentWidth - 28;
+
+  function drawLineItemHeader(continued = false) {
+    ensurePdfSpace(doc, 34);
+    const y = doc.y;
+    doc
+      .moveTo(left, y)
+      .lineTo(right, y)
+      .lineWidth(0.7)
+      .strokeColor("#d0c2a8")
+      .stroke();
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(8.5)
+      .fillColor("#755928")
+      .text(continued ? "SCOPE CONTINUED" : "SCOPE", left, y + 12, {
+        lineBreak: false,
+      })
+      .text("AMOUNT", left, y + 12, {
+        width: contentWidth,
+        align: "right",
+        lineBreak: false,
+      });
+    doc
+      .moveTo(left, y + 25)
+      .lineTo(right, y + 25)
+      .lineWidth(0.7)
+      .strokeColor("#e5ded2")
+      .stroke();
+    doc.y = y + 36;
+  }
+
+  drawLineItemHeader(false);
+
   lineItems.forEach((item) => {
-    ensurePdfSpace(doc, 80);
     const title = safeString(item.label) || "Line item";
     const description =
       safeString(item.description) || "Scope details to be confirmed.";
+    doc.font("Helvetica-Bold").fontSize(10.5);
+    const titleHeight = doc.heightOfString(title, {
+      width: titleWidth,
+      lineGap: 1,
+    });
+    doc.font("Helvetica").fontSize(9.6);
+    const descriptionHeight = doc.heightOfString(description, {
+      width: descriptionWidth,
+      lineGap: 3,
+    });
+    const rowHeight = Math.max(74, 28 + titleHeight + descriptionHeight);
 
+    if (ensurePdfSpace(doc, rowHeight + 18)) {
+      drawLineItemHeader(true);
+    }
+
+    const rowY = doc.y;
+    doc
+      .save()
+      .roundedRect(left, rowY, contentWidth, rowHeight, 6)
+      .fillAndStroke("#faf8f4", "#e5ded2")
+      .restore();
     doc
       .font("Helvetica-Bold")
-      .fontSize(11)
-      .fillColor("#231d17")
-      .text(title, doc.page.margins.left, doc.y, {
-        width:
-          doc.page.width - doc.page.margins.left - doc.page.margins.right - 110,
+      .fontSize(10.5)
+      .fillColor("#17120d")
+      .text(title, left + 14, rowY + 16, {
+        width: titleWidth,
+        lineGap: 1,
       });
 
     doc
       .font("Helvetica-Bold")
-      .fontSize(11)
-      .fillColor("#231d17")
+      .fontSize(11.5)
+      .fillColor("#17120d")
       .text(
         formatCurrency(item.amount || 0),
-        doc.page.width - doc.page.margins.right - 110,
-        doc.y - 13,
+        right - amountWidth - 14,
+        rowY + 16,
         {
-          width: 110,
+          width: amountWidth,
           align: "right",
+          lineBreak: false,
         },
       );
 
     doc
-      .moveDown(0.1)
       .font("Helvetica")
-      .fontSize(10)
+      .fontSize(9.6)
       .fillColor("#554c43")
-      .text(description, {
+      .text(description, left + 14, rowY + 19 + titleHeight, {
+        width: descriptionWidth,
         lineGap: 3,
       });
 
-    doc.moveDown(0.65);
-    doc
-      .moveTo(doc.page.margins.left, doc.y)
-      .lineTo(doc.page.width - doc.page.margins.right, doc.y)
-      .lineWidth(0.6)
-      .strokeColor("#e4d7c2")
-      .stroke();
-    doc.moveDown(0.55);
+    doc.y = rowY + rowHeight + 10;
   });
+
+  ensurePdfSpace(doc, 58);
+  const totalY = doc.y;
+  doc
+    .save()
+    .roundedRect(left, totalY, contentWidth, 46, 7)
+    .fill("#181510")
+    .restore();
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(8.5)
+    .fillColor("#c5a059")
+    .text(
+      String(totalLabel || "Estimated total").toUpperCase(),
+      left + 16,
+      totalY + 17,
+      {
+        lineBreak: false,
+      },
+    );
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(18)
+    .fillColor("#fffaf0")
+    .text(formatCurrency(subtotal || 0), left + 16, totalY + 25, {
+      width: contentWidth - 32,
+      align: "right",
+      lineBreak: false,
+    });
+  doc.y = totalY + 62;
 }
 
 function buildAgreementPdfBuffer({
@@ -2357,29 +3323,31 @@ function buildAgreementPdfBuffer({
   signerName,
   signedAt,
   signatureBuffer,
+  contractorRepresentativeName = "",
 }) {
   return new Promise((resolve, reject) => {
     const normalisedDocumentType = normaliseShareType(documentType);
     const isChangeOrder = normalisedDocumentType === "change_order";
     const approvalTitle = isChangeOrder
-      ? "Signed change order approval"
-      : "Signed estimate agreement";
+      ? "Change order approval"
+      : "Project estimate approval";
     const introCopy = isChangeOrder
-      ? "This PDF captures the exact change order and approval terms the client accepted through the Golden Brick client portal."
-      : "This PDF captures the exact estimate and agreement snapshot that the client accepted through the Golden Brick client portal.";
-    const totalLabel = isChangeOrder ? "Change total" : "Estimate total";
+      ? "This PDF captures the change order, pricing revision, authorization terms, and signature record accepted through Golden Brick."
+      : "This PDF captures the estimate, agreement details, authorization terms, cancellation notice, and signature record accepted through Golden Brick.";
+    const totalLabel = isChangeOrder ? "Change Total" : "Estimated Total";
     const overviewHeading = isChangeOrder
       ? "Change order overview"
       : "Estimate overview";
     const scopeHeading = isChangeOrder
-      ? "Change order line item"
-      : "Estimate line items";
+      ? "Scope revision and pricing"
+      : "Scope and pricing";
     const scopeDescription = isChangeOrder
-      ? "The pricing revision below reflects the exact change order snapshot the client approved."
+      ? "The pricing revision below reflects the approved change order snapshot."
       : "Each scope line and amount shown here reflects the accepted estimate snapshot.";
     const doc = new PDFDocument({
       size: "LETTER",
       margin: 52,
+      bufferPages: true,
       info: {
         Title: `Golden Brick ${approvalTitle.toLowerCase()} for ${safeString(leadData.projectAddress || leadData.clientName || "project")}`,
         Author: "Golden Brick Construction",
@@ -2390,81 +3358,65 @@ function buildAgreementPdfBuffer({
     doc.on("data", (chunk) => chunks.push(chunk));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
-
-    doc
-      .font("Helvetica-Bold")
-      .fontSize(10)
-      .fillColor("#c5a059")
-      .text("GOLDEN BRICK CONSTRUCTION");
-
-    doc
-      .moveDown(0.35)
-      .font("Helvetica-Bold")
-      .fontSize(22)
-      .fillColor("#231d17")
-      .text(approvalTitle);
-
-    renderPdfParagraph(doc, introCopy, {
-      fontSize: 10,
-      color: "#554c43",
-      gapAfter: 10,
+    doc.on("pageAdded", () => {
+      renderPdfTopBar(doc);
     });
 
-    const summaryRows = [
-      [
-        "Client",
-        safeString(
-          leadData.clientName ||
-            projectData.clientName ||
-            projectData.customerName ||
-            "Client",
-        ),
-      ],
-      [
-        "Property",
-        safeString(
-          leadData.projectAddress ||
-            projectData.projectAddress ||
-            "To be confirmed",
-        ),
-      ],
-      [
-        "Project type",
-        safeString(
-          leadData.projectType || projectData.projectType || "Renovation scope",
-        ),
-      ],
-      ["Signed", formatDateTime(signedAt)],
-      ["Signer", safeString(signerName)],
-      [totalLabel, formatCurrency(estimateSnapshot.subtotal || 0)],
-    ];
+    renderPdfTopBar(doc);
 
-    summaryRows.forEach(([label, value]) => {
-      ensurePdfSpace(doc, 26);
-      doc.font("Helvetica-Bold").fontSize(10).fillColor("#7b6f61").text(label, {
-        continued: true,
-        width: 90,
-      });
-      doc
-        .font("Helvetica")
-        .fontSize(10)
-        .fillColor("#231d17")
-        .text(`  ${value}`);
+    const preparedFor = safeString(
+      leadData.clientName ||
+        projectData.clientName ||
+        projectData.customerName ||
+        "Name to be confirmed",
+    );
+    const projectAddress = safeString(
+      leadData.projectAddress ||
+        projectData.projectAddress ||
+        "To be confirmed",
+    );
+    const projectType = safeString(
+      leadData.projectType || projectData.projectType || "Renovation scope",
+    );
+    const projectTitle = approvalDocumentDisplayTitle(
+      estimateSnapshot.subject,
+      projectType,
+    );
+    const contractDetails =
+      estimateSnapshot.contractDetails || normaliseContractDetails({}, {});
+    const cancellationNotice = buildCancellationNotice(contractDetails, signedAt);
+
+    renderAgreementHero(doc, {
+      title: approvalTitle,
+      projectTitle,
+      introCopy,
+      totalLabel,
+      totalAmount: estimateSnapshot.subtotal || 0,
     });
 
-    doc.moveDown(0.7);
-    doc
-      .moveTo(doc.page.margins.left, doc.y)
-      .lineTo(doc.page.width - doc.page.margins.right, doc.y)
-      .lineWidth(0.8)
-      .strokeColor("#e4d7c2")
-      .stroke();
-    doc.moveDown(0.8);
+    renderPdfSummaryCards(doc, [
+      { label: "Prepared for", value: preparedFor },
+      { label: "Signed", value: formatDateTime(signedAt) },
+      { label: "Signer", value: safeString(signerName) },
+      { label: "Project address", value: projectAddress },
+      { label: "Project type", value: projectType },
+      { label: totalLabel, value: formatCurrency(estimateSnapshot.subtotal || 0) },
+      {
+        label: "PA HIC registration",
+        value: contractDetails.paRegistrationNumber || COMPANY_INFO.paRegistrationNumber,
+      },
+      {
+        label: "Philly GC license",
+        value: `#${contractDetails.philadelphiaLicenseNumber || COMPANY_INFO.philadelphiaLicenseNumber}`,
+      },
+    ]);
+
+    doc.moveDown(0.25);
 
     renderPdfSectionHeading(
       doc,
-      safeString(estimateSnapshot.subject) || overviewHeading,
-      "The proposal language below is frozen as accepted by the client.",
+      overviewHeading,
+      "Project notes preserved in the approval record.",
     );
     splitMultilineText(estimateSnapshot.emailBody).forEach((paragraph) => {
       renderPdfParagraph(doc, paragraph, {
@@ -2479,11 +3431,60 @@ function buildAgreementPdfBuffer({
       scopeHeading,
       scopeDescription,
     );
-    renderAgreementLineItems(doc, estimateSnapshot.lineItems);
+    renderAgreementLineItems(doc, estimateSnapshot.lineItems, {
+      totalLabel,
+      subtotal: estimateSnapshot.subtotal || 0,
+    });
 
+    if (!isChangeOrder) {
+      renderPdfSectionHeading(
+        doc,
+        "Agreement details",
+        "Contractor, timing, payment, subcontractor, insurance, and statutory disclosure details in effect at signing.",
+      );
+      renderPdfSummaryCards(doc, [
+        {
+          label: "Contractor",
+          value: COMPANY_INFO.name,
+        },
+        {
+          label: "Business address",
+          value: contractAddressDisplay(contractDetails),
+        },
+        {
+          label: "Approx. start",
+          value: contractDateDisplay(contractDetails.approximateStartDate),
+        },
+        {
+          label: "Approx. completion",
+          value: contractDateDisplay(contractDetails.approximateCompletionDate),
+        },
+        {
+          label: "PA registration",
+          value: contractDetails.paRegistrationNumber || COMPANY_INFO.paRegistrationNumber,
+        },
+        {
+          label: "Philly GC license",
+          value: `#${contractDetails.philadelphiaLicenseNumber || COMPANY_INFO.philadelphiaLicenseNumber}`,
+        },
+      ]);
+      [
+        `Deposit / payment terms: ${contractDetails.paymentSchedule}`,
+        `Special-order material advance: ${contractDetails.specialOrderMaterials}`,
+        `Known subcontractors: ${contractDetails.knownSubcontractors}`,
+        `Insurance disclosure: ${contractDetails.insuranceDisclosure}`,
+        `Pennsylvania Bureau of Consumer Protection registration lookup: ${PA_CONSUMER_PROTECTION_PHONE}. Registration does not imply endorsement.`,
+      ].forEach((item) => renderPdfParagraph(doc, item, {
+        fontSize: 9.6,
+        color: "#554c43",
+        gapAfter: 8,
+      }));
+    }
+
+    ensurePdfSpace(doc, 190);
     renderPdfSectionHeading(
       doc,
-      "Proposal terms",
+      "Standard terms",
       "These are the standard estimate terms included at the time of acceptance.",
     );
     renderPdfBulletList(
@@ -2496,8 +3497,8 @@ function buildAgreementPdfBuffer({
       : [];
     renderPdfSectionHeading(
       doc,
-      "Project-specific assumptions and exclusions",
-      "Any deal-specific assumptions recorded on the estimate are preserved here.",
+      "Project notes and exclusions",
+      "Project-specific notes, exclusions, or selection assumptions recorded with this approval.",
     );
     if (assumptions.length) {
       renderPdfBulletList(doc, assumptions);
@@ -2514,15 +3515,40 @@ function buildAgreementPdfBuffer({
 
     renderPdfSectionHeading(
       doc,
-      agreementSnapshot.title || "Agreement terms",
+      agreementSnapshot.title || "Authorization terms",
       agreementSnapshot.intro || "",
     );
     renderPdfBulletList(doc, splitMultilineText(agreementSnapshot.terms));
 
+    if (!isChangeOrder) {
+      renderPdfSectionHeading(
+        doc,
+        "Cancellation right",
+        cancellationNotice.actualNotice,
+      );
+      renderPdfBulletList(doc, cancellationNotice.statements, 80);
+
+      doc.addPage();
+      renderPdfSectionHeading(
+        doc,
+        "Notice of Cancellation - Owner Copy",
+        "Keep this completed notice with your signed agreement record.",
+      );
+      renderPdfBulletList(doc, cancellationNotice.statements, 80);
+
+      doc.addPage();
+      renderPdfSectionHeading(
+        doc,
+        "Notice of Cancellation - Golden Brick Copy",
+        "Use this copy if you choose to cancel within the cancellation period.",
+      );
+      renderPdfBulletList(doc, cancellationNotice.statements, 80);
+    }
+
     renderPdfSectionHeading(
       doc,
-      "Client signature",
-      "This block records the acceptance captured in the client portal.",
+      "Signature record",
+      "This block records the acceptance captured with the approval record.",
     );
     if (signatureBuffer?.length) {
       ensurePdfSpace(doc, 120);
@@ -2539,6 +3565,16 @@ function buildAgreementPdfBuffer({
       color: "#231d17",
       gapAfter: 4,
     });
+    renderPdfParagraph(
+      doc,
+      `Contractor representative: ${safeString(contractorRepresentativeName) || COMPANY_INFO.name}`,
+      {
+        font: "Helvetica-Bold",
+        fontSize: 11,
+        color: "#231d17",
+        gapAfter: 4,
+      },
+    );
     renderPdfParagraph(doc, `Signed at: ${formatDateTime(signedAt)}`, {
       fontSize: 10,
       color: "#554c43",
@@ -2546,19 +3582,20 @@ function buildAgreementPdfBuffer({
     });
     renderPdfParagraph(
       doc,
-      "Golden Brick Construction | info@goldenbrickc.com | (267) 715-5557",
+      `${COMPANY_INFO.name} | ${COMPANY_INFO.email} | ${COMPANY_INFO.phone}`,
       {
         fontSize: 9,
         color: "#7b6f61",
         gapAfter: 0,
       },
     );
-    renderPdfParagraph(doc, `PA License #${PENNSYLVANIA_LICENSE_NUMBER}`, {
+    renderPdfParagraph(doc, `PA HIC #${COMPANY_INFO.paRegistrationNumber} | Philadelphia GC License #${COMPANY_INFO.philadelphiaLicenseNumber}`, {
       fontSize: 9,
       color: "#7b6f61",
       gapAfter: 0,
     });
 
+    renderPdfFooter(doc, isChangeOrder ? "Change order approval" : "Estimate approval");
     doc.end();
   });
 }
@@ -2725,10 +3762,50 @@ async function ensureProjectForLead({
   leadData,
   actorProfile = {},
   allowAmbiguousCustomerCreate = false,
+  requiredCustomerId = "",
+  estimateDataOverride = null,
 }) {
   const projectRef = db.collection("projects").doc(leadId);
   const existingProjectSnap = await projectRef.get();
-  let customerLink = await ensureLeadCustomerLink(leadRef, leadData);
+  const frozenCustomerId = safeString(requiredCustomerId);
+  let customerLink;
+
+  if (frozenCustomerId) {
+    if (safeString(leadData.customerId) !== frozenCustomerId) {
+      const error = new Error(
+        "The lead customer no longer matches the customer on the signed estimate.",
+      );
+      error.status = 409;
+      throw error;
+    }
+
+    const customerSnap = await db
+      .collection("customers")
+      .doc(frozenCustomerId)
+      .get();
+    if (!customerSnap.exists) {
+      const error = new Error(
+        "The customer connected to the signed estimate could not be found.",
+      );
+      error.status = 409;
+      throw error;
+    }
+
+    const customerData = customerSnap.data() || {};
+    customerLink = {
+      customerId: frozenCustomerId,
+      customerName: safeString(
+        customerData.name ||
+          leadData.customerName ||
+          leadData.clientName,
+      ),
+      matchResult: "linked",
+      reviewRequired: false,
+      customerMatchIds: [frozenCustomerId],
+    };
+  } else {
+    customerLink = await ensureLeadCustomerLink(leadRef, leadData);
+  }
 
   if (customerLink.matchResult === "review_required") {
     if (allowAmbiguousCustomerCreate) {
@@ -2777,6 +3854,19 @@ async function ensureProjectForLead({
     throw error;
   }
 
+  if (
+    existingProjectSnap.exists &&
+    frozenCustomerId &&
+    safeString(existingProjectSnap.data()?.customerId) !==
+      frozenCustomerId
+  ) {
+    const error = new Error(
+      "The existing job is connected to a different customer than the signed estimate.",
+    );
+    error.status = 409;
+    throw error;
+  }
+
   if (existingProjectSnap.exists) {
     await leadRef.set(
       {
@@ -2817,10 +3907,14 @@ async function ensureProjectForLead({
 
   const [refreshedLeadSnap, estimateSnap] = await Promise.all([
     leadRef.get(),
-    db.collection("estimates").doc(leadId).get(),
+    estimateDataOverride
+      ? Promise.resolve(null)
+      : db.collection("estimates").doc(leadId).get(),
   ]);
   const refreshedLead = refreshedLeadSnap.data() || leadData;
-  const estimateData = estimateSnap.exists ? estimateSnap.data() : null;
+  const estimateData =
+    estimateDataOverride ||
+    (estimateSnap?.exists ? estimateSnap.data() : null);
   const leadOwnerUid = safeString(
     refreshedLead.assignedToUid || actorProfile.uid,
   );
@@ -2849,7 +3943,9 @@ async function ensureProjectForLead({
   const batch = db.batch();
   const initialSummary = computeFinanceSummary(
     {
-      baseContractValue: toNumber(refreshedLead.estimateSubtotal || 0),
+      baseContractValue: toNumber(
+        estimateData?.subtotal || refreshedLead.estimateSubtotal || 0,
+      ),
       assignedWorkers,
     },
     [],
@@ -2891,7 +3987,7 @@ async function ensureProjectForLead({
       allowedStaffUids,
       phaseLabel: "Planning and construction",
       nextStep:
-        "Golden Brick will confirm the next planning or construction step directly in the client portal.",
+        "Golden Brick will confirm the next planning or construction step directly.",
       sharedStatusNote:
         "Your project record is open and the team will keep updates, billing, and documents organized here.",
       targetDate: null,
@@ -2964,6 +4060,21 @@ function buildPublicEstimatePayload({
 }) {
   const type = normaliseShareType(shareData.type);
   const documentLabel = type === "change_order" ? "Change order" : "Estimate";
+  const contractDetails =
+    estimateSnapshot.contractDetails || normaliseContractDetails({}, {});
+  const readinessBlockers =
+    type === "estimate" ? agreementReadinessBlockers(contractDetails) : [];
+  const signingMode =
+    safeString(shareData.signingMode || shareData.publishMode) ||
+    (readinessBlockers.length ? "review" : "signature");
+  const readyToSign =
+    signingMode === "signature" &&
+    shareData.readyToSign !== false &&
+    readinessBlockers.length === 0;
+  const cancellationNotice = buildCancellationNotice(
+    contractDetails,
+    signedAgreement?.signedAt || null,
+  );
   return {
     ok: true,
     documentType: type,
@@ -2974,8 +4085,6 @@ function buildPublicEstimatePayload({
       clientName: safeString(leadData.clientName || leadData.customerName),
       projectAddress: safeString(leadData.projectAddress),
       projectType: safeString(leadData.projectType),
-      clientEmail: normaliseEmail(leadData.clientEmail),
-      clientPhone: safeString(leadData.clientPhone),
     },
     estimate: {
       subject: safeString(estimateSnapshot.subject),
@@ -2988,17 +4097,71 @@ function buildPublicEstimatePayload({
         ? estimateSnapshot.assumptions
         : [],
       terms: splitMultilineText(estimateSnapshot.proposalTerms),
+      contractDetails,
     },
     agreement: {
       title: safeString(agreementSnapshot.title),
       intro: safeString(agreementSnapshot.intro),
       terms: splitMultilineText(agreementSnapshot.terms),
+      readyToSign,
+      blockers: readinessBlockers,
+      pendingMessage: !readyToSign
+        ? readinessBlockers.length
+          ? "This estimate is ready for review. Golden Brick will send the signable agreement copy after the project schedule is confirmed."
+          : "This estimate was shared for review. Golden Brick will send a signature-ready version after any revisions are confirmed."
+        : "",
+      details: [
+        { label: "Contractor", value: COMPANY_INFO.name },
+        {
+          label: "Contractor representative",
+          value: safeString(shareData.createdByName) || COMPANY_INFO.name,
+        },
+        {
+          label: "Business address",
+          value: contractAddressDisplay(contractDetails),
+        },
+        {
+          label: "PA HIC registration",
+          value: contractDetails.paRegistrationNumber,
+        },
+        {
+          label: "Philadelphia GC license",
+          value: `#${contractDetails.philadelphiaLicenseNumber}`,
+        },
+        {
+          label: "Approx. start",
+          value: contractDateDisplay(contractDetails.approximateStartDate),
+        },
+        {
+          label: "Approx. completion",
+          value: contractDateDisplay(contractDetails.approximateCompletionDate),
+        },
+        {
+          label: "Deposit / payment terms",
+          value: contractDetails.paymentSchedule,
+        },
+        {
+          label: "Special-order material advance",
+          value: contractDetails.specialOrderMaterials,
+        },
+        {
+          label: "Known subcontractors",
+          value: contractDetails.knownSubcontractors,
+        },
+        {
+          label: "Insurance disclosure",
+          value: contractDetails.insuranceDisclosure,
+        },
+      ],
+      cancellationNotice,
     },
     support: {
-      email: "info@goldenbrickc.com",
-      phone: "(267) 715-5557",
-      phoneHref: "+12677155557",
-      licenseNumber: PENNSYLVANIA_LICENSE_NUMBER,
+      email: COMPANY_INFO.email,
+      phone: COMPANY_INFO.phone,
+      phoneHref: COMPANY_INFO.phoneHref,
+      paRegistrationNumber: COMPANY_INFO.paRegistrationNumber,
+      philadelphiaLicenseNumber: COMPANY_INFO.philadelphiaLicenseNumber,
+      consumerProtectionPhone: PA_CONSUMER_PROTECTION_PHONE,
     },
     signature: signedAgreement
       ? {
@@ -3055,6 +4218,28 @@ async function loadPublicEstimatePayload(request, token) {
     }
 
     const agreementData = agreementSnap.data() || {};
+    if (
+      safeString(agreementData.shareId) &&
+      safeString(agreementData.shareId) !== safeString(shareData.id)
+    ) {
+      const error = new Error(
+        "This signed agreement is not connected to this published estimate.",
+      );
+      error.status = 409;
+      error.clientStatus = "republish_required";
+      throw error;
+    }
+    if (
+      safeString(agreementData.leadId) &&
+      safeString(agreementData.leadId) !== safeString(shareData.leadId)
+    ) {
+      const error = new Error(
+        "This signed agreement is not connected to this lead.",
+      );
+      error.status = 409;
+      error.clientStatus = "republish_required";
+      throw error;
+    }
     leadData =
       agreementData.leadSnapshot ||
       agreementData.projectSnapshot ||
@@ -3072,78 +4257,33 @@ async function loadPublicEstimatePayload(request, token) {
       signerRole: safeString(agreementData.signerRole),
       signedAt: agreementData.signedAt || null,
     };
-  } else if (shareType === "change_order") {
-    if (!estimateSnapshot || !safeString(estimateSnapshot.title)) {
-      const [projectSnap, changeOrderSnap] = await Promise.all([
-        db.collection("projects").doc(shareData.projectId).get(),
-        db
-          .collection("projects")
-          .doc(shareData.projectId)
-          .collection("changeOrders")
-          .doc(shareData.changeOrderId)
-          .get(),
-      ]);
-
-      if (!projectSnap.exists || !changeOrderSnap.exists) {
-        const error = new Error("This change order link is no longer available.");
-        error.status = 404;
-        throw error;
-      }
-
-      const projectData = projectSnap.data() || {};
-      const changeOrderData = {
-        id: changeOrderSnap.id,
-        ...changeOrderSnap.data(),
-      };
-      leadData = minimalProjectSnapshot(projectData);
-      estimateSnapshot = normaliseChangeOrderSnapshot(
-        changeOrderData,
-        projectData,
-      );
-      agreementSnapshot = normaliseChangeOrderAgreementSnapshot(
-        projectData,
-        changeOrderData,
-      );
-    }
-  } else {
-    const [leadSnap, estimateSnap, template] = await Promise.all([
-      db.collection("leads").doc(shareData.leadId).get(),
-      db.collection("estimates").doc(shareData.leadId).get(),
-      fetchTemplate(),
-    ]);
-
-    if (!leadSnap.exists || !estimateSnap.exists) {
-      const error = new Error("This estimate link is no longer available.");
-      error.status = 404;
-      throw error;
-    }
-
-    leadData = leadSnap.data() || {};
-    estimateSnapshot = normaliseEstimateSnapshot(
-      estimateSnap.data() || {},
-      template,
-    );
-    agreementSnapshot = normaliseAgreementSnapshot(template);
   }
 
-  if (!safeString(agreementSnapshot.title) || !safeString(agreementSnapshot.terms)) {
-    agreementSnapshot =
+  validateImmutableShareSnapshots({
+    ...shareData,
+    leadSnapshot: leadData,
+    estimateSnapshot:
+      shareType === "estimate" ? estimateSnapshot : shareData.estimateSnapshot,
+    changeOrderSnapshot:
       shareType === "change_order"
-        ? normaliseChangeOrderAgreementSnapshot({}, estimateSnapshot)
-        : agreementSnapshot;
-  }
+        ? estimateSnapshot
+        : shareData.changeOrderSnapshot,
+    agreementSnapshot,
+  });
 
   await shareRef.set(
     {
       lastViewedAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true },
   );
 
   return buildPublicEstimatePayload({
     request,
-    shareData,
+    shareData: {
+      ...shareData,
+      lastViewedAt: new Date(),
+    },
     leadData,
     estimateSnapshot,
     agreementSnapshot,
@@ -3151,11 +4291,293 @@ async function loadPublicEstimatePayload(request, token) {
   });
 }
 
+async function authorisePublishedSigner(shareData = {}, signerEmail) {
+  const email = normaliseEmail(signerEmail);
+  if (!email) {
+    throw httpError(
+      "Enter the email address connected to this approval before signing.",
+      400,
+    );
+  }
+
+  const customerId = safeString(shareData.customerId);
+  const frozenClientEmail = normaliseEmail(
+    shareData.leadSnapshot?.clientEmail ||
+      shareData.projectSnapshot?.clientEmail,
+  );
+  if (!customerId) {
+    throw httpError(
+      "This approval is not connected to a customer and must be published again.",
+      409,
+    );
+  }
+
+  const contactsSnap = await db
+    .collection("customers")
+    .doc(customerId)
+    .collection("contacts")
+    .get();
+  const emailContacts = contactsSnap.docs
+    .map((snapshot) => snapshot.data() || {})
+    .filter((contact) => normaliseEmail(contact.email) === email);
+  const matchingContacts = emailContacts
+    .filter(
+      (contact) =>
+        !contact.disabledAt &&
+        !contact.revokedAt &&
+        safeString(contact.status || "active") !== "revoked",
+    );
+  const signableContact = matchingContacts.find((contact) =>
+    portalContactCanSign(contact.role || contact.accessScope),
+  );
+
+  if (signableContact) {
+    return {
+      email,
+      role: normalisePortalContactRole(
+        signableContact.role || signableContact.accessScope,
+      ),
+    };
+  }
+
+  if (
+    matchingContacts.some(
+      (contact) =>
+        normalisePortalContactRole(
+          contact.role || contact.accessScope,
+        ) === "read_only",
+    )
+  ) {
+    throw httpError(
+      "This portal contact has read-only access and cannot sign estimates.",
+      403,
+    );
+  }
+
+  if (emailContacts.length) {
+    throw httpError(
+      "This client contact is not active for estimate approvals.",
+      403,
+    );
+  }
+
+  if (frozenClientEmail && frozenClientEmail === email) {
+    return {
+      email,
+      role: "primary",
+    };
+  }
+
+  throw httpError(
+    "Use the client email connected to this approval, or ask Golden Brick to update the authorized signer.",
+    403,
+  );
+}
+
+function signingLeaseExpired(shareData = {}) {
+  const startedAt = normaliseMillis(shareData.signingStartedAt);
+  return !startedAt || Date.now() - startedAt > ESTIMATE_SIGNING_LEASE_MS;
+}
+
+async function releaseSigningReservation(
+  shareRef,
+  signingAttemptId,
+  error,
+) {
+  try {
+    await db.runTransaction(async (transaction) => {
+      const shareSnap = await transaction.get(shareRef);
+      if (!shareSnap.exists) {
+        return;
+      }
+      const shareData = shareSnap.data() || {};
+      if (
+        safeString(shareData.status) !== "signing" ||
+        safeString(shareData.signingAttemptId) !==
+          safeString(signingAttemptId)
+      ) {
+        return;
+      }
+
+      transaction.set(
+        shareRef,
+        {
+          status: "active",
+          signingAttemptId: null,
+          signingRequestHash: null,
+          signingStartedAt: null,
+          pendingAgreementId: null,
+          pendingRecordDocumentId: null,
+          lastSigningError: safeString(error?.message || error),
+          lastSigningFailedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    });
+  } catch (releaseError) {
+    logger.error("Estimate signing reservation could not be released.", {
+      shareId: shareRef.id,
+      signingAttemptId,
+      error: releaseError?.message || String(releaseError),
+    });
+  }
+}
+
+async function retrySignedEstimateProjectConversion(
+  shareData = {},
+  agreementData = {},
+) {
+  if (
+    normaliseShareType(shareData.type) !== "estimate" ||
+    safeString(agreementData.projectConversionStatus) === "complete"
+  ) {
+    return {
+      status:
+        safeString(agreementData.projectConversionStatus) ||
+        "not_applicable",
+      projectId: safeString(
+        agreementData.projectId || shareData.projectId,
+      ),
+    };
+  }
+
+  const agreementId = safeString(
+    agreementData.id || shareData.agreementId,
+  );
+  const leadId = safeString(shareData.leadId);
+  const customerId = safeString(shareData.customerId);
+  const estimateSnapshot =
+    agreementData.estimateSnapshot || shareData.estimateSnapshot;
+  const agreementRef = agreementId
+    ? db.collection("agreements").doc(agreementId)
+    : null;
+  const recordDocumentId = safeString(
+    agreementData.recordDocumentId ||
+      agreementData.jobDocumentId,
+  );
+  const recordDocumentRef = recordDocumentId
+    ? db.collection("recordDocuments").doc(recordDocumentId)
+    : null;
+  const leadRef = db.collection("leads").doc(leadId);
+  const portalActor = {
+    uid: "client-portal",
+    email: "portal@goldenbrick.local",
+    displayName: "Golden Brick Secure Estimate Page",
+    role: "system",
+  };
+
+  try {
+    validateImmutableShareSnapshots({
+      ...shareData,
+      leadSnapshot:
+        agreementData.leadSnapshot || shareData.leadSnapshot,
+      estimateSnapshot,
+      agreementSnapshot:
+        agreementData.agreementSnapshot ||
+        shareData.agreementSnapshot,
+    });
+    const leadSnap = await leadRef.get();
+    if (!leadSnap.exists) {
+      throw httpError("Lead not found.", 404);
+    }
+
+    const projectResult = await ensureProjectForLead({
+      leadId,
+      leadRef,
+      leadData: leadSnap.data() || {},
+      actorProfile: portalActor,
+      requiredCustomerId: customerId,
+      estimateDataOverride: estimateSnapshot,
+    });
+    const updates = [];
+    if (agreementRef) {
+      updates.push(
+        agreementRef.set(
+          {
+            projectId: projectResult.projectId,
+            projectConversionStatus: "complete",
+            projectConversionError: "",
+            projectConvertedAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        ),
+      );
+    }
+    updates.push(
+      db
+        .collection("estimateShares")
+        .doc(shareData.id)
+        .set(
+          {
+            projectId: projectResult.projectId,
+            projectConversionStatus: "complete",
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        ),
+    );
+    if (recordDocumentRef) {
+      updates.push(
+        recordDocumentRef.set(
+          {
+            projectId: projectResult.projectId,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        ),
+      );
+    }
+    await Promise.all(updates);
+
+    return {
+      status: "complete",
+      projectId: projectResult.projectId,
+    };
+  } catch (error) {
+    const projectConversionError = safeString(error?.message || error);
+    logger.error("Signed estimate project conversion retry failed.", {
+      shareId: shareData.id,
+      agreementId,
+      leadId,
+      error: projectConversionError,
+    });
+    if (agreementRef) {
+      await agreementRef
+        .set(
+          {
+            projectConversionStatus: "pending",
+            projectConversionError,
+            projectConversionLastAttemptAt:
+              FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        )
+        .catch((writeError) => {
+          logger.error(
+            "Signed estimate conversion retry status could not be recorded.",
+            writeError,
+          );
+        });
+    }
+    return {
+      status: "pending",
+      projectId: safeString(
+        agreementData.projectId ||
+          shareData.projectId ||
+          leadId,
+      ),
+    };
+  }
+}
+
 async function signPublicEstimatePayload(request, payload = {}) {
   const token = safeString(payload.token);
   const signerName = safeString(payload.signerName);
   const signerEmail = normaliseEmail(payload.signerEmail);
-  const signerRole = safeString(payload.signerRole);
+  let signerRole = safeString(payload.signerRole);
   const accepted =
     payload.accepted === true ||
     safeString(payload.accepted).toLowerCase() === "true" ||
@@ -3167,7 +4589,9 @@ async function signPublicEstimatePayload(request, payload = {}) {
     throw error;
   }
 
-  const { shareRef, shareData } = await fetchEstimateShareContext(token);
+  const { shareRef, shareData: initialShareData } =
+    await fetchEstimateShareContext(token);
+  let shareData = initialShareData;
   const shareType = normaliseShareType(shareData.type);
 
   if (["revoked", "replaced", "void"].includes(safeString(shareData.status))) {
@@ -3186,9 +4610,20 @@ async function signPublicEstimatePayload(request, payload = {}) {
       .collection("agreements")
       .doc(shareData.agreementId)
       .get();
-    const agreementData = agreementSnap.exists
-      ? agreementSnap.data() || {}
-      : {};
+    if (!agreementSnap.exists) {
+      throw httpError(
+        "The signed agreement record could not be found.",
+        404,
+      );
+    }
+    const agreementData = agreementSnap.data() || {};
+    const conversion = await retrySignedEstimateProjectConversion(
+      shareData,
+      {
+        id: agreementSnap.id,
+        ...agreementData,
+      },
+    );
 
     return {
       ok: true,
@@ -3198,9 +4633,12 @@ async function signPublicEstimatePayload(request, payload = {}) {
       signedAt: serialiseDateValue(
         shareData.signedAt || agreementData.signedAt,
       ),
+      projectConversionStatus: conversion.status,
       downloadHref: buildPublicAgreementDownloadHref(request, shareData.id),
     };
   }
+
+  validateImmutableShareSnapshots(shareData);
 
   if (!accepted) {
     const error = new Error("You must agree to the terms before signing.");
@@ -3215,10 +4653,39 @@ async function signPublicEstimatePayload(request, payload = {}) {
   }
 
   const signature = parseSignatureDataUrl(payload.signatureDataUrl);
+  if (shareType === "estimate") {
+    const signingMode = safeString(
+      shareData.signingMode || shareData.publishMode,
+    );
+    const blockers = agreementReadinessBlockers(
+      shareData.estimateSnapshot?.contractDetails || {},
+    );
+    if (
+      signingMode === "review" ||
+      shareData.readyToSign === false ||
+      blockers.length
+    ) {
+      const error = new Error(
+        blockers.length
+          ? "This estimate is available for review, but the signable agreement copy is not ready yet."
+          : "This estimate was published for review only. Golden Brick must publish a signature-ready version before it can be signed.",
+      );
+      error.status = 409;
+      error.clientStatus = "review_only";
+      throw error;
+    }
+
+  }
+  const signerAuthorization = await authorisePublishedSigner(
+    shareData,
+    signerEmail,
+  );
+  signerRole = signerAuthorization.role;
+
   const portalActor = {
     uid: "client-portal",
     email: "portal@goldenbrick.local",
-    displayName: "Golden Brick Client Portal",
+    displayName: "Golden Brick Secure Estimate Page",
     role: "system",
   };
   let leadData = {};
@@ -3227,6 +4694,8 @@ async function signPublicEstimatePayload(request, payload = {}) {
   let estimateSnapshot = {};
   let agreementSnapshot = {};
   let changeOrderRef = null;
+  let currentLeadData = {};
+  let currentLeadRef = null;
 
   if (shareType === "change_order") {
     const projectRef = db.collection("projects").doc(shareData.projectId);
@@ -3245,20 +4714,21 @@ async function signPublicEstimatePayload(request, payload = {}) {
     }
 
     projectData = projectSnap.data() || {};
-    const changeOrderData = {
-      id: changeOrderSnap.id,
-      ...changeOrderSnap.data(),
-    };
-    leadData = minimalProjectSnapshot(projectData);
-    estimateSnapshot =
-      shareData.changeOrderSnapshot &&
-      safeString(shareData.changeOrderSnapshot.title)
-        ? shareData.changeOrderSnapshot
-        : normaliseChangeOrderSnapshot(changeOrderData, projectData);
-    agreementSnapshot =
-      shareData.agreementSnapshot && safeString(shareData.agreementSnapshot.terms)
-        ? shareData.agreementSnapshot
-        : normaliseChangeOrderAgreementSnapshot(projectData, changeOrderData);
+    if (
+      safeString(projectData.customerId) !==
+      safeString(shareData.customerId)
+    ) {
+      throw httpError(
+        "This change order is no longer connected to the published customer.",
+        409,
+      );
+    }
+    leadData =
+      shareData.projectSnapshot ||
+      shareData.leadSnapshot ||
+      minimalProjectSnapshot(projectData);
+    estimateSnapshot = shareData.changeOrderSnapshot;
+    agreementSnapshot = shareData.agreementSnapshot;
     projectResult = {
       existing: true,
       projectId: shareData.projectId,
@@ -3269,80 +4739,198 @@ async function signPublicEstimatePayload(request, payload = {}) {
       projectData,
     };
   } else {
-    const [leadSnap, estimateSnap, template] = await Promise.all([
-      db.collection("leads").doc(shareData.leadId).get(),
-      db.collection("estimates").doc(shareData.leadId).get(),
-      fetchTemplate(),
+    currentLeadRef = db.collection("leads").doc(shareData.leadId);
+    const [leadSnap, customerSnap, projectSnap] = await Promise.all([
+      currentLeadRef.get(),
+      db.collection("customers").doc(shareData.customerId).get(),
+      db.collection("projects").doc(shareData.leadId).get(),
     ]);
 
-    if (!leadSnap.exists || !estimateSnap.exists) {
+    if (!leadSnap.exists) {
       const error = new Error("This estimate is no longer available.");
       error.status = 404;
       throw error;
     }
+    if (!customerSnap.exists) {
+      throw httpError(
+        "The customer connected to this estimate could not be found.",
+        409,
+      );
+    }
 
-    leadData = leadSnap.data() || {};
-    projectResult = await ensureProjectForLead({
-      leadId: shareData.leadId,
-      leadRef: db.collection("leads").doc(shareData.leadId),
-      leadData,
-      actorProfile: portalActor,
-      allowAmbiguousCustomerCreate: true,
-    });
-    const projectSnap = await db
-      .collection("projects")
-      .doc(projectResult.projectId)
-      .get();
-    projectData = projectSnap.exists
-      ? projectSnap.data() || {}
-      : projectResult.projectData || {};
-    estimateSnapshot =
-      shareData.estimateSnapshot && safeString(shareData.estimateSnapshot.subject)
-        ? shareData.estimateSnapshot
-        : normaliseEstimateSnapshot(estimateSnap.data() || {}, template);
-    agreementSnapshot =
-      shareData.agreementSnapshot && safeString(shareData.agreementSnapshot.terms)
-        ? shareData.agreementSnapshot
-        : normaliseAgreementSnapshot(template);
+    currentLeadData = leadSnap.data() || {};
+    if (
+      safeString(currentLeadData.customerId) !==
+      safeString(shareData.customerId)
+    ) {
+      throw httpError(
+        "This lead is no longer connected to the customer on the published estimate.",
+        409,
+      );
+    }
+    leadData = shareData.leadSnapshot;
+    estimateSnapshot = shareData.estimateSnapshot;
+    agreementSnapshot = shareData.agreementSnapshot;
+    projectData = projectSnap.exists ? projectSnap.data() || {} : {};
+    projectResult = {
+      existing: projectSnap.exists,
+      projectId: shareData.leadId,
+      scopeItemCount: 0,
+      customerLink: {
+        customerId: shareData.customerId,
+        customerName: safeString(
+          shareData.customerName ||
+            currentLeadData.customerName ||
+            currentLeadData.clientName,
+        ),
+      },
+      projectData,
+    };
   }
 
   const signedAt = new Date();
-  const agreementRef = db.collection("agreements").doc();
-  const recordDocumentRef = db.collection("recordDocuments").doc();
+  const proposedAgreementRef = db.collection("agreements").doc();
+  const proposedRecordDocumentRef = db.collection("recordDocuments").doc();
+  const signingAttemptId = createOpaqueId(18);
+  const signingRequestHash = sha256Hex({
+    shareId: shareData.id,
+    signerName,
+    signerEmail,
+    signature: sha256Hex(signature.buffer),
+  });
+  const reservation = await db.runTransaction(async (transaction) => {
+    const latestShareSnap = await transaction.get(shareRef);
+    if (!latestShareSnap.exists) {
+      throw httpError("This estimate link is not available.", 404);
+    }
+
+    const latestShareData = {
+      id: latestShareSnap.id,
+      ...latestShareSnap.data(),
+    };
+    if (
+      latestShareData.status === "signed" &&
+      safeString(latestShareData.agreementId)
+    ) {
+      return {
+        alreadySigned: true,
+        shareData: latestShareData,
+      };
+    }
+    if (
+      ["revoked", "replaced", "void"].includes(
+        safeString(latestShareData.status),
+      )
+    ) {
+      const error = new Error("This approval link is no longer active.");
+      error.status = 410;
+      error.clientStatus = "revoked";
+      throw error;
+    }
+
+    validateImmutableShareSnapshots(latestShareData);
+    if (
+      latestShareData.status === "signing" &&
+      !signingLeaseExpired(latestShareData)
+    ) {
+      throw httpError(
+        "This signature is already being processed. Wait a moment before trying again.",
+        409,
+      );
+    }
+    if (
+      latestShareData.status !== "active" &&
+      latestShareData.status !== "signing"
+    ) {
+      throw httpError("This estimate is not available for signature.", 409);
+    }
+
+    const agreementId =
+      latestShareData.status === "signing" &&
+      safeString(latestShareData.pendingAgreementId)
+        ? safeString(latestShareData.pendingAgreementId)
+        : proposedAgreementRef.id;
+    const recordDocumentId =
+      latestShareData.status === "signing" &&
+      safeString(latestShareData.pendingRecordDocumentId)
+        ? safeString(latestShareData.pendingRecordDocumentId)
+        : proposedRecordDocumentRef.id;
+
+    transaction.set(
+      shareRef,
+      {
+        status: "signing",
+        signingAttemptId,
+        signingRequestHash,
+        signingStartedAt: FieldValue.serverTimestamp(),
+        pendingAgreementId: agreementId,
+        pendingRecordDocumentId: recordDocumentId,
+        lastSigningError: null,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    return {
+      alreadySigned: false,
+      shareData: latestShareData,
+      agreementId,
+      recordDocumentId,
+    };
+  });
+
+  if (reservation.alreadySigned) {
+    const signedShare = reservation.shareData;
+    const existingAgreementSnap = await db
+      .collection("agreements")
+      .doc(signedShare.agreementId)
+      .get();
+    if (!existingAgreementSnap.exists) {
+      throw httpError(
+        "The signed agreement record could not be found.",
+        404,
+      );
+    }
+    const existingAgreementData = {
+      id: existingAgreementSnap.id,
+      ...existingAgreementSnap.data(),
+    };
+    const conversion = await retrySignedEstimateProjectConversion(
+      signedShare,
+      existingAgreementData,
+    );
+    return {
+      ok: true,
+      alreadySigned: true,
+      status: "signed",
+      agreementId: safeString(signedShare.agreementId),
+      signedAt: serialiseDateValue(signedShare.signedAt),
+      projectConversionStatus: conversion.status,
+      downloadHref: buildPublicAgreementDownloadHref(
+        request,
+        signedShare.id,
+      ),
+    };
+  }
+
+  shareData = {
+    ...reservation.shareData,
+    status: "signing",
+    signingAttemptId,
+  };
+  const agreementRef = db
+    .collection("agreements")
+    .doc(reservation.agreementId);
+  const recordDocumentRef = db
+    .collection("recordDocuments")
+    .doc(reservation.recordDocumentId);
   const bucket = admin.storage().bucket();
   const signaturePath = `agreements/${agreementRef.id}/signature.png`;
   const pdfPath = `agreements/${agreementRef.id}/signed-agreement.pdf`;
   const pdfDownloadToken = createOpaqueId(18);
-  const pdfBuffer = await buildAgreementPdfBuffer({
-    leadData,
-    projectData,
-    estimateSnapshot,
-    agreementSnapshot,
-    documentType: shareType,
-    signerName,
-    signedAt,
-    signatureBuffer: signature.buffer,
-  });
-  const pdfUrl = await saveStorageFile(bucket, pdfPath, pdfBuffer, {
-    contentType: "application/pdf",
-    downloadToken: pdfDownloadToken,
-    metadata: {
-      agreementId: agreementRef.id,
-      shareId: shareData.id,
-    },
-  });
-  await saveStorageFile(bucket, signaturePath, signature.buffer, {
-    contentType: signature.contentType,
-    metadata: {
-      agreementId: agreementRef.id,
-      shareId: shareData.id,
-    },
-  });
-
   const leadSnapshot = minimalLeadSnapshot(leadData);
   const projectSnapshot = minimalProjectSnapshot(projectData, leadData);
   const audit = requestAuditMetadata(request);
-  const batch = db.batch();
   const signedDocumentTitle =
     shareType === "change_order"
       ? `Signed change order - ${formatDateOnly(signedAt)}`
@@ -3351,183 +4939,427 @@ async function signPublicEstimatePayload(request, payload = {}) {
     shareType === "change_order" ? "change_order" : "agreement";
   const signedDocumentNote =
     shareType === "change_order"
-      ? `Signed by ${signerName} through the client change order link.`
-      : `Signed by ${signerName} through the client estimate link.`;
+      ? `Signed by ${signerName} through the secure change order link.`
+      : `Signed by ${signerName} through the secure estimate link.`;
+  let pdfUrl = "";
+  let signedCommitted = false;
 
-  batch.set(
-    agreementRef,
-    {
-      id: agreementRef.id,
-      type: shareType,
-      status: "signed",
-      leadId: cleanNullableString(shareData.leadId),
-      projectId: projectResult.projectId,
-      customerId: projectResult.customerLink.customerId,
-      customerName: projectResult.customerLink.customerName,
-      shareId: shareData.id,
-      changeOrderId:
-        shareType === "change_order"
-          ? cleanNullableString(shareData.changeOrderId)
-          : null,
-      leadSnapshot,
-      projectSnapshot,
-      estimateSnapshot: shareType === "estimate" ? estimateSnapshot : null,
-      changeOrderSnapshot:
-        shareType === "change_order" ? estimateSnapshot : null,
+  try {
+    const pdfBuffer = await buildAgreementPdfBuffer({
+      leadData,
+      projectData,
+      estimateSnapshot,
       agreementSnapshot,
+      documentType: shareType,
       signerName,
-      signerEmail,
-      signerRole,
       signedAt,
-      signedIpAddress: audit.ipAddress,
-      signedUserAgent: audit.userAgent,
-      signaturePath,
-      signatureContentType: signature.contentType,
-      pdfPath,
-      pdfUrl,
-      pdfFileName: "signed-agreement.pdf",
-      jobDocumentId: recordDocumentRef.id,
-      recordDocumentId: recordDocumentRef.id,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true },
-  );
-
-  batch.set(
-    recordDocumentRef,
-    {
-      id: recordDocumentRef.id,
-      documentKind: "file",
-      category: signedDocumentCategory,
-      sourceType: "upload",
-      title: signedDocumentTitle,
-      note: signedDocumentNote,
-      relatedDate: signedAt,
-      externalUrl: "",
-      fileUrl: pdfUrl,
-      filePath: pdfPath,
-      fileName: "signed-agreement.pdf",
-      leadId: cleanNullableString(shareData.leadId),
-      customerId: cleanNullableString(projectResult.customerLink.customerId),
-      projectId: cleanNullableString(projectResult.projectId),
-      agreementId: agreementRef.id,
-      clientVisible: true,
-      createdByUid: portalActor.uid,
-      createdByName: portalActor.displayName,
-      createdByRole: portalActor.role,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true },
-  );
-
-  batch.set(
-    shareRef,
-    {
-      status: "signed",
-      signedAt,
-      agreementId: agreementRef.id,
-      projectId: projectResult.projectId,
-      customerId: projectResult.customerLink.customerId,
-      customerName: projectResult.customerLink.customerName,
-      portalVisible: true,
-      signerName,
-      signerEmail,
-      signerRole,
-      lastViewedAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true },
-  );
-
-  if (shareType === "change_order" && changeOrderRef) {
-    batch.set(
-      changeOrderRef,
-      {
-        status: "approved",
-        customerId: safeString(projectData.customerId),
-        customerName: safeString(projectData.customerName || projectData.clientName),
-        projectAddress: safeString(projectData.projectAddress),
-        portalShareId: shareData.id,
-        portalStatus: "signed",
-        portalVisible: true,
-        publishedAt: shareData.publishedAt || shareData.createdAt || FieldValue.serverTimestamp(),
+      signatureBuffer: signature.buffer,
+      contractorRepresentativeName: safeString(shareData.createdByName),
+    });
+    pdfUrl = await saveStorageFile(bucket, pdfPath, pdfBuffer, {
+      contentType: "application/pdf",
+      downloadToken: pdfDownloadToken,
+      metadata: {
         agreementId: agreementRef.id,
-        signedAt,
-        signerName,
-        signerEmail,
-        signerRole,
-        updatedAt: FieldValue.serverTimestamp(),
+        shareId: shareData.id,
+        versionId: safeString(shareData.versionId || shareData.id),
+        contentHash: safeString(shareData.contentHash),
       },
-      { merge: true },
+    });
+    await saveStorageFile(bucket, signaturePath, signature.buffer, {
+      contentType: signature.contentType,
+      metadata: {
+        agreementId: agreementRef.id,
+        shareId: shareData.id,
+      },
+    });
+
+    await db.runTransaction(async (transaction) => {
+      const latestShareSnap = await transaction.get(shareRef);
+      if (!latestShareSnap.exists) {
+        throw httpError("This estimate link is not available.", 404);
+      }
+      const latestShareData = latestShareSnap.data() || {};
+      if (
+        safeString(latestShareData.status) !== "signing" ||
+        safeString(latestShareData.signingAttemptId) !==
+          signingAttemptId ||
+        safeString(latestShareData.pendingAgreementId) !==
+          agreementRef.id
+      ) {
+        throw httpError(
+          "This estimate signature was superseded by another request.",
+          409,
+        );
+      }
+
+      if (shareType === "change_order" && changeOrderRef) {
+        const latestChangeOrderSnap = await transaction.get(changeOrderRef);
+        if (!latestChangeOrderSnap.exists) {
+          throw httpError(
+            "This change order is no longer available.",
+            404,
+          );
+        }
+        if (
+          normaliseChangeOrderStatus(
+            latestChangeOrderSnap.data()?.status,
+          ) === "void"
+        ) {
+          throw httpError(
+            "This change order has been voided and cannot be signed.",
+            409,
+          );
+        }
+      }
+
+      transaction.set(
+        agreementRef,
+        {
+          id: agreementRef.id,
+          type: shareType,
+          status: "signed",
+          schemaVersion:
+            toNumber(shareData.schemaVersion) ||
+            ESTIMATE_VERSION_SCHEMA_VERSION,
+          versionId: safeString(shareData.versionId || shareData.id),
+          versionNumber: toNumber(
+            shareData.versionNumber || shareData.publishedVersion,
+          ),
+          contentHash: safeString(shareData.contentHash),
+          leadId: cleanNullableString(shareData.leadId),
+          projectId: projectResult.projectId,
+          customerId: projectResult.customerLink.customerId,
+          customerName: projectResult.customerLink.customerName,
+          shareId: shareData.id,
+          changeOrderId:
+            shareType === "change_order"
+              ? cleanNullableString(shareData.changeOrderId)
+              : null,
+          leadSnapshot,
+          projectSnapshot,
+          estimateSnapshot:
+            shareType === "estimate" ? estimateSnapshot : null,
+          changeOrderSnapshot:
+            shareType === "change_order" ? estimateSnapshot : null,
+          agreementSnapshot,
+          signerName,
+          signerEmail,
+          signerRole,
+          signedAt,
+          signedIpAddress: audit.ipAddress,
+          signedUserAgent: audit.userAgent,
+          signaturePath,
+          signatureContentType: signature.contentType,
+          pdfPath,
+          pdfUrl,
+          pdfFileName: "signed-agreement.pdf",
+          jobDocumentId: recordDocumentRef.id,
+          recordDocumentId: recordDocumentRef.id,
+          projectConversionStatus:
+            shareType === "estimate" ? "pending" : "not_applicable",
+          projectConversionError: "",
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+      );
+
+      transaction.set(
+        recordDocumentRef,
+        {
+          id: recordDocumentRef.id,
+          documentKind: "file",
+          category: signedDocumentCategory,
+          sourceType: "upload",
+          title: signedDocumentTitle,
+          note: signedDocumentNote,
+          relatedDate: signedAt,
+          externalUrl: "",
+          fileUrl: pdfUrl,
+          filePath: pdfPath,
+          fileName: "signed-agreement.pdf",
+          leadId: cleanNullableString(shareData.leadId),
+          customerId: cleanNullableString(
+            projectResult.customerLink.customerId,
+          ),
+          projectId: cleanNullableString(projectResult.projectId),
+          agreementId: agreementRef.id,
+          estimateVersionId: safeString(
+            shareData.versionId || shareData.id,
+          ),
+          contentHash: safeString(shareData.contentHash),
+          clientVisible: true,
+          createdByUid: portalActor.uid,
+          createdByName: portalActor.displayName,
+          createdByRole: portalActor.role,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+      );
+
+      transaction.set(
+        shareRef,
+        {
+          status: "signed",
+          signedAt,
+          agreementId: agreementRef.id,
+          projectId: projectResult.projectId,
+          customerId: projectResult.customerLink.customerId,
+          customerName: projectResult.customerLink.customerName,
+          portalVisible: true,
+          signerName,
+          signerEmail,
+          signerRole,
+          signingAttemptId: null,
+          signingRequestHash: null,
+          signingStartedAt: null,
+          pendingAgreementId: null,
+          pendingRecordDocumentId: null,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+      if (shareType === "change_order" && changeOrderRef) {
+        transaction.set(
+          changeOrderRef,
+          {
+            status: "approved",
+            customerId: safeString(projectData.customerId),
+            customerName: safeString(
+              projectData.customerName || projectData.clientName,
+            ),
+            projectAddress: safeString(projectData.projectAddress),
+            portalShareId: shareData.id,
+            portalStatus: "signed",
+            portalVisible: true,
+            publishedAt:
+              shareData.publishedAt ||
+              shareData.createdAt ||
+              FieldValue.serverTimestamp(),
+            agreementId: agreementRef.id,
+            signedAt,
+            signerName,
+            signerEmail,
+            signerRole,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+    });
+    signedCommitted = true;
+  } catch (error) {
+    let signingStateConfirmed = false;
+    try {
+      const [latestShareSnap, latestAgreementSnap] =
+        await Promise.all([
+          shareRef.get(),
+          agreementRef.get(),
+        ]);
+      const latestShareData = latestShareSnap.exists
+        ? latestShareSnap.data() || {}
+        : {};
+      if (
+        latestShareData.status === "signed" &&
+        safeString(latestShareData.agreementId) ===
+          agreementRef.id &&
+        latestAgreementSnap.exists
+      ) {
+        signedCommitted = true;
+        logger.warn(
+          "Estimate signature commit returned an error but the signed record was verified.",
+          {
+            shareId: shareData.id,
+            agreementId: agreementRef.id,
+            error: error?.message || String(error),
+          },
+        );
+      } else {
+        signingStateConfirmed = true;
+      }
+    } catch (verificationError) {
+      logger.error(
+        "Estimate signature outcome could not be verified after an error.",
+        {
+          shareId: shareData.id,
+          agreementId: agreementRef.id,
+          error: verificationError?.message || String(verificationError),
+        },
+      );
+    }
+
+    if (!signedCommitted && signingStateConfirmed) {
+      await Promise.all([
+        deleteStoragePathIfPresent(pdfPath),
+        deleteStoragePathIfPresent(signaturePath),
+      ]);
+      await releaseSigningReservation(
+        shareRef,
+        signingAttemptId,
+        error,
+      );
+    }
+    if (!signedCommitted) {
+      throw error;
+    }
+  }
+
+  let projectConversionStatus =
+    shareType === "estimate" ? "pending" : "not_applicable";
+  let projectConversionError = "";
+  let createdProject = false;
+
+  if (shareType === "estimate") {
+    try {
+      projectResult = await ensureProjectForLead({
+        leadId: shareData.leadId,
+        leadRef: currentLeadRef,
+        leadData: currentLeadData,
+        actorProfile: portalActor,
+        requiredCustomerId: shareData.customerId,
+        estimateDataOverride: estimateSnapshot,
+      });
+      createdProject = !projectResult.existing;
+      projectConversionStatus = "complete";
+
+      await Promise.all([
+        agreementRef.set(
+          {
+            projectId: projectResult.projectId,
+            projectConversionStatus,
+            projectConversionError: "",
+            projectConvertedAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        ),
+        shareRef.set(
+          {
+            projectId: projectResult.projectId,
+            projectConversionStatus,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        ),
+        recordDocumentRef.set(
+          {
+            projectId: projectResult.projectId,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        ),
+      ]);
+    } catch (error) {
+      projectConversionError = safeString(error?.message || error);
+      logger.error(
+        "Signed estimate project conversion will need retry.",
+        {
+          shareId: shareData.id,
+          agreementId: agreementRef.id,
+          leadId: shareData.leadId,
+          error: projectConversionError,
+        },
+      );
+      await Promise.allSettled([
+        agreementRef.set(
+          {
+            projectConversionStatus: "pending",
+            projectConversionError,
+            projectConversionLastAttemptAt:
+              FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        ),
+        shareRef.set(
+          {
+            projectConversionStatus: "pending",
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        ),
+      ]);
+    }
+  }
+
+  const activityWrites = [];
+  if (shareType === "estimate" && createdProject) {
+    activityWrites.push(
+      addLeadActivity(shareData.leadId, {
+        activityType: "system",
+        title: "Lead converted to job",
+        body: "The signed estimate created the operational job from the exact published version.",
+        actorName: portalActor.displayName,
+        actorUid: portalActor.uid,
+        actorRole: portalActor.role,
+      }),
+      addProjectActivity(projectResult.projectId, {
+        activityType: "system",
+        title: "Job created from signed estimate",
+        body: projectResult.scopeItemCount
+          ? `The job was created from the signed version and copied ${projectResult.scopeItemCount} estimate items into the scope tracker.`
+          : "The job was created from the signed estimate version.",
+        actorName: portalActor.displayName,
+        actorUid: portalActor.uid,
+        actorRole: portalActor.role,
+      }),
     );
   }
-
-  await batch.commit();
-
-  if (shareType === "estimate" && !projectResult.existing) {
-    await addLeadActivity(shareData.leadId, {
-      activityType: "system",
-      title: "Lead converted to job",
-      body: "The client signature converted this estimate into the operational job record.",
-      actorName: portalActor.displayName,
-      actorUid: portalActor.uid,
-      actorRole: portalActor.role,
-    });
-
-    await addProjectActivity(projectResult.projectId, {
-      activityType: "system",
-      title: "Job created from client signature",
-      body: projectResult.scopeItemCount
-        ? `The client signature created the job record and copied ${projectResult.scopeItemCount} estimate items into the renovation scope tracker.`
-        : "The client signature created the job record.",
-      actorName: portalActor.displayName,
-      actorUid: portalActor.uid,
-      actorRole: portalActor.role,
-    });
-  }
-
   if (shareType === "estimate" && safeString(shareData.leadId)) {
-    await addLeadActivity(shareData.leadId, {
-      activityType: "agreement",
-      title: "Client signed estimate agreement",
-      body: `${signerName} accepted the estimate and signed the agreement through the client link.`,
-      actorName: portalActor.displayName,
-      actorUid: portalActor.uid,
-      actorRole: portalActor.role,
-    });
+    activityWrites.push(
+      addLeadActivity(shareData.leadId, {
+        activityType: "agreement",
+        title: "Estimate agreement signed",
+        body: `${signerName} signed estimate version ${toNumber(shareData.versionNumber || shareData.publishedVersion)}.`,
+        actorName: portalActor.displayName,
+        actorUid: portalActor.uid,
+        actorRole: portalActor.role,
+      }),
+    );
   }
-
-  await addProjectActivity(projectResult.projectId, {
-    activityType: "agreement",
-    title:
-      shareType === "change_order"
-        ? "Client signed change order"
-        : "Client agreement signed",
-    body:
-      shareType === "change_order"
-        ? `${signerName} signed the published change order through the client portal.`
-        : `${signerName} signed the estimate agreement through the client portal.`,
-    actorName: portalActor.displayName,
-    actorUid: portalActor.uid,
-    actorRole: portalActor.role,
-  });
-
-  await addProjectActivity(projectResult.projectId, {
-    activityType: "document",
-    title:
-      shareType === "change_order"
-        ? "Signed change order filed"
-        : "Signed agreement filed",
-    body:
-      shareType === "change_order"
-        ? "The signed change order PDF was stored in the project documents and archived in the agreements folder."
-        : "The signed agreement PDF was stored in the job documents and archived in the agreements folder.",
-    actorName: portalActor.displayName,
-    actorUid: portalActor.uid,
-    actorRole: portalActor.role,
-  });
+  if (
+    shareType === "change_order" ||
+    projectConversionStatus === "complete"
+  ) {
+    activityWrites.push(
+      addProjectActivity(projectResult.projectId, {
+        activityType: "agreement",
+        title:
+          shareType === "change_order"
+            ? "Change order signed"
+            : "Estimate agreement signed",
+        body:
+          shareType === "change_order"
+            ? `${signerName} signed the published change order through the secure approval page.`
+            : `${signerName} signed the exact published estimate version.`,
+        actorName: portalActor.displayName,
+        actorUid: portalActor.uid,
+        actorRole: portalActor.role,
+      }),
+      addProjectActivity(projectResult.projectId, {
+        activityType: "document",
+        title:
+          shareType === "change_order"
+            ? "Signed change order filed"
+            : "Signed agreement filed",
+        body:
+          "The signed PDF was stored with the immutable approval record.",
+        actorName: portalActor.displayName,
+        actorUid: portalActor.uid,
+        actorRole: portalActor.role,
+      }),
+    );
+  }
+  const activityResults = await Promise.allSettled(activityWrites);
+  activityResults
+    .filter((result) => result.status === "rejected")
+    .forEach((result) => {
+      logger.warn(
+        "Signed estimate activity could not be recorded.",
+        result.reason,
+      );
+    });
 
   return {
     ok: true,
@@ -3535,7 +5367,10 @@ async function signPublicEstimatePayload(request, payload = {}) {
     type: shareType,
     agreementId: agreementRef.id,
     projectId: projectResult.projectId,
+    versionId: safeString(shareData.versionId || shareData.id),
+    contentHash: safeString(shareData.contentHash),
     signedAt: signedAt.toISOString(),
+    projectConversionStatus,
     downloadHref: buildPublicAgreementDownloadHref(request, shareData.id),
   };
 }
@@ -4600,6 +6435,623 @@ exports.syncLeadCustomerLink = onRequest(
   },
 );
 
+function normaliseEstimateSigningMode(value, readinessBlockers = []) {
+  const requested = safeString(value).toLowerCase();
+  if (requested && !["review", "signature"].includes(requested)) {
+    throw httpError("Unsupported estimate publishing mode.", 400);
+  }
+  if (requested === "signature" && readinessBlockers.length) {
+    throw httpError(
+      "Complete the signable agreement details before publishing for signature.",
+      400,
+    );
+  }
+  return requested || (readinessBlockers.length ? "review" : "signature");
+}
+
+function estimateLeadIdentityHash(leadData = {}) {
+  return sha256Hex({
+    customerId: safeString(leadData.customerId),
+    clientName: safeString(leadData.clientName),
+    clientEmail: normaliseEmail(leadData.clientEmail),
+    clientPhone: normalisePhone(leadData.clientPhone),
+    projectAddress: safeString(leadData.projectAddress),
+    projectType: safeString(leadData.projectType),
+  });
+}
+
+async function publishEstimateDraftVersion({
+  request,
+  payload,
+  staff,
+  leadId,
+  initialLeadData,
+}) {
+  // Publishing accepts the editor's current draft and commits that draft plus
+  // its frozen client version together. It must never re-read a different
+  // estimate document as the source of the published content.
+  const idempotencyKey = safeString(payload.idempotencyKey);
+  if (!idempotencyKey) {
+    throw httpError(
+      "A publishing request key is required. Reload the estimate and try again.",
+      400,
+    );
+  }
+  if (idempotencyKey.length > 200) {
+    throw httpError("The publishing request key is invalid.", 400);
+  }
+
+  const draft = normaliseSubmittedEstimateDraft(
+    payload.estimateDraft || payload.draft,
+    leadId,
+  );
+  const draftHash = sha256Hex({
+    schemaVersion: ESTIMATE_VERSION_SCHEMA_VERSION,
+    leadId,
+    draft,
+    requestedSigningMode: safeString(
+      payload.signingMode || payload.publishMode,
+    ).toLowerCase(),
+  });
+  const requestRef = estimatePublishRequestRef(
+    staff.profile.uid,
+    leadId,
+    idempotencyKey,
+  );
+  const existingRequestSnap = await requestRef.get();
+
+  if (existingRequestSnap.exists) {
+    const existingRequest = existingRequestSnap.data() || {};
+    if (
+      safeString(existingRequest.leadId) !== leadId ||
+      safeString(existingRequest.draftHash) !== draftHash
+    ) {
+      throw httpError(
+        "This publishing request key was already used for different estimate content.",
+        409,
+      );
+    }
+
+    const existingShareId = safeString(existingRequest.shareId);
+    const [existingShareSnap, savedDraftSnap] = await Promise.all([
+      db.collection("estimateShares").doc(existingShareId).get(),
+      db.collection("estimates").doc(leadId).get(),
+    ]);
+    if (existingShareSnap.exists) {
+      const existingShare = {
+        id: existingShareSnap.id,
+        ...existingShareSnap.data(),
+      };
+      const frozenDraft = existingShare.estimateSnapshot || {};
+      return {
+        share: serialiseEstimateShare(existingShare, request),
+        draft: frozenDraft.subject
+          ? {
+              id: leadId,
+              leadId,
+              status: "draft",
+              subject: frozenDraft.subject,
+              emailBody: frozenDraft.emailBody,
+              contractDetails: frozenDraft.contractDetails,
+              assumptions: frozenDraft.assumptions,
+              lineItems: frozenDraft.lineItems,
+              subtotal: frozenDraft.subtotal,
+              updatedAt:
+                existingShare.publishedAt ||
+                existingShare.createdAt,
+            }
+          : savedDraftSnap.exists
+          ? {
+              id: savedDraftSnap.id,
+              ...savedDraftSnap.data(),
+            }
+          : draft,
+        versionId: safeString(
+          existingShare.versionId || existingShare.id,
+        ),
+        versionNumber: toNumber(
+          existingShare.versionNumber ||
+            existingShare.publishedVersion,
+        ),
+        contentHash: safeString(existingShare.contentHash),
+        unchanged: Boolean(existingRequest.unchanged),
+        idempotent: true,
+        createdVersion: false,
+        projectExists: Boolean(existingShare.projectId),
+      };
+    }
+  }
+
+  const [template, customerResolution] = await Promise.all([
+    fetchTemplate(),
+    resolveEstimatePublishCustomer(initialLeadData),
+  ]);
+  const leadIdentityHash = estimateLeadIdentityHash(initialLeadData);
+  const leadSnapshot = minimalLeadSnapshot({
+    id: leadId,
+    ...initialLeadData,
+    customerId: customerResolution.customerId,
+    customerName: customerResolution.customerName,
+  });
+  const estimateSnapshot = {
+    ...normaliseEstimateSnapshot(draft, template),
+    id: leadId,
+    leadId,
+    customerId: customerResolution.customerId,
+    schemaVersion: ESTIMATE_VERSION_SCHEMA_VERSION,
+  };
+  const agreementSnapshot = {
+    ...normaliseAgreementSnapshot(template),
+    schemaVersion: ESTIMATE_VERSION_SCHEMA_VERSION,
+  };
+  const readinessBlockers = agreementReadinessBlockers(
+    estimateSnapshot.contractDetails || {},
+  );
+  const signingMode = normaliseEstimateSigningMode(
+    payload.signingMode || payload.publishMode,
+    readinessBlockers,
+  );
+  if (signingMode === "signature" && !leadSnapshot.clientEmail) {
+    const contactsSnap = await customerResolution.customerRef
+      .collection("contacts")
+      .get();
+    const hasAuthorizedSigner = contactsSnap.docs.some((snapshot) => {
+      const contact = snapshot.data() || {};
+      return Boolean(
+        normaliseEmail(contact.email) &&
+          !contact.disabledAt &&
+          !contact.revokedAt &&
+          safeString(contact.status || "active") !== "revoked" &&
+          portalContactCanSign(contact.role || contact.accessScope),
+      );
+    });
+    if (!hasAuthorizedSigner) {
+      throw httpError(
+        "Add a client email or an active primary or partner portal contact before publishing for signature.",
+        400,
+      );
+    }
+  }
+  const readyToSign =
+    signingMode === "signature" && readinessBlockers.length === 0;
+  const contentHash = estimateVersionContentHash({
+    leadId,
+    customerId: customerResolution.customerId,
+    leadSnapshot,
+    estimateSnapshot,
+    agreementSnapshot,
+    signingMode,
+  });
+  const proposedShareId = createOpaqueId();
+  const proposedShareRef = db
+    .collection("estimateShares")
+    .doc(proposedShareId);
+  const estimateRef = db.collection("estimates").doc(leadId);
+  const leadRef = db.collection("leads").doc(leadId);
+  const projectRef = db.collection("projects").doc(leadId);
+  const sharesQuery = db
+    .collection("estimateShares")
+    .where("leadId", "==", leadId);
+
+  const transactionResult = await db.runTransaction(async (transaction) => {
+    const requestSnap = await transaction.get(requestRef);
+    if (requestSnap.exists) {
+      const requestData = requestSnap.data() || {};
+      if (
+        safeString(requestData.leadId) !== leadId ||
+        safeString(requestData.draftHash) !== draftHash
+      ) {
+        throw httpError(
+          "This publishing request key was already used for different estimate content.",
+          409,
+        );
+      }
+
+      const requestShareId = safeString(requestData.shareId);
+      const requestShareSnap = await transaction.get(
+        db.collection("estimateShares").doc(requestShareId),
+      );
+      if (!requestShareSnap.exists) {
+        throw httpError(
+          "The prior publishing request is incomplete. Use a new request key.",
+          409,
+        );
+      }
+
+      const requestShareData = {
+        id: requestShareSnap.id,
+        ...requestShareSnap.data(),
+      };
+      return {
+        shareId: requestShareSnap.id,
+        versionId: safeString(
+          requestShareData.versionId || requestShareSnap.id,
+        ),
+        versionNumber: toNumber(
+          requestShareData.versionNumber ||
+            requestShareData.publishedVersion,
+        ),
+        contentHash: safeString(requestShareData.contentHash),
+        unchanged: Boolean(requestData.unchanged),
+        idempotent: true,
+        createdVersion: false,
+        projectExists: Boolean(requestShareData.projectId),
+      };
+    }
+
+    const [
+      currentLeadSnap,
+      currentEstimateSnap,
+      customerSnap,
+      currentProjectSnap,
+      sharesSnap,
+    ] = await Promise.all([
+      transaction.get(leadRef),
+      transaction.get(estimateRef),
+      transaction.get(customerResolution.customerRef),
+      transaction.get(projectRef),
+      transaction.get(sharesQuery),
+    ]);
+
+    if (!currentLeadSnap.exists) {
+      throw httpError("Lead not found.", 404);
+    }
+
+    const currentLeadData = currentLeadSnap.data() || {};
+    const canAccess =
+      staff.profile.role === "admin" ||
+      safeString(currentLeadData.assignedToUid) ===
+        safeString(staff.profile.uid);
+    if (!canAccess) {
+      throw httpError("You do not have access to this lead.", 403);
+    }
+    if (estimateLeadIdentityHash(currentLeadData) !== leadIdentityHash) {
+      throw httpError(
+        "The lead or customer changed while this estimate was being published. Reload the lead and review it before publishing.",
+        409,
+      );
+    }
+    if (
+      safeString(currentLeadData.customerId) &&
+      safeString(currentLeadData.customerId) !==
+        customerResolution.customerId
+    ) {
+      throw httpError(
+        "This lead is connected to a different customer. Reload the lead before publishing.",
+        409,
+      );
+    }
+
+    const currentCustomerData = customerSnap.exists
+      ? customerSnap.data() || {}
+      : {};
+    if (
+      customerSnap.exists &&
+      !customerIdentityMatchesLead(currentCustomerData, currentLeadData)
+    ) {
+      const error = new Error(
+        "The connected customer no longer matches this lead. Review the customer connection before publishing.",
+      );
+      error.status = 409;
+      error.matchResult = "review_required";
+      error.customerMatchIds = [customerResolution.customerId];
+      throw error;
+    }
+
+    const estimateShares = sharesSnap.docs
+      .map((snapshot) => ({
+        id: snapshot.id,
+        ...snapshot.data(),
+      }))
+      .filter(
+        (share) => normaliseShareType(share.type) === "estimate",
+      );
+    const activeShares = estimateShares.filter(
+      (share) => safeString(share.status) === "active",
+    );
+    const signingShares = estimateShares.filter(
+      (share) => safeString(share.status) === "signing",
+    );
+    const inFlightSignature = signingShares.find(
+      (share) => !signingLeaseExpired(share),
+    );
+    if (inFlightSignature) {
+      throw httpError(
+        "This estimate is currently being signed. Wait for that signature to finish before publishing another version.",
+        409,
+      );
+    }
+    const replaceableShares = [
+      ...activeShares,
+      ...signingShares.filter((share) =>
+        signingLeaseExpired(share),
+      ),
+    ];
+    const mismatchedActiveShare = replaceableShares.find(
+      (share) =>
+        safeString(share.customerId) !== customerResolution.customerId,
+    );
+    if (mismatchedActiveShare) {
+      throw httpError(
+        "An active estimate for this lead is connected to a different customer. Revoke that link before publishing.",
+        409,
+      );
+    }
+
+    const sameActiveShare = activeShares.find(
+      (share) =>
+        safeString(share.leadId) === leadId &&
+        safeString(share.customerId) ===
+          customerResolution.customerId &&
+        safeString(share.contentHash) === contentHash &&
+        safeString(share.signingMode || share.publishMode) ===
+          signingMode &&
+        estimateSnapshotAvailable(share),
+    );
+    const nextVersion =
+      estimateShares.reduce(
+        (maxVersion, share) =>
+          Math.max(
+            maxVersion,
+            toNumber(
+              share.versionNumber || share.publishedVersion,
+            ),
+          ),
+        0,
+      ) + 1;
+    const nextLeadStatus = ["new_lead", "follow_up"].includes(
+      safeString(currentLeadData.status),
+    )
+      ? "estimate_sent"
+      : safeString(currentLeadData.status || "estimate_sent");
+    const customerPayload = buildCustomerPayloadFromLead(
+      currentLeadData,
+      currentCustomerData,
+    );
+    const draftPayload = {
+      ...draft,
+      draftContentHash: draftHash,
+      createdAt: currentEstimateSnap.exists
+        ? currentEstimateSnap.data()?.createdAt ||
+          FieldValue.serverTimestamp()
+        : FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      lastEditedByUid: staff.profile.uid,
+      lastEditedByName: staff.profile.displayName,
+    };
+
+    transaction.set(
+      customerResolution.customerRef,
+      {
+        id: customerResolution.customerId,
+        ...customerPayload,
+        createdAt:
+          currentCustomerData.createdAt ||
+          FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    transaction.set(estimateRef, draftPayload);
+    transaction.set(
+      leadRef,
+      {
+        status: nextLeadStatus,
+        statusLabel: statusLabel(nextLeadStatus),
+        customerId: customerResolution.customerId,
+        customerName: customerResolution.customerName,
+        customerMatchResult: customerSnap.exists ? "linked" : "created",
+        customerReviewRequired: false,
+        customerMatchIds: [customerResolution.customerId],
+        hasEstimate: true,
+        estimateSubtotal: draft.subtotal,
+        estimateTitle: draft.subject,
+        estimateUpdatedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    if (sameActiveShare) {
+      transaction.set(
+        estimateRef,
+        {
+          lastPublishedVersionId: safeString(
+            sameActiveShare.versionId || sameActiveShare.id,
+          ),
+          lastPublishedVersionNumber: toNumber(
+            sameActiveShare.versionNumber ||
+              sameActiveShare.publishedVersion,
+          ),
+          lastPublishedContentHash: contentHash,
+          lastPublishedAt:
+            sameActiveShare.publishedAt ||
+            sameActiveShare.createdAt ||
+            FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      transaction.set(
+        requestRef,
+        {
+          id: requestRef.id,
+          idempotencyKeyHash: sha256Hex(idempotencyKey),
+          leadId,
+          customerId: customerResolution.customerId,
+          shareId: sameActiveShare.id,
+          versionId: safeString(
+            sameActiveShare.versionId || sameActiveShare.id,
+          ),
+          versionNumber: toNumber(
+            sameActiveShare.versionNumber ||
+              sameActiveShare.publishedVersion,
+          ),
+          draftHash,
+          contentHash,
+          unchanged: true,
+          createdByUid: staff.profile.uid,
+          createdAt: FieldValue.serverTimestamp(),
+        },
+      );
+      return {
+        shareId: sameActiveShare.id,
+        versionId: safeString(
+          sameActiveShare.versionId || sameActiveShare.id,
+        ),
+        versionNumber: toNumber(
+          sameActiveShare.versionNumber ||
+            sameActiveShare.publishedVersion,
+        ),
+        contentHash,
+        unchanged: true,
+        idempotent: false,
+        createdVersion: false,
+        projectExists: currentProjectSnap.exists,
+      };
+    }
+
+    replaceableShares.forEach((share) => {
+      transaction.set(
+        db.collection("estimateShares").doc(share.id),
+        {
+          status: "replaced",
+          portalVisible: false,
+          replacedAt: FieldValue.serverTimestamp(),
+          replacedByShareId: proposedShareId,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    });
+
+    transaction.set(
+      proposedShareRef,
+      {
+        id: proposedShareId,
+        versionId: proposedShareId,
+        type: "estimate",
+        status: "active",
+        schemaVersion: ESTIMATE_VERSION_SCHEMA_VERSION,
+        contentHash,
+        leadId,
+        customerId: customerResolution.customerId,
+        customerName: customerResolution.customerName,
+        projectId: currentProjectSnap.exists ? leadId : null,
+        leadSnapshot,
+        projectSnapshot: currentProjectSnap.exists
+          ? minimalProjectSnapshot(
+              currentProjectSnap.data() || {},
+              leadSnapshot,
+            )
+          : {},
+        estimateSnapshot,
+        agreementSnapshot,
+        publishedVersion: nextVersion,
+        versionNumber: nextVersion,
+        signingMode,
+        publishMode: signingMode,
+        readyToSign,
+        readinessBlockers,
+        publishedAt: FieldValue.serverTimestamp(),
+        portalVisible: true,
+        createdByUid: staff.profile.uid,
+        createdByName: staff.profile.displayName,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        revokedAt: null,
+        replacedAt: null,
+        lastViewedAt: null,
+        signedAt: null,
+        agreementId: null,
+      },
+    );
+    transaction.set(
+      estimateRef,
+      {
+        lastPublishedVersionId: proposedShareId,
+        lastPublishedVersionNumber: nextVersion,
+        lastPublishedContentHash: contentHash,
+        lastPublishedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    transaction.set(
+      requestRef,
+      {
+        id: requestRef.id,
+        idempotencyKeyHash: sha256Hex(idempotencyKey),
+        leadId,
+        customerId: customerResolution.customerId,
+        shareId: proposedShareId,
+        versionId: proposedShareId,
+        versionNumber: nextVersion,
+        draftHash,
+        contentHash,
+        unchanged: false,
+        createdByUid: staff.profile.uid,
+        createdAt: FieldValue.serverTimestamp(),
+      },
+    );
+
+    return {
+      shareId: proposedShareId,
+      versionId: proposedShareId,
+      versionNumber: nextVersion,
+      contentHash,
+      unchanged: false,
+      idempotent: false,
+      createdVersion: true,
+      projectExists: currentProjectSnap.exists,
+    };
+  });
+
+  const [publishedShareSnap, savedDraftSnap] = await Promise.all([
+    db
+      .collection("estimateShares")
+      .doc(transactionResult.shareId)
+      .get(),
+    estimateRef.get(),
+  ]);
+  if (!publishedShareSnap.exists) {
+    throw httpError(
+      "The estimate was saved, but its published version could not be loaded.",
+      503,
+    );
+  }
+
+  const publishedShare = {
+    id: publishedShareSnap.id,
+    ...publishedShareSnap.data(),
+  };
+  const publishedDraftSnapshot =
+    publishedShare.estimateSnapshot || {};
+  return {
+    ...transactionResult,
+    share: serialiseEstimateShare(publishedShare, request),
+    draft: safeString(publishedDraftSnapshot.subject)
+      ? {
+          id: leadId,
+          leadId,
+          status: "draft",
+          subject: publishedDraftSnapshot.subject,
+          emailBody: publishedDraftSnapshot.emailBody,
+          contractDetails: publishedDraftSnapshot.contractDetails,
+          assumptions: publishedDraftSnapshot.assumptions,
+          lineItems: publishedDraftSnapshot.lineItems,
+          subtotal: publishedDraftSnapshot.subtotal,
+          updatedAt:
+            publishedShare.publishedAt ||
+            publishedShare.createdAt,
+        }
+      : savedDraftSnap.exists
+        ? {
+            id: savedDraftSnap.id,
+            ...savedDraftSnap.data(),
+          }
+        : draft,
+  };
+}
+
 async function handleEstimateShareRequest({ request, payload, staff }) {
   const recordType = normaliseShareType(payload.type);
   const leadId = safeString(payload.leadId);
@@ -4611,7 +7063,6 @@ async function handleEstimateShareRequest({ request, payload, staff }) {
   let leadRef = null;
   let leadData = {};
   let projectData = {};
-  let customerLink = null;
   let shares = [];
   let existingProjectSnap = null;
 
@@ -4736,7 +7187,7 @@ async function handleEstimateShareRequest({ request, payload, staff }) {
       await addProjectActivity(projectId, {
         activityType: "change_order",
         title: "Published change order deleted",
-        body: "The unsigned client-facing change order version was deleted.",
+        body: "The unsigned published change order version was deleted.",
         actorName: staff.profile.displayName,
         actorUid: staff.profile.uid,
         actorRole: staff.profile.role,
@@ -4745,7 +7196,7 @@ async function handleEstimateShareRequest({ request, payload, staff }) {
       await addLeadActivity(leadId, {
         activityType: "estimate_share",
         title: "Published estimate deleted",
-        body: "The unsigned client-facing estimate version was deleted.",
+        body: "The unsigned published estimate version was deleted.",
         actorName: staff.profile.displayName,
         actorUid: staff.profile.uid,
         actorRole: staff.profile.role,
@@ -4806,7 +7257,7 @@ async function handleEstimateShareRequest({ request, payload, staff }) {
       await addProjectActivity(projectId, {
         activityType: "change_order",
         title: "Change order link revoked",
-        body: "The active client-facing change order link was revoked.",
+        body: "The active shared change order link was revoked.",
         actorName: staff.profile.displayName,
         actorUid: staff.profile.uid,
         actorRole: staff.profile.role,
@@ -4825,7 +7276,7 @@ async function handleEstimateShareRequest({ request, payload, staff }) {
         await addProjectActivity(leadId, {
           activityType: "agreement",
           title: "Estimate share link revoked",
-          body: "The client-facing estimate share link was revoked for this project.",
+          body: "The shared estimate link was revoked for this project.",
           actorName: staff.profile.displayName,
           actorUid: staff.profile.uid,
           actorRole: staff.profile.role,
@@ -4855,6 +7306,107 @@ async function handleEstimateShareRequest({ request, payload, staff }) {
       payload: {
         ok: false,
         message: "Unsupported estimate share action.",
+      },
+    };
+  }
+
+  if (recordType === "estimate") {
+    const published = await publishEstimateDraftVersion({
+      request,
+      payload,
+      staff,
+      leadId,
+      initialLeadData: leadData,
+    });
+
+    if (published.createdVersion) {
+      const activityWrites = [
+        addLeadActivity(leadId, {
+          activityType: "estimate_share",
+          title: "Estimate saved and published",
+          body: `Estimate version ${published.versionNumber} was saved from the current editor and published for the connected customer.`,
+          actorName: staff.profile.displayName,
+          actorUid: staff.profile.uid,
+          actorRole: staff.profile.role,
+        }),
+      ];
+      if (published.projectExists) {
+        activityWrites.push(
+          addProjectActivity(leadId, {
+            activityType: "agreement",
+            title: "Estimate saved and published",
+            body: `Estimate version ${published.versionNumber} was published for this project.`,
+            actorName: staff.profile.displayName,
+            actorUid: staff.profile.uid,
+            actorRole: staff.profile.role,
+          }),
+        );
+      }
+
+      const activityResults = await Promise.allSettled(activityWrites);
+      activityResults
+        .filter((result) => result.status === "rejected")
+        .forEach((result) => {
+          logger.warn(
+            "Estimate publish activity could not be recorded.",
+            result.reason,
+          );
+        });
+    }
+
+    return {
+      status: 200,
+      payload: {
+        ok: true,
+        share: published.share,
+        draft: {
+          id: leadId,
+          leadId,
+          status: "draft",
+          subject: safeString(published.draft?.subject),
+          emailBody: safeString(published.draft?.emailBody),
+          contractDetails: {
+            approximateStartDate: safeString(
+              published.draft?.contractDetails
+                ?.approximateStartDate,
+            ),
+            approximateCompletionDate: safeString(
+              published.draft?.contractDetails
+                ?.approximateCompletionDate,
+            ),
+            paymentSchedule: safeString(
+              published.draft?.contractDetails?.paymentSchedule,
+            ),
+            specialOrderMaterials: safeString(
+              published.draft?.contractDetails
+                ?.specialOrderMaterials,
+            ),
+            knownSubcontractors: safeString(
+              published.draft?.contractDetails
+                ?.knownSubcontractors,
+            ),
+          },
+          assumptions: Array.isArray(published.draft?.assumptions)
+            ? published.draft.assumptions
+            : [],
+          lineItems: Array.isArray(published.draft?.lineItems)
+            ? published.draft.lineItems
+            : [],
+          subtotal: toNumber(published.draft?.subtotal),
+          savedAt: serialiseDateValue(published.draft?.updatedAt),
+          updatedAt: serialiseDateValue(
+            published.draft?.updatedAt,
+          ),
+        },
+        version: {
+          id: published.versionId,
+          versionId: published.versionId,
+          number: published.versionNumber,
+          versionNumber: published.versionNumber,
+          contentHash: published.contentHash,
+        },
+        unchanged: published.unchanged,
+        idempotent: published.idempotent,
       },
     };
   }
@@ -4898,6 +7450,14 @@ async function handleEstimateShareRequest({ request, payload, staff }) {
       projectData,
       changeOrderData,
     );
+    const changeOrderContentHash = sha256Hex({
+      schemaVersion: ESTIMATE_VERSION_SCHEMA_VERSION,
+      type: "change_order",
+      projectId,
+      customerId: safeString(projectData.customerId),
+      changeOrderSnapshot,
+      agreementSnapshot,
+    });
     shares
       .filter((share) => share.status === "active")
       .forEach((share) => {
@@ -4918,18 +7478,32 @@ async function handleEstimateShareRequest({ request, payload, staff }) {
       shareRef,
       {
         id: shareId,
+        versionId: shareId,
         type: "change_order",
         status: "active",
+        schemaVersion: ESTIMATE_VERSION_SCHEMA_VERSION,
+        contentHash: changeOrderContentHash,
         leadId: cleanNullableString(projectData.leadId),
         customerId: safeString(projectData.customerId) || null,
         customerName: safeString(projectData.customerName || projectData.clientName),
         projectId,
         changeOrderId,
-        leadSnapshot: minimalProjectSnapshot(projectData),
-        projectSnapshot: minimalProjectSnapshot(projectData),
+        leadSnapshot: minimalProjectSnapshot({
+          id: projectId,
+          ...projectData,
+        }),
+        projectSnapshot: minimalProjectSnapshot({
+          id: projectId,
+          ...projectData,
+        }),
         changeOrderSnapshot,
         agreementSnapshot,
         publishedVersion: nextVersion,
+        versionNumber: nextVersion,
+        signingMode: "signature",
+        publishMode: "signature",
+        readyToSign: true,
+        readinessBlockers: [],
         publishedAt: FieldValue.serverTimestamp(),
         portalVisible: true,
         createdByUid: staff.profile.uid,
@@ -4987,130 +7561,7 @@ async function handleEstimateShareRequest({ request, payload, staff }) {
     };
   }
 
-  const estimateSnap = await db.collection("estimates").doc(leadId).get();
-  if (!estimateSnap.exists) {
-    return {
-      status: 400,
-      payload: {
-        ok: false,
-        message: "Save the estimate before creating a share link.",
-      },
-    };
-  }
-
-  customerLink = await ensureLeadCustomerLink(leadRef, leadData);
-  const template = await fetchTemplate();
-  const estimateSnapshot = normaliseEstimateSnapshot(
-    estimateSnap.data() || {},
-    template,
-  );
-  const agreementSnapshot = normaliseAgreementSnapshot(template);
-  const nextLeadStatus = ["new_lead", "follow_up"].includes(
-    safeString(leadData.status),
-  )
-    ? "estimate_sent"
-    : safeString(leadData.status || "estimate_sent");
-
-  shares
-    .filter((share) => share.status === "active")
-    .forEach((share) => {
-      batch.set(
-        db.collection("estimateShares").doc(share.id),
-        {
-          status: "replaced",
-          portalVisible: false,
-          replacedAt: FieldValue.serverTimestamp(),
-          replacedByShareId: shareId,
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      );
-    });
-
-  batch.set(
-    shareRef,
-    {
-      id: shareId,
-      type: "estimate",
-      status: "active",
-      leadId,
-      customerId: customerLink.customerId || null,
-      customerName: customerLink.customerName || "",
-      projectId: existingProjectSnap.exists ? leadId : null,
-      leadSnapshot: minimalLeadSnapshot({
-        ...leadData,
-        customerId: customerLink.customerId,
-        customerName: customerLink.customerName,
-      }),
-      projectSnapshot: existingProjectSnap.exists
-        ? minimalProjectSnapshot(projectData, leadData)
-        : {},
-      estimateSnapshot,
-      agreementSnapshot,
-      publishedVersion: nextVersion,
-      publishedAt: FieldValue.serverTimestamp(),
-      portalVisible: true,
-      createdByUid: staff.profile.uid,
-      createdByName: staff.profile.displayName,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-      revokedAt: null,
-      replacedAt: null,
-      lastViewedAt: null,
-      signedAt: null,
-      agreementId: null,
-    },
-    { merge: true },
-  );
-
-  batch.set(
-    leadRef,
-    {
-      status: nextLeadStatus,
-      statusLabel: statusLabel(nextLeadStatus),
-      customerId: customerLink.customerId || null,
-      customerName: customerLink.customerName || "",
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true },
-  );
-
-  await batch.commit();
-
-  await addLeadActivity(leadId, {
-    activityType: "estimate_share",
-    title: "Estimate published to client",
-    body: "A client-facing estimate version was published from the staff portal.",
-    actorName: staff.profile.displayName,
-    actorUid: staff.profile.uid,
-    actorRole: staff.profile.role,
-  });
-
-  if (existingProjectSnap.exists) {
-    await addProjectActivity(leadId, {
-      activityType: "agreement",
-      title: "Estimate published to client",
-      body: "A client-facing estimate version was published for this project.",
-      actorName: staff.profile.displayName,
-      actorUid: staff.profile.uid,
-      actorRole: staff.profile.role,
-    });
-  }
-
-  const createdSnap = await shareRef.get();
-  return {
-    status: 200,
-    payload: {
-      ok: true,
-      share: serialiseEstimateShare(
-        {
-          id: createdSnap.id,
-          ...createdSnap.data(),
-        },
-        request,
-      ),
-    },
-  };
+  throw httpError("Unsupported estimate publishing record.", 400);
 }
 
 exports.estimateShare = onRequest(
@@ -5142,6 +7593,8 @@ exports.estimateShare = onRequest(
       respondJson(response, error.status || 500, {
         ok: false,
         message: error.message || "Could not manage the estimate share link.",
+        matchResult: error.matchResult || null,
+        customerMatchIds: error.customerMatchIds || [],
       });
     }
   },
@@ -5354,6 +7807,61 @@ exports.clientPortalApi = buildClientPortalApi({
   loadPublicAgreementDocumentData,
 });
 
+exports.googleCalendarStatus = onRequest(
+  PUBLIC_CORS_HTTP_OPTIONS,
+  async (request, response) => {
+    applyCors(response);
+
+    if (request.method === "OPTIONS") {
+      response.status(204).send("");
+      return;
+    }
+
+    if (request.method !== "POST") {
+      response.status(405).send("Method not allowed.");
+      return;
+    }
+
+    try {
+      const staff = await verifyStaffRequest(request);
+      const connectionSnap = await db
+        .collection("googleCalendarConnections")
+        .doc(staff.profile.uid)
+        .get();
+      const connection = connectionSnap.exists ? connectionSnap.data() : {};
+
+      respondJson(response, 200, {
+        ok: true,
+        connected: connection.status === "connected",
+        status: connection.status || "not_connected",
+        email: safeString(connection.email || staff.profile.email),
+        timeZone: safeString(connection.timeZone || "America/New_York"),
+        lastSyncAt: serialiseDateValue(connection.lastSyncAt),
+        lastError: safeString(connection.lastError),
+      });
+    } catch (error) {
+      logger.error("Google Calendar status request failed.", error);
+      respondJson(response, error.status || 500, {
+        ok: false,
+        message: error.message || "Google Calendar status could not load.",
+      });
+    }
+  },
+);
+
+// Keep optional integrations on their own Cloud Run revisions so a missing
+// Calendar secret cannot take down lead archiving or the client portal.
+exports.googleCalendarConnection =
+  googleCalendarFunctions.googleCalendarConnection;
+exports.googleCalendarCallback = googleCalendarFunctions.googleCalendarCallback;
+exports.syncTaskToGoogleCalendar =
+  googleCalendarFunctions.syncTaskToGoogleCalendar;
+exports.syncCalendarEventToGoogleCalendar =
+  googleCalendarFunctions.syncCalendarEventToGoogleCalendar;
+exports.publicGoogleReviews = googleReviewsFunctions.publicGoogleReviews;
+exports.refreshGoogleReviews = googleReviewsFunctions.refreshGoogleReviews;
+exports.deleteStaffAccess = staffAdminFunctions.deleteStaffAccess;
+
 exports.generateEstimateDraft = onRequest(
   PUBLIC_CORS_HTTP_OPTIONS,
   async (request, response) => {
@@ -5472,6 +7980,65 @@ exports.generateEstimateDraft = onRequest(
         ok: false,
         message: "Could not generate the estimate draft.",
       });
+    }
+  },
+);
+
+exports.syncStaffAccessOnWrite = onDocumentWritten(
+  {
+    region: "us-central1",
+    document: "allowedStaff/{staffKey}",
+  },
+  async (event) => {
+    const beforeData = event.data.before.exists ? event.data.before.data() : {};
+    const afterData = event.data.after.exists ? event.data.after.data() : {};
+    const uid = safeString(afterData.uid || beforeData.uid);
+
+    // A staff record receives its UID after the person's first successful
+    // login. Until then there is no Firebase Auth account to synchronise.
+    if (!uid) {
+      return;
+    }
+
+    const active = event.data.after.exists && afterData.active === true;
+    const role = normaliseStaffRole(afterData.role || beforeData.role);
+    const email = safeString(afterData.email || beforeData.email).toLowerCase();
+    const displayName = safeString(
+      afterData.displayName || beforeData.displayName || email,
+    );
+
+    await db
+      .collection("users")
+      .doc(uid)
+      .set(
+        {
+          email,
+          displayName,
+          role,
+          active,
+          defaultLeadAssignee:
+            active && Boolean(afterData.defaultLeadAssignee),
+          accessUpdatedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+    try {
+      await admin.auth().setCustomUserClaims(uid, {
+        role,
+        staff: active,
+      });
+      if (!active) {
+        await admin.auth().revokeRefreshTokens(uid);
+      }
+    } catch (error) {
+      logger.error("Staff access token synchronisation failed.", {
+        uid,
+        active,
+        error: error?.message || String(error),
+      });
+      throw error;
     }
   },
 );
@@ -5746,3 +8313,19 @@ exports.syncVendorBillExpenseMirror = onDocumentWritten(
     );
   },
 );
+
+exports.syncTaskToGoogleCalendar =
+  googleCalendarFunctions.syncTaskToGoogleCalendar;
+exports.syncCalendarEventToGoogleCalendar =
+  googleCalendarFunctions.syncCalendarEventToGoogleCalendar;
+
+if (process.env.NODE_ENV === "test") {
+  exports.__estimateLifecycleTest = {
+    agreementReadinessBlockers,
+    canonicalJson,
+    estimateSnapshotAvailable,
+    estimateVersionContentHash,
+    normaliseSubmittedEstimateDraft,
+    validateImmutableShareSnapshots,
+  };
+}

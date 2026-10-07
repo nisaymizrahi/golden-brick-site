@@ -1,0 +1,156 @@
+.payment-receipt-options {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at top right, rgba(197, 160, 89, 0.13), transparent 44%),
+    rgba(250, 246, 239, 0.94);
+  border: 1px solid rgba(70, 53, 34, 0.1);
+}
+
+.payment-receipt-options-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.payment-receipt-options-head strong {
+  color: var(--crm-ink);
+  font-size: 0.96rem;
+}
+
+.payment-receipt-options-head p,
+.payment-receipt-delivery-copy {
+  margin: 4px 0 0;
+  color: var(--crm-copy);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.payment-receipt-options-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.payment-receipt-option {
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px !important;
+  align-items: start;
+  min-width: 0;
+  padding: 13px 14px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(70, 53, 34, 0.1);
+  cursor: pointer;
+}
+
+.payment-receipt-option input {
+  width: auto !important;
+  margin: 2px 0 0;
+  accent-color: var(--crm-brand-deep);
+}
+
+.payment-receipt-option-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.payment-receipt-option-copy strong {
+  color: var(--crm-ink);
+  font-size: 0.86rem;
+}
+
+.payment-receipt-option-copy small {
+  color: var(--crm-copy-soft);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.payment-receipt-option:has(input:checked) {
+  background: rgba(197, 160, 89, 0.1);
+  border-color: rgba(197, 160, 89, 0.32);
+}
+
+.payment-receipt-option:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.payment-record {
+  display: grid;
+  gap: 12px;
+  border-left: 3px solid rgba(197, 160, 89, 0.72);
+}
+
+.payment-record-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.payment-record-head strong {
+  margin: 0;
+}
+
+.payment-receipt-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  background: rgba(197, 160, 89, 0.13);
+  color: var(--crm-brand-deep);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.payment-receipt-state.is-shared {
+  background: rgba(47, 107, 69, 0.11);
+  color: var(--crm-success);
+}
+
+.payment-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.payment-record-actions button {
+  min-height: 38px;
+}
+
+@media (max-width: 860px) {
+  .payment-receipt-options-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-record-head {
+    display: grid;
+    gap: 8px;
+  }
+
+  .payment-receipt-state {
+    width: fit-content;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .payment-receipt-option,
+  .payment-record {
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease,
+      transform 160ms ease;
+  }
+
+  .payment-record:hover {
+    transform: translateY(-1px);
+  }
+}

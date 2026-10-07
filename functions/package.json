@@ -10,7 +10,8 @@
     "serve": "firebase emulators:start --only functions,firestore,hosting",
     "deploy": "firebase deploy --only functions,firestore,hosting",
     "lint": "echo 'No linter configured yet'",
-    "check": "node --check src/index.js"
+    "check": "node --check src/index.js && node --check src/clientPortal.js && node --check src/googleCalendar.js && node --check src/googleReviews.js && node --check src/staffAdmin.js",
+    "test": "NODE_ENV=test node --test test/estimate-lifecycle.test.js"
   },
   "dependencies": {
     "firebase-admin": "^12.7.0",

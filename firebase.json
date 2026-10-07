@@ -23,7 +23,20 @@
     "public": ".",
     "headers": [
       {
-        "source": "**/*.@(jpg|jpeg|png|webp|svg)",
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(jpg|jpeg|png|webp|avif|svg)",
         "headers": [
           {
             "key": "Cache-Control",
@@ -41,6 +54,14 @@
           {
             "key": "Cross-Origin-Opener-Policy",
             "value": "same-origin-allow-popups"
+          },
+          {
+            "key": "X-Robots-Tag",
+            "value": "noindex, nofollow, noarchive"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "no-referrer"
           }
         ]
       },
@@ -54,6 +75,14 @@
           {
             "key": "Cross-Origin-Opener-Policy",
             "value": "same-origin-allow-popups"
+          },
+          {
+            "key": "X-Robots-Tag",
+            "value": "noindex, nofollow, noarchive"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "no-referrer"
           }
         ]
       },
@@ -67,6 +96,14 @@
           {
             "key": "Cross-Origin-Opener-Policy",
             "value": "same-origin-allow-popups"
+          },
+          {
+            "key": "X-Robots-Tag",
+            "value": "noindex, nofollow, noarchive"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "no-referrer"
           }
         ]
       },
@@ -76,6 +113,14 @@
           {
             "key": "Cache-Control",
             "value": "no-store, max-age=0"
+          },
+          {
+            "key": "X-Robots-Tag",
+            "value": "noindex, nofollow, noarchive"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "no-referrer"
           }
         ]
       },
@@ -85,6 +130,14 @@
           {
             "key": "Cache-Control",
             "value": "no-store, max-age=0"
+          },
+          {
+            "key": "X-Robots-Tag",
+            "value": "noindex, nofollow, noarchive"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "no-referrer"
           }
         ]
       },
@@ -94,6 +147,14 @@
           {
             "key": "Cache-Control",
             "value": "no-store, max-age=0"
+          },
+          {
+            "key": "X-Robots-Tag",
+            "value": "noindex, nofollow, noarchive"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "no-referrer"
           }
         ]
       },
@@ -103,6 +164,14 @@
           {
             "key": "Cache-Control",
             "value": "no-store, max-age=0"
+          },
+          {
+            "key": "X-Robots-Tag",
+            "value": "noindex, nofollow, noarchive"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "no-referrer"
           }
         ]
       },
@@ -112,6 +181,14 @@
           {
             "key": "Cache-Control",
             "value": "no-store, max-age=0"
+          },
+          {
+            "key": "X-Robots-Tag",
+            "value": "noindex, nofollow, noarchive"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "no-referrer"
           }
         ]
       },
@@ -121,6 +198,72 @@
           {
             "key": "Cache-Control",
             "value": "no-store, max-age=0"
+          },
+          {
+            "key": "X-Robots-Tag",
+            "value": "noindex, nofollow, noarchive"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "no-referrer"
+          }
+        ]
+      },
+      {
+        "source": "/data/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          },
+          {
+            "key": "X-Robots-Tag",
+            "value": "noindex, nofollow, noarchive"
+          }
+        ]
+      },
+      {
+        "source": "/style.css",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=86400"
+          }
+        ]
+      },
+      {
+        "source": "/site.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=86400"
+          }
+        ]
+      },
+      {
+        "source": "/business-data.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=86400"
+          }
+        ]
+      },
+      {
+        "source": "/projects.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=86400"
+          }
+        ]
+      },
+      {
+        "source": "/google-reviews.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=86400"
           }
         ]
       }
@@ -159,6 +302,11 @@
       {
         "source": "/full-renovation-philadelphia/index.html",
         "destination": "/full-renovation-philadelphia/",
+        "type": 301
+      },
+      {
+        "source": "/general-contractor-philadelphia/index.html",
+        "destination": "/general-contractor-philadelphia/",
         "type": 301
       },
       {
@@ -215,9 +363,83 @@
         "source": "/rental-rehab-contractor-philadelphia/index.html",
         "destination": "/rental-rehab-contractor-philadelphia/",
         "type": 301
+      },
+      {
+        "source": "/rowhome-renovation-philadelphia/index.html",
+        "destination": "/rowhome-renovation-philadelphia/",
+        "type": 301
+      },
+      {
+        "source": "/index.html",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/process/index.html",
+        "destination": "/process/",
+        "type": 301
+      },
+      {
+        "source": "/reviews/index.html",
+        "destination": "/reviews/",
+        "type": 301
+      },
+      {
+        "source": "/guides/index.html",
+        "destination": "/guides/",
+        "type": 301
+      },
+      {
+        "source": "/client-protections/index.html",
+        "destination": "/client-protections/",
+        "type": 301
+      },
+      {
+        "source": "/service-areas/index.html",
+        "destination": "/service-areas/",
+        "type": 301
+      },
+      {
+        "source": "/new-construction/index.html",
+        "destination": "/new-construction/",
+        "type": 301
+      },
+      {
+        "source": "/projects/cheltenham-whole-home-renovation/index.html",
+        "destination": "/projects/cheltenham-whole-home-renovation/",
+        "type": 301
+      },
+      {
+        "source": "/projects/west-philadelphia-triplex-renovation/index.html",
+        "destination": "/projects/west-philadelphia-triplex-renovation/",
+        "type": 301
+      },
+      {
+        "source": "/projects/italian-market-whole-home-renovation/index.html",
+        "destination": "/projects/italian-market-whole-home-renovation/",
+        "type": 301
+      },
+      {
+        "source": "/projects/germantown-mixed-use-renovation/index.html",
+        "destination": "/projects/germantown-mixed-use-renovation/",
+        "type": 301
+      },
+      {
+        "source": "/projects/west-philadelphia-mixed-use-building-renovation/index.html",
+        "destination": "/projects/west-philadelphia-mixed-use-building-renovation/",
+        "type": 301
+      },
+      {
+        "source": "/projects/west-philadelphia-former-bank-redevelopment/index.html",
+        "destination": "/projects/west-philadelphia-former-bank-redevelopment/",
+        "type": 301
       }
     ],
     "rewrites": [
+      {
+        "source": "/staff/**",
+        "destination": "/staff/index.html"
+      },
       {
         "source": "/client/**",
         "destination": "/client/index.html"
@@ -237,6 +459,34 @@
         "source": "/api/auth/sync-session",
         "function": {
           "functionId": "syncStaffSession",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/staff/google-calendar/status",
+        "function": {
+          "functionId": "googleCalendarStatus",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/staff/google-calendar/callback",
+        "function": {
+          "functionId": "googleCalendarCallback",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/staff/google-calendar",
+        "function": {
+          "functionId": "googleCalendarConnection",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/staff/delete-access",
+        "function": {
+          "functionId": "deleteStaffAccess",
           "region": "us-central1"
         }
       },
@@ -311,6 +561,13 @@
         }
       },
       {
+        "source": "/api/public/google-reviews",
+        "function": {
+          "functionId": "clientPortalApi",
+          "region": "us-central1"
+        }
+      },
+      {
         "source": "/api/stripe/webhook",
         "function": {
           "functionId": "stripeWebhook",
@@ -337,14 +594,28 @@
       "**/.playwright-cli/**",
       "output/**",
       "**/output/**",
+      "tmp/**",
+      "**/tmp/**",
       ".DS_Store",
       "**/.DS_Store",
       "images/**/*.pdf",
       "images/projects/in-progress/**",
       "images/projects/completed/**",
       "images/projects/README.md",
+      "functions/**",
+      "GOOGLE_REVIEWS_SETUP.md",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "images/responsive/manifest.json",
+      "**/*.md",
+      "**/*.log",
+      "**/*.rules",
+      "firestore.indexes.json",
+      "scripts/**",
+      "data/**",
+      "**/*.py",
+      "**/*.zip",
+      "**/*.tgz"
     ]
   }
 }

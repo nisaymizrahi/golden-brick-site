@@ -97,6 +97,20 @@ service firebase.storage {
       );
     }
 
+    function siteProjectDocExists(projectId) {
+      return firestore.exists(/databases/(default)/documents/siteProjects/$(projectId));
+    }
+
+    function siteProjectIsPublished(projectId) {
+      return siteProjectDocExists(projectId) &&
+        firestore.get(/databases/(default)/documents/siteProjects/$(projectId)).data.published == true;
+    }
+
+    match /siteProjects/{projectId}/{allPaths=**} {
+      allow read: if siteProjectIsPublished(projectId) || isAdmin();
+      allow write: if isAdmin();
+    }
+
     match /projects/{projectId}/{allPaths=**} {
       allow read, write: if canAccessProject(projectId);
     }

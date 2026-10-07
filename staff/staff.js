@@ -4,7 +4,6 @@ import {
   GoogleAuthProvider,
   onAuthStateChanged,
   signInWithPopup,
-  signInWithRedirect,
   signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
@@ -32,6 +31,13 @@ import {
   ref as storageRef,
   uploadBytes,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import { buildPolishedEstimatePdf } from "./estimate-pdf.mjs";
+import {
+  buildPaymentReceiptHtml,
+  buildPaymentReceiptNumber,
+  buildPaymentReceiptPdf,
+  paymentReceiptFilename,
+} from "./payment-receipt.mjs";
 
 const VIEW_META = {
   "today-view": {
@@ -45,7 +51,7 @@ const VIEW_META = {
       "Track next actions across leads, customers, and active jobs in one queue.",
   },
   "leads-view": {
-    title: "Leads",
+    title: "Pipeline",
     subtitle:
       "Search, filter, assign, update, and safely archive leads from a cleaner list-first workflow.",
   },
@@ -55,9 +61,14 @@ const VIEW_META = {
       "Keep repeat-client history in one card with linked leads, jobs, payments, and active opportunities.",
   },
   "jobs-view": {
-    title: "Jobs",
+    title: "Projects",
     subtitle:
       "Run active work from a focused job workspace with schedule, client updates, tasks, documents, billing, and safe archive controls.",
+  },
+  "site-projects-view": {
+    title: "Site Projects",
+    subtitle:
+      "Publish upcoming and finished investor-facing projects to the public website with clean descriptions and approved photos.",
   },
   "calendar-view": {
     title: "Calendar",
@@ -70,7 +81,7 @@ const VIEW_META = {
       "Manage trade partners, what we owe them, and the agreements, insurance, and W-9 files that support the relationship.",
   },
   "staff-view": {
-    title: "Admin / More",
+    title: "Settings",
     subtitle:
       "Manage staff access, portal queue, service templates, team workload, and the restore-safe trash area.",
   },
@@ -244,28 +255,90 @@ const VENDOR_TRADE_OPTIONS = [
   { id: "supplier", label: "Supplier" },
 ];
 
-const DEFAULT_ESTIMATE_STANDARD_TERMS = [
-  "This estimate is based on standard contractor-stock materials and finishes unless otherwise stated in writing.",
-  "Pricing remains subject to final scope confirmation, field measurements, access conditions, and finish selections.",
-  "Golden Brick Construction is not responsible for unforeseen concealed, latent, or site conditions discovered after work begins. Any resulting scope, schedule, or pricing adjustments must be documented in writing before additional work proceeds.",
+const PENNSYLVANIA_HIC_REGISTRATION_NUMBER = "PA212716";
+const PHILADELPHIA_GC_LICENSE_NUMBER = "065157";
+const PA_CONSUMER_PROTECTION_PHONE = "1-888-520-6680";
+const CONTRACTOR_BUSINESS_ADDRESS = "5635 Chester Ave, Philadelphia, PA 19143";
+
+const DEFAULT_CONTRACT_PAYMENT_SCHEDULE = [
+  "No deposit is listed for this estimate unless a deposit amount is written into this estimate or a later signed revision.",
+  "No payment is due before the written agreement is signed by the owner and Golden Brick Construction.",
 ].join("\n");
 
-const DEFAULT_AGREEMENT_TITLE = "Client authorization and agreement";
+const DEFAULT_CONTRACT_SPECIAL_ORDER_MATERIALS =
+  "No special-order material advance is listed for this estimate unless a material and amount are written into this estimate or a later signed revision.";
+
+const DEFAULT_CONTRACT_SUBCONTRACTORS =
+  "No subcontractors are listed for this estimate unless identified in the scope, project notes, permit record, or a later signed revision.";
+
+const COMPANY_INSURANCE_DISCLOSURE = [
+  "Commercial general liability policy NXTX9PVPLX-00-GL is active Feb. 10, 2026 through Feb. 10, 2027, with $1,000,000 each occurrence and $1,000,000 general aggregate limits shown on the certificate.",
+  "Contractors errors and omissions coverage is shown with $10,000 each occurrence and $20,000 aggregate limits.",
+].join("\n");
+
+const DEFAULT_ESTIMATE_STANDARD_TERMS = [
+  `Golden Brick Construction discloses Pennsylvania Home Improvement Contractor Registration No. ${PENNSYLVANIA_HIC_REGISTRATION_NUMBER} and Philadelphia General Contractor License No. ${PHILADELPHIA_GC_LICENSE_NUMBER}. The official registration number can be obtained from the Pennsylvania Office of Attorney General's Bureau of Consumer Protection by calling toll-free within Pennsylvania ${PA_CONSUMER_PROTECTION_PHONE}. Registration does not imply endorsement.`,
+  "This estimate reflects the scope, quantities, access assumptions, and material quality level identified at the time it was prepared. Unless noted otherwise in writing, pricing assumes contractor-stock materials and standard installation conditions.",
+  "Final pricing, sequencing, and production details remain subject to site verification, accurate field measurements, finish selections, structural discoveries, code requirements, utility conditions, and any revisions approved in writing after this estimate was issued.",
+  "Unforeseen concealed, latent, or site conditions discovered after work begins are not included in this estimate. If those conditions affect scope, cost, sequencing, or duration, Golden Brick Construction will document the revision in writing before additional work proceeds.",
+  "Permits, inspections, engineering input, specialty vendor work, and trade coordination are included only when specifically called for by the approved scope or later documented through written revisions.",
+  "A signed approval is required before any home improvement work begins. Any requested scope, material, or scheduling changes after estimate approval must be captured in writing and may require revised pricing or a formal change order before added work can begin.",
+].join("\n");
+
+const DEFAULT_AGREEMENT_TITLE = "Estimate approval and home improvement agreement";
 
 const DEFAULT_AGREEMENT_INTRO = [
-  "If you would like Golden Brick Construction to move forward from this estimate into the next planning and production step, please review and sign the agreement terms below.",
-  "Your signature locks the estimate snapshot shown on the client page into the project file so Golden Brick and the client are aligned on the approved scope and commercial terms at the time of acceptance.",
+  "This section records the estimate, agreement details, cancellation rights, and required notices for the project.",
+  "Once signed, the estimate overview, line items, project notes, agreement details, cancellation notice, and signature record are kept together as the project approval record.",
 ].join("\n");
 
 const DEFAULT_AGREEMENT_TERMS = [
-  "By signing below, you confirm that Golden Brick Construction may move forward based on the estimate scope and pricing snapshot shown on this page, subject to final field verification and any written revisions agreed by both parties.",
-  "Any requested scope, material, pricing, or schedule changes after signature must be documented in writing and may require a revised estimate or change order before additional work proceeds.",
-  "Scheduling, procurement, and start-date coordination remain subject to site access, deposit and payment coordination, municipal approvals, final measurements, and confirmed finish selections where applicable.",
+  "By signing below, the owner or authorized signer approves the estimate scope and pricing snapshot shown on this page and authorizes Golden Brick Construction to move forward under the agreement details and required notices shown with this record.",
+  "This approval is tied to the scope, specifications, assumptions, and pricing shown on this page only. Any requested changes to scope, materials, quantities, schedule, finish level, or specifications after signature must be documented in a written change order or signed revision before the changed work proceeds.",
+  "Any pricing tied to allowances, contractor-stock materials, existing-condition assumptions, or standard installation methods may change if site conditions, code requirements, measurements, owner selections, or requested upgrades differ from the assumptions used to prepare this estimate.",
+  "Golden Brick Construction is not responsible for concealed, latent, or previously unknown conditions discovered after work begins, including structural issues, moisture damage, outdated wiring, plumbing deficiencies, code deficiencies, or other conditions that were not visible at the time of estimating. If discovered, the project file will be updated in writing before additional affected work continues.",
+  "The approximate start date and approximate completion date shown in the agreement details are planning dates for this project. Sequencing, inspections, and completion timing remain subject to site access, material availability, lead times, utility conditions, municipal approvals, weather, timely selections, and prior work completion.",
+  "Where permits, inspections, engineering input, specialty vendor coordination, or Philadelphia contractor disclosures are required for the approved scope, Golden Brick Construction will coordinate those next steps as applicable; however, municipal review timing, utility scheduling, and third-party delays remain outside the contractor's direct control.",
+  "The owner or authorized signer agrees to provide reasonable site access, timely design or finish decisions, timely responses to scope clarifications, and any owner-supplied selections or information needed to keep the project moving. Delays in access, selections, or approvals may affect schedule and cost.",
+  "No payment is due before the written agreement is signed. Any deposit, special-order material advance, milestone invoice, retainage, or final payment must be listed in writing in this estimate, an approved invoice, or a later signed revision before it is due. Golden Brick Construction may pause procurement, scheduling, or active work if required payments or approvals are outstanding.",
+  "Special-order materials, custom fabricated items, non-stock finishes, and approved purchases made specifically for this project may be non-refundable once ordered or fabricated.",
+  `Golden Brick Construction is registered as Pennsylvania Home Improvement Contractor Registration No. ${PENNSYLVANIA_HIC_REGISTRATION_NUMBER} and holds Philadelphia General Contractor License No. ${PHILADELPHIA_GC_LICENSE_NUMBER}. Subcontractors, specialty trades, and vendor partners may be used where appropriate, but Golden Brick remains the coordinating contractor for the approved scope reflected here.`,
+  "For work that disturbs painted surfaces in pre-1978 housing or child-occupied facilities, lead-safe requirements may apply. Lead paint, asbestos, mold, hazardous materials, hidden damage, or environmental remediation are included only when specifically written into the approved scope.",
+  "The owner or authorized signer has the right to cancel a Pennsylvania home improvement contract within three business days of signing, except where a valid emergency authorization applies. Golden Brick will honor timely cancellation notice provided by any medium that gives Golden Brick actual notice.",
+  "Golden Brick's delivery of this agreement records the contractor's approval to present these terms for signature. The owner signature and Golden Brick project record together form the signed approval record maintained for this project.",
+  "This signed estimate, together with the agreement details, cancellation notice, insurance disclosure, registration disclosure, later written revisions, schedules, payment milestones, change orders, selections, and required statutory notices, becomes part of the final project record maintained by Golden Brick Construction.",
 ].join("\n");
+
+const LEGACY_AGREEMENT_TEMPLATE_TITLES = new Set([
+  ["Client", " authorization and agreement"].join(""),
+]);
+
+const LEGACY_AGREEMENT_TEMPLATE_INTROS = new Set([
+  [
+    "If you would like Golden Brick Construction to move forward from this estimate into the next planning and production step, please review and sign the agreement terms below.",
+    "Your signature locks the estimate snapshot shown on the client page into the project file so Golden Brick and the client are aligned on the approved scope and commercial terms at the time of acceptance.",
+  ].join("\n"),
+]);
+
+const LEGACY_AGREEMENT_TEMPLATE_TERMS = new Set([
+  [
+    [
+      "By signing below, you confirm that Golden Brick Construction may move forward based on the estimate scope and pricing snapshot shown on this page, subject to final field",
+      " verification and any written revisions agreed by both parties.",
+    ].join(""),
+    "Any requested scope, material, pricing, or schedule changes after signature must be documented in writing and may require a revised estimate or change order before additional work proceeds.",
+    "Scheduling, procurement, and start-date coordination remain subject to site access, deposit and payment coordination, municipal approvals, final measurements, and confirmed finish selections where applicable.",
+  ].join("\n"),
+]);
 
 const LEGACY_ESTIMATE_TEMPLATE_TERMS = [
   "Pricing is a planning estimate until site conditions, access, finish selections, and final scope are confirmed.",
   "Pricing is a planning estimate until scope, access, existing conditions, and finish selections are confirmed on site.",
+  [
+    "This estimate is based on standard contractor-stock materials and finishes unless otherwise stated in writing.",
+    "Pricing remains subject to final scope confirmation, field measurements, access conditions, and finish selections.",
+    "Golden Brick Construction is not responsible for unforeseen concealed, latent, or site conditions discovered after work begins. Any resulting scope, schedule, or pricing adjustments must be documented in writing before additional work proceeds.",
+  ].join("\n"),
 ];
 
 const EMPTY_TEMPLATE = {
@@ -277,17 +350,21 @@ const EMPTY_TEMPLATE = {
   intro:
     "Thanks for speaking with Golden Brick Construction. Based on the information shared so far, here is a working estimate outline for your project.",
   outro:
-    "Please review the draft and let us know what you would like us to tighten before the next step.",
+    "Please review this estimate and let us know what you would like Golden Brick to adjust before the next step.",
   terms: DEFAULT_ESTIMATE_STANDARD_TERMS,
   agreementTitle: DEFAULT_AGREEMENT_TITLE,
   agreementIntro: DEFAULT_AGREEMENT_INTRO,
   agreementTerms: DEFAULT_AGREEMENT_TERMS,
+  contractorBusinessAddress: CONTRACTOR_BUSINESS_ADDRESS,
 };
 
 const COMPANY_INFO = {
   name: "Golden Brick Construction",
   phone: "(267) 715-5557",
   email: "info@goldenbrickc.com",
+  paRegistrationNumber: PENNSYLVANIA_HIC_REGISTRATION_NUMBER,
+  philadelphiaLicenseNumber: PHILADELPHIA_GC_LICENSE_NUMBER,
+  insuranceDisclosure: COMPANY_INSURANCE_DISCLOSURE,
 };
 
 const DEFAULT_SERVICE_TEMPLATES = [
@@ -341,11 +418,16 @@ const DEFAULT_SERVICE_TEMPLATES = [
 
 const ESTIMATE_PDF_THEME = {
   brand: [197, 160, 89],
-  brandDeep: [142, 106, 46],
+  brandDeep: [117, 89, 40],
   ink: [23, 18, 13],
-  muted: [109, 99, 86],
-  panel: [250, 246, 239],
-  line: [231, 218, 196],
+  muted: [81, 75, 67],
+  soft: [117, 109, 98],
+  panel: [250, 248, 244],
+  panelStrong: [244, 239, 231],
+  line: [229, 222, 210],
+  lineStrong: [208, 194, 168],
+  dark: [24, 21, 16],
+  white: [255, 250, 240],
 };
 
 const MOBILE_BREAKPOINT = 860;
@@ -358,6 +440,7 @@ const MOBILE_PRIMARY_VIEWS = [
 const MOBILE_MORE_VIEWS = [
   "tasks-view",
   "customers-view",
+  "site-projects-view",
   "staff-view",
   "vendors-view",
 ];
@@ -414,7 +497,9 @@ const refs = {
   taskAssigneeSelect: document.getElementById("task-assignee-select"),
   taskStatusSelect: document.getElementById("task-status-select"),
   taskPrioritySelect: document.getElementById("task-priority-select"),
-  taskDueInput: document.getElementById("task-due-input"),
+  taskDueDate: document.getElementById("task-due-date"),
+  taskDueTime: document.getElementById("task-due-time"),
+  taskDuePreview: document.getElementById("task-due-preview"),
   taskLinkedTypeSelect: document.getElementById("task-linked-type-select"),
   taskLinkedRecordSelect: document.getElementById("task-linked-record-select"),
   taskDescriptionInput: document.getElementById("task-description-input"),
@@ -469,7 +554,18 @@ const refs = {
   estimateShareStatusPill: document.getElementById(
     "estimate-share-status-pill",
   ),
+  estimateSharePanel: document.getElementById("estimate-share-panel"),
   estimateShareMeta: document.getElementById("estimate-share-meta"),
+  estimateWorkflowIdentity: document.getElementById(
+    "estimate-workflow-identity",
+  ),
+  estimateSaveState: document.getElementById("estimate-save-state"),
+  estimateWorkflowMessage: document.getElementById(
+    "estimate-workflow-message",
+  ),
+  estimatePublishPreflight: document.getElementById(
+    "estimate-publish-preflight",
+  ),
   estimateShareLinkInput: document.getElementById("estimate-share-link-input"),
   estimateShareCreateButton: document.getElementById(
     "estimate-share-create-button",
@@ -489,6 +585,15 @@ const refs = {
   estimatePrintButton: document.getElementById("estimate-print-button"),
   estimateSubject: document.getElementById("estimate-subject"),
   estimateBody: document.getElementById("estimate-body"),
+  estimateStartDate: document.getElementById("estimate-start-date"),
+  estimateCompletionDate: document.getElementById("estimate-completion-date"),
+  estimatePaymentSchedule: document.getElementById("estimate-payment-schedule"),
+  estimateSpecialOrderMaterials: document.getElementById(
+    "estimate-special-order-materials",
+  ),
+  estimateKnownSubcontractors: document.getElementById(
+    "estimate-known-subcontractors",
+  ),
   estimateAssumptions: document.getElementById("estimate-assumptions"),
   estimateStandardTermsDisplay: document.getElementById(
     "estimate-standard-terms-display",
@@ -496,6 +601,16 @@ const refs = {
   estimateLines: document.getElementById("estimate-lines"),
   estimateSubtotal: document.getElementById("estimate-subtotal"),
   estimatePreview: document.getElementById("estimate-preview"),
+  estimateMobileAddLineButton: document.getElementById(
+    "estimate-mobile-add-line-button",
+  ),
+  estimateMobileDownloadButton: document.getElementById(
+    "estimate-mobile-download-button",
+  ),
+  estimatePreviewToggle: document.getElementById("estimate-preview-toggle"),
+  estimateSaveButtons: Array.from(
+    document.querySelectorAll("[data-estimate-save-button]"),
+  ),
   leadTaskList: document.getElementById("lead-task-list"),
   leadTaskDrawerButton: document.getElementById("lead-task-drawer-button"),
   leadDocumentSummary: document.getElementById("lead-document-summary"),
@@ -633,19 +748,29 @@ const refs = {
   customerDocumentList: document.getElementById("customer-document-list"),
   customerTaskForm: document.getElementById("customer-task-form"),
   customerTaskTitle: document.getElementById("customer-task-title"),
-  customerTaskDue: document.getElementById("customer-task-due"),
+  customerTaskDueDate: document.getElementById("customer-task-due-date"),
+  customerTaskDueTime: document.getElementById("customer-task-due-time"),
+  customerTaskDuePreview: document.getElementById(
+    "customer-task-due-preview",
+  ),
   customerTaskPriority: document.getElementById("customer-task-priority"),
   customerTaskAssignee: document.getElementById("customer-task-assignee"),
 
   jobMetrics: document.getElementById("job-metrics"),
   jobsView: document.getElementById("jobs-view"),
   jobSearchInput: document.getElementById("job-search-input"),
-  jobStatusFilter: document.getElementById("job-status-filter"),
+  jobStatusFilterButtons: Array.from(
+    document.querySelectorAll("[data-job-status-filter]"),
+  ),
   jobNewButton: document.getElementById("job-new-button"),
   jobNewServiceOrderButton: document.getElementById(
     "job-new-service-order-button",
   ),
   jobList: document.getElementById("job-list"),
+  jobListHeading: document.getElementById("job-list-heading"),
+  jobProjectSwitcherSelect: document.getElementById(
+    "job-project-switcher-select",
+  ),
   jobRecordTitle: document.getElementById("job-record-title"),
   jobWorkspaceMeta: document.getElementById("job-workspace-meta"),
   jobWorkspaceBackButton: document.getElementById("job-workspace-back-button"),
@@ -657,6 +782,8 @@ const refs = {
   jobAddChangeOrderButton: document.getElementById(
     "job-add-change-order-button",
   ),
+  jobAddCalendarButton: document.getElementById("job-add-calendar-button"),
+  jobCompleteButton: document.getElementById("job-complete-button"),
   jobAddPaymentButton: document.getElementById("job-add-payment-button"),
   jobAddInvoiceButton: document.getElementById("job-add-invoice-button"),
   jobAddDocumentButton: document.getElementById("job-add-document-button"),
@@ -687,6 +814,11 @@ const refs = {
   ),
   jobRecordContext: document.getElementById("job-record-context"),
   jobOverviewSummary: document.getElementById("job-overview-summary"),
+  jobWorkSummary: document.getElementById("job-work-summary"),
+  jobWorkTaskList: document.getElementById("job-work-task-list"),
+  jobWorkScheduleList: document.getElementById("job-work-schedule-list"),
+  jobWorkFinancials: document.getElementById("job-work-financials"),
+  jobWorkCalendarButton: document.getElementById("job-work-calendar-button"),
   jobCalendarSummary: document.getElementById("job-calendar-summary"),
   jobCalendarList: document.getElementById("job-calendar-list"),
   jobCalendarFocusButton: document.getElementById("job-calendar-focus-button"),
@@ -736,7 +868,15 @@ const refs = {
   paymentDate: document.getElementById("payment-date"),
   paymentType: document.getElementById("payment-type"),
   paymentMethod: document.getElementById("payment-method"),
+  paymentReference: document.getElementById("payment-reference"),
   paymentNote: document.getElementById("payment-note"),
+  paymentGenerateReceipt: document.getElementById(
+    "payment-generate-receipt",
+  ),
+  paymentSendReceipt: document.getElementById("payment-send-receipt"),
+  paymentReceiptDeliveryCopy: document.getElementById(
+    "payment-receipt-delivery-copy",
+  ),
   paymentList: document.getElementById("payment-list"),
   jobInvoiceSummary: document.getElementById("job-invoice-summary"),
   jobInvoiceList: document.getElementById("job-invoice-list"),
@@ -755,6 +895,9 @@ const refs = {
   invoiceCopyLinkButton: document.getElementById("invoice-copy-link-button"),
   invoiceDownloadButton: document.getElementById("invoice-download-button"),
   invoiceReceiptButton: document.getElementById("invoice-receipt-button"),
+  invoiceSendReceiptButton: document.getElementById(
+    "invoice-send-receipt-button",
+  ),
   invoiceMarkPaidButton: document.getElementById("invoice-mark-paid-button"),
   invoiceBillingState: document.getElementById("invoice-billing-state"),
   invoiceTitle: document.getElementById("invoice-title"),
@@ -843,6 +986,21 @@ const refs = {
     "calendar-internal-note-input",
   ),
   calendarResetButton: document.getElementById("calendar-reset-button"),
+  googleCalendarConnection: document.getElementById(
+    "google-calendar-connection",
+  ),
+  googleCalendarStatusTitle: document.getElementById(
+    "google-calendar-status-title",
+  ),
+  googleCalendarStatusCopy: document.getElementById(
+    "google-calendar-status-copy",
+  ),
+  googleCalendarConnectButton: document.getElementById(
+    "google-calendar-connect-button",
+  ),
+  googleCalendarDisconnectButton: document.getElementById(
+    "google-calendar-disconnect-button",
+  ),
 
   vendorMetrics: document.getElementById("vendor-metrics"),
   vendorSearchInput: document.getElementById("vendor-search-input"),
@@ -955,6 +1113,9 @@ const refs = {
 
   staffList: document.getElementById("staff-list"),
   staffAdminShell: document.getElementById("staff-admin-shell"),
+  adminSectionButtons: Array.from(
+    document.querySelectorAll("[data-admin-section]"),
+  ),
   staffEmployeeMessage: document.getElementById("staff-employee-message"),
   portalQueueSummary: document.getElementById("portal-queue-summary"),
   portalQueueList: document.getElementById("portal-queue-list"),
@@ -970,6 +1131,7 @@ const refs = {
   staffDefaultAssignee: document.getElementById("staff-default-assignee"),
   staffActive: document.getElementById("staff-active"),
   staffFormReset: document.getElementById("staff-form-reset"),
+  staffDeleteButton: document.getElementById("staff-delete-button"),
   serviceTemplateSummary: document.getElementById("service-template-summary"),
   serviceTemplateList: document.getElementById("service-template-list"),
   serviceTemplateForm: document.getElementById("service-template-form"),
@@ -1008,8 +1170,15 @@ const refs = {
   templateAgreementTitle: document.getElementById("template-agreement-title"),
   templateAgreementIntro: document.getElementById("template-agreement-intro"),
   templateAgreementTerms: document.getElementById("template-agreement-terms"),
+  templateContractorAddress: document.getElementById(
+    "template-contractor-address",
+  ),
 
+  mobileActionDock: document.getElementById("mobile-action-dock"),
   mobileCreateFab: document.getElementById("mobile-create-fab"),
+  mobileContextActionButtons: Array.from(
+    document.querySelectorAll("[data-mobile-context-action]"),
+  ),
   mobileTabBar: document.getElementById("mobile-tab-bar"),
   mobileTabButtons: Array.from(document.querySelectorAll("[data-mobile-view]")),
   mobileMoreButton: document.getElementById("mobile-more-button"),
@@ -1126,12 +1295,59 @@ const refs = {
   drawerVendorNotes: document.getElementById("drawer-vendor-notes"),
   drawerTaskForm: document.getElementById("drawer-task-form"),
   drawerTaskTitle: document.getElementById("drawer-task-title"),
-  drawerTaskDue: document.getElementById("drawer-task-due"),
+  drawerTaskDueDate: document.getElementById("drawer-task-due-date"),
+  drawerTaskDueTime: document.getElementById("drawer-task-due-time"),
+  drawerTaskDuePreview: document.getElementById("drawer-task-due-preview"),
   drawerTaskAssignee: document.getElementById("drawer-task-assignee"),
   drawerTaskPriority: document.getElementById("drawer-task-priority"),
   drawerTaskLinkedType: document.getElementById("drawer-task-linked-type"),
   drawerTaskLinkedRecord: document.getElementById("drawer-task-linked-record"),
   drawerTaskContext: document.getElementById("drawer-task-context"),
+  drawerCommunicationForm: document.getElementById(
+    "drawer-communication-form",
+  ),
+  drawerCommunicationRecordSearch: document.getElementById(
+    "drawer-communication-record-search",
+  ),
+  drawerCommunicationLinkedType: document.getElementById(
+    "drawer-communication-linked-type",
+  ),
+  drawerCommunicationLinkedRecord: document.getElementById(
+    "drawer-communication-linked-record",
+  ),
+  drawerCommunicationContext: document.getElementById(
+    "drawer-communication-context",
+  ),
+  drawerCommunicationType: document.getElementById(
+    "drawer-communication-type",
+  ),
+  drawerCommunicationDirection: document.getElementById(
+    "drawer-communication-direction",
+  ),
+  drawerCommunicationHappenedAt: document.getElementById(
+    "drawer-communication-happened-at",
+  ),
+  drawerCommunicationContactName: document.getElementById(
+    "drawer-communication-contact-name",
+  ),
+  drawerCommunicationContactMethod: document.getElementById(
+    "drawer-communication-contact-method",
+  ),
+  drawerCommunicationBody: document.getElementById(
+    "drawer-communication-body",
+  ),
+  drawerCommunicationOutcome: document.getElementById(
+    "drawer-communication-outcome",
+  ),
+  drawerCommunicationFollowUpRequired: document.getElementById(
+    "drawer-communication-follow-up-required",
+  ),
+  drawerCommunicationFollowUpAt: document.getElementById(
+    "drawer-communication-follow-up-at",
+  ),
+  drawerCommunicationClientVisible: document.getElementById(
+    "drawer-communication-client-visible",
+  ),
 };
 
 const state = {
@@ -1171,7 +1387,7 @@ const state = {
   pendingLeadRouteId: "",
   pendingLeadRouteTab: "overview",
   pendingJobRouteId: "",
-  pendingJobRouteTab: "financials",
+  pendingJobRouteTab: "work",
   leadActivities: [],
   leadEstimateShares: [],
   projectExpenses: [],
@@ -1209,10 +1425,20 @@ const state = {
   portalQueueContacts: [],
   estimate: null,
   estimateShare: null,
+  estimateWorkflow: {
+    leadId: "",
+    status: "loading",
+    dirty: false,
+    operation: "",
+    message: "",
+    error: "",
+    lastPublishedShareId: "",
+  },
+  leadDetailSubscriptionId: "",
   notificationPanelOpen: false,
   notificationReadMap: {},
   activeLeadTab: "overview",
-  activeJobTab: "financials",
+  activeJobTab: "work",
   activeView: "today-view",
   todayScope: "mine",
   leadLayout: isMobileViewport() ? "list" : "board",
@@ -1229,9 +1455,19 @@ const state = {
   calendarStatus: "all",
   calendarStaffUid: "",
   calendarProjectId: "",
+  googleCalendar: {
+    loaded: false,
+    loading: false,
+    connected: false,
+    status: "not_connected",
+    email: "",
+    lastSyncAt: null,
+    lastError: "",
+  },
   taskSearch: "",
   taskBucket: "open",
   activeVendorTab: "overview",
+  activeAdminSection: "team",
   dragLeadId: null,
   dragLeadOverStatus: null,
   drawer: {
@@ -1245,6 +1481,7 @@ const state = {
     customerDraft: null,
     vendorDraft: null,
     taskDraft: null,
+    communicationDraft: null,
   },
   sessionResetting: false,
   unsubs: {
@@ -1258,6 +1495,8 @@ const state = {
   },
 };
 
+const pendingEstimateOperations = new Map();
+
 const initialLeadRoute = readLeadRouteState();
 state.pendingLeadRouteId = initialLeadRoute.leadId;
 state.pendingLeadRouteTab = initialLeadRoute.leadTab;
@@ -1265,20 +1504,70 @@ state.pendingJobRouteId = initialLeadRoute.jobId;
 state.pendingJobRouteTab = initialLeadRoute.jobTab;
 state.leadWorkspaceOpen = Boolean(initialLeadRoute.leadId);
 
+let stableAppViewportHeight = 0;
+let stableAppViewportWidth = 0;
+
 function isMobileViewport() {
   return window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches;
 }
 
-function syncViewportHeightVar() {
-  const nextHeight = Math.round(
-    window.visualViewport?.height || window.innerHeight || 0,
-  );
-  if (nextHeight > 0) {
-    document.documentElement.style.setProperty(
-      "--crm-app-height",
-      `${nextHeight}px`,
-    );
+function drawerKeyboardFieldIsFocused() {
+  const activeElement = document.activeElement;
+  if (
+    !state.drawer.type ||
+    !refs.entityDrawer?.contains(activeElement) ||
+    !(activeElement instanceof HTMLElement)
+  ) {
+    return false;
   }
+
+  return activeElement.matches(
+    'input:not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]), textarea, select',
+  );
+}
+
+function syncViewportHeightVar() {
+  const root = document.documentElement;
+  const layoutHeight = Math.round(
+    window.innerHeight || root.clientHeight || 0,
+  );
+  const visualHeight = Math.round(
+    window.visualViewport?.height || layoutHeight,
+  );
+  const viewportWidth = Math.round(window.innerWidth || root.clientWidth || 0);
+  const widthChanged =
+    stableAppViewportWidth > 0 &&
+    Math.abs(viewportWidth - stableAppViewportWidth) > 72;
+  const keyboardIsOpen = Boolean(
+    isMobileViewport() &&
+      !widthChanged &&
+      drawerKeyboardFieldIsFocused() &&
+      stableAppViewportHeight > 0 &&
+      visualHeight < stableAppViewportHeight - 120,
+  );
+
+  if (!keyboardIsOpen) {
+    stableAppViewportHeight = Math.max(layoutHeight, visualHeight);
+    stableAppViewportWidth = viewportWidth;
+  }
+
+  const appHeight = keyboardIsOpen
+    ? stableAppViewportHeight
+    : Math.max(layoutHeight, visualHeight);
+  const keyboardInset = keyboardIsOpen
+    ? Math.max(
+        0,
+        appHeight -
+          visualHeight -
+          Math.round(window.visualViewport?.offsetTop || 0),
+      )
+    : 0;
+
+  if (appHeight > 0) {
+    root.style.setProperty("--crm-app-height", `${appHeight}px`);
+  }
+  root.style.setProperty("--crm-keyboard-inset", `${keyboardInset}px`);
+  root.classList.toggle("crm-keyboard-open", keyboardIsOpen);
 }
 
 function rememberedFocusElement() {
@@ -1584,6 +1873,53 @@ function mobileViewHasDetail(viewId) {
   return false;
 }
 
+function mobileDockActions() {
+  if (state.activeView === "leads-view" && state.leadWorkspaceOpen) {
+    return [
+      { label: "Log", action: "log-communication", primary: true },
+      { label: "Task", action: "add-task" },
+      { label: "Estimate", action: "lead-open-estimate" },
+      { label: "Won", action: "lead-mark-won" },
+    ];
+  }
+
+  if (state.activeView === "jobs-view" && currentProject()) {
+    return [
+      { label: "Expense", action: "add-expense", primary: true },
+      { label: "Log", action: "log-communication" },
+      { label: "Task", action: "add-task" },
+      { label: "Document", action: "job-add-document" },
+      { label: "Update", action: "job-update-client" },
+    ];
+  }
+
+  return [
+    { label: "Lead", action: "add-lead", primary: true },
+    { label: "Expense", action: "add-expense" },
+    { label: "Task", action: "add-task" },
+    { label: "Log", action: "log-communication" },
+  ];
+}
+
+function renderMobileActionDock() {
+  if (!refs.mobileActionDock) {
+    return;
+  }
+
+  refs.mobileContextActionButtons.forEach((button, index) => {
+    const action = mobileDockActions()[index];
+    if (!action) {
+      button.hidden = true;
+      return;
+    }
+
+    button.hidden = false;
+    button.textContent = action.label;
+    button.dataset.mobileContextAction = action.action;
+    button.classList.toggle("is-primary", Boolean(action.primary));
+  });
+}
+
 function syncMobileChrome() {
   const isMobile = isMobileViewport();
   const hideCommandBar =
@@ -1615,13 +1951,17 @@ function syncMobileChrome() {
   if (refs.mobileTabBar) {
     refs.mobileTabBar.hidden = !(isMobile && state.profile);
   }
-  if (refs.mobileCreateFab) {
-    refs.mobileCreateFab.hidden = !(
+  if (refs.mobileActionDock) {
+    refs.mobileActionDock.hidden = !(
       isMobile &&
       state.profile &&
       !state.drawer.type
     );
   }
+  if (refs.mobileCreateFab) {
+    refs.mobileCreateFab.hidden = !(isMobile && state.profile && !state.drawer.type);
+  }
+  renderMobileActionDock();
 
   if (refs.workspaceCommandBar && state.profile) {
     refs.workspaceCommandBar.hidden = hideCommandBar;
@@ -1645,6 +1985,8 @@ function syncMobileChrome() {
         MOBILE_MORE_VIEWS.includes(state.activeView),
     );
   }
+
+  renderLeadWorkspaceSurface();
 }
 
 function clearMobileDetailForView(viewId) {
@@ -1847,6 +2189,249 @@ function parseDateOnlyInput(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function formatTimeInputValue(value) {
+  if (!value) return "09:00";
+  const date =
+    typeof value?.toDate === "function" ? value.toDate() : new Date(value);
+  if (Number.isNaN(date.getTime())) return "09:00";
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function taskScheduleControls(target) {
+  const controlMap = {
+    main: {
+      dateInput: refs.taskDueDate,
+      timeSelect: refs.taskDueTime,
+      preview: refs.taskDuePreview,
+      form: refs.taskForm,
+    },
+    customer: {
+      dateInput: refs.customerTaskDueDate,
+      timeSelect: refs.customerTaskDueTime,
+      preview: refs.customerTaskDuePreview,
+      form: refs.customerTaskForm,
+    },
+    drawer: {
+      dateInput: refs.drawerTaskDueDate,
+      timeSelect: refs.drawerTaskDueTime,
+      preview: refs.drawerTaskDuePreview,
+      form: refs.drawerTaskForm,
+    },
+  };
+  return controlMap[target] || null;
+}
+
+function taskTimeLabel(value) {
+  const [hoursValue, minutesValue] = String(value || "09:00").split(":");
+  const date = new Date(2000, 0, 1, Number(hoursValue), Number(minutesValue));
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function populateTaskTimeSelect(select, selectedValue = "09:00") {
+  if (!select) return;
+
+  const values = [];
+  for (let totalMinutes = 6 * 60; totalMinutes <= 20 * 60; totalMinutes += 30) {
+    const hours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+    const minutes = String(totalMinutes % 60).padStart(2, "0");
+    values.push(`${hours}:${minutes}`);
+  }
+
+  const cleanSelected = /^\d{2}:\d{2}$/.test(selectedValue)
+    ? selectedValue
+    : "09:00";
+  if (!values.includes(cleanSelected)) {
+    values.push(cleanSelected);
+    values.sort();
+  }
+
+  select.innerHTML = values
+    .map(
+      (value) =>
+        `<option value="${value}">${escapeHtml(taskTimeLabel(value))}</option>`,
+    )
+    .join("");
+  select.value = cleanSelected;
+}
+
+function readTaskSchedule(target) {
+  const controls = taskScheduleControls(target);
+  if (!controls?.dateInput || !controls?.timeSelect) {
+    return {
+      valid: false,
+      value: null,
+      error: "The follow-up date controls are unavailable. Refresh and try again.",
+    };
+  }
+
+  const { dateInput, timeSelect } = controls;
+  const dateValue = dateInput.value || "";
+  const timeValue = timeSelect.value || "09:00";
+
+  if (dateInput.validity?.badInput) {
+    return {
+      valid: false,
+      value: null,
+      error: "Choose a complete follow-up date from the calendar.",
+    };
+  }
+
+  if (!dateValue) {
+    return { valid: true, value: null, error: "" };
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+    return {
+      valid: false,
+      value: null,
+      error: "Choose a complete follow-up date from the calendar.",
+    };
+  }
+
+  const parsed = new Date(`${dateValue}T${timeValue}:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return {
+      valid: false,
+      value: null,
+      error: "Choose a valid follow-up date and time.",
+    };
+  }
+
+  return { valid: true, value: parsed, error: "" };
+}
+
+function renderTaskSchedulePreview(target, overrideError = "") {
+  const controls = taskScheduleControls(target);
+  if (!controls?.preview) return;
+
+  const schedule = readTaskSchedule(target);
+  const error = overrideError || (!schedule.valid ? schedule.error : "");
+  controls.preview.classList.toggle("is-error", Boolean(error));
+
+  if (error) {
+    controls.preview.textContent = error;
+    return;
+  }
+
+  if (!schedule.value) {
+    controls.preview.textContent =
+      "No follow-up scheduled. You can still save this task.";
+    return;
+  }
+
+  controls.preview.textContent = `Follow up ${new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(schedule.value)}. The assigned staff member's connected Google Calendar will sync automatically.`;
+}
+
+function setTaskScheduleValue(target, value) {
+  const controls = taskScheduleControls(target);
+  if (!controls?.dateInput || !controls?.timeSelect) return;
+
+  const date =
+    typeof value?.toDate === "function" ? value.toDate() : new Date(value);
+  const validDate = value && !Number.isNaN(date.getTime()) ? date : null;
+  const timeValue = formatTimeInputValue(validDate);
+  populateTaskTimeSelect(controls.timeSelect, timeValue);
+  controls.dateInput.value = validDate
+    ? formatDateOnlyInputValue(validDate)
+    : "";
+  renderTaskSchedulePreview(target);
+}
+
+function taskSchedulePresetDate(preset) {
+  if (preset === "clear") return null;
+
+  const now = new Date();
+  const date = new Date(now);
+  date.setSeconds(0, 0);
+
+  if (preset === "later_today") {
+    date.setMinutes(Math.ceil(date.getMinutes() / 30) * 30);
+    date.setHours(date.getHours() + 2);
+    if (date.getDate() !== now.getDate() || date.getHours() > 20) {
+      date.setTime(now.getTime());
+      date.setDate(date.getDate() + 1);
+      date.setHours(9, 0, 0, 0);
+    }
+    return date;
+  }
+
+  if (preset === "tomorrow") {
+    date.setDate(date.getDate() + 1);
+  } else if (preset === "next_workday") {
+    date.setDate(date.getDate() + 1);
+    while (date.getDay() === 0 || date.getDay() === 6) {
+      date.setDate(date.getDate() + 1);
+    }
+  } else if (preset === "next_week") {
+    date.setDate(date.getDate() + 7);
+  }
+
+  date.setHours(9, 0, 0, 0);
+  return date;
+}
+
+function bindTaskSchedulePickers() {
+  ["main", "customer", "drawer"].forEach((target) => {
+    const controls = taskScheduleControls(target);
+    if (!controls?.dateInput || !controls?.timeSelect) return;
+
+    populateTaskTimeSelect(controls.timeSelect, controls.timeSelect.value);
+    renderTaskSchedulePreview(target);
+
+    controls.dateInput.addEventListener("input", () => {
+      renderTaskSchedulePreview(target);
+    });
+    controls.dateInput.addEventListener("change", () => {
+      renderTaskSchedulePreview(target);
+    });
+    controls.timeSelect.addEventListener("change", () => {
+      renderTaskSchedulePreview(target);
+    });
+  });
+
+  document.querySelectorAll("[data-task-calendar-target]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const controls = taskScheduleControls(button.dataset.taskCalendarTarget);
+      if (!controls?.dateInput) return;
+      try {
+        if (typeof controls.dateInput.showPicker === "function") {
+          controls.dateInput.showPicker();
+        } else {
+          controls.dateInput.focus();
+          controls.dateInput.click();
+        }
+      } catch (error) {
+        controls.dateInput.focus();
+      }
+    });
+  });
+
+  document
+    .querySelectorAll("[data-task-schedule-preset]")
+    .forEach((button) => {
+      button.addEventListener("click", () => {
+        const target = button.dataset.taskScheduleTarget;
+        const preset = button.dataset.taskSchedulePreset;
+        const controls = taskScheduleControls(target);
+        if (!controls) return;
+        setTaskScheduleValue(target, taskSchedulePresetDate(preset));
+        controls.form?.classList.add("is-dirty");
+      });
+    });
+}
+
 function isSameDay(leftValue, rightValue) {
   const left =
     typeof leftValue?.toDate === "function"
@@ -1975,6 +2560,74 @@ function showToast(message, variant = "success") {
   window.setTimeout(() => {
     toast.remove();
   }, 3600);
+}
+
+function configureTabSemantics(buttons, tabPrefix, panePrefix) {
+  buttons.forEach((button) => {
+    const tabKey = button.dataset[tabPrefix];
+    if (!tabKey) return;
+    const pane = document.getElementById(`${panePrefix}${tabKey}`);
+    const buttonId = `${panePrefix}${tabKey}-button`;
+    button.id = buttonId;
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-controls", pane?.id || "");
+    button.parentElement?.setAttribute("role", "tablist");
+    if (pane) {
+      pane.setAttribute("role", "tabpanel");
+      pane.setAttribute("aria-labelledby", buttonId);
+    }
+  });
+}
+
+function bindFormStateTracking() {
+  const forms = Array.from(document.querySelectorAll("form"));
+
+  forms.forEach((form) => {
+    const markDirty = (event) => {
+      if (event?.isTrusted === false) return;
+      form.classList.add("is-dirty");
+    };
+    const clearDirty = () => form.classList.remove("is-dirty");
+
+    form.addEventListener("input", markDirty);
+    form.addEventListener("change", markDirty);
+    form.addEventListener("submit", () => {
+      if (form !== refs.estimateForm) {
+        clearDirty();
+      }
+    });
+    form.addEventListener("reset", clearDirty);
+  });
+
+  window.addEventListener("beforeunload", (event) => {
+    if (!document.querySelector("form.is-dirty")) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
+}
+
+function trapDrawerFocus(event) {
+  if (event.key !== "Tab" || !state.drawer.type || refs.entityDrawer.hidden) {
+    return;
+  }
+
+  const focusable = Array.from(
+    refs.entityDrawer.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((element) => !element.hidden && element.offsetParent !== null);
+
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
 }
 
 function showAuthShell(
@@ -2152,7 +2805,7 @@ function readLeadRouteState() {
     leadId: safeString(url.searchParams.get("lead")),
     leadTab: safeString(url.searchParams.get("leadTab")) || "overview",
     jobId: safeString(url.searchParams.get("job")),
-    jobTab: safeString(url.searchParams.get("jobTab")) || "financials",
+    jobTab: safeString(url.searchParams.get("jobTab")) || "work",
   };
 }
 
@@ -2173,7 +2826,7 @@ function syncLeadRouteState({ historyMode = "replace" } = {}) {
 
   if (state.activeView === "jobs-view" && state.selectedProjectId) {
     url.searchParams.set("job", state.selectedProjectId);
-    url.searchParams.set("jobTab", state.activeJobTab || "financials");
+    url.searchParams.set("jobTab", state.activeJobTab || "work");
   } else {
     url.searchParams.delete("job");
     url.searchParams.delete("jobTab");
@@ -2203,7 +2856,11 @@ function restoreLeadWorkspaceFromRoute() {
     return false;
   }
 
+  const previousLeadId = safeString(state.selectedLeadId);
   state.selectedLeadId = lead.id;
+  if (previousLeadId !== safeString(lead.id)) {
+    resetEstimateWorkflowForLead(lead.id);
+  }
   state.leadDraft = null;
   state.activeLeadTab = state.pendingLeadRouteTab || "overview";
   state.leadWorkspaceOpen = true;
@@ -2229,10 +2886,10 @@ function restoreProjectWorkspaceFromRoute() {
   state.selectedProjectId = project.id;
   state.selectedProjectInvoiceId = null;
   state.projectInvoiceDraft = null;
-  state.activeJobTab = state.pendingJobRouteTab || "financials";
+  state.activeJobTab = state.pendingJobRouteTab || "work";
   switchView("jobs-view", { historyMode: "replace" });
   state.pendingJobRouteId = "";
-  state.pendingJobRouteTab = "financials";
+  state.pendingJobRouteTab = "work";
   subscribeProjectDetail();
   return true;
 }
@@ -2281,6 +2938,7 @@ function shouldFallbackToFirestore(error) {
     error?.status === 404 ||
     error?.status === 401 ||
     error?.status === 403 ||
+    error?.status === 429 ||
     error?.status >= 500 ||
     isPermissionDeniedError(error) ||
     /Failed to fetch/i.test(error?.message || "")
@@ -2340,12 +2998,22 @@ async function resetAuthSession(message) {
   }
 }
 
-function handleBaseSubscriptionError(context, error) {
+function handleBaseSubscriptionError(context, error, options = {}) {
   console.error(`${context} subscription failed.`, error);
 
   if (isPermissionDeniedError(error)) {
-    void resetAuthSession(
-      "Your staff access is still finishing setup. Please sign in again after permissions sync.",
+    if (options.signOutOnPermissionDenied === true) {
+      void resetAuthSession(
+        "Your staff access is still finishing setup. Please sign in again after permissions sync.",
+      );
+      return;
+    }
+
+    setSyncStatus("Core data live");
+    setBanner(
+      options.permissionMessage ||
+        `${context} could not load for this staff account. The rest of the portal is still available.`,
+      "error",
     );
     return;
   }
@@ -2409,6 +3077,13 @@ function applyRoleVisibility() {
   refs.adminOnly.forEach((node) => {
     node.hidden = !isAdmin();
   });
+
+  if (
+    !isAdmin() &&
+    ["site-projects-view", "staff-view"].includes(state.activeView)
+  ) {
+    switchView("today-view", { historyMode: "replace" });
+  }
 }
 
 function currentLeadDoc() {
@@ -2417,6 +3092,18 @@ function currentLeadDoc() {
 
 function currentLead() {
   return state.leadDraft || currentLeadDoc();
+}
+
+function canWorkLead(lead = currentLead()) {
+  return Boolean(
+    lead &&
+      (isAdmin() ||
+        safeString(lead.assignedToUid) === safeString(state.profile?.uid)),
+  );
+}
+
+function canEditEstimateForLead(lead = currentLead()) {
+  return Boolean(lead?.id && canWorkLead(lead));
 }
 
 function currentProject() {
@@ -3147,7 +3834,7 @@ function buildRecordDocumentCard(item) {
     recordDocumentSourceLabel(item),
     formatDateOnly(item?.relatedDate || item?.updatedAt || item?.createdAt),
     recordDocumentScopeLabel(item),
-    item?.clientVisible === true ? "Client portal visible" : "",
+    item?.clientVisible === true ? "Secure portal visible" : "",
   ].filter(Boolean);
   const note = safeString(item?.note);
   const actions = [];
@@ -3342,7 +4029,11 @@ async function resolveEstimateRecordContext(leadId) {
     throw new Error("Linked lead not found for this estimate.");
   }
 
-  if (state.selectedLeadId === leadId && state.estimate) {
+  if (
+    state.selectedLeadId === leadId &&
+    state.estimate &&
+    estimateBelongsToLead(state.estimate, leadId)
+  ) {
     return {
       lead,
       estimate: state.estimate,
@@ -3353,10 +4044,21 @@ async function resolveEstimateRecordContext(leadId) {
   if (!estimateSnap.exists()) {
     throw new Error("No estimate is saved for this lead yet.");
   }
+  const estimateData = estimateSnap.data() || {};
+  const storedLeadId = safeString(estimateData.leadId || estimateData.id || leadId);
+  if (storedLeadId !== safeString(leadId)) {
+    throw new Error(
+      "This saved estimate points to a different lead and cannot be opened.",
+    );
+  }
 
   return {
     lead,
-    estimate: normaliseFirestoreDoc(estimateSnap),
+    estimate: {
+      ...estimateData,
+      id: leadId,
+      leadId,
+    },
   };
 }
 
@@ -3485,7 +4187,7 @@ async function createJobCloseoutPacket() {
       "closeout",
       "Closeout packet generated",
       clientVisible
-        ? "A final paid-in-full closeout PDF was generated and shared to the client portal."
+        ? "A final paid-in-full closeout PDF was generated and shared to the secure portal."
         : "A final paid-in-full closeout PDF was generated and saved to the job record.",
     ),
     clientVisible
@@ -3505,7 +4207,7 @@ async function createJobCloseoutPacket() {
   openJobTab("documents", refs.jobDocumentTitle);
   showToast(
     clientVisible
-      ? "Closeout PDF saved and shared to the client portal."
+      ? "Closeout PDF saved and shared to the secure portal."
       : "Closeout PDF saved to job documents.",
   );
 }
@@ -3817,7 +4519,15 @@ function syncScopedProjects() {
 }
 
 function defaultLeadDraft(customer = null) {
-  const assignee = preferredLeadAssignee();
+  const assignee = isAdmin()
+    ? preferredLeadAssignee()
+    : state.profile
+      ? {
+          uid: state.profile.uid,
+          email: state.profile.email,
+          displayName: state.profile.displayName,
+        }
+      : preferredLeadAssignee();
   return {
     customerId: customer?.id || null,
     customerName: customer?.name || "",
@@ -3908,6 +4618,51 @@ function defaultTaskDraft(linked = {}) {
   };
 }
 
+function defaultCommunicationDrawerDraft(linked = {}) {
+  const project = linked.projectId
+    ? state.projects.find((item) => item.id === linked.projectId)
+    : null;
+  const lead = linked.leadId
+    ? state.leads.find((item) => item.id === linked.leadId)
+    : null;
+  const activeProject =
+    state.activeView === "jobs-view" ? currentProject() : null;
+  const activeLead =
+    state.activeView === "leads-view" && state.leadWorkspaceOpen
+      ? currentLeadDoc()
+      : null;
+  const targetProject = project || activeProject || null;
+  const targetLead = lead || (!targetProject ? activeLead : null);
+  const linkedType = targetProject ? "project" : "lead";
+  const linkedId = targetProject?.id || targetLead?.id || "";
+  const contactSource = targetProject || targetLead || {};
+
+  return {
+    linkedType,
+    linkedId,
+    recordSearch: "",
+    communicationType: "call",
+    direction: "outbound",
+    happenedAt: formatDateInputValue(new Date()),
+    contactName:
+      contactSource.clientName ||
+      contactSource.customerName ||
+      contactSource.name ||
+      "",
+    contactMethod:
+      contactSource.clientPhone ||
+      contactSource.primaryPhone ||
+      contactSource.clientEmail ||
+      contactSource.primaryEmail ||
+      "",
+    body: "",
+    outcome: "",
+    followUpRequired: false,
+    followUpAt: "",
+    clientVisible: false,
+  };
+}
+
 function resetDrawerState(overrides = {}) {
   return {
     type: null,
@@ -3920,6 +4675,7 @@ function resetDrawerState(overrides = {}) {
     customerDraft: null,
     vendorDraft: null,
     taskDraft: null,
+    communicationDraft: null,
     ...overrides,
   };
 }
@@ -4018,6 +4774,17 @@ function openTaskDrawer(linked = {}) {
   queueFocus(refs.drawerTaskTitle);
 }
 
+function openCommunicationDrawer(linked = {}) {
+  state.drawer = resetDrawerState({
+    type: "communication",
+    context: { ...linked },
+    restoreFocus: rememberedFocusElement(),
+    communicationDraft: defaultCommunicationDrawerDraft(linked),
+  });
+  renderActiveDrawer();
+  queueFocus(refs.drawerCommunicationType);
+}
+
 function openExpenseDrawer({
   projectId = state.selectedProjectId || null,
 } = {}) {
@@ -4029,7 +4796,11 @@ function openExpenseDrawer({
   });
   renderActiveDrawer();
   queueFocus(
-    projectId ? refs.drawerExpenseAmount : refs.drawerExpenseProjectSearch,
+    isMobileViewport()
+      ? refs.drawerCloseButton
+      : projectId
+        ? refs.drawerExpenseAmount
+        : refs.drawerExpenseProjectSearch,
   );
 }
 
@@ -4105,6 +4876,7 @@ function hideDrawerPanels() {
   refs.drawerCustomerForm.hidden = true;
   refs.drawerVendorForm.hidden = true;
   refs.drawerTaskForm.hidden = true;
+  refs.drawerCommunicationForm.hidden = true;
 }
 
 function renderDrawerMenu() {
@@ -4117,7 +4889,12 @@ function renderDrawerMenu() {
       { label: "Tasks", view: "tasks-view" },
       { label: "Customers", view: "customers-view" },
       { label: "Vendors", view: "vendors-view" },
-      { label: "Admin / More", view: "staff-view" },
+      ...(isAdmin()
+        ? [
+            { label: "Website Projects", view: "site-projects-view" },
+            { label: "Settings", view: "staff-view" },
+          ]
+        : []),
     ],
   });
 }
@@ -4128,11 +4905,12 @@ function renderDrawerCreateMenu() {
     title: "Create something",
     subtitle: "Start the most common updates from one clean mobile menu.",
     items: [
+      { label: "Add lead", action: "lead" },
+      { label: "Add expense", action: "expense" },
+      { label: "Add task", action: "task" },
+      { label: "Log communication", action: "communication" },
       { label: "New job", action: "job" },
       { label: "New service order", action: "service-order" },
-      { label: "Add expense", action: "expense" },
-      { label: "Add lead", action: "lead" },
-      { label: "Add task", action: "task" },
       { label: "Add customer", action: "customer" },
       { label: "Add vendor", action: "vendor" },
     ],
@@ -4630,7 +5408,7 @@ function renderDrawerServiceContext() {
     : null;
 
   refs.drawerServiceContext.innerHTML = `
-        <div><strong>Client-facing service:</strong> ${escapeHtml(template.clientTitle || template.internalName || "Service order")}</div>
+        <div><strong>Displayed service:</strong> ${escapeHtml(template.clientTitle || template.internalName || "Service order")}</div>
         <div><strong>Invoice total:</strong> ${escapeHtml(formatCurrency(subtotal))} · <strong>Payment rule:</strong> ${escapeHtml(SERVICE_PAYMENT_RULE_META[draft.paymentRequirement] || "Upfront required")}</div>
         <div><strong>Order owner:</strong> ${escapeHtml(owner?.displayName || owner?.email || "Unassigned")} ${linkedCustomer ? `· <strong>Customer:</strong> ${escapeHtml(linkedCustomer.name || "Linked customer")}` : ""}</div>
         <div>${escapeHtml(template.defaultSummary || "Select a service template to preview the order summary.")}</div>
@@ -4688,7 +5466,9 @@ function renderDrawerExpenseProjectOptions() {
   ).toLowerCase();
   const selectedProjectId =
     refs.drawerExpenseProject.value || expenseDraft.projectId || "";
-  const options = sortByUpdatedDesc(visibleProjects()).filter((project) => {
+  const options = sortByUpdatedDesc(
+    visibleProjects().filter((project) => project.status !== "completed"),
+  ).filter((project) => {
     if (!search) return true;
     const blob = [
       project.clientName,
@@ -4702,7 +5482,7 @@ function renderDrawerExpenseProjectOptions() {
   });
 
   refs.drawerExpenseProject.innerHTML = options.length
-    ? [`<option value="">Select a property</option>`]
+    ? [`<option value="">Select an active property</option>`]
         .concat(
           options.map(
             (project) => `
@@ -4713,7 +5493,7 @@ function renderDrawerExpenseProjectOptions() {
           ),
         )
         .join("")
-    : `<option value="">No matching jobs</option>`;
+    : `<option value="">No matching active jobs</option>`;
 
   refs.drawerExpenseProject.value = options.some(
     (project) => project.id === selectedProjectId,
@@ -4798,6 +5578,126 @@ function renderDrawerExpense() {
   renderDrawerExpenseContext();
 }
 
+function communicationRecordOptions(type, search = "") {
+  const normalisedSearch = safeString(search).toLowerCase();
+  const source = type === "project" ? visibleProjects() : visibleLeads();
+  return sortByUpdatedDesc(source).filter((item) => {
+    if (!normalisedSearch) return true;
+    const blob =
+      type === "project"
+        ? [
+            item.clientName,
+            item.customerName,
+            item.projectAddress,
+            item.projectType,
+            item.clientPhone,
+            item.clientEmail,
+          ]
+        : [
+            item.clientName,
+            item.customerName,
+            item.projectAddress,
+            item.projectType,
+            item.clientPhone,
+            item.clientEmail,
+            item.notes,
+          ];
+    return blob.join(" ").toLowerCase().includes(normalisedSearch);
+  });
+}
+
+function renderDrawerCommunicationRecordOptions() {
+  const draft =
+    state.drawer.communicationDraft || defaultCommunicationDrawerDraft();
+  const type = refs.drawerCommunicationLinkedType.value || draft.linkedType || "lead";
+  const search =
+    refs.drawerCommunicationRecordSearch.value || draft.recordSearch || "";
+  const selectedId =
+    refs.drawerCommunicationLinkedRecord.value || draft.linkedId || "";
+  const options = communicationRecordOptions(type, search);
+
+  refs.drawerCommunicationLinkedRecord.innerHTML = options.length
+    ? [`<option value="">Select ${type === "project" ? "a job" : "a lead"}</option>`]
+        .concat(
+          options.map((item) => {
+            const title =
+              item.clientName || item.customerName || item.name || "Unnamed";
+            const meta = item.projectAddress || item.projectType || "No address";
+            return `
+              <option value="${escapeHtml(item.id)}" ${selectedId === item.id ? "selected" : ""}>
+                ${escapeHtml(`${title} · ${meta}`)}
+              </option>
+            `;
+          }),
+        )
+        .join("")
+    : `<option value="">No matching records</option>`;
+
+  refs.drawerCommunicationLinkedRecord.value = options.some(
+    (item) => item.id === selectedId,
+  )
+    ? selectedId
+    : "";
+}
+
+function selectedCommunicationRecord() {
+  const type = refs.drawerCommunicationLinkedType.value || "lead";
+  const id = refs.drawerCommunicationLinkedRecord.value || "";
+  if (!id) {
+    return { type, record: null };
+  }
+  return {
+    type,
+    record:
+      type === "project"
+        ? state.projects.find((item) => item.id === id) || null
+        : state.leads.find((item) => item.id === id) || null,
+  };
+}
+
+function renderDrawerCommunicationContext() {
+  const { type, record } = selectedCommunicationRecord();
+  if (!record) {
+    refs.drawerCommunicationContext.innerHTML =
+      "Choose the lead or job this communication belongs to.";
+    return;
+  }
+
+  refs.drawerCommunicationContext.innerHTML = `
+    <div><strong>${escapeHtml(type === "project" ? "Job" : "Lead")}:</strong> ${escapeHtml(record.clientName || record.customerName || "Unnamed record")}</div>
+    <div>${escapeHtml(record.projectAddress || "Address pending")} · ${escapeHtml(record.projectType || (type === "project" ? "Job" : "Lead"))}</div>
+  `;
+}
+
+function renderDrawerCommunication() {
+  const draft =
+    state.drawer.communicationDraft || defaultCommunicationDrawerDraft();
+  hideDrawerPanels();
+  refs.drawerCommunicationForm.hidden = false;
+  refs.drawerKicker.textContent = "Activity log";
+  refs.drawerTitle.textContent = "Log communication";
+  refs.drawerSubtitle.textContent =
+    "Capture calls, texts, emails, visits, and client updates before the detail gets lost.";
+  refs.drawerCommunicationRecordSearch.value = draft.recordSearch || "";
+  refs.drawerCommunicationLinkedType.value = draft.linkedType || "lead";
+  renderDrawerCommunicationRecordOptions();
+  refs.drawerCommunicationLinkedRecord.value = draft.linkedId || "";
+  refs.drawerCommunicationType.value = draft.communicationType || "call";
+  refs.drawerCommunicationDirection.value = draft.direction || "outbound";
+  refs.drawerCommunicationHappenedAt.value =
+    draft.happenedAt || formatDateInputValue(new Date());
+  refs.drawerCommunicationContactName.value = draft.contactName || "";
+  refs.drawerCommunicationContactMethod.value = draft.contactMethod || "";
+  refs.drawerCommunicationBody.value = draft.body || "";
+  refs.drawerCommunicationOutcome.value = draft.outcome || "";
+  refs.drawerCommunicationFollowUpRequired.checked = Boolean(
+    draft.followUpRequired,
+  );
+  refs.drawerCommunicationFollowUpAt.value = draft.followUpAt || "";
+  refs.drawerCommunicationClientVisible.checked = Boolean(draft.clientVisible);
+  renderDrawerCommunicationContext();
+}
+
 function renderDrawerLead() {
   const leadDraft = state.drawer.leadDraft;
   hideDrawerPanels();
@@ -4808,6 +5708,8 @@ function renderDrawerLead() {
     "Capture the lead fast, then open the full lead workspace for estimate, tasks, planning, notes, and the won-job flow.";
   refs.drawerLeadCustomerSearch.value = leadDraft?.customerSearch || "";
   renderDrawerLeadCustomerOptions();
+  refs.drawerLeadCustomerSearch.disabled = !isAdmin();
+  refs.drawerLeadCustomerSelect.disabled = !isAdmin();
   refs.drawerLeadClientName.value = leadDraft?.clientName || "";
   refs.drawerLeadClientPhone.value = leadDraft?.clientPhone || "";
   refs.drawerLeadClientEmail.value = leadDraft?.clientEmail || "";
@@ -4815,8 +5717,9 @@ function renderDrawerLead() {
   refs.drawerLeadProjectType.value = leadDraft?.projectType || "";
   refs.drawerLeadNotes.value = leadDraft?.notes || "";
 
-  const assignee =
-    leadDraft?.assignedToUid || preferredLeadAssignee()?.uid || "";
+  const assignee = isAdmin()
+    ? leadDraft?.assignedToUid || preferredLeadAssignee()?.uid || ""
+    : state.profile?.uid || leadDraft?.assignedToUid || "";
   renderTaskAssigneeOptions(refs.drawerLeadAssignee, assignee);
   refs.drawerLeadAssignee.disabled = !isAdmin();
 
@@ -4825,7 +5728,9 @@ function renderDrawerLead() {
     : null;
   refs.drawerLeadContext.innerHTML = linkedCustomer
     ? `<div><strong>Linked customer:</strong> ${escapeHtml(linkedCustomer.name || "Customer")}</div><div>${escapeHtml(linkedCustomer.primaryPhone || linkedCustomer.primaryEmail || linkedCustomer.primaryAddress || "Existing customer record will stay attached.")}</div>`
-    : `Pick an existing customer above for repeat business, or leave it empty and the CRM will still auto-match by phone or email after save.`;
+    : isAdmin()
+      ? `Pick an existing customer above for repeat business, or leave it empty and the CRM will still auto-match by phone or email after save.`
+      : `This lead will be assigned to you and the CRM will auto-match the customer by phone or email after save.`;
 }
 
 function renderDrawerCustomer() {
@@ -4943,7 +5848,7 @@ function renderDrawerTask() {
   refs.drawerSubtitle.textContent =
     "Assign the next action without leaving the lead, customer, job, or dashboard context.";
   refs.drawerTaskTitle.value = taskDraft?.title || "";
-  refs.drawerTaskDue.value = formatDateInputValue(taskDraft?.dueAt);
+  setTaskScheduleValue("drawer", taskDraft?.dueAt);
   refs.drawerTaskPriority.value = taskDraft?.priority || "high";
   renderTaskAssigneeOptions(
     refs.drawerTaskAssignee,
@@ -4981,6 +5886,11 @@ function renderActiveDrawer() {
 
   if (drawerType === "expense") {
     renderDrawerExpense();
+    return;
+  }
+
+  if (drawerType === "communication") {
+    renderDrawerCommunication();
     return;
   }
 
@@ -5330,15 +6240,8 @@ function syncSelectedProjectWithJobFilters({ historyMode = "replace" } = {}) {
     return false;
   }
 
-  if (!projects.length || isMobileViewport()) {
-    clearSelectedProjectWorkspace({ historyMode });
-    renderAll();
-    return true;
-  }
-
-  const nextTab = state.activeJobTab || "overview";
-  selectProject(projects[0].id, { historyMode });
-  openJobTab(nextTab);
+  clearSelectedProjectWorkspace({ historyMode });
+  renderAll();
   return true;
 }
 
@@ -5354,7 +6257,9 @@ function openLeadsForToday() {
     isAdmin() && state.todayScope === "team"
       ? activeRecords(state.leads)
       : activeRecords(state.leads).filter(
-          (lead) => lead.assignedToUid === state.profile?.uid,
+          (lead) =>
+            lead.assignedToUid === state.profile?.uid ||
+            (isAdmin() && !lead.assignedToUid),
         );
 
   return sortByUpdatedDesc(
@@ -6195,6 +7100,7 @@ function renderTaskList() {
             <span class="record-title">${escapeHtml(task.title || "Untitled task")}</span>
             <p class="record-copy">${escapeHtml(task.description || linkedTaskLabel(task))}</p>
             <div class="record-meta">${buildTaskMeta(task)}</div>
+            <span class="record-edit-affordance">Open &amp; edit</span>
         </button>
     `,
     )
@@ -6348,7 +7254,7 @@ function renderTaskDetail() {
   refs.taskTitleInput.value = task.title || "";
   refs.taskStatusSelect.value = task.status || "open";
   refs.taskPrioritySelect.value = task.priority || "high";
-  refs.taskDueInput.value = formatDateInputValue(task.dueAt);
+  setTaskScheduleValue("main", task.dueAt);
   refs.taskDescriptionInput.value = task.description || "";
   refs.taskLinkedTypeSelect.value = taskLinkedType(task);
   renderTaskAssigneeOptions(
@@ -6536,6 +7442,75 @@ function renderLeadCustomerMatch(lead) {
   refs.leadCustomerMatch.innerHTML = "";
 }
 
+function nextFollowUpLabelForLead(lead) {
+  const nextTask = relatedTasksForEntity("leadId", lead.id)
+    .filter((task) => !taskIsCompleted(task) && task.dueAt)
+    .sort((left, right) => toMillis(left.dueAt) - toMillis(right.dueAt))[0];
+  return nextTask?.dueAt ? `Next ${formatDateTime(nextTask.dueAt)}` : "No follow-up";
+}
+
+function leadContactActionsMarkup(lead) {
+  const phone = safeString(lead.clientPhone);
+  const email = safeString(lead.clientEmail);
+  return `
+    <div class="record-quick-actions" aria-label="Lead quick actions">
+      <button type="button" class="record-quick-action is-edit" data-lead-id="${escapeHtml(lead.id)}">Open &amp; edit</button>
+      ${
+        phone
+          ? `<a href="tel:${escapeHtml(phone)}" class="record-quick-action">Call</a>
+             <a href="sms:${escapeHtml(phone)}" class="record-quick-action">Text</a>`
+          : `<span class="record-quick-action is-disabled">Call</span>
+             <span class="record-quick-action is-disabled">Text</span>`
+      }
+      ${
+        email
+          ? `<a href="mailto:${escapeHtml(email)}" class="record-quick-action">Email</a>`
+          : `<span class="record-quick-action is-disabled">Email</span>`
+      }
+      <button type="button" class="record-quick-action" data-lead-log-communication="${escapeHtml(lead.id)}">Log</button>
+      ${
+        isAdmin()
+          ? `<button type="button" class="record-quick-action is-danger" data-lead-archive="${escapeHtml(lead.id)}" title="Move this lead to Trash">Delete</button>`
+          : ""
+      }
+    </div>
+  `;
+}
+
+function leadQuickStageMarkup(lead) {
+  const statuses = [
+    "new_lead",
+    "follow_up",
+    "estimate_sent",
+    ...(isAdmin() || lead.status === "closed_won" ? ["closed_won"] : []),
+    "closed_lost",
+  ];
+  if (lead.status && !statuses.includes(lead.status)) {
+    statuses.unshift(lead.status);
+  }
+
+  return `
+    <label class="lead-card-stage-control">
+      <span>Stage</span>
+      <select
+        data-lead-quick-stage="${escapeHtml(lead.id)}"
+        aria-label="Change stage for ${escapeHtml(lead.clientName || "lead")}"
+        ${!isAdmin() && lead.status === "closed_won" ? "disabled" : ""}
+      >
+        ${statuses
+          .map(
+            (status) => `
+              <option value="${escapeHtml(status)}" ${lead.status === status ? "selected" : ""}>
+                ${escapeHtml(STATUS_META[status] || capitalise(status))}
+              </option>
+            `,
+          )
+          .join("")}
+      </select>
+    </label>
+  `;
+}
+
 function renderLeadList() {
   const leads = filteredLeads();
 
@@ -6547,10 +7522,12 @@ function renderLeadList() {
   refs.leadList.innerHTML = leads
     .map(
       (lead) => `
-        <button type="button" class="record-button ${lead.id === state.selectedLeadId && state.leadWorkspaceOpen && !state.leadDraft ? "is-selected" : ""}" data-lead-id="${escapeHtml(lead.id)}">
+        <article class="record-button lead-record-card ${lead.id === state.selectedLeadId && state.leadWorkspaceOpen && !state.leadDraft ? "is-selected" : ""}">
+          <button type="button" class="record-open-area" data-lead-id="${escapeHtml(lead.id)}">
             <div class="record-topline">
                 <span class="mini-pill">${escapeHtml(STATUS_META[lead.status] || "Lead")}</span>
                 <span class="mini-pill">${escapeHtml(lead.assignedToName || "Unassigned")}</span>
+                <span class="mini-pill">${escapeHtml(nextFollowUpLabelForLead(lead))}</span>
             </div>
             <span class="record-title">${escapeHtml(lead.clientName || "Unnamed lead")}</span>
             <p class="record-copy">${escapeHtml(lead.projectAddress || "Address pending")}</p>
@@ -6560,7 +7537,10 @@ function renderLeadList() {
                 <div>${escapeHtml(formatCurrency(lead.estimateSubtotal || 0))} estimate</div>
                 <div>${escapeHtml(formatDateTime(lead.updatedAt || lead.createdAt))}</div>
             </div>
-        </button>
+          </button>
+          ${leadQuickStageMarkup(lead)}
+          ${leadContactActionsMarkup(lead)}
+        </article>
     `,
     )
     .join("");
@@ -6592,16 +7572,16 @@ function renderLeadBoard() {
                     ? laneLeads
                         .map(
                           (lead) => `
-                    <button
-                        type="button"
+                    <article
                         class="record-button pipeline-card ${lead.id === state.selectedLeadId && state.leadWorkspaceOpen && !state.leadDraft ? "is-selected" : ""} ${state.dragLeadId === lead.id ? "is-dragging" : ""}"
-                        data-lead-id="${escapeHtml(lead.id)}"
                         data-draggable-lead="${escapeHtml(lead.id)}"
                         draggable="true"
                     >
+                        <button type="button" class="record-open-area" data-lead-id="${escapeHtml(lead.id)}">
                         <div class="record-topline">
                             <span class="mini-pill">${escapeHtml(lead.projectType || "Lead")}</span>
                             <span class="mini-pill">${escapeHtml(lead.assignedToName || "Unassigned")}</span>
+                            <span class="mini-pill">${escapeHtml(nextFollowUpLabelForLead(lead))}</span>
                         </div>
                         <span class="record-title">${escapeHtml(lead.clientName || "Unnamed lead")}</span>
                         <p class="record-copy">${escapeHtml(lead.projectAddress || "Address pending")}</p>
@@ -6609,7 +7589,9 @@ function renderLeadBoard() {
                             <div>${escapeHtml(lead.customerName || "No linked customer")}</div>
                             <div>${escapeHtml(formatCurrency(lead.estimateSubtotal || 0))} estimate</div>
                         </div>
-                    </button>
+                        </button>
+                        ${leadContactActionsMarkup(lead)}
+                    </article>
                 `,
                         )
                         .join("")
@@ -6679,8 +7661,10 @@ function renderLeadListShell() {
 function renderLeadWorkspaceSurface() {
   const showWorkspace =
     state.activeView === "leads-view" && state.leadWorkspaceOpen;
+  const keepListVisible = showWorkspace && !isMobileViewport();
+  refs.leadsView.classList.toggle("is-lead-workspace-active", showWorkspace);
   refs.leadMetrics.hidden = showWorkspace;
-  refs.leadPipelineSurface.hidden = showWorkspace;
+  refs.leadPipelineSurface.hidden = showWorkspace && !keepListVisible;
   refs.leadWorkspacePanel.hidden = !showWorkspace;
 }
 
@@ -6819,6 +7803,28 @@ function renderLeadRecordContext(lead) {
   ].join("");
 }
 
+function activityDetailMarkup(item) {
+  if (item.activityType !== "communication") {
+    return "";
+  }
+
+  const details = [
+    communicationTypeLabel(item.communicationType),
+    communicationDirectionLabel(item.direction),
+    item.happenedAt ? formatDateTime(item.happenedAt) : "",
+    item.contactName || "",
+    item.contactMethod || "",
+    item.outcome ? `Outcome: ${item.outcome}` : "",
+    item.followUpRequired
+      ? `Follow-up${item.followUpAt ? ` ${formatDateTime(item.followUpAt)}` : " required"}`
+      : "",
+  ].filter(Boolean);
+
+  return details.length
+    ? `<div class="communication-detail">${details.map((detail) => `<span>${escapeHtml(detail)}</span>`).join("")}</div>`
+    : "";
+}
+
 function renderActivityList(container, items, emptyMessage) {
   if (!items.length) {
     renderEmptyList(container, emptyMessage);
@@ -6831,6 +7837,7 @@ function renderActivityList(container, items, emptyMessage) {
         <article class="timeline-item">
             <strong>${escapeHtml(item.title || "Activity")}</strong>
             <p>${escapeHtml(item.body || "")}</p>
+            ${activityDetailMarkup(item)}
             <div class="timeline-meta">
                 ${escapeHtml(item.activityType || "system")} · ${escapeHtml(item.actorName || "Team")} · ${escapeHtml(formatDateTime(item.createdAt))}
             </div>
@@ -6838,6 +7845,496 @@ function renderActivityList(container, items, emptyMessage) {
     `,
     )
     .join("");
+}
+
+function contractorBusinessAddress(template = state.template || EMPTY_TEMPLATE) {
+  return safeString(template?.contractorBusinessAddress) || CONTRACTOR_BUSINESS_ADDRESS;
+}
+
+function contractDetailValue(value, fallback) {
+  return safeString(value) || fallback;
+}
+
+function contractDetailsForEstimate(estimateDraft = {}) {
+  const details = estimateDraft.contractDetails || {};
+  return {
+    approximateStartDate: safeString(details.approximateStartDate),
+    approximateCompletionDate: safeString(details.approximateCompletionDate),
+    paymentSchedule: contractDetailValue(
+      details.paymentSchedule,
+      DEFAULT_CONTRACT_PAYMENT_SCHEDULE,
+    ),
+    specialOrderMaterials: contractDetailValue(
+      details.specialOrderMaterials,
+      DEFAULT_CONTRACT_SPECIAL_ORDER_MATERIALS,
+    ),
+    knownSubcontractors: contractDetailValue(
+      details.knownSubcontractors,
+      DEFAULT_CONTRACT_SUBCONTRACTORS,
+    ),
+    contractorBusinessAddress:
+      contractorBusinessAddress(),
+    paRegistrationNumber: COMPANY_INFO.paRegistrationNumber,
+    philadelphiaLicenseNumber: COMPANY_INFO.philadelphiaLicenseNumber,
+    insuranceDisclosure: COMPANY_INFO.insuranceDisclosure,
+  };
+}
+
+function contractDateDisplay(value, fallback = "Schedule to be confirmed") {
+  return safeString(value) ? formatDateOnly(`${safeString(value)}T12:00:00`) : fallback;
+}
+
+function contractDetailsRows(lead, estimateDraft = {}) {
+  const details = contractDetailsForEstimate(estimateDraft);
+  return [
+    {
+      label: "Contractor",
+      value: COMPANY_INFO.name,
+    },
+    {
+      label: "Business address",
+      value: details.contractorBusinessAddress,
+    },
+    {
+      label: "Prepared for",
+      value: safeString(lead?.clientName) || "Name to be confirmed",
+    },
+    {
+      label: "Project address",
+      value: safeString(lead?.projectAddress) || "To be confirmed",
+    },
+    {
+      label: "Approx. start",
+      value: contractDateDisplay(details.approximateStartDate),
+    },
+    {
+      label: "Approx. completion",
+      value: contractDateDisplay(details.approximateCompletionDate),
+    },
+    {
+      label: "PA registration",
+      value: details.paRegistrationNumber,
+    },
+    {
+      label: "Philly GC license",
+      value: `#${details.philadelphiaLicenseNumber}`,
+    },
+  ];
+}
+
+function estimateBelongsToLead(estimate = {}, leadId = "") {
+  const expectedLeadId = safeString(leadId);
+  if (!expectedLeadId || !estimate) {
+    return false;
+  }
+
+  const storedLeadId = safeString(estimate.leadId || estimate.id);
+  return !storedLeadId || storedLeadId === expectedLeadId;
+}
+
+function estimateEditorIsBoundToLead(leadId = state.selectedLeadId) {
+  return Boolean(
+    refs.estimateForm &&
+      safeString(refs.estimateForm.dataset.estimateLeadId) ===
+        safeString(leadId) &&
+      safeString(state.estimateWorkflow.leadId) === safeString(leadId),
+  );
+}
+
+function estimateOperationIsPending(leadId = state.selectedLeadId) {
+  const operationLeadId = safeString(state.estimateWorkflow.leadId);
+  return Boolean(
+    operationLeadId &&
+      operationLeadId === safeString(leadId) &&
+      ["saving", "publishing"].includes(state.estimateWorkflow.status),
+  );
+}
+
+function resetEstimateWorkflowForLead(
+  leadId,
+  { status = "loading", message = "" } = {},
+) {
+  const nextLeadId = safeString(leadId);
+  state.estimateWorkflow = {
+    leadId: nextLeadId,
+    status: nextLeadId ? status : "loading",
+    dirty: false,
+    operation: "",
+    message,
+    error: "",
+    lastPublishedShareId: "",
+  };
+
+  if (refs.estimateForm) {
+    refs.estimateForm.dataset.estimateLeadId = nextLeadId;
+    refs.estimateForm.classList.remove("is-dirty");
+  }
+}
+
+function setEstimateWorkflowState(patch = {}) {
+  state.estimateWorkflow = {
+    ...state.estimateWorkflow,
+    ...patch,
+  };
+
+  const lead = currentLead();
+  if (safeString(lead?.id) === safeString(state.estimateWorkflow.leadId)) {
+    renderEstimateWorkflowStatus(lead);
+  }
+}
+
+function markEstimateDirty() {
+  const lead = currentLeadDoc();
+  if (
+    !lead?.id ||
+    !estimateEditorIsBoundToLead(lead.id) ||
+    estimateOperationIsPending(lead.id)
+  ) {
+    return;
+  }
+
+  state.estimateWorkflow = {
+    ...state.estimateWorkflow,
+    leadId: lead.id,
+    status: "unsaved",
+    dirty: true,
+    operation: "",
+    message:
+      "These edits are only in this browser. Save them, or use Save & publish to publish this exact version.",
+    error: "",
+  };
+  refs.estimateForm.classList.add("is-dirty");
+  renderEstimateWorkflowStatus(lead);
+}
+
+function estimateDraftForLead(leadId, draft = {}) {
+  const targetLeadId = safeString(leadId);
+  return {
+    ...draft,
+    id: targetLeadId,
+    leadId: targetLeadId,
+    status: "draft",
+  };
+}
+
+function currentVisibleEstimateDraft(lead = currentLeadDoc()) {
+  if (!lead?.id) {
+    return null;
+  }
+
+  if (estimateEditorIsBoundToLead(lead.id)) {
+    return estimateDraftForLead(lead.id, collectEstimateForm());
+  }
+
+  if (state.estimate && estimateBelongsToLead(state.estimate, lead.id)) {
+    return estimateDraftForLead(lead.id, state.estimate);
+  }
+
+  return null;
+}
+
+function estimatePublishReadiness(lead, estimateDraft = {}) {
+  const blockers = [];
+  const warnings = [];
+  const lineItems = Array.isArray(estimateDraft.lineItems)
+    ? estimateDraft.lineItems
+    : [];
+  const calculatedSubtotal = lineItems.reduce(
+    (sum, item) => sum + toNumber(item?.amount),
+    0,
+  );
+  const hasMeaningfulLineItem = lineItems.some(
+    (item) =>
+      Boolean(safeString(item?.label || item?.description)) &&
+      toNumber(item?.amount) > 0,
+  );
+  const contractDetails = estimateDraft.contractDetails || {};
+  const startDate = safeString(contractDetails.approximateStartDate);
+  const completionDate = safeString(contractDetails.approximateCompletionDate);
+  const hasClientEmail = Boolean(safeString(lead?.clientEmail));
+
+  if (!lead?.id) {
+    blockers.push("Select a saved lead before publishing.");
+  }
+  if (!safeString(lead?.clientName)) {
+    blockers.push("Add the client name to the lead.");
+  }
+  if (!safeString(lead?.projectAddress)) {
+    blockers.push("Add the property address to the lead.");
+  }
+  if (lead?.customerReviewRequired === true) {
+    blockers.push("Resolve the customer match before publishing.");
+  }
+  if (refs.leadCoreForm?.classList.contains("is-dirty")) {
+    blockers.push(
+      "Save the lead details first so the client and property connection is current.",
+    );
+  }
+  if (!safeString(estimateDraft.subject)) {
+    blockers.push("Add an estimate title.");
+  }
+  if (!hasMeaningfulLineItem) {
+    blockers.push("Add at least one priced estimate line item.");
+  }
+  if (calculatedSubtotal <= 0) {
+    blockers.push("The estimate total must be greater than $0.");
+  }
+
+  if (startDate && completionDate && completionDate < startDate) {
+    blockers.push("The completion date cannot be before the start date.");
+  }
+
+  const readyToSign = Boolean(
+    !blockers.length && startDate && completionDate && hasClientEmail,
+  );
+
+  if (!startDate || !completionDate) {
+    warnings.push(
+      "This can be published for review, but signing stays unavailable until both project dates are saved.",
+    );
+  }
+  if (!hasClientEmail) {
+    warnings.push(
+      "This can be published for review, but signing stays unavailable until a client email is saved to the lead.",
+    );
+  }
+  if (!safeString(lead?.customerId)) {
+    warnings.push(
+      "No customer is linked yet. Publishing must connect this lead to its client record.",
+    );
+  }
+
+  return {
+    blockers,
+    warnings,
+    readyToSign,
+    modeLabel: readyToSign ? "Ready for signature" : "Review only",
+  };
+}
+
+function estimateWorkflowStatusMeta() {
+  const workflow = state.estimateWorkflow;
+
+  if (workflow.status === "unsaved") {
+    return {
+      label: "Unsaved",
+      message:
+        workflow.message ||
+        "These browser edits have not been saved or published yet.",
+    };
+  }
+  if (workflow.status === "saving") {
+    return {
+      label: "Saving",
+      message:
+        workflow.message ||
+        "Saving this exact estimate to the selected lead.",
+    };
+  }
+  if (workflow.status === "publishing") {
+    return {
+      label: "Publishing",
+      message:
+        workflow.message ||
+        "The saved draft is being published as this lead's next client version.",
+    };
+  }
+  if (workflow.status === "published") {
+    return {
+      label: "Published",
+      message:
+        workflow.message ||
+        "This exact estimate is saved and published for the connected client.",
+    };
+  }
+  if (workflow.status === "failed") {
+    return {
+      label: "Failed",
+      message:
+        workflow.error ||
+        workflow.message ||
+        "The estimate was not published. Your visible edits are still here.",
+    };
+  }
+  if (workflow.status === "saved") {
+    return {
+      label: "Saved",
+      message:
+        workflow.message ||
+        "This draft is saved to the selected lead and is not client-visible until published.",
+    };
+  }
+
+  return {
+    label: "Loading",
+    message:
+      workflow.message || "Loading the draft saved specifically for this lead.",
+  };
+}
+
+function setEstimateEditorInteractivity(lead = currentLead()) {
+  const editable = canEditEstimateForLead(lead);
+  const busy = estimateOperationIsPending(lead?.id);
+  const loading =
+    safeString(state.estimateWorkflow.leadId) === safeString(lead?.id) &&
+    state.estimateWorkflow.status === "loading";
+  const readOnly = !editable || busy || loading;
+  const textFields = [
+    refs.estimateSubject,
+    refs.estimateBody,
+    refs.estimatePaymentSchedule,
+    refs.estimateSpecialOrderMaterials,
+    refs.estimateKnownSubcontractors,
+    refs.estimateAssumptions,
+  ];
+
+  textFields.forEach((field) => {
+    field.readOnly = readOnly;
+  });
+  refs.estimateStartDate.disabled = readOnly;
+  refs.estimateCompletionDate.disabled = readOnly;
+  refs.estimateLines
+    .querySelectorAll("input, textarea, button[data-remove-line]")
+    .forEach((field) => {
+      field.disabled = readOnly;
+    });
+  refs.estimateAiButton.disabled = readOnly;
+  refs.estimateAddLineButton.disabled = readOnly;
+  if (refs.estimateMobileAddLineButton) {
+    refs.estimateMobileAddLineButton.disabled = readOnly;
+  }
+}
+
+function renderEstimateWorkflowStatus(lead = currentLead()) {
+  if (!refs.estimateSaveState || !refs.estimatePublishPreflight) {
+    return;
+  }
+
+  const leadId = safeString(lead?.id);
+  const boundToLead = Boolean(leadId && estimateEditorIsBoundToLead(leadId));
+  const draft = boundToLead ? currentVisibleEstimateDraft(lead) : null;
+  const readiness = estimatePublishReadiness(lead, draft || {});
+  const busy = estimateOperationIsPending(leadId);
+  const currentShare = state.estimateShare;
+  const matchesPublished = Boolean(
+    draft &&
+      currentShare &&
+      estimateDraftMatchesShareSnapshot(draft, currentShare),
+  );
+  if (
+    matchesPublished &&
+    safeString(currentShare?.status) === "active" &&
+    !state.estimateWorkflow.dirty &&
+    !busy &&
+    ["loading", "saved"].includes(state.estimateWorkflow.status)
+  ) {
+    state.estimateWorkflow = {
+      ...state.estimateWorkflow,
+      status: "published",
+      message:
+        "This saved draft is the exact version currently published to the client.",
+      error: "",
+      lastPublishedShareId: safeString(currentShare.id),
+    };
+  }
+  const statusMeta = estimateWorkflowStatusMeta();
+  const leadIdentity = lead
+    ? [
+        safeString(lead.clientName) || "Client name missing",
+        safeString(lead.projectAddress) || "Property address missing",
+        leadId ? `Lead ${leadId.slice(-6)}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "Select a lead";
+  const lineItemCount = Array.isArray(draft?.lineItems)
+    ? draft.lineItems.length
+    : 0;
+  const versionLabel = currentShare
+    ? matchesPublished
+      ? "Matches published"
+      : state.estimateWorkflow.dirty
+        ? "Unpublished edits"
+        : "Newer saved draft"
+    : state.estimateWorkflow.dirty
+      ? "Unsaved draft"
+      : "Draft only";
+  const clientLabel = lead?.customerReviewRequired
+    ? "Match needs review"
+    : lead?.customerId
+      ? safeString(lead.customerName) || "Linked client"
+      : "Link client at publish";
+
+  refs.estimateWorkflowIdentity.textContent = leadIdentity;
+  refs.estimateSaveState.textContent = statusMeta.label;
+  refs.estimateSaveState.dataset.state = state.estimateWorkflow.status;
+  refs.estimateWorkflowMessage.textContent = statusMeta.message;
+  refs.estimateSharePanel.setAttribute("aria-busy", String(busy));
+  refs.estimatePublishPreflight.innerHTML = `
+    <div class="estimate-preflight-item">
+      <span>Current version</span>
+      <strong>${escapeHtml(versionLabel)}</strong>
+    </div>
+    <div class="estimate-preflight-item">
+      <span>Scope</span>
+      <strong>${escapeHtml(`${lineItemCount} item${lineItemCount === 1 ? "" : "s"} · ${formatCurrency(draft?.subtotal || 0)}`)}</strong>
+    </div>
+    <div class="estimate-preflight-item ${lead?.customerReviewRequired ? "is-blocked" : ""}">
+      <span>Connected client</span>
+      <strong>${escapeHtml(clientLabel)}</strong>
+    </div>
+    <div class="estimate-preflight-item ${readiness.readyToSign ? "" : "is-warning"}">
+      <span>Client action</span>
+      <strong>${escapeHtml(readiness.modeLabel)}</strong>
+    </div>
+    ${
+      readiness.blockers.length
+        ? `<div class="estimate-preflight-item is-blocked"><span>Before publishing</span><strong>${escapeHtml(readiness.blockers.join(" "))}</strong></div>`
+        : readiness.warnings.length
+          ? `<div class="estimate-preflight-item is-warning"><span>Publishing note</span><strong>${escapeHtml(readiness.warnings.join(" "))}</strong></div>`
+          : ""
+    }
+  `;
+
+  const canPublish = Boolean(
+    isAdmin() &&
+      leadId &&
+      boundToLead &&
+      !busy &&
+      state.estimateWorkflow.status !== "loading" &&
+      !readiness.blockers.length,
+  );
+  const idlePublishLabel =
+    safeString(currentShare?.status) === "active"
+      ? "Save & replace live version"
+      : safeString(currentShare?.status) === "signed"
+        ? "Save & publish revision"
+        : "Save & publish exact version";
+  refs.estimateShareCreateButton.textContent =
+    state.estimateWorkflow.operation === "publish" &&
+    state.estimateWorkflow.status === "saving"
+      ? "Saving current estimate…"
+      : state.estimateWorkflow.operation === "publish" &&
+          state.estimateWorkflow.status === "publishing"
+        ? "Publishing exact version…"
+        : idlePublishLabel;
+  refs.estimateShareCreateButton.disabled = !canPublish;
+  refs.estimateSaveButtons.forEach((button) => {
+    if (!button.dataset.idleLabel) {
+      button.dataset.idleLabel = button.textContent.trim();
+    }
+    button.textContent =
+      state.estimateWorkflow.operation === "save" &&
+      state.estimateWorkflow.status === "saving"
+        ? "Saving…"
+        : button.dataset.idleLabel;
+    button.disabled =
+      !canEditEstimateForLead(lead) ||
+      !boundToLead ||
+      busy ||
+      state.estimateWorkflow.status === "loading";
+  });
+  setEstimateEditorInteractivity(lead);
 }
 
 function collectEstimateForm() {
@@ -6864,6 +8361,13 @@ function collectEstimateForm() {
   return {
     subject: refs.estimateSubject.value.trim(),
     emailBody: refs.estimateBody.value.trim(),
+    contractDetails: {
+      approximateStartDate: refs.estimateStartDate.value,
+      approximateCompletionDate: refs.estimateCompletionDate.value,
+      paymentSchedule: refs.estimatePaymentSchedule.value.trim(),
+      specialOrderMaterials: refs.estimateSpecialOrderMaterials.value.trim(),
+      knownSubcontractors: refs.estimateKnownSubcontractors.value.trim(),
+    },
     assumptions: refs.estimateAssumptions.value
       .split("\n")
       .map((item) => item.trim())
@@ -6915,6 +8419,24 @@ function normaliseEstimateAssumptionsForCompare(assumptions = []) {
     .filter(Boolean);
 }
 
+function normaliseEstimateContractDetailsForCompare(details = {}) {
+  return {
+    approximateStartDate: normaliseEstimateCompareValue(
+      details?.approximateStartDate,
+    ),
+    approximateCompletionDate: normaliseEstimateCompareValue(
+      details?.approximateCompletionDate,
+    ),
+    paymentSchedule: normaliseEstimateCompareValue(details?.paymentSchedule),
+    specialOrderMaterials: normaliseEstimateCompareValue(
+      details?.specialOrderMaterials,
+    ),
+    knownSubcontractors: normaliseEstimateCompareValue(
+      details?.knownSubcontractors,
+    ),
+  };
+}
+
 function estimateDraftMatchesShareSnapshot(estimateDraft = {}, share = {}) {
   if (safeString(share?.type || "estimate") !== "estimate") {
     return false;
@@ -6945,6 +8467,16 @@ function estimateDraftMatchesShareSnapshot(estimateDraft = {}, share = {}) {
     ) ===
       JSON.stringify(
         normaliseEstimateLineItemsForCompare(shareSnapshot?.lineItems),
+      ) &&
+    JSON.stringify(
+      normaliseEstimateContractDetailsForCompare(
+        estimateDraft?.contractDetails,
+      ),
+    ) ===
+      JSON.stringify(
+        normaliseEstimateContractDetailsForCompare(
+          shareSnapshot?.contractDetails,
+        ),
       )
   );
 }
@@ -7003,18 +8535,51 @@ function estimateStandardTermsMarkup(
     .join("");
 }
 
+function goldenBrickLogoMarkup(extraClass = "") {
+  const className = ["golden-brick-logo", extraClass].filter(Boolean).join(" ");
+
+  return `
+    <div class="${className}" aria-label="Golden Brick Construction">
+        <svg class="golden-brick-mark" viewBox="0 0 120 58" aria-hidden="true">
+            <rect x="44" y="1" width="32" height="14" rx="1.5"></rect>
+            <rect x="24" y="22" width="32" height="14" rx="1.5"></rect>
+            <rect x="64" y="22" width="32" height="14" rx="1.5"></rect>
+            <rect x="4" y="43" width="32" height="14" rx="1.5"></rect>
+            <rect x="44" y="43" width="32" height="14" rx="1.5"></rect>
+            <rect x="84" y="43" width="32" height="14" rx="1.5"></rect>
+        </svg>
+        <span class="golden-brick-wordmark">
+            <span class="golden-brick-name">Golden Brick</span>
+            <span class="golden-brick-trade">Construction</span>
+        </span>
+    </div>
+  `;
+}
+
 function estimateAgreementTitle(template = state.template || EMPTY_TEMPLATE) {
-  return safeString(template?.agreementTitle) || EMPTY_TEMPLATE.agreementTitle;
+  const title = safeString(template?.agreementTitle);
+  if (!title || LEGACY_AGREEMENT_TEMPLATE_TITLES.has(title)) {
+    return EMPTY_TEMPLATE.agreementTitle;
+  }
+  return title;
 }
 
 function estimateAgreementIntro(template = state.template || EMPTY_TEMPLATE) {
-  return safeString(template?.agreementIntro) || EMPTY_TEMPLATE.agreementIntro;
+  const intro = safeString(template?.agreementIntro);
+  if (!intro || LEGACY_AGREEMENT_TEMPLATE_INTROS.has(intro)) {
+    return EMPTY_TEMPLATE.agreementIntro;
+  }
+  return intro;
 }
 
 function estimateAgreementTermsText(
   template = state.template || EMPTY_TEMPLATE,
 ) {
-  return safeString(template?.agreementTerms) || EMPTY_TEMPLATE.agreementTerms;
+  const terms = safeString(template?.agreementTerms);
+  if (!terms || LEGACY_AGREEMENT_TEMPLATE_TERMS.has(terms)) {
+    return EMPTY_TEMPLATE.agreementTerms;
+  }
+  return terms;
 }
 
 function estimateAgreementTerms(template = state.template || EMPTY_TEMPLATE) {
@@ -7026,8 +8591,9 @@ function estimateShareStatusMeta(share = state.estimateShare) {
 
   if (status === "active") {
     return {
-      label: "Live link",
-      copy: "The private client estimate page is active and ready to share.",
+      label: "Live version",
+      copy:
+        "The private link opens this lead's exact published version. Later draft edits stay internal until you publish again.",
     };
   }
 
@@ -7041,7 +8607,7 @@ function estimateShareStatusMeta(share = state.estimateShare) {
   if (status === "replaced") {
     return {
       label: "Replaced",
-      copy: "A newer published estimate replaced this unsigned client-facing version.",
+      copy: "A newer published estimate replaced this unsigned version.",
     };
   }
 
@@ -7054,7 +8620,8 @@ function estimateShareStatusMeta(share = state.estimateShare) {
 
   return {
     label: "Not shared",
-    copy: "Save the estimate first, then create the secure client link.",
+    copy:
+      "No client version is live. Save and publish the estimate currently shown when it is ready for review.",
   };
 }
 
@@ -7090,7 +8657,10 @@ function estimateShareUrl(shareId) {
 }
 
 function hydrateEstimateShare(snapshot) {
-  const share = normaliseFirestoreDoc(snapshot);
+  const share = {
+    ...(snapshot.data() || {}),
+    id: snapshot.id,
+  };
   return {
     ...share,
     shareUrl: estimateShareUrl(share.id),
@@ -7342,6 +8912,13 @@ function buildTemplateEstimateDraft(lead) {
       "",
       "This is a planning estimate based on the information currently available. We can tighten the pricing further after a site review, finish confirmation, and final scope check.",
     ].join("\n"),
+    contractDetails: {
+      approximateStartDate: "",
+      approximateCompletionDate: "",
+      paymentSchedule: DEFAULT_CONTRACT_PAYMENT_SCHEDULE,
+      specialOrderMaterials: DEFAULT_CONTRACT_SPECIAL_ORDER_MATERIALS,
+      knownSubcontractors: DEFAULT_CONTRACT_SUBCONTRACTORS,
+    },
     assumptions: [],
     lineItems,
     subtotal: Number(subtotal.toFixed(2)),
@@ -7350,10 +8927,13 @@ function buildTemplateEstimateDraft(lead) {
 
 function buildEstimatePreviewHtml(lead, estimateDraft) {
   const template = state.template || EMPTY_TEMPLATE;
-  const leadName = safeString(lead?.clientName) || "Client";
+  const leadName = safeString(lead?.clientName) || "Name to be confirmed";
+  const greetingName = safeString(lead?.clientName) || "there";
   const title = safeString(estimateDraft.subject) || defaultEstimateTitle(lead);
   const overviewBlocks = estimateOverviewParagraphs(estimateDraft, template);
   const standardTerms = estimateStandardTerms(template);
+  const contractDetails = contractDetailsForEstimate(estimateDraft);
+  const contractRows = contractDetailsRows(lead, estimateDraft);
   const projectAssumptions = estimateProjectAssumptionList(
     estimateDraft,
     template,
@@ -7391,10 +8971,11 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
             <header class="estimate-sheet-header">
                 <div class="estimate-brand-bar">
                     <div class="estimate-company-lockup">
-                        <div class="estimate-eyebrow">${escapeHtml(COMPANY_INFO.name)}</div>
+                        ${goldenBrickLogoMarkup("estimate-document-logo")}
+                        <div class="estimate-eyebrow">Project estimate</div>
                         <h3>${escapeHtml(title)}</h3>
-                        <p class="estimate-subtitle">Investor-professional renovation proposal prepared for clear client review and polished PDF delivery.</p>
-                        <p class="estimate-greeting">${escapeHtml((template.greeting || EMPTY_TEMPLATE.greeting).replace("{{clientName}}", leadName))}</p>
+                        <p class="estimate-subtitle">Prepared by Golden Brick Construction for a clear review of scope, pricing, terms, and next steps.</p>
+                        <p class="estimate-greeting">${escapeHtml((template.greeting || EMPTY_TEMPLATE.greeting).replace("{{clientName}}", greetingName))}</p>
                     </div>
                 </div>
                 <div class="estimate-company-card">
@@ -7421,7 +9002,7 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
 
             <section class="estimate-project-grid">
                 <article class="estimate-project-card">
-                    <span>Client</span>
+                    <span>Prepared for</span>
                     <strong>${escapeHtml(leadName)}</strong>
                 </article>
                 <article class="estimate-project-card">
@@ -7440,8 +9021,8 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
 
             <section class="estimate-section">
                 <div class="estimate-section-heading">
-                    <h4>Overview / Scope</h4>
-                    <p>Use this summary to align the client on the current scope, pricing posture, and proposed next step before final field verification.</p>
+                    <h4>Estimate overview</h4>
+                    <p>Scope and pricing notes prepared for this project.</p>
                 </div>
                 <div class="estimate-section-shell">
                     <div class="estimate-copy-block">
@@ -7452,8 +9033,8 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
 
             <section class="estimate-section">
                 <div class="estimate-section-heading">
-                    <h4>Line items</h4>
-                    <p>Each scope line rolls into the current working estimate total for this project.</p>
+                    <h4>Scope and pricing</h4>
+                    <p>Each scope line contributes to the estimated total shown below.</p>
                 </div>
                 <div class="estimate-section-shell">
                     <table class="estimate-table">
@@ -7476,11 +9057,34 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
                 </div>
             </section>
 
+            <section class="estimate-section">
+                <div class="estimate-section-heading">
+                    <h4>Agreement details</h4>
+                    <p>Project agreement details that accompany this estimate.</p>
+                </div>
+                <div class="estimate-project-grid estimate-contract-grid">
+                    ${contractRows.map((item) => `
+                        <article class="estimate-project-card">
+                            <span>${escapeHtml(item.label)}</span>
+                            <strong>${escapeHtml(item.value)}</strong>
+                        </article>
+                    `).join("")}
+                </div>
+                <div class="estimate-section-shell">
+                    <div class="estimate-copy-block">
+                        <p><strong>Deposit / payment terms:</strong> ${escapeHtml(contractDetails.paymentSchedule)}</p>
+                        <p><strong>Special-order material advance:</strong> ${escapeHtml(contractDetails.specialOrderMaterials)}</p>
+                        <p><strong>Known subcontractors:</strong> ${escapeHtml(contractDetails.knownSubcontractors)}</p>
+                        <p><strong>Insurance disclosure:</strong> ${escapeHtml(contractDetails.insuranceDisclosure)}</p>
+                    </div>
+                </div>
+            </section>
+
             <section class="estimate-foot">
                 <div class="estimate-section">
                     <div class="estimate-section-heading">
                         <h4>Standard terms</h4>
-                        <p>These protections are always included in Golden Brick's client-facing estimate package.</p>
+                        <p>Standard terms included with this estimate.</p>
                     </div>
                     <div class="estimate-section-shell">
                         <div class="estimate-standard-terms-list">
@@ -7491,14 +9095,14 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
 
                 <div class="estimate-section">
                     <div class="estimate-section-heading">
-                        <h4>Project-specific assumptions / exclusions</h4>
-                        <p>Use this section for deal-specific exclusions, finish notes, access considerations, or scope clarifications.</p>
+                        <h4>Project notes and exclusions</h4>
+                        <p>Project-specific notes, exclusions, or selection assumptions recorded with this estimate.</p>
                     </div>
                     <div class="estimate-section-shell">
                         ${
                           projectAssumptions.length
                             ? `<ul class="estimate-assumption-list">${projectAssumptions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
-                            : `<div class="estimate-note-empty">No project-specific assumptions or exclusions have been added to this draft yet.</div>`
+                            : `<div class="estimate-note-empty">No project-specific notes or exclusions have been added yet.</div>`
                         }
                     </div>
                 </div>
@@ -7518,7 +9122,7 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
                     <strong>${escapeHtml(COMPANY_INFO.name)}</strong>
                     <div>${escapeHtml(COMPANY_INFO.email)} · ${escapeHtml(COMPANY_INFO.phone)}</div>
                 </div>
-                <div>Prepared for client delivery as a Golden Brick PDF proposal.</div>
+                <div>Prepared by Golden Brick Construction.</div>
             </footer>
         </article>
     `;
@@ -7527,6 +9131,7 @@ function buildEstimatePreviewHtml(lead, estimateDraft) {
 function buildEstimatePlainText(lead, estimateDraft) {
   const template = state.template || EMPTY_TEMPLATE;
   const standardTerms = estimateStandardTerms(template);
+  const contractDetails = contractDetailsForEstimate(estimateDraft);
   const projectAssumptions = estimateProjectAssumptionList(
     estimateDraft,
     template,
@@ -7540,20 +9145,20 @@ function buildEstimatePlainText(lead, estimateDraft) {
     safeString(estimateDraft.subject) || defaultEstimateTitle(lead),
     "",
     `Prepared: ${formatDateOnly(new Date())}`,
-    `Client: ${safeString(lead?.clientName) || "Client"}`,
+    `Prepared For: ${safeString(lead?.clientName) || "Name to be confirmed"}`,
     "Project Address: " +
       (safeString(lead?.projectAddress) || "To be confirmed"),
     "Project Type: " + (safeString(lead?.projectType) || "General scope"),
     "",
     (template.greeting || EMPTY_TEMPLATE.greeting).replace(
       "{{clientName}}",
-      safeString(lead?.clientName) || "Client",
+      safeString(lead?.clientName) || "there",
     ),
     "",
-    "Overview / Scope",
+    "Estimate Overview",
     safeString(estimateDraft.emailBody) || safeString(template.intro),
     "",
-    "Line Items",
+    "Scope and Pricing",
     (estimateDraft.lineItems || [])
       .map((item) => {
         return [
@@ -7567,12 +9172,24 @@ function buildEstimatePlainText(lead, estimateDraft) {
     "",
     "Estimated Total: " + formatCurrency(estimateDraft.subtotal || 0),
     "",
+    "Agreement Details",
+    `Contractor: ${COMPANY_INFO.name}`,
+    `Contractor Business Address: ${contractDetails.contractorBusinessAddress}`,
+    `Pennsylvania Home Improvement Contractor Registration: ${contractDetails.paRegistrationNumber}`,
+    `Philadelphia General Contractor License: #${contractDetails.philadelphiaLicenseNumber}`,
+    `Approximate Start Date: ${contractDateDisplay(contractDetails.approximateStartDate)}`,
+    `Approximate Completion Date: ${contractDateDisplay(contractDetails.approximateCompletionDate)}`,
+    `Deposit / Payment Terms: ${contractDetails.paymentSchedule}`,
+    `Special-Order Material Advance: ${contractDetails.specialOrderMaterials}`,
+    `Known Subcontractors: ${contractDetails.knownSubcontractors}`,
+    `Insurance Disclosure: ${contractDetails.insuranceDisclosure}`,
+    "",
     "Standard Terms",
     standardTerms.length
       ? standardTerms.map((item) => `- ${item}`).join("\n")
       : "- None listed",
     "",
-    "Project-specific assumptions / exclusions",
+    "Project Notes and Exclusions",
     projectAssumptions.length
       ? projectAssumptions.map((item) => `- ${item}`).join("\n")
       : "- None added",
@@ -7600,16 +9217,17 @@ function buildEstimateDocumentHtml(lead, estimateDraft) {
         :root {
             --paper: #ffffff;
             --ink: #17120d;
-            --muted: #6d6356;
-            --line: #e7dac4;
+            --muted: #514b43;
+            --line: #e5ded2;
             --brand: #c5a059;
-            --brand-deep: #8e6a2e;
+            --brand-deep: #765928;
+            --surface: #faf8f4;
         }
         * { box-sizing: border-box; }
         body {
             margin: 0;
             padding: 32px;
-            background: #f4eee4;
+            background: #f4f5f1;
             color: var(--ink);
             font-family: "Manrope", Arial, sans-serif;
         }
@@ -7620,7 +9238,7 @@ function buildEstimateDocumentHtml(lead, estimateDraft) {
             background: var(--paper);
             border: 1px solid var(--line);
             border-top: 4px solid var(--brand);
-            border-radius: 18px;
+            border-radius: 10px;
             box-shadow: 0 20px 40px rgba(24, 19, 15, 0.08);
         }
         .estimate-sheet-header {
@@ -7640,12 +9258,54 @@ function buildEstimateDocumentHtml(lead, estimateDraft) {
             display: grid;
             gap: 12px;
         }
+        .golden-brick-logo {
+            display: inline-grid;
+            gap: 8px;
+            width: max-content;
+            max-width: 100%;
+            justify-items: center;
+        }
+        .golden-brick-mark {
+            width: 108px;
+            height: auto;
+            fill: var(--brand);
+        }
+        .golden-brick-wordmark {
+            display: grid;
+            gap: 4px;
+            justify-items: center;
+        }
+        .golden-brick-name {
+            color: var(--brand);
+            font-family: "Times New Roman", Georgia, serif;
+            font-size: 34px;
+            line-height: 0.9;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        .golden-brick-trade {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--ink);
+            font-size: 13px;
+            font-weight: 800;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        .golden-brick-trade::before,
+        .golden-brick-trade::after {
+            content: "";
+            width: 42px;
+            height: 2px;
+            background: var(--brand);
+        }
         .estimate-eyebrow {
-            margin-bottom: 10px;
+            margin-top: 4px;
+            margin-bottom: 4px;
             color: var(--brand-deep);
             font-size: 12px;
             font-weight: 800;
-            letter-spacing: 0.18em;
             text-transform: uppercase;
         }
         .estimate-sheet h3 {
@@ -7673,9 +9333,9 @@ function buildEstimateDocumentHtml(lead, estimateDraft) {
         .estimate-next-step,
         .estimate-total-panel {
             padding: 20px;
-            background: #faf6ef;
+            background: var(--surface);
             border: 1px solid var(--line);
-            border-radius: 16px;
+            border-radius: 8px;
         }
         .estimate-contact-row,
         .estimate-project-card {
@@ -7689,7 +9349,6 @@ function buildEstimateDocumentHtml(lead, estimateDraft) {
             color: var(--brand-deep);
             font-size: 12px;
             font-weight: 800;
-            letter-spacing: 0.14em;
             text-transform: uppercase;
         }
         .estimate-contact-row strong,
@@ -7705,9 +9364,9 @@ function buildEstimateDocumentHtml(lead, estimateDraft) {
         }
         .estimate-project-card {
             padding: 18px;
-            background: #faf6ef;
+            background: var(--surface);
             border: 1px solid var(--line);
-            border-radius: 14px;
+            border-radius: 8px;
         }
         .estimate-copy-block {
             display: grid;
@@ -7742,17 +9401,16 @@ function buildEstimateDocumentHtml(lead, estimateDraft) {
         .estimate-total-panel {
             display: grid;
             gap: 8px;
-            background: linear-gradient(145deg, rgba(249, 243, 234, 0.98), rgba(241, 233, 221, 0.9));
+            background: #181510;
         }
         .estimate-total-panel span {
-            color: var(--brand-deep);
+            color: #d8c9ae;
             font-size: 12px;
             font-weight: 800;
-            letter-spacing: 0.16em;
             text-transform: uppercase;
         }
         .estimate-total-panel strong {
-            color: var(--ink);
+            color: #fffaf0;
             font-family: "Fraunces", Georgia, serif;
             font-size: 38px;
             line-height: 1;
@@ -7864,18 +9522,88 @@ async function loadJsPdfModule() {
 function applyEstimatePdfTopBar(doc) {
   const pageWidth = doc.internal.pageSize.getWidth();
   doc.setFillColor(...ESTIMATE_PDF_THEME.brand);
-  doc.rect(0, 0, pageWidth, 12, "F");
+  doc.rect(0, 0, pageWidth, 8, "F");
 }
 
 function ensureEstimatePdfSpace(doc, cursor, requiredHeight = 24) {
   const pageHeight = doc.internal.pageSize.getHeight();
   if (cursor.y + requiredHeight <= pageHeight - cursor.bottom) {
-    return;
+    return false;
   }
 
   doc.addPage();
   applyEstimatePdfTopBar(doc);
   cursor.y = cursor.top;
+  return true;
+}
+
+function drawEstimatePdfFooter(doc, label = "Estimate") {
+  const pageCount = doc.internal.getNumberOfPages();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const left = 54;
+  const right = pageWidth - 54;
+  const y = pageHeight - 34;
+
+  for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+    doc.setPage(pageNumber);
+    doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
+    doc.setLineWidth(0.7);
+    doc.line(left, y - 14, right, y - 14);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+    doc.text(COMPANY_INFO.name, left, y);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...ESTIMATE_PDF_THEME.soft);
+    doc.text(`${label} | Page ${pageNumber} of ${pageCount}`, right, y, {
+      align: "right",
+    });
+  }
+}
+
+function drawEstimatePdfBrickMark(doc, x, y, scale = 0.43) {
+  const bricks = [
+    [44, 1, 32, 14],
+    [24, 22, 32, 14],
+    [64, 22, 32, 14],
+    [4, 43, 32, 14],
+    [44, 43, 32, 14],
+    [84, 43, 32, 14],
+  ];
+
+  doc.setFillColor(...ESTIMATE_PDF_THEME.brand);
+  bricks.forEach(([brickX, brickY, width, height]) => {
+    doc.roundedRect(
+      x + brickX * scale,
+      y + brickY * scale,
+      width * scale,
+      height * scale,
+      1,
+      1,
+      "F",
+    );
+  });
+}
+
+function drawEstimatePdfLogo(doc, x, y) {
+  drawEstimatePdfBrickMark(doc, x, y + 1);
+
+  const wordmarkX = x + 60;
+  doc.setFont("times", "bold");
+  doc.setFontSize(18.5);
+  doc.setTextColor(...ESTIMATE_PDF_THEME.brand);
+  doc.text("GOLDEN BRICK", wordmarkX, y + 17);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.6);
+  doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+  doc.text("CONSTRUCTION", wordmarkX + 38, y + 31);
+
+  doc.setDrawColor(...ESTIMATE_PDF_THEME.brand);
+  doc.setLineWidth(1.1);
+  doc.line(wordmarkX, y + 28, wordmarkX + 28, y + 28);
+  doc.line(wordmarkX + 126, y + 28, wordmarkX + 154, y + 28);
 }
 
 function drawEstimatePdfParagraph(
@@ -7907,19 +9635,26 @@ function drawEstimatePdfParagraph(
   cursor.y += lines.length * lineHeight + gapAfter;
 }
 
-function drawEstimatePdfSectionHeading(doc, cursor, title, copy = "") {
+function drawEstimatePdfSectionHeading(
+  doc,
+  cursor,
+  title,
+  copy = "",
+  { gapBefore = 4 } = {},
+) {
+  cursor.y += gapBefore;
   ensureEstimatePdfSpace(doc, cursor, 48);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
+  doc.setFontSize(11);
   doc.setTextColor(...ESTIMATE_PDF_THEME.brandDeep);
   doc.text(String(title || "").toUpperCase(), cursor.left, cursor.y);
-  cursor.y += 16;
+  cursor.y += 15;
 
   if (copy) {
     drawEstimatePdfParagraph(doc, cursor, copy, {
       fontSize: 10,
       lineHeight: 14,
-      color: ESTIMATE_PDF_THEME.muted,
+      color: ESTIMATE_PDF_THEME.soft,
       gapAfter: 12,
     });
   }
@@ -7950,15 +9685,18 @@ function drawEstimatePdfBulletItem(doc, cursor, text) {
   cursor.y += lines.length * lineHeight + 8;
 }
 
-function drawEstimatePdfMetaCards(doc, cursor, items) {
-  const gap = 12;
-  const cardWidth = (cursor.width - gap) / 2;
-  const cardHeight = 58;
+function drawEstimatePdfMetaCards(
+  doc,
+  cursor,
+  items,
+  { columns = 2, cardHeight = 58, gap = 12 } = {},
+) {
+  const cardWidth = (cursor.width - gap * (columns - 1)) / columns;
 
-  for (let index = 0; index < items.length; index += 2) {
+  for (let index = 0; index < items.length; index += columns) {
     ensureEstimatePdfSpace(doc, cursor, cardHeight + gap);
 
-    [items[index], items[index + 1]].forEach((item, columnIndex) => {
+    items.slice(index, index + columns).forEach((item, columnIndex) => {
       if (!item) return;
 
       const x = cursor.left + columnIndex * (cardWidth + gap);
@@ -7966,25 +9704,81 @@ function drawEstimatePdfMetaCards(doc, cursor, items) {
 
       doc.setFillColor(...ESTIMATE_PDF_THEME.panel);
       doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
-      doc.roundedRect(x, y, cardWidth, cardHeight, 8, 8, "FD");
+      doc.roundedRect(x, y, cardWidth, cardHeight, 6, 6, "FD");
 
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(...ESTIMATE_PDF_THEME.brandDeep);
-      doc.text(String(item.label || "").toUpperCase(), x + 14, y + 18);
+      doc.setFontSize(7.5);
+      doc.setTextColor(...ESTIMATE_PDF_THEME.soft);
+      doc.text(String(item.label || "").toUpperCase(), x + 12, y + 16);
 
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
+      doc.setFontSize(columns > 2 ? 10 : 12);
       doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
       const valueLines = doc.splitTextToSize(
         String(item.value || "Not set"),
-        cardWidth - 28,
+        cardWidth - 24,
       );
-      doc.text(valueLines, x + 14, y + 36);
+      doc.text(valueLines.slice(0, 2), x + 12, y + 34);
     });
 
     cursor.y += cardHeight + gap;
   }
+}
+
+function estimatePdfDisplayTitle(value) {
+  return (
+    safeString(value)
+      .replace(/^golden brick estimate for\s+/i, "")
+      .replace(/^estimate for\s+/i, "")
+      .trim() || "Project estimate"
+  );
+}
+
+function drawEstimatePdfHero(doc, cursor, { title, preparedFor, subtotal }) {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const rightX = pageWidth - 54;
+  const totalWidth = 168;
+  const totalHeight = 62;
+  const titleWidth = cursor.width - totalWidth - 28;
+  const heroTop = cursor.y;
+
+  drawEstimatePdfLogo(doc, cursor.left, heroTop);
+
+  doc.setFillColor(...ESTIMATE_PDF_THEME.dark);
+  doc.roundedRect(rightX - totalWidth, heroTop + 2, totalWidth, totalHeight, 7, 7, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...ESTIMATE_PDF_THEME.brand);
+  doc.text("ESTIMATED TOTAL", rightX - totalWidth + 14, heroTop + 23);
+  doc.setFontSize(20);
+  doc.setTextColor(...ESTIMATE_PDF_THEME.white);
+  doc.text(formatCurrency(subtotal || 0), rightX - 14, heroTop + 49, {
+    align: "right",
+  });
+
+  cursor.y = heroTop + 86;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(23);
+  doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+  doc.text("Project Estimate", cursor.left, cursor.y);
+  cursor.y += 24;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
+  const titleLines = doc.splitTextToSize(
+    estimatePdfDisplayTitle(title),
+    titleWidth,
+  );
+  doc.text(titleLines.slice(0, 3), cursor.left, cursor.y);
+  cursor.y += Math.min(titleLines.length, 3) * 17 + 7;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10.5);
+  doc.setTextColor(...ESTIMATE_PDF_THEME.muted);
+  const subtitle = `${preparedFor} | ${COMPANY_INFO.email} | ${COMPANY_INFO.phone}`;
+  doc.text(doc.splitTextToSize(subtitle, titleWidth), cursor.left, cursor.y);
+  cursor.y += 35;
 }
 
 function drawEstimatePdfLineItems(
@@ -7993,95 +9787,126 @@ function drawEstimatePdfLineItems(
   lineItems,
   subtotal,
   {
-    heading = "Line items",
-    copy = "Each line item rolls into the current working estimate total.",
+    heading = "Scope and pricing",
+    copy = "Each scope line contributes to the estimated total shown below.",
     totalLabel = "Estimated Total",
   } = {},
 ) {
-  drawEstimatePdfSectionHeading(
-    doc,
-    cursor,
-    heading,
-    copy,
-  );
+  const amountColumnWidth = 116;
+  const titleWidth = cursor.width - amountColumnWidth - 32;
+  const descriptionWidth = cursor.width - 28;
 
-  doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
-  doc.setLineWidth(1);
-  ensureEstimatePdfSpace(doc, cursor, 28);
-  doc.line(cursor.left, cursor.y, cursor.left + cursor.width, cursor.y);
-  cursor.y += 18;
+  function rowHeightFor(item) {
+    const titleLines = doc.splitTextToSize(
+      item.label || "Line item",
+      titleWidth,
+    );
+    const descriptionLines = doc.splitTextToSize(
+      item.description || "Scope to be confirmed.",
+      descriptionWidth,
+    );
+    return Math.max(
+      68,
+      28 + titleLines.length * 13 + descriptionLines.length * 12,
+    );
+  }
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(...ESTIMATE_PDF_THEME.brandDeep);
-  doc.text("SCOPE", cursor.left, cursor.y);
-  doc.text("AMOUNT", cursor.left + cursor.width, cursor.y, { align: "right" });
-  cursor.y += 10;
-  doc.line(cursor.left, cursor.y, cursor.left + cursor.width, cursor.y);
-  cursor.y += 18;
+  function drawTableHeader(continued = false) {
+    ensureEstimatePdfSpace(doc, cursor, 32);
+    doc.setDrawColor(...ESTIMATE_PDF_THEME.lineStrong);
+    doc.setLineWidth(0.7);
+    doc.line(cursor.left, cursor.y, cursor.left + cursor.width, cursor.y);
+    cursor.y += 14;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...ESTIMATE_PDF_THEME.brandDeep);
+    doc.text(continued ? "SCOPE CONTINUED" : "SCOPE", cursor.left, cursor.y);
+    doc.text("AMOUNT", cursor.left + cursor.width, cursor.y, {
+      align: "right",
+    });
+    cursor.y += 10;
+    doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
+    doc.line(cursor.left, cursor.y, cursor.left + cursor.width, cursor.y);
+    cursor.y += 12;
+  }
+
+  const firstRowHeight = lineItems.length ? rowHeightFor(lineItems[0]) : 68;
+  ensureEstimatePdfSpace(doc, cursor, 80 + firstRowHeight);
+  drawEstimatePdfSectionHeading(doc, cursor, heading, copy, { gapBefore: 8 });
+  drawTableHeader(false);
 
   lineItems.forEach((item) => {
     const titleLines = doc.splitTextToSize(
       item.label || "Line item",
-      cursor.width - 120,
+      titleWidth,
     );
     const descriptionLines = doc.splitTextToSize(
       item.description || "Scope to be confirmed.",
-      cursor.width - 120,
+      descriptionWidth,
     );
-    const rowHeight = (titleLines.length + descriptionLines.length) * 14 + 16;
+    const rowHeight = rowHeightFor(item);
 
-    ensureEstimatePdfSpace(doc, cursor, rowHeight + 12);
+    if (ensureEstimatePdfSpace(doc, cursor, rowHeight + 18)) {
+      drawTableHeader(true);
+    }
+
+    doc.setFillColor(...ESTIMATE_PDF_THEME.panel);
+    doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
+    doc.roundedRect(cursor.left, cursor.y, cursor.width, rowHeight, 6, 6, "FD");
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
+    doc.setFontSize(10.5);
     doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
-    doc.text(titleLines, cursor.left, cursor.y);
+    doc.text(titleLines, cursor.left + 14, cursor.y + 18);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
+    doc.setFontSize(9.6);
     doc.setTextColor(...ESTIMATE_PDF_THEME.muted);
-    doc.text(descriptionLines, cursor.left, cursor.y + titleLines.length * 14);
+    doc.text(
+      descriptionLines,
+      cursor.left + 14,
+      cursor.y + 20 + titleLines.length * 13,
+    );
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
+    doc.setFontSize(11.5);
     doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
     doc.text(
       formatCurrency(item.amount || 0),
-      cursor.left + cursor.width,
-      cursor.y,
+      cursor.left + cursor.width - 14,
+      cursor.y + 18,
       { align: "right" },
     );
 
-    cursor.y += rowHeight;
-    doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
-    doc.line(cursor.left, cursor.y, cursor.left + cursor.width, cursor.y);
-    cursor.y += 14;
+    cursor.y += rowHeight + 10;
   });
 
-  ensureEstimatePdfSpace(doc, cursor, 44);
-  doc.setFillColor(...ESTIMATE_PDF_THEME.panel);
-  doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
-  doc.roundedRect(cursor.left, cursor.y, cursor.width, 34, 8, 8, "FD");
+  ensureEstimatePdfSpace(doc, cursor, 58);
+  doc.setFillColor(...ESTIMATE_PDF_THEME.dark);
+  doc.roundedRect(cursor.left, cursor.y, cursor.width, 46, 7, 7, "F");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
-  doc.text(totalLabel, cursor.left + 16, cursor.y + 22);
+  doc.setFontSize(8.5);
+  doc.setTextColor(...ESTIMATE_PDF_THEME.brand);
+  doc.text(String(totalLabel || "Estimated Total").toUpperCase(), cursor.left + 16, cursor.y + 18);
+  doc.setFontSize(18);
+  doc.setTextColor(...ESTIMATE_PDF_THEME.white);
   doc.text(
     formatCurrency(subtotal || 0),
     cursor.left + cursor.width - 16,
-    cursor.y + 22,
+    cursor.y + 30,
     { align: "right" },
   );
-  cursor.y += 50;
+  cursor.y += 62;
 }
 
 function buildEstimatePdf(doc, lead, estimateDraft) {
   const title = safeString(estimateDraft.subject) || defaultEstimateTitle(lead);
-  const leadName = safeString(lead?.clientName) || "Client";
+  const leadName = safeString(lead?.clientName) || "Name to be confirmed";
   const preparedDate = formatDateOnly(new Date());
   const overviewBlocks = estimateOverviewParagraphs(estimateDraft);
   const standardTerms = estimateStandardTerms();
+  const contractDetails = contractDetailsForEstimate(estimateDraft);
   const projectAssumptions = estimateProjectAssumptionList(estimateDraft);
   const lineItems =
     Array.isArray(estimateDraft.lineItems) && estimateDraft.lineItems.length
@@ -8094,162 +9919,53 @@ function buildEstimatePdf(doc, lead, estimateDraft) {
             amount: 0,
           },
         ];
-  const cursor = {
-    left: 54,
-    top: 46,
-    bottom: 52,
-    width: doc.internal.pageSize.getWidth() - 108,
-    y: 46,
-  };
 
-  doc.setProperties({
+  buildPolishedEstimatePdf(doc, {
     title,
-    subject: `${COMPANY_INFO.name} estimate`,
-    author: COMPANY_INFO.name,
-    creator: COMPANY_INFO.name,
+    preparedFor: leadName,
+    preparedDate,
+    projectAddress: safeString(lead?.projectAddress) || "To be confirmed",
+    projectType: safeString(lead?.projectType) || "General scope",
+    subtotal: estimateDraft.subtotal || 0,
+    overviewBlocks,
+    lineItems,
+    agreementFacts: [
+      {
+        label: "Business address",
+        value: contractDetails.contractorBusinessAddress,
+      },
+      {
+        label: "Approx. start",
+        value: contractDateDisplay(contractDetails.approximateStartDate),
+      },
+      {
+        label: "Approx. completion",
+        value: contractDateDisplay(contractDetails.approximateCompletionDate),
+      },
+    ],
+    agreementNotes: [
+      {
+        label: "Payment terms",
+        value: contractDetails.paymentSchedule,
+      },
+      {
+        label: "Special-order materials",
+        value: contractDetails.specialOrderMaterials,
+      },
+      {
+        label: "Known subcontractors",
+        value: contractDetails.knownSubcontractors,
+      },
+      {
+        label: "Insurance disclosure",
+        value: contractDetails.insuranceDisclosure,
+      },
+    ],
+    standardTerms,
+    projectAssumptions,
+    nextStep: safeString(state.template.outro || EMPTY_TEMPLATE.outro),
+    company: COMPANY_INFO,
   });
-
-  applyEstimatePdfTopBar(doc);
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(...ESTIMATE_PDF_THEME.brandDeep);
-  doc.text(COMPANY_INFO.name.toUpperCase(), cursor.left, cursor.y);
-  cursor.y += 20;
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(24);
-  doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
-  const titleLines = doc.splitTextToSize(title, cursor.width);
-  doc.text(titleLines, cursor.left, cursor.y);
-  cursor.y += titleLines.length * 28;
-
-  drawEstimatePdfParagraph(
-    doc,
-    cursor,
-    "Investor-professional renovation proposal prepared for clear client review and polished PDF delivery.",
-    {
-      fontSize: 11,
-      lineHeight: 15,
-      color: ESTIMATE_PDF_THEME.muted,
-      gapAfter: 14,
-    },
-  );
-
-  drawEstimatePdfParagraph(
-    doc,
-    cursor,
-    (state.template.greeting || EMPTY_TEMPLATE.greeting).replace(
-      "{{clientName}}",
-      leadName,
-    ),
-    {
-      fontSize: 11,
-      lineHeight: 15,
-      color: ESTIMATE_PDF_THEME.ink,
-      fontStyle: "bold",
-      gapAfter: 14,
-    },
-  );
-
-  drawEstimatePdfMetaCards(doc, cursor, [
-    { label: "Client", value: leadName },
-    { label: "Prepared", value: preparedDate },
-    {
-      label: "Project address",
-      value: safeString(lead?.projectAddress) || "To be confirmed",
-    },
-    {
-      label: "Project type",
-      value: safeString(lead?.projectType) || "General scope",
-    },
-    {
-      label: "Estimated total",
-      value: formatCurrency(estimateDraft.subtotal || 0),
-    },
-    {
-      label: "Prepared by",
-      value: `${COMPANY_INFO.email} | ${COMPANY_INFO.phone}`,
-    },
-  ]);
-
-  drawEstimatePdfSectionHeading(
-    doc,
-    cursor,
-    "Overview / Scope",
-    "Use this summary to align the client on the current scope, pricing posture, and proposed next step before final field verification.",
-  );
-  overviewBlocks.forEach((paragraph) => {
-    drawEstimatePdfParagraph(doc, cursor, paragraph, {
-      fontSize: 11,
-      lineHeight: 16,
-      color: ESTIMATE_PDF_THEME.muted,
-      gapAfter: 10,
-    });
-  });
-
-  drawEstimatePdfLineItems(doc, cursor, lineItems, estimateDraft.subtotal || 0);
-
-  drawEstimatePdfSectionHeading(
-    doc,
-    cursor,
-    "Standard terms",
-    "These protections are always included in Golden Brick's client-facing estimate package.",
-  );
-  standardTerms.forEach((item) => {
-    drawEstimatePdfBulletItem(doc, cursor, item);
-  });
-  cursor.y += 4;
-
-  drawEstimatePdfSectionHeading(
-    doc,
-    cursor,
-    "Project-specific assumptions / exclusions",
-    "Use this section for project-specific exclusions, finish notes, access considerations, or scope clarifications.",
-  );
-  if (!projectAssumptions.length) {
-    drawEstimatePdfParagraph(doc, cursor, "None listed.", {
-      fontSize: 11,
-      lineHeight: 16,
-      color: ESTIMATE_PDF_THEME.muted,
-      gapAfter: 12,
-    });
-  } else {
-    projectAssumptions.forEach((item) => {
-      drawEstimatePdfBulletItem(doc, cursor, item);
-    });
-    cursor.y += 4;
-  }
-
-  drawEstimatePdfSectionHeading(doc, cursor, "Next step", "");
-  drawEstimatePdfParagraph(
-    doc,
-    cursor,
-    safeString(state.template.outro || EMPTY_TEMPLATE.outro),
-    {
-      fontSize: 11,
-      lineHeight: 16,
-      color: ESTIMATE_PDF_THEME.muted,
-      gapAfter: 18,
-    },
-  );
-
-  ensureEstimatePdfSpace(doc, cursor, 32);
-  doc.setDrawColor(...ESTIMATE_PDF_THEME.line);
-  doc.line(cursor.left, cursor.y, cursor.left + cursor.width, cursor.y);
-  cursor.y += 18;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(...ESTIMATE_PDF_THEME.ink);
-  doc.text(COMPANY_INFO.name, cursor.left, cursor.y);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...ESTIMATE_PDF_THEME.muted);
-  doc.text(
-    `${COMPANY_INFO.email} | ${COMPANY_INFO.phone}`,
-    cursor.left + cursor.width,
-    cursor.y,
-    { align: "right" },
-  );
 }
 
 function buildProjectCloseoutPdf(doc, context) {
@@ -8533,7 +10249,8 @@ function renderEstimateLines(lineItems) {
   const rows = lineItems.length
     ? lineItems
     : [{ label: "", description: "", amount: "" }];
-  const editable = isAdmin();
+  const editable =
+    canEditEstimateForLead() && !estimateOperationIsPending(state.selectedLeadId);
 
   refs.estimateLines.innerHTML = rows
     .map(
@@ -8567,6 +10284,7 @@ function renderEstimateLines(lineItems) {
         const lines = collectEstimateForm().lineItems;
         lines.splice(Number(button.dataset.removeLine), 1);
         renderEstimateLines(lines);
+        markEstimateDirty();
         updateEstimatePreview();
       });
     },
@@ -8600,6 +10318,23 @@ function updateEstimatePreview() {
   const estimate = collectEstimateForm();
   refs.estimateSubtotal.textContent = formatCurrency(estimate.subtotal);
   refs.estimatePreview.innerHTML = buildEstimatePreviewHtml(lead, estimate);
+  renderEstimateWorkflowStatus(lead);
+}
+
+function addEstimateLineItem() {
+  if (!canEditEstimateForLead()) {
+    showToast("Select an assigned lead before editing the estimate.", "error");
+    return;
+  }
+  const lines = collectEstimateForm().lineItems;
+  lines.push({ label: "", description: "", amount: "" });
+  renderEstimateLines(lines);
+  markEstimateDirty();
+  updateEstimatePreview();
+  const lastLine = refs.estimateLines.querySelector(
+    ".line-item-row:last-child input",
+  );
+  queueFocus(lastLine);
 }
 
 function renderEstimateSharePanel(lead = currentLead()) {
@@ -8609,7 +10344,7 @@ function renderEstimateSharePanel(lead = currentLead()) {
     safeString(share?.status || ""),
   );
   const detailBits = [];
-  const estimateDraft = state.estimate;
+  const estimateDraft = currentVisibleEstimateDraft(lead);
   const draftMatchesShare = estimateDraftMatchesShareSnapshot(
     estimateDraft,
     share,
@@ -8634,16 +10369,20 @@ function renderEstimateSharePanel(lead = currentLead()) {
   if (safeString(share?.status) === "active" && estimateDraft) {
     detailBits.unshift(
       draftMatchesShare
-        ? "Current saved draft matches the live client version"
-        : "Current saved draft has newer edits than the live client version",
+        ? "The estimate shown matches the live client version"
+        : state.estimateWorkflow.dirty
+          ? "The estimate shown has unsaved edits that are not live"
+          : "The saved draft has newer edits than the live client version",
     );
   }
 
   if (safeString(share?.status) === "signed" && estimateDraft) {
     detailBits.unshift(
       draftMatchesShare
-        ? "This signed version matches the current saved draft"
-        : "This signed version is older than the current saved draft",
+        ? "This signed version matches the estimate shown"
+        : state.estimateWorkflow.dirty
+          ? "The estimate shown has unsaved edits newer than the signed record"
+          : "This signed version is older than the current saved draft",
     );
   }
 
@@ -8657,18 +10396,22 @@ function renderEstimateSharePanel(lead = currentLead()) {
     : "No active link yet";
 
   const canShareLead = Boolean(
-    lead?.id && (lead?.hasEstimate || state.estimate),
+    lead?.id && estimateDraft,
   );
-  refs.estimateShareCreateButton.disabled = !isAdmin() || !canShareLead;
+  refs.estimateShareCreateButton.disabled =
+    !isAdmin() || !canShareLead || estimateOperationIsPending(lead?.id);
   refs.estimateShareCopyButton.disabled = !linkAvailable || !share?.shareUrl;
   refs.estimateShareRevokeButton.disabled =
-    !isAdmin() || safeString(share?.status) !== "active";
+    !isAdmin() ||
+    estimateOperationIsPending(lead?.id) ||
+    safeString(share?.status) !== "active";
   refs.estimateShareCreateButton.textContent =
     share?.status === "active"
-      ? "Regenerate link"
+      ? "Save & replace live version"
       : share?.status === "signed"
-        ? "Create new link"
-        : "Create share link";
+        ? "Save & publish revision"
+        : "Save & publish exact version";
+  renderEstimateWorkflowStatus(lead);
 }
 
 function renderLeadEstimateClientRecords(lead = currentLead()) {
@@ -8684,8 +10427,9 @@ function renderLeadEstimateClientRecords(lead = currentLead()) {
   const shares = estimateSharesForLead(lead.id);
   const currentShare = pickCurrentEstimateShare(shares);
   const currentShareStatus = safeString(currentShare?.status);
+  const currentDraft = currentVisibleEstimateDraft(lead);
   const currentDraftMatchesShare = estimateDraftMatchesShareSnapshot(
-    state.estimate,
+    currentDraft,
     currentShare,
   );
   const activeShares = shares.filter(
@@ -8701,7 +10445,7 @@ function renderLeadEstimateClientRecords(lead = currentLead()) {
   refs.leadEstimateClientSummary.innerHTML = [
     {
       label: "Internal draft",
-      value: state.estimate ? "Ready" : lead.hasEstimate ? "Saved" : "Missing",
+      value: currentDraft ? "Ready" : lead.hasEstimate ? "Saved" : "Missing",
     },
     { label: "Live approvals", value: String(activeShares.length) },
     { label: "Signed", value: String(signedShares.length) },
@@ -8718,73 +10462,56 @@ function renderLeadEstimateClientRecords(lead = currentLead()) {
     .join("");
 
   let draftStatusLabel = "Draft only";
-  let draftMetaCopy = state.estimate
-    ? "Saved internally. The client cannot see this version until you publish it."
+  let draftMetaCopy = currentDraft
+    ? state.estimateWorkflow.dirty
+      ? "Unsaved browser edits. Save them or publish this exact version from Review & publish above."
+      : "Saved internally. The client cannot see this version until you publish it."
     : "This lead has an estimate saved, but the full draft has not loaded yet.";
-  let publishLabel = "Publish to portal";
 
-  if (state.estimate && currentShareStatus === "active") {
+  if (currentDraft && currentShareStatus === "active") {
     draftStatusLabel = currentDraftMatchesShare
       ? "Published now"
       : "Updated since publish";
     draftMetaCopy = currentDraftMatchesShare
       ? "This saved draft matches the live client version in the portal."
       : "The client is still seeing an older published version. Publish again to send these latest edits.";
-    publishLabel = currentDraftMatchesShare
-      ? "Republish"
-      : "Publish updated version";
   } else if (currentShareStatus === "active") {
     draftStatusLabel = "Published now";
     draftMetaCopy =
       "A live client version exists for this lead. Open the portal record below to review it.";
-    publishLabel = "Publish updated version";
-  } else if (state.estimate && currentShareStatus === "signed") {
+  } else if (currentDraft && currentShareStatus === "signed") {
     draftStatusLabel = currentDraftMatchesShare
       ? "Signed record"
       : "Revised after signing";
     draftMetaCopy = currentDraftMatchesShare
       ? "This estimate was signed and archived. Publish a new version only if the scope changes."
       : "A signed version is archived, but this draft has newer edits that are not client-visible yet.";
-    publishLabel = "Publish revised estimate";
   } else if (currentShareStatus === "signed") {
     draftStatusLabel = "Signed record";
     draftMetaCopy =
-      "A signed client-facing record is archived for this lead.";
-    publishLabel = "Publish revised estimate";
+      "A signed estimate record is archived for this lead.";
   } else if (currentShareStatus === "replaced") {
     draftStatusLabel = "Draft ready";
     draftMetaCopy =
-      "The last client-facing version was replaced or removed. Publish this draft to make it visible again.";
-    publishLabel = "Publish to portal";
+      "The last published version was replaced or removed. Publish this draft to make it visible again.";
   } else if (currentShareStatus === "revoked") {
     draftStatusLabel = "Draft ready";
     draftMetaCopy =
-      "The last client-facing version was revoked. Publish this draft to make it visible again.";
-    publishLabel = "Publish to portal";
+      "The last published version was revoked. Publish this draft to make it visible again.";
   }
 
-  const draftCard = (state.estimate || lead.hasEstimate)
+  const draftCard = (currentDraft || lead.hasEstimate)
     ? `
       <article class="simple-item">
         <div class="record-topline">
           <span class="mini-pill">${escapeHtml(draftStatusLabel)}</span>
-          <span class="mini-pill">${escapeHtml(formatCurrency(state.estimate?.subtotal || lead.estimateSubtotal || 0))}</span>
+          <span class="mini-pill">${escapeHtml(formatCurrency(currentDraft?.subtotal || lead.estimateSubtotal || 0))}</span>
         </div>
-        <strong>${escapeHtml(state.estimate?.subject || lead.estimateTitle || "Current estimate draft")}</strong>
+        <strong>${escapeHtml(currentDraft?.subject || lead.estimateTitle || "Current estimate draft")}</strong>
         <p>${escapeHtml(lead.projectAddress || "Address pending")}</p>
         <div class="simple-meta">${escapeHtml(draftMetaCopy)}</div>
         <div class="inline-actions">
-          ${
-            isAdmin()
-              ? customerPortalActionButton({
-                  action: "publish-estimate",
-                  label: publishLabel,
-                  targetType: "estimate",
-                  targetId: lead.id,
-                  leadId: lead.id,
-                })
-              : ""
-          }
+          <button type="button" class="ghost-button" data-estimate-review-publish-focus>Review before publishing</button>
           <button type="button" class="ghost-button" data-open-customer="${escapeHtml(lead.customerId || "")}" data-open-view="customers-view" ${lead.customerId ? "" : "disabled"}>Open customer</button>
         </div>
       </article>
@@ -8796,6 +10523,19 @@ function renderLeadEstimateClientRecords(lead = currentLead()) {
     const agreementUrl = estimateShareAgreementUrl(share.id);
     const isSigned = safeString(share.status) === "signed";
     const isActive = safeString(share.status) === "active";
+    const shareContractDetails =
+      share.estimateSnapshot?.contractDetails || {};
+    const shareStartDate = safeString(
+      shareContractDetails.approximateStartDate,
+    );
+    const shareCompletionDate = safeString(
+      shareContractDetails.approximateCompletionDate,
+    );
+    const shareReadyToSign = Boolean(
+      shareStartDate &&
+        shareCompletionDate &&
+        shareCompletionDate >= shareStartDate,
+    );
 
     return `
       <article class="simple-item">
@@ -8809,21 +10549,12 @@ function renderLeadEstimateClientRecords(lead = currentLead()) {
           isSigned
             ? `Signed ${formatDateTime(share.signedAt || share.updatedAt)}`
             : shareVisibleInPortal(share)
-              ? "Visible in the client portal and ready for signature."
-              : "Saved in portal history but not currently live to the client.",
+              ? shareReadyToSign
+                ? "Visible in the secure portal and ready for signature."
+                : "Visible in the secure portal for review. Signing is not available until the required agreement details are published."
+              : "Saved in portal history but not currently published.",
         )}</div>
         <div class="inline-actions">
-          ${
-            isAdmin()
-              ? customerPortalActionButton({
-                  action: "publish-estimate",
-                  label: isActive ? "Replace" : "Publish new",
-                  targetType: "estimate",
-                  targetId: lead.id,
-                  leadId: lead.id,
-                })
-              : ""
-          }
           ${
             shareUrl
               ? `<a class="ghost-button" href="${escapeHtml(shareUrl)}" target="_blank" rel="noreferrer">${escapeHtml(isActive ? "Open portal view" : "Open record")}</a>`
@@ -8872,25 +10603,61 @@ function renderLeadEstimateClientRecords(lead = currentLead()) {
 
 function renderEstimatePanel() {
   const lead = currentLead();
-  const estimate = state.estimate || {
-    subject: "",
-    emailBody: "",
-    assumptions: [],
-    lineItems: [],
-  };
+  const leadId = safeString(lead?.id);
+  const estimate =
+    state.estimate && estimateBelongsToLead(state.estimate, leadId)
+      ? state.estimate
+      : {
+          subject: "",
+          emailBody: "",
+          contractDetails: {},
+          assumptions: [],
+          lineItems: [],
+        };
+  const contractDetails = contractDetailsForEstimate(estimate);
+  const boundToLead = estimateEditorIsBoundToLead(leadId);
 
-  refs.estimateSubject.value = estimate.subject || defaultEstimateTitle(lead);
-  refs.estimateBody.value = estimate.emailBody || "";
-  refs.estimateAssumptions.value = Array.isArray(estimate.assumptions)
-    ? estimate.assumptions.join("\n")
-    : "";
-  refs.estimateSubject.readOnly = !isAdmin();
-  refs.estimateBody.readOnly = !isAdmin();
-  refs.estimateAssumptions.readOnly = !isAdmin();
-  refs.estimateStandardTermsDisplay.innerHTML = estimateStandardTermsMarkup();
-  renderEstimateLines(
-    Array.isArray(estimate.lineItems) ? estimate.lineItems : [],
+  if (!boundToLead) {
+    resetEstimateWorkflowForLead(leadId, {
+      status: leadId ? "loading" : "loading",
+    });
+  }
+
+  const preserveVisibleDraft = Boolean(
+    leadId &&
+      estimateEditorIsBoundToLead(leadId) &&
+      (state.estimateWorkflow.dirty || estimateOperationIsPending(leadId)),
   );
+
+  if (!preserveVisibleDraft) {
+    refs.estimateSubject.value =
+      estimate.subject || defaultEstimateTitle(lead);
+    refs.estimateBody.value = estimate.emailBody || "";
+    refs.estimateStartDate.value = safeString(
+      contractDetails.approximateStartDate,
+    );
+    refs.estimateCompletionDate.value = safeString(
+      contractDetails.approximateCompletionDate,
+    );
+    refs.estimatePaymentSchedule.value = safeString(
+      contractDetails.paymentSchedule,
+    );
+    refs.estimateSpecialOrderMaterials.value = safeString(
+      contractDetails.specialOrderMaterials,
+    );
+    refs.estimateKnownSubcontractors.value = safeString(
+      contractDetails.knownSubcontractors,
+    );
+    refs.estimateAssumptions.value = Array.isArray(estimate.assumptions)
+      ? estimate.assumptions.join("\n")
+      : "";
+    renderEstimateLines(
+      Array.isArray(estimate.lineItems) ? estimate.lineItems : [],
+    );
+  }
+
+  refs.estimateStandardTermsDisplay.innerHTML = estimateStandardTermsMarkup();
+  setEstimateEditorInteractivity(lead);
   renderEstimateSharePanel(lead);
   renderLeadEstimateClientRecords(lead);
   updateEstimatePreview();
@@ -9349,7 +11116,7 @@ function buildInvoicePreviewHtml(project, invoiceDraft) {
                     <div class="invoice-brand-copy">
                         <div class="invoice-status-pill ${escapeHtml(invoiceDraft.status)}">${escapeHtml(INVOICE_STATUS_META[invoiceDraft.status] || "Draft")}</div>
                         <h3>${escapeHtml(invoiceDraft.title || "Invoice")}</h3>
-                        <p>Professional client invoice prepared from the current Golden Brick job record so billing, collections, and receipts stay tied to the real project economics.</p>
+                        <p>Client-ready billing prepared from the current Golden Brick job record, with payment details and receipts kept in the same project file.</p>
                     </div>
                 </div>
 
@@ -9410,7 +11177,7 @@ function buildInvoicePreviewHtml(project, invoiceDraft) {
             <section class="invoice-section">
                 <div class="invoice-section-heading">
                     <span>Invoice overview</span>
-                    <p>Use this summary to explain what billing stage the client is paying for and what work or milestone it represents.</p>
+                    <p>This summary explains the billing stage, related work, and payment milestone.</p>
                 </div>
                 <div class="invoice-summary-shell">
                     <p>${escapeHtml(invoiceDraft.summary || "No invoice summary added yet.")}</p>
@@ -9420,7 +11187,7 @@ function buildInvoicePreviewHtml(project, invoiceDraft) {
             <section class="invoice-section">
                 <div class="invoice-section-heading">
                     <span>Custom details</span>
-                    <p>Flexible invoice metadata for milestone naming, property nicknames, terms, or any other billing context you want the client to see.</p>
+                    <p>Flexible invoice metadata for draw names, phases, property nicknames, terms, or other billing context the client should see.</p>
                 </div>
                 <div class="invoice-summary-shell">
                     ${invoiceCustomFieldMarkup(invoiceDraft)}
@@ -9469,8 +11236,8 @@ function buildInvoicePreviewHtml(project, invoiceDraft) {
                         <span>${escapeHtml(invoiceDraft.status === "paid" ? "Receipt status" : "Next step")}</span>
                         <p>${escapeHtml(
                           invoiceDraft.status === "paid"
-                            ? "This invoice has been marked paid, so the same billing information can now be delivered as a receipt."
-                            : "After you send this invoice, you can mark it paid later to record the collection and generate a receipt.",
+                            ? "This invoice has been marked paid, so the receipt can be saved to the job file and shared with the client."
+                            : "After payment is received, mark this invoice paid to record the collection and generate the receipt.",
                         )}</p>
                     </div>
                     <div class="invoice-receipt-panel">
@@ -9487,7 +11254,7 @@ function buildInvoicePreviewHtml(project, invoiceDraft) {
                     <strong>${escapeHtml(COMPANY_INFO.name)}</strong>
                     <div>${escapeHtml(COMPANY_INFO.email)} · ${escapeHtml(COMPANY_INFO.phone)}</div>
                 </div>
-                <div>${escapeHtml(invoiceDraft.status === "paid" ? "Paid receipt ready for client delivery." : "Invoice ready for client delivery.")}</div>
+                <div>${escapeHtml(invoiceDraft.status === "paid" ? "Paid receipt ready for the client file." : "Invoice ready for client delivery.")}</div>
             </footer>
         </article>
     `;
@@ -9502,7 +11269,7 @@ function buildInvoiceReceiptHtml(project, invoiceDraft) {
                     <div class="invoice-brand-copy">
                         <div class="invoice-status-pill paid">Paid receipt</div>
                         <h3>Receipt for ${escapeHtml(invoiceDraft.invoiceNumber || "invoice")}</h3>
-                        <p>This receipt confirms payment received by Golden Brick Construction for the invoice below.</p>
+                        <p>This receipt confirms payment received by Golden Brick Construction for the invoice and project shown below.</p>
                     </div>
                 </div>
                 <div class="invoice-company-card">
@@ -9844,7 +11611,7 @@ function buildInvoicePdf(doc, project, invoiceDraft) {
     doc,
     cursor,
     "Invoice overview",
-    "Use this summary to align the client on what this billing package covers.",
+    "This summary explains what this billing package covers.",
   );
   drawEstimatePdfParagraph(
     doc,
@@ -10100,6 +11867,103 @@ function buildInvoiceReceiptPdf(doc, project, invoiceDraft) {
   );
 }
 
+async function createInvoiceReceiptFile(project, invoiceDraft) {
+  const { jsPDF } = await loadJsPdfModule();
+  const pdf = new jsPDF({ unit: "pt", format: "letter" });
+  buildInvoiceReceiptPdf(pdf, project, invoiceDraft);
+  const receiptFileName = invoiceDownloadFilename(
+    project,
+    invoiceDraft,
+    "pdf",
+    "receipt",
+  );
+  return new File([pdf.output("blob")], receiptFileName, {
+    type: "application/pdf",
+  });
+}
+
+function invoiceReceiptTitle(invoiceDraft) {
+  return `Receipt ${invoiceDraft.invoiceNumber || "Golden Brick invoice"}`.trim();
+}
+
+function invoiceReceiptNote(invoiceDraft) {
+  return [
+    `Paid receipt for ${invoiceDraft.invoiceNumber || "the linked invoice"}.`,
+    `Amount received: ${formatCurrency(invoiceDraft.subtotal || 0)}.`,
+    invoiceDraft.paymentMethod ? `Method: ${invoiceDraft.paymentMethod}.` : "",
+    invoiceDraft.paymentReference
+      ? `Reference: ${invoiceDraft.paymentReference}.`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+async function saveAndShareInvoiceReceipt(invoiceOverride = null) {
+  const project = currentProject();
+  const activeInvoice = invoiceOverride || currentProjectInvoice();
+  if (!project || !activeInvoice) {
+    showToast("Create or select an invoice first.", "error");
+    return null;
+  }
+
+  const invoiceDraft = hydrateProjectInvoice(project, activeInvoice);
+  if (invoiceDraft.status !== "paid") {
+    showToast("Mark the invoice paid before saving a receipt.", "error");
+    return null;
+  }
+
+  const receiptFile = await createInvoiceReceiptFile(project, invoiceDraft);
+  const receiptTitle = invoiceReceiptTitle(invoiceDraft);
+  const receiptNote = invoiceReceiptNote(invoiceDraft);
+  const clientVisible = Boolean(safeString(project.customerId));
+  const documentId = await createRecordDocument({
+    links: buildRecordDocumentLinksFromProject(project),
+    category: "receipt",
+    sourceType: "upload",
+    title: receiptTitle,
+    note: receiptNote,
+    relatedDate: invoiceDraft.paidAt || new Date(),
+    file: receiptFile,
+    clientVisible,
+  });
+
+  await addProjectActivityEntry(
+    project.id,
+    "invoice",
+    clientVisible ? "Receipt shared" : "Receipt saved",
+    clientVisible
+      ? `${receiptTitle} was saved to documents and shared to the secure client portal.`
+      : `${receiptTitle} was saved to job documents. Link a customer record to share it through the secure client portal.`,
+  );
+
+  if (clientVisible) {
+    await postCustomerPortalThreadUpdateSafe({
+      customerId: project.customerId,
+      projectId: project.id,
+      body: buildClientPortalDocumentUpdateMessage({
+        project,
+        category: "receipt",
+        title: receiptTitle,
+        note: receiptNote,
+      }),
+    });
+  }
+
+  if (!clientVisible) {
+    downloadBlobFile(receiptFile.name, receiptFile, "application/pdf");
+  }
+
+  renderJobDocumentSummary();
+  renderJobDocumentList();
+  showToast(
+    clientVisible
+      ? "Receipt saved and shared to the client portal."
+      : "Receipt saved to job documents and downloaded.",
+  );
+  return documentId;
+}
+
 function updateInvoicePreview() {
   const project = currentProject();
   if (!project) {
@@ -10212,6 +12076,7 @@ function renderInvoicePanel(project) {
     updateInvoiceBillingState(null, null);
     refs.invoiceGenerateLinkButton.disabled = true;
     refs.invoiceCopyLinkButton.disabled = true;
+    refs.invoiceSendReceiptButton.disabled = true;
     return;
   }
 
@@ -10254,6 +12119,7 @@ function renderInvoicePanel(project) {
     refs.invoiceSubtotal.textContent = formatCurrency(0);
     refs.invoiceDownloadButton.disabled = true;
     refs.invoiceReceiptButton.disabled = true;
+    refs.invoiceSendReceiptButton.disabled = true;
     refs.invoiceMarkPaidButton.disabled = true;
     refs.invoiceImportEstimateButton.disabled = !editable;
     refs.invoiceAddLineButton.disabled = !editable;
@@ -10283,6 +12149,7 @@ function renderInvoicePanel(project) {
   refs.invoicePreview.innerHTML = buildInvoicePreviewHtml(project, hydrated);
   refs.invoiceDownloadButton.disabled = false;
   refs.invoiceReceiptButton.disabled = hydrated.status !== "paid";
+  refs.invoiceSendReceiptButton.disabled = !editable || hydrated.status !== "paid";
   refs.invoiceMarkPaidButton.disabled = !editable || hydrated.status === "paid";
   refs.invoiceImportEstimateButton.disabled =
     !editable || (!project.leadId && !state.projectScopeItems.length);
@@ -10549,6 +12416,7 @@ async function markInvoicePaid() {
       amount: invoice.subtotal,
       paymentType: "progress",
       method: invoice.paymentMethod,
+      reference: invoice.paymentReference,
       note: `Applied to invoice ${invoice.invoiceNumber}${invoice.paymentNote ? ` · ${invoice.paymentNote}` : ""}`,
       relatedDate: invoice.paidAt || new Date(),
       invoiceId: saved.id,
@@ -10582,6 +12450,23 @@ async function markInvoicePaid() {
     `${invoice.invoiceNumber} was marked paid for ${formatCurrency(invoice.subtotal || 0)}${invoice.paymentMethod ? ` via ${invoice.paymentMethod}` : ""}.`,
   );
   await syncProjectFinancialSnapshot(project.id, { projectData: project });
+
+  const paidInvoice = hydrateProjectInvoice(project, {
+    ...invoice,
+    id: saved.id,
+    status: "paid",
+    paymentRecordId: paymentRef.id,
+  });
+  const shouldSendReceipt = window.confirm(
+    project.customerId
+      ? "Invoice marked paid. Save and send the receipt to the secure client portal now?"
+      : "Invoice marked paid. Save the receipt to job documents and download a copy now?",
+  );
+
+  if (shouldSendReceipt) {
+    await saveAndShareInvoiceReceipt(paidInvoice);
+    return;
+  }
 
   showToast("Invoice marked paid and payment recorded.");
 }
@@ -10713,18 +12598,17 @@ function renderEntityTaskList(container, tasks, emptyMessage) {
 
 function renderLeadTabState() {
   refs.leadTabButtons.forEach((button) => {
-    button.classList.toggle(
-      "is-active",
-      button.dataset.leadTab === state.activeLeadTab,
-    );
+    const isActive = button.dataset.leadTab === state.activeLeadTab;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+    button.tabIndex = isActive ? 0 : -1;
   });
 
   Array.from(document.querySelectorAll("#lead-record-shell .tab-pane")).forEach(
     (pane) => {
-      pane.classList.toggle(
-        "is-active",
-        pane.id === `lead-tab-${state.activeLeadTab}`,
-      );
+      const isActive = pane.id === `lead-tab-${state.activeLeadTab}`;
+      pane.classList.toggle("is-active", isActive);
+      pane.setAttribute("aria-hidden", String(!isActive));
     },
   );
 }
@@ -10736,6 +12620,8 @@ function openLeadTab(tab, focusTarget = null) {
 
   if (focusTarget) {
     queueFocus(focusTarget);
+  } else {
+    resetRecordWorkspaceScroll(refs.leadRecordShell, { smooth: true });
   }
 }
 
@@ -10840,8 +12726,17 @@ function renderLeadDetail() {
 
   refs.noteForm.querySelector("button").disabled = !lead.id;
   refs.leadDocumentForm.querySelector("button").disabled = !lead.id;
-  refs.estimateAiButton.disabled = !lead.id || !isAdmin();
-  refs.estimateAddLineButton.disabled = !isAdmin();
+  const estimateBusy =
+    estimateOperationIsPending(lead.id) ||
+    state.estimateWorkflow.status === "loading";
+  refs.estimateAiButton.disabled =
+    !canEditEstimateForLead(lead) || estimateBusy;
+  refs.estimateAddLineButton.disabled =
+    !canEditEstimateForLead(lead) || estimateBusy;
+  if (refs.estimateMobileAddLineButton) {
+    refs.estimateMobileAddLineButton.disabled =
+      !canEditEstimateForLead(lead) || estimateBusy;
+  }
   refs.leadCreateTaskButton.disabled = !lead.id;
   refs.leadTaskDrawerButton.disabled = !lead.id;
   refs.leadMarkWonButton.disabled = !lead.id;
@@ -11023,7 +12918,7 @@ function setCustomerPortalPreviewLink(contact = null) {
   refs.customerPortalPreviewLink.hidden = !href;
   refs.customerPortalPreviewLink.href = href || "#";
   refs.customerPortalPreviewLink.textContent = safeString(contact?.authUid)
-    ? "Open client portal"
+    ? "Open secure portal"
     : "Open portal invite";
 }
 
@@ -11357,7 +13252,7 @@ async function saveCustomerPortalMessage(event) {
 
   const body = refs.customerPortalMessageBody.value.trim();
   if (!body) {
-    showToast("Write the client-facing message first.", "error");
+    showToast("Write the shared message first.", "error");
     refs.customerPortalMessageBody.focus();
     return;
   }
@@ -11608,11 +13503,11 @@ function renderCustomerPortalPublishingPanel(customer, rollup) {
           </div>
           <strong>${escapeHtml(lead.estimateTitle || lead.clientName || "Current estimate")}</strong>
           <p>${escapeHtml(lead.projectAddress || "Address pending")}</p>
-          <div class="simple-meta">${escapeHtml("Not visible in the client portal yet.")}</div>
+          <div class="simple-meta">${escapeHtml("Not visible in the secure portal yet.")}</div>
           <div class="inline-actions">
             ${customerPortalActionButton({
               action: "publish-estimate",
-              label: "Publish",
+              label: "Review & publish",
               targetType: "estimate",
               targetId: lead.id,
               leadId: lead.id,
@@ -11641,13 +13536,13 @@ function renderCustomerPortalPublishingPanel(customer, rollup) {
             isSigned
               ? `Signed ${formatDateTime(share.signedAt)}`
               : shareVisibleInPortal(share)
-                ? "Visible and signable in the client portal."
-                : "Not currently visible in the client portal.",
+                ? "Visible and signable in the secure portal."
+                : "Not currently visible in the secure portal.",
           )}</div>
           <div class="inline-actions">
             ${customerPortalActionButton({
               action: "publish-estimate",
-              label: isActive ? "Replace" : "Publish new",
+              label: isActive ? "Review replacement" : "Review & publish",
               targetType: "estimate",
               targetId: share.leadId,
               leadId: share.leadId,
@@ -11685,7 +13580,7 @@ function renderCustomerPortalPublishingPanel(customer, rollup) {
         </article>
       `;
     }),
-  ].join("") || `<div class="empty-note">No client-facing estimate records are active on this customer yet.</div>`;
+  ].join("") || `<div class="empty-note">No published estimate records are active on this customer yet.</div>`;
 
   refs.customerPortalInvoiceList.innerHTML =
     invoices.length
@@ -11809,8 +13704,8 @@ function renderCustomerPortalPublishingPanel(customer, rollup) {
                   forcedVisible
                     ? "Signed portal record stays visible automatically."
                     : visible
-                      ? "Visible in the client portal."
-                      : "Hidden from the client portal.",
+                      ? "Visible in the secure portal."
+                      : "Hidden from the secure portal.",
                 )}</div>
                 <div class="inline-actions">
                   ${
@@ -12166,7 +14061,7 @@ function renderCustomerPortalThreadList(customer) {
                         <span class="mini-pill">${escapeHtml(unread ? `${unread} unread` : "Read")}</span>
                     </div>
                     <span class="record-title">${escapeHtml(portalThreadTitle(thread))}</span>
-                    <p class="record-copy">${escapeHtml(thread.lastMessagePreview || "No messages yet. The client portal will keep project communication here.")}</p>
+                    <p class="record-copy">${escapeHtml(thread.lastMessagePreview || "No messages yet. The secure portal will keep project communication here.")}</p>
                     <div class="record-meta">
                         <div>${escapeHtml(thread.projectAddress || "Customer-wide communication")}</div>
                         <div>${escapeHtml(thread.lastMessageAt ? formatDateTime(thread.lastMessageAt) : "Waiting for first message")}</div>
@@ -12339,7 +14234,7 @@ function renderPortalQueuePanel() {
   if (!queueCards.length) {
     renderEmptyList(
       refs.portalQueueList,
-      "The client portal queue is clear right now.",
+      "The secure portal queue is clear right now.",
     );
     return;
   }
@@ -12471,6 +14366,7 @@ function renderCustomerList() {
                     <div>${escapeHtml(formatCurrency(rollup.totalWonSales))} won sales</div>
                     <div>${escapeHtml(formatCurrency(rollup.totalPaymentsReceived))} payments received</div>
                 </div>
+                <span class="record-edit-affordance">Open &amp; edit</span>
             </button>
         `;
     })
@@ -12717,7 +14613,7 @@ function renderCustomerDetail() {
               <span class="record-title">${escapeHtml(estimateLead.estimateTitle || estimateLead.clientName || "Estimate")}</span>
               <p class="record-copy">${escapeHtml(estimateLead.projectAddress || "Address pending")}</p>
               <div class="record-meta">
-                <div>${escapeHtml(share ? "Client-facing history available" : "Internal draft only")}</div>
+                <div>${escapeHtml(share ? "Published history available" : "Internal draft only")}</div>
                 <div>${escapeHtml(formatDateTime(estimateLead.estimateUpdatedAt || estimateLead.updatedAt || estimateLead.createdAt))}</div>
               </div>
             </button>
@@ -12792,7 +14688,7 @@ function renderJobMetrics() {
 
   renderMetricStrip(refs.jobMetrics, [
     { label: "Open jobs", value: inProgress },
-    { label: "Finished jobs", value: completed },
+    { label: "Completed jobs", value: completed },
     { label: "Contract revenue", value: formatCurrency(totalRevenue) },
     { label: "Payments received", value: formatCurrency(totalPayments) },
   ]);
@@ -12800,6 +14696,17 @@ function renderJobMetrics() {
 
 function renderJobList() {
   const projects = filteredProjects();
+  refs.jobStatusFilterButtons.forEach((button) => {
+    const isActive = button.dataset.jobStatusFilter === state.jobStatus;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+  if (refs.jobListHeading) {
+    refs.jobListHeading.textContent =
+      state.jobStatus === "completed"
+        ? "Completed projects"
+        : "Active projects";
+  }
 
   if (!projects.length) {
     renderEmptyList(refs.jobList, "No jobs match the current filters.");
@@ -12824,10 +14731,10 @@ function renderJobList() {
                             <span class="mini-pill">${escapeHtml(kindLabel)}</span>
                             ${billingState ? `<span class="mini-pill">${escapeHtml(billingState.label)}</span>` : ""}
                         </div>
-                        <span class="record-title">${escapeHtml(project.clientName || "Unnamed job")}</span>
-                        <p class="record-copy">${escapeHtml(project.projectAddress || "Address pending")}</p>
+                        <span class="record-title">${escapeHtml(project.projectAddress || "Address pending")}</span>
+                        <p class="record-copy">${escapeHtml(project.clientName || project.customerName || "Unnamed client")} · ${escapeHtml(project.projectType || "Project")}</p>
                     </div>
-                    <span class="job-open-affordance">Open workspace</span>
+                    <span class="job-open-affordance">Open &amp; edit</span>
                 </div>
                 <div class="job-card-kpis">
                     <span><strong>${escapeHtml(formatCurrency(projectRevenueValue(project)))}</strong> Contract</span>
@@ -12843,6 +14750,33 @@ function renderJobList() {
         `;
     })
     .join("");
+}
+
+function renderJobProjectSwitcher(project = currentProject()) {
+  if (!refs.jobProjectSwitcherSelect) return;
+
+  const completedView = project?.status === "completed";
+  const options = sortByUpdatedDesc(
+    visibleProjects().filter((item) =>
+      completedView
+        ? item.status === "completed"
+        : item.status !== "completed",
+    ),
+  );
+  refs.jobProjectSwitcherSelect.innerHTML = options.length
+    ? options
+        .map(
+          (item) => `
+            <option value="${escapeHtml(item.id)}">${escapeHtml(item.projectAddress || "Address pending")} — ${escapeHtml(item.clientName || item.customerName || "Unnamed client")}</option>
+          `,
+        )
+        .join("")
+    : `<option value="">No projects available</option>`;
+  refs.jobProjectSwitcherSelect.value = options.some(
+    (item) => item.id === project?.id,
+  )
+    ? project.id
+    : options[0]?.id || "";
 }
 
 function calendarStatusLabel(status) {
@@ -12915,7 +14849,7 @@ function renderCalendarFilterOptions() {
     .concat(
       visibleProjects().map(
         (project) => `
-          <option value="${escapeHtml(project.id)}">${escapeHtml(project.clientName || project.projectAddress || "Unnamed job")}</option>
+          <option value="${escapeHtml(project.id)}">${escapeHtml(project.projectAddress || "Address pending")} — ${escapeHtml(project.clientName || project.customerName || "Unnamed client")}</option>
         `,
       ),
     )
@@ -12934,47 +14868,21 @@ function renderCalendarFormOptions() {
 
   const selectedProjectId =
     refs.calendarLinkedProjectSelect.value || state.calendarProjectId || "";
-  refs.calendarLinkedProjectSelect.innerHTML = [
-    `<option value="">No linked job</option>`,
-  ]
-    .concat(
-      visibleProjects().map(
-        (project) => `
-          <option value="${escapeHtml(project.id)}">${escapeHtml(project.clientName || project.projectAddress || "Unnamed job")}</option>
-        `,
-      ),
-    )
-    .join("");
-  refs.calendarLinkedProjectSelect.value = visibleProjects().some(
+  const selectedProject = visibleProjects().find(
     (project) => project.id === selectedProjectId,
-  )
-    ? selectedProjectId
-    : "";
+  );
+  const selectedCustomerId =
+    refs.calendarLinkedCustomerSelect.value ||
+    selectedProject?.customerId ||
+    "";
 
-  const selectedLeadId = refs.calendarLinkedLeadSelect.value || "";
-  refs.calendarLinkedLeadSelect.innerHTML = [`<option value="">No linked lead</option>`]
-    .concat(
-      visibleLeads().map(
-        (lead) => `
-          <option value="${escapeHtml(lead.id)}">${escapeHtml(lead.clientName || lead.projectAddress || "Unnamed lead")}</option>
-        `,
-      ),
-    )
-    .join("");
-  refs.calendarLinkedLeadSelect.value = visibleLeads().some(
-    (lead) => lead.id === selectedLeadId,
-  )
-    ? selectedLeadId
-    : "";
-
-  const selectedCustomerId = refs.calendarLinkedCustomerSelect.value || "";
   refs.calendarLinkedCustomerSelect.innerHTML = [
-    `<option value="">No linked customer</option>`,
+    `<option value="">Choose a client</option>`,
   ]
     .concat(
       visibleCustomers().map(
         (customer) => `
-          <option value="${escapeHtml(customer.id)}">${escapeHtml(customer.name || customer.primaryEmail || "Unnamed customer")}</option>
+          <option value="${escapeHtml(customer.id)}">${escapeHtml(customer.name || customer.primaryEmail || "Unnamed client")}</option>
         `,
       ),
     )
@@ -12983,6 +14891,59 @@ function renderCalendarFormOptions() {
     (customer) => customer.id === selectedCustomerId,
   )
     ? selectedCustomerId
+    : "";
+
+  const selectedCustomer = visibleCustomers().find(
+    (customer) => customer.id === refs.calendarLinkedCustomerSelect.value,
+  );
+  const matchingProjects = visibleProjects().filter((project) => {
+    if (project.status === "completed") return false;
+    if (!selectedCustomer) return true;
+    return (
+      project.customerId === selectedCustomer.id ||
+      safeString(project.customerName || project.clientName).toLowerCase() ===
+        safeString(selectedCustomer.name).toLowerCase()
+    );
+  });
+  refs.calendarLinkedProjectSelect.innerHTML = [
+    `<option value="">${selectedCustomer ? "Choose a project address" : "Choose a client first or view all projects"}</option>`,
+  ]
+    .concat(
+      matchingProjects.map(
+        (project) => `
+          <option value="${escapeHtml(project.id)}">${escapeHtml(project.projectAddress || "Address pending")} — ${escapeHtml(project.clientName || project.customerName || "Unnamed client")}</option>
+        `,
+      ),
+    )
+    .join("");
+  refs.calendarLinkedProjectSelect.value = matchingProjects.some(
+    (project) => project.id === selectedProjectId,
+  )
+    ? selectedProjectId
+    : "";
+
+  const selectedLeadId = refs.calendarLinkedLeadSelect.value || "";
+  const matchingLeads = visibleLeads().filter((lead) => {
+    if (!selectedCustomer) return true;
+    return (
+      lead.customerId === selectedCustomer.id ||
+      safeString(lead.clientName).toLowerCase() ===
+        safeString(selectedCustomer.name).toLowerCase()
+    );
+  });
+  refs.calendarLinkedLeadSelect.innerHTML = [`<option value="">No linked lead</option>`]
+    .concat(
+      matchingLeads.map(
+        (lead) => `
+          <option value="${escapeHtml(lead.id)}">${escapeHtml(lead.projectAddress || "Address pending")} — ${escapeHtml(lead.clientName || "Unnamed lead")}</option>
+        `,
+      ),
+    )
+    .join("");
+  refs.calendarLinkedLeadSelect.value = matchingLeads.some(
+    (lead) => lead.id === selectedLeadId,
+  )
+    ? selectedLeadId
     : "";
 
   const selectedStaffUids = new Set(
@@ -13080,6 +15041,7 @@ function renderCalendarView() {
   if (!refs.calendarMetrics) {
     return;
   }
+  renderGoogleCalendarConnection();
   refs.calendarScopeFilter.value = state.calendarScope;
   refs.calendarStatusFilter.value = state.calendarStatus;
   renderCalendarFilterOptions();
@@ -13811,6 +15773,111 @@ function renderJobOverviewSummary(project) {
     .join("");
 }
 
+function renderJobWorkPanel(project) {
+  if (!refs.jobWorkSummary || !refs.jobWorkTaskList) {
+    return;
+  }
+
+  if (!project?.id) {
+    refs.jobWorkSummary.innerHTML = "";
+    refs.jobWorkFinancials.innerHTML = "";
+    renderEmptyList(refs.jobWorkTaskList, "Select a job to see open work.");
+    renderEmptyList(refs.jobWorkScheduleList, "Select a job to see schedule.");
+    return;
+  }
+
+  const financials = projectFinancials(project);
+  const openTasks = relatedTasksForEntity("projectId", project.id)
+    .filter((task) => !taskIsCompleted(task))
+    .sort((left, right) => toMillis(left.dueAt) - toMillis(right.dueAt));
+  const events = calendarEventsForProject(project.id).filter(
+    (event) => calendarEventStartMillis(event) >= Date.now(),
+  );
+
+  refs.jobWorkSummary.innerHTML = [
+    {
+      label: "Phase",
+      value: project.phaseLabel || JOB_STATUS_META[project.status] || "Active",
+    },
+    { label: "Next step", value: project.nextStep || "Not set" },
+    {
+      label: "Target",
+      value:
+        project.targetWindow ||
+        (project.targetDate ? formatDateOnly(project.targetDate) : "Not set"),
+    },
+    {
+      label: "Balance",
+      value: formatCurrency(
+        firstFiniteNumber(financials.balanceRemaining, project.balanceRemaining, 0),
+      ),
+    },
+  ]
+    .map(
+      (item) => `
+        <article class="summary-card">
+          <span>${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+        </article>
+      `,
+    )
+    .join("");
+
+  refs.jobWorkFinancials.innerHTML = [
+    { label: "Contract", value: formatCurrency(projectRevenueValue(project)) },
+    {
+      label: "Paid",
+      value: formatCurrency(firstFiniteNumber(financials.totalPayments, 0)),
+    },
+    {
+      label: "Expenses",
+      value: formatCurrency(firstFiniteNumber(financials.totalExpenses, 0)),
+    },
+    {
+      label: "Profit",
+      value: formatCurrency(
+        firstFiniteNumber(
+          financials.projectedGrossProfit,
+          financials.profit,
+          0,
+        ),
+      ),
+    },
+  ]
+    .map(
+      (item) => `
+        <article class="finance-card">
+          <span>${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+        </article>
+      `,
+    )
+    .join("");
+
+  renderEntityTaskList(
+    refs.jobWorkTaskList,
+    openTasks.slice(0, 5),
+    "No open tasks linked to this job.",
+  );
+
+  if (!events.length) {
+    renderEmptyList(refs.jobWorkScheduleList, "No upcoming events for this job.");
+  } else {
+    refs.jobWorkScheduleList.innerHTML = events
+      .slice(0, 4)
+      .map(
+        (event) => `
+          <article class="timeline-item">
+            <strong>${escapeHtml(event.title || event.clientTitle || "Scheduled event")}</strong>
+            <p>${escapeHtml(calendarTypeLabel(event.type))} · ${escapeHtml(calendarStatusLabel(event.status))}</p>
+            <div class="timeline-meta">${escapeHtml(formatDateTime(event.startAt))}${event.clientVisible ? " · Client-visible" : ""}</div>
+          </article>
+        `,
+      )
+      .join("");
+  }
+}
+
 function renderJobEstimatePanel(project) {
   if (!project) {
     refs.jobEstimateSummary.innerHTML = "";
@@ -13894,7 +15961,7 @@ function renderJobEstimatePanel(project) {
         <strong>${escapeHtml(estimate?.subject || linkedLead.estimateTitle || "Original estimate available")}</strong>
         <div>${escapeHtml(
           share
-            ? `${estimateShareStatusLabel(share)} in the client portal. ${importedScopeCopy}`
+            ? `${estimateShareStatusLabel(share)} in the secure portal. ${importedScopeCopy}`
             : `Internal estimate only. ${importedScopeCopy}`,
         )}</div>
     `
@@ -13925,16 +15992,16 @@ function renderJobEstimatePanel(project) {
     `,
     `
         <article class="simple-item">
-            <strong>Client-facing version</strong>
+            <strong>Published version</strong>
             <p>${
               shareUrl
                 ? escapeHtml(
                     safeString(share?.status) === "signed"
-                      ? "The client already signed this estimate record. You can open the archived client-facing page or the signed PDF."
-                      : "This estimate already has a client-facing version. Open it directly when you need to confirm what the client sees.",
+                      ? "This estimate record is signed. You can open the archived review page or the signed PDF."
+                      : "This estimate already has a published version. Open it directly when you need to confirm what was shared.",
                   )
                 : escapeHtml(
-                    "No client-facing estimate link is active right now. Publish from the lead if you need a new client review link.",
+                    "No published estimate link is active right now. Publish from the lead if you need a new review link.",
                   )
             }</p>
             <div class="simple-meta">${escapeHtml(
@@ -13968,18 +16035,17 @@ function renderJobEstimatePanel(project) {
 
 function renderJobTabState() {
   refs.jobTabButtons.forEach((button) => {
-    button.classList.toggle(
-      "is-active",
-      button.dataset.jobTab === state.activeJobTab,
-    );
+    const isActive = button.dataset.jobTab === state.activeJobTab;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+    button.tabIndex = isActive ? 0 : -1;
   });
 
   Array.from(document.querySelectorAll("#job-record-shell .tab-pane")).forEach(
     (pane) => {
-      pane.classList.toggle(
-        "is-active",
-        pane.id === `job-tab-${state.activeJobTab}`,
-      );
+      const isActive = pane.id === `job-tab-${state.activeJobTab}`;
+      pane.classList.toggle("is-active", isActive);
+      pane.setAttribute("aria-hidden", String(!isActive));
     },
   );
 }
@@ -13988,15 +16054,8 @@ function openJobTab(tab, focusTarget = null) {
   state.activeJobTab = tab;
   renderJobTabState();
   syncLeadRouteState();
-  const activeButton = refs.jobTabButtons.find(
-    (button) => button.dataset.jobTab === tab,
-  );
-  if (activeButton) {
-    activeButton.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "center",
-    });
+  if (!focusTarget) {
+    resetRecordWorkspaceScroll(refs.jobRecordShell, { smooth: true });
   }
   queueFocus(focusTarget);
 }
@@ -14149,19 +16208,339 @@ function renderExpenseList() {
   );
 }
 
+function paymentReceiptNumberFor(payment) {
+  return (
+    safeString(payment?.receiptNumber) ||
+    buildPaymentReceiptNumber(
+      safeString(payment?.id) || "payment",
+      payment?.relatedDate || payment?.createdAt || new Date(),
+    )
+  );
+}
+
+function paymentReceiptProjectTotal(project) {
+  const financials = projectFinancials(project);
+  const linkedLead = leadForProject(project);
+  const baseContractValue = [
+    project?.baseContractValue,
+    linkedLead?.estimateSubtotal,
+    financials?.baseContractValue,
+  ]
+    .map(toNumber)
+    .find((value) => value > 0);
+
+  if (baseContractValue) {
+    const approvedChangeOrdersTotal = selectedProjectFinancialsReady(project)
+      ? state.projectChangeOrders
+          .filter(
+            (changeOrder) =>
+              normaliseChangeOrderStatus(changeOrder?.status) === "approved",
+          )
+          .reduce(
+            (sum, changeOrder) => sum + toNumber(changeOrder?.amount),
+            0,
+          )
+      : firstFiniteNumber(
+          project?.approvedChangeOrdersTotal,
+          financials?.approvedChangeOrdersTotal,
+          0,
+        );
+    return Math.max(0, baseContractValue + approvedChangeOrdersTotal);
+  }
+
+  return Math.max(
+    0,
+    [
+      project?.totalContractRevenue,
+      financials?.totalContractRevenue,
+      project?.jobValue,
+    ]
+      .map(toNumber)
+      .find((value) => value > 0) || 0,
+  );
+}
+
+function paymentReceiptData(project, payment) {
+  const paymentId = safeString(payment?.id);
+  const amount = toNumber(payment?.amount);
+  const payments = state.projectPayments.some(
+    (entry) => safeString(entry.id) === paymentId,
+  )
+    ? state.projectPayments
+    : [...state.projectPayments, payment];
+  const totalReceived = payments.reduce(
+    (sum, entry) => sum + toNumber(entry.amount),
+    0,
+  );
+  const contractValue = paymentReceiptProjectTotal(project);
+
+  return {
+    company: {
+      name: COMPANY_INFO.name,
+      email: COMPANY_INFO.email,
+      phone: COMPANY_INFO.phone,
+    },
+    receipt: {
+      number: paymentReceiptNumberFor(payment),
+      date: payment?.relatedDate || payment?.createdAt || new Date(),
+      amount,
+      type:
+        PAYMENT_TYPE_META[payment?.paymentType] ||
+        safeString(payment?.paymentType) ||
+        "Payment",
+      method: safeString(payment?.method),
+      reference: safeString(
+        payment?.reference || payment?.paymentReference,
+      ),
+      note: safeString(payment?.note),
+    },
+    client: {
+      name: invoiceClientName(project),
+    },
+    project: {
+      address: invoiceProjectAddress(project),
+      type: safeString(project?.projectType) || "Construction project",
+      label:
+        [
+          safeString(project?.projectType),
+          invoiceProjectAddress(project),
+        ]
+          .filter(Boolean)
+          .join(" - ") || "Construction project",
+      contractValue,
+      previouslyReceived: Math.max(0, totalReceived - amount),
+      totalReceived,
+      balanceRemaining: Math.max(0, contractValue - totalReceived),
+    },
+  };
+}
+
+function paymentReceiptTitle(payment) {
+  return `Payment Receipt ${paymentReceiptNumberFor(payment)}`;
+}
+
+function paymentReceiptNote(payment) {
+  return [
+    `${PAYMENT_TYPE_META[payment?.paymentType] || "Payment"} receipt for ${formatCurrency(payment?.amount || 0)}.`,
+    payment?.method ? `Method: ${payment.method}.` : "",
+    payment?.reference || payment?.paymentReference
+      ? `Reference: ${payment.reference || payment.paymentReference}.`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+async function createPaymentReceiptFile(project, payment) {
+  const data = paymentReceiptData(project, payment);
+  const { jsPDF } = await loadJsPdfModule();
+  const pdf = new jsPDF({ unit: "pt", format: "letter" });
+  buildPaymentReceiptPdf(pdf, data);
+  return new File([pdf.output("blob")], paymentReceiptFilename(data), {
+    type: "application/pdf",
+  });
+}
+
+async function downloadPaymentReceipt(payment, button = null) {
+  const project = currentProject();
+  if (!project || !payment) {
+    showToast("Select a recorded payment first.", "error");
+    return;
+  }
+
+  const originalLabel = button?.textContent || "";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Preparing receipt...";
+  }
+
+  try {
+    const receiptFile = await createPaymentReceiptFile(project, payment);
+    downloadBlobFile(receiptFile.name, receiptFile, "application/pdf");
+    showToast("Payment receipt downloaded.");
+  } catch (error) {
+    console.error("Payment receipt PDF generation failed.", error);
+    const data = paymentReceiptData(project, payment);
+    const fallbackName = paymentReceiptFilename(data).replace(/\.pdf$/i, ".html");
+    downloadBlobFile(
+      fallbackName,
+      buildPaymentReceiptHtml(data),
+      "text/html;charset=utf-8",
+    );
+    showToast(
+      "Receipt PDF failed. A styled HTML receipt was downloaded instead.",
+      "error",
+    );
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalLabel;
+    }
+  }
+}
+
+async function existingPaymentReceiptDocument(payment) {
+  const documentId = safeString(payment?.receiptDocumentId);
+  if (!documentId) {
+    return null;
+  }
+
+  const loaded = state.projectDocuments.find(
+    (item) => safeString(item.id) === documentId,
+  );
+  if (loaded) {
+    return loaded;
+  }
+
+  const snapshot = await getDoc(doc(state.db, "recordDocuments", documentId));
+  return snapshot.exists() ? normaliseFirestoreDoc(snapshot) : null;
+}
+
+async function saveAndSharePaymentReceipt(payment, button = null) {
+  const project = currentProject();
+  if (!project || !payment?.id || !isAdmin()) {
+    showToast("Select a recorded payment first.", "error");
+    return null;
+  }
+
+  const originalLabel = button?.textContent || "";
+  if (button) {
+    button.disabled = true;
+    button.textContent = project.customerId ? "Sending receipt..." : "Saving receipt...";
+  }
+
+  try {
+    const clientVisible = Boolean(safeString(project.customerId));
+    const receiptTitle = paymentReceiptTitle(payment);
+    const receiptNote = paymentReceiptNote(payment);
+    let receiptDocument = await existingPaymentReceiptDocument(payment);
+    let documentId = safeString(receiptDocument?.id);
+
+    if (!documentId) {
+      const receiptFile = await createPaymentReceiptFile(project, payment);
+      documentId = await createRecordDocument({
+        links: buildRecordDocumentLinksFromProject(project),
+        category: "receipt",
+        sourceType: "upload",
+        title: receiptTitle,
+        note: receiptNote,
+        relatedDate: payment.relatedDate || payment.createdAt || new Date(),
+        file: receiptFile,
+        clientVisible,
+      });
+    } else if (clientVisible && receiptDocument?.clientVisible !== true) {
+      await updateDoc(doc(state.db, "recordDocuments", documentId), {
+        clientVisible: true,
+        customerId: project.customerId,
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    await updateDoc(
+      doc(state.db, "projects", project.id, "payments", payment.id),
+      {
+        receiptNumber: paymentReceiptNumberFor(payment),
+        receiptDocumentId: documentId,
+        receiptSharedToPortal: clientVisible,
+        receiptUpdatedAt: serverTimestamp(),
+      },
+    );
+
+    await addProjectActivityEntry(
+      project.id,
+      "payment",
+      clientVisible ? "Payment receipt shared" : "Payment receipt saved",
+      clientVisible
+        ? `${receiptTitle} was saved to Documents and shared through the secure client portal.`
+        : `${receiptTitle} was saved to job Documents. Link a customer account to send it through the secure client portal.`,
+    );
+
+    if (clientVisible) {
+      await postCustomerPortalThreadUpdateSafe({
+        customerId: project.customerId,
+        projectId: project.id,
+        body: buildClientPortalDocumentUpdateMessage({
+          project,
+          category: "receipt",
+          title: receiptTitle,
+          note: receiptNote,
+        }),
+      });
+    } else {
+      await downloadPaymentReceipt(payment);
+    }
+
+    renderJobDocumentSummary();
+    renderJobDocumentList();
+    showToast(
+      clientVisible
+        ? "Receipt saved and sent to the client portal."
+        : "Receipt saved to Documents and downloaded.",
+    );
+    return documentId;
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalLabel;
+    }
+  }
+}
+
+function renderPaymentReceiptOptions(project) {
+  if (!refs.paymentSendReceipt || !refs.paymentReceiptDeliveryCopy) {
+    return;
+  }
+
+  const canSend = Boolean(safeString(project?.customerId));
+  refs.paymentSendReceipt.disabled = !canSend;
+  if (!canSend) {
+    refs.paymentSendReceipt.checked = false;
+  }
+  refs.paymentReceiptDeliveryCopy.textContent = canSend
+    ? `Sending saves the PDF to Documents and shares it with ${invoiceClientName(project)} in the secure client portal.`
+    : "Link this job to a customer account to send receipts. You can still generate and download the PDF.";
+}
+
 function renderPaymentList() {
+  const project = currentProject();
   renderSimpleEntries(
     refs.paymentList,
     state.projectPayments,
-    (payment) => `
-        <article class="simple-item">
-            <strong>${escapeHtml(PAYMENT_TYPE_META[payment.paymentType] || payment.method || "Payment")} · ${escapeHtml(formatCurrency(payment.amount || 0))}</strong>
+    (payment) => {
+      const receiptShared = payment.receiptSharedToPortal === true;
+      const receiptSaved = Boolean(safeString(payment.receiptDocumentId));
+      const sendLabel = project?.customerId
+        ? receiptShared
+          ? "Send again"
+          : "Send receipt"
+        : receiptSaved
+          ? "Saved to Documents"
+          : "Save receipt";
+      const sendDisabled = !project?.customerId && receiptSaved;
+      return `
+        <article class="simple-item payment-record">
+            <div class="payment-record-head">
+                <div>
+                    <strong>${escapeHtml(PAYMENT_TYPE_META[payment.paymentType] || payment.method || "Payment")} · ${escapeHtml(formatCurrency(payment.amount || 0))}</strong>
+                    <div class="simple-meta">${escapeHtml(paymentReceiptNumberFor(payment))}</div>
+                </div>
+                <span class="payment-receipt-state ${receiptShared ? "is-shared" : ""}">${escapeHtml(receiptShared ? "Receipt shared" : receiptSaved ? "Receipt saved" : "Receipt available")}</span>
+            </div>
             <p>${escapeHtml(payment.note || "")}</p>
             <div class="simple-meta">
-                ${escapeHtml(formatDateOnly(payment.relatedDate || payment.createdAt))} · ${escapeHtml(payment.method || "No method")}${payment.invoiceNumber ? ` · ${escapeHtml(payment.invoiceNumber)}` : ""}
+                ${escapeHtml(formatDateOnly(payment.relatedDate || payment.createdAt))} · ${escapeHtml(payment.method || "No method")}${payment.reference || payment.paymentReference ? ` · Ref ${escapeHtml(payment.reference || payment.paymentReference)}` : ""}${payment.invoiceNumber ? ` · ${escapeHtml(payment.invoiceNumber)}` : ""}
+            </div>
+            <div class="payment-record-actions">
+                <button type="button" class="ghost-button" data-payment-receipt-download="${escapeHtml(payment.id)}">Download receipt</button>
+                ${
+                  isAdmin()
+                    ? `<button type="button" class="secondary-button" data-payment-receipt-send="${escapeHtml(payment.id)}" ${sendDisabled ? "disabled" : ""}>${escapeHtml(sendLabel)}</button>`
+                    : ""
+                }
             </div>
         </article>
-    `,
+    `;
+    },
     "No payments recorded yet.",
   );
 }
@@ -14214,7 +16593,7 @@ function renderJobScopeSummary(project) {
     if (showImport) {
       refs.jobScopeSummary.innerHTML = `
                 <div><strong>Scope snapshot missing:</strong> This older job does not have renovation checklist items yet.</div>
-                <div>Import the linked estimate to create a field-friendly checklist without changing the client-facing proposal.</div>
+                <div>Import the linked estimate to create a field-friendly checklist without changing the published proposal.</div>
             `;
       return;
     }
@@ -14498,6 +16877,7 @@ function renderJobHistory(project) {
         <article class="timeline-item">
             <strong>${escapeHtml(item.title || "History item")}</strong>
             <p>${escapeHtml(item.body || item.note || "")}</p>
+            ${activityDetailMarkup(item)}
             <div class="timeline-meta">
                 ${escapeHtml(item.historySource || item.activityType || "system")} · ${escapeHtml(item.actorName || item.createdByName || "Team")} · ${escapeHtml(formatDateTime(item.createdAt))}
             </div>
@@ -14583,6 +16963,7 @@ function renderJobDocumentList() {
 function renderJobDetail() {
   const project = currentProject();
   refs.jobsView.classList.toggle("is-job-workspace-active", Boolean(project));
+  renderJobProjectSwitcher(project);
 
   if (!project) {
     resetChangeOrderForm();
@@ -14595,6 +16976,7 @@ function renderJobDetail() {
     refs.jobRecordBadge.textContent = "No job selected";
     refs.jobRecordBadge.className = "status-pill neutral";
     refs.jobRecordContext.innerHTML = "";
+    renderJobWorkPanel(null);
     renderJobCalendarPanel(null);
     refs.jobEstimateSummary.innerHTML = "";
     refs.jobEstimateStatus.innerHTML =
@@ -14619,6 +17001,12 @@ function renderJobDetail() {
     if (refs.jobDeleteButton) {
       refs.jobDeleteButton.disabled = true;
     }
+    if (refs.jobCompleteButton) {
+      refs.jobCompleteButton.hidden = true;
+      refs.jobCompleteButton.disabled = true;
+    }
+    refs.jobStatusSelect.value = "in_progress";
+    refs.jobStatusSelect.disabled = true;
     refs.jobCustomerSelect.innerHTML = `<option value="">No linked customer</option>`;
     refs.jobCustomerSelect.disabled = true;
     refs.jobBaseContractInput.value = "";
@@ -14708,6 +17096,7 @@ function renderJobDetail() {
   renderJobRecordContext(project);
   renderJobSummaryStrip(project);
   renderJobOverviewSummary(project);
+  renderJobWorkPanel(project);
   renderJobCalendarPanel(project);
   renderJobEstimatePanel(project);
   renderRevenueSummary(project);
@@ -14739,6 +17128,7 @@ function renderJobDetail() {
       refs.expenseResetButton.hidden = true;
     }
   }
+  renderPaymentReceiptOptions(project);
   renderPaymentList();
   renderInvoicePanel(project);
   renderJobScopeSummary(project);
@@ -14771,6 +17161,10 @@ function renderJobDetail() {
   }
   if (refs.jobDeleteButton) {
     refs.jobDeleteButton.disabled = !project.id || !isAdmin();
+  }
+  if (refs.jobCompleteButton) {
+    refs.jobCompleteButton.hidden = !isAdmin() || project.status === "completed";
+    refs.jobCompleteButton.disabled = !project.id || project.status === "completed";
   }
 
   if (!refs.changeOrderDate.value) {
@@ -14923,6 +17317,7 @@ function renderVendorList() {
                     <div>${escapeHtml(formatCurrency(rollup.totalOpenAmount))} open payables</div>
                     <div>${escapeHtml(`${rollup.overdueBills.length} overdue`)}</div>
                 </div>
+                <span class="record-edit-affordance">Open &amp; edit</span>
             </button>
         `;
     })
@@ -14997,25 +17392,27 @@ function renderVendorRecordContext(vendor, rollup) {
 
 function renderVendorTabState() {
   refs.vendorTabButtons.forEach((button) => {
-    button.classList.toggle(
-      "is-active",
-      button.dataset.vendorTab === state.activeVendorTab,
-    );
+    const isActive = button.dataset.vendorTab === state.activeVendorTab;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+    button.tabIndex = isActive ? 0 : -1;
   });
 
   Array.from(
     document.querySelectorAll("#vendor-record-shell .tab-pane"),
   ).forEach((pane) => {
-    pane.classList.toggle(
-      "is-active",
-      pane.id === `vendor-tab-${state.activeVendorTab}`,
-    );
+    const isActive = pane.id === `vendor-tab-${state.activeVendorTab}`;
+    pane.classList.toggle("is-active", isActive);
+    pane.setAttribute("aria-hidden", String(!isActive));
   });
 }
 
 function openVendorTab(tab, focusTarget = null) {
   state.activeVendorTab = tab;
   renderVendorTabState();
+  if (!focusTarget) {
+    resetRecordWorkspaceScroll(refs.vendorRecordShell, { smooth: true });
+  }
   queueFocus(focusTarget);
 }
 
@@ -15592,6 +17989,9 @@ function renderTemplateForm() {
   refs.templateAgreementTerms.value = estimateAgreementTermsText(
     state.template,
   );
+  refs.templateContractorAddress.value = contractorBusinessAddress(
+    state.template,
+  );
 }
 
 function staffWorkloadForMember(member) {
@@ -15887,36 +18287,75 @@ function renderStaffList() {
     .join("");
 }
 
+function renderAdminSectionState() {
+  if (!refs.staffAdminShell || !isAdmin()) return;
+
+  const sectionSelectors = {
+    team: [".team-ops-panel", "#staff-form"],
+    portal: [".portal-queue-panel"],
+    templates: [".service-template-panel", "#template-form"],
+    archive: [".trash-panel"],
+  };
+  const activeSection = sectionSelectors[state.activeAdminSection]
+    ? state.activeAdminSection
+    : "team";
+  const allSelectors = Object.values(sectionSelectors).flat();
+
+  allSelectors.forEach((selector) => {
+    const panel = refs.staffAdminShell.querySelector(selector);
+    const shouldShow = sectionSelectors[activeSection].includes(selector);
+    panel?.classList.toggle("admin-section-panel-hidden", !shouldShow);
+  });
+
+  refs.adminSectionButtons.forEach((button) => {
+    const isActive = button.dataset.adminSection === activeSection;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-current", isActive ? "page" : "false");
+  });
+}
+
 function renderAll() {
   renderWorkspaceTools();
   renderCurrentUserCard();
   renderSidebarSummary();
   renderWorkspaceCommandBar();
   renderNotificationCenter();
-  renderTodayView();
-  renderTaskMetrics();
-  renderTaskList();
-  renderTaskDetail();
-  renderLeadMetrics();
-  renderLeadListShell();
-  renderLeadWorkspaceSurface();
-  renderLeadDetail();
-  renderCustomerMetrics();
-  renderCustomerList();
-  renderCustomerDetail();
-  renderJobMetrics();
-  renderJobList();
-  renderJobDetail();
-  renderCalendarView();
-  renderVendorMetrics();
-  renderVendorList();
-  renderVendorDetail();
-  renderServiceTemplateManager();
-  renderTemplateForm();
-  renderPortalQueuePanel();
-  renderTrashPanel();
-  renderStaffWorkloadPanel();
-  renderStaffList();
+
+  if (state.activeView === "today-view") {
+    renderTodayView();
+  } else if (state.activeView === "tasks-view") {
+    renderTaskMetrics();
+    renderTaskList();
+    renderTaskDetail();
+  } else if (state.activeView === "leads-view") {
+    renderLeadMetrics();
+    renderLeadListShell();
+    renderLeadWorkspaceSurface();
+    renderLeadDetail();
+  } else if (state.activeView === "customers-view") {
+    renderCustomerMetrics();
+    renderCustomerList();
+    renderCustomerDetail();
+  } else if (state.activeView === "jobs-view") {
+    renderJobMetrics();
+    renderJobList();
+    renderJobDetail();
+  } else if (state.activeView === "calendar-view") {
+    renderCalendarView();
+  } else if (state.activeView === "vendors-view") {
+    renderVendorMetrics();
+    renderVendorList();
+    renderVendorDetail();
+  } else if (state.activeView === "staff-view") {
+    renderServiceTemplateManager();
+    renderTemplateForm();
+    renderPortalQueuePanel();
+    renderTrashPanel();
+    renderStaffWorkloadPanel();
+    renderStaffList();
+    renderAdminSectionState();
+  }
+
   if (state.drawer.type) {
     renderActiveDrawer();
   } else {
@@ -15979,18 +18418,287 @@ async function apiPost(path, body) {
   }
 }
 
-async function writeArchiveAction({
+function renderGoogleCalendarConnection() {
+  if (!refs.googleCalendarConnection) return;
+
+  const connection = state.googleCalendar;
+  refs.googleCalendarConnection.classList.toggle(
+    "is-connected",
+    connection.connected,
+  );
+  refs.googleCalendarConnection.classList.toggle(
+    "has-error",
+    Boolean(connection.lastError),
+  );
+  refs.googleCalendarConnectButton.disabled = connection.loading;
+  refs.googleCalendarDisconnectButton.disabled = connection.loading;
+  refs.googleCalendarDisconnectButton.hidden = !connection.connected;
+  refs.googleCalendarConnectButton.hidden = connection.connected;
+
+  if (connection.loading && !connection.loaded) {
+    refs.googleCalendarStatusTitle.textContent = "Checking Google Calendar";
+    refs.googleCalendarStatusCopy.textContent =
+      "Confirming whether this staff account is connected.";
+    refs.googleCalendarConnectButton.textContent = "Checking…";
+    return;
+  }
+
+  refs.googleCalendarConnectButton.textContent = connection.lastError
+    ? "Reconnect Google Calendar"
+    : "Connect Google Calendar";
+
+  if (connection.connected) {
+    refs.googleCalendarStatusTitle.textContent = "Google Calendar connected";
+    refs.googleCalendarStatusCopy.textContent = [
+      connection.email || state.profile?.email || "Your Google account",
+      connection.lastSyncAt
+        ? `Last synced ${formatDateTime(connection.lastSyncAt)}`
+        : "New assigned tasks and schedule events sync automatically",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    return;
+  }
+
+  refs.googleCalendarStatusTitle.textContent = connection.lastError
+    ? "Google Calendar needs attention"
+    : "Google Calendar not connected";
+  refs.googleCalendarStatusCopy.textContent =
+    connection.lastError ||
+    "Connect once to automatically add assigned tasks and schedule events to your Google Calendar.";
+}
+
+async function loadGoogleCalendarStatus() {
+  if (!state.currentUser || state.googleCalendar.loading) return;
+  state.googleCalendar.loading = true;
+  renderGoogleCalendarConnection();
+  try {
+    const payload = await apiPost("/api/staff/google-calendar/status", {});
+    state.googleCalendar = {
+      loaded: true,
+      loading: false,
+      connected: payload.connected === true,
+      status: payload.status || "not_connected",
+      email: payload.email || state.profile?.email || "",
+      lastSyncAt: payload.lastSyncAt ? new Date(payload.lastSyncAt) : null,
+      lastError: payload.lastError || "",
+    };
+  } catch (error) {
+    state.googleCalendar = {
+      ...state.googleCalendar,
+      loaded: true,
+      loading: false,
+      connected: false,
+      lastError: error.message || "Google Calendar status could not load.",
+    };
+  }
+  renderGoogleCalendarConnection();
+}
+
+async function connectGoogleCalendar() {
+  if (state.googleCalendar.loading) return;
+  state.googleCalendar.loading = true;
+  renderGoogleCalendarConnection();
+  try {
+    const payload = await apiPost("/api/staff/google-calendar", {
+      action: "begin",
+    });
+    if (!payload.authUrl) {
+      throw new Error("Google Calendar authorization could not start.");
+    }
+    window.location.assign(payload.authUrl);
+  } catch (error) {
+    state.googleCalendar.loading = false;
+    state.googleCalendar.lastError = error.message;
+    renderGoogleCalendarConnection();
+    throw error;
+  }
+}
+
+async function disconnectGoogleCalendar() {
+  const confirmed = window.confirm(
+    "Disconnect Google Calendar? Existing Google events will remain, but new CRM changes will stop syncing until you reconnect.",
+  );
+  if (!confirmed) return;
+
+  state.googleCalendar.loading = true;
+  renderGoogleCalendarConnection();
+  await apiPost("/api/staff/google-calendar", { action: "disconnect" });
+  state.googleCalendar = {
+    loaded: true,
+    loading: false,
+    connected: false,
+    status: "not_connected",
+    email: state.profile?.email || "",
+    lastSyncAt: null,
+    lastError: "",
+  };
+  renderGoogleCalendarConnection();
+  showToast("Google Calendar disconnected.");
+}
+
+function consumeGoogleCalendarCallbackNotice() {
+  const url = new URL(window.location.href);
+  const result = url.searchParams.get("googleCalendar");
+  if (!result) return;
+
+  if (result === "connected") {
+    showToast("Google Calendar connected. Existing upcoming work is syncing.");
+  } else if (result === "cancelled") {
+    showToast("Google Calendar connection was cancelled.", "error");
+  } else {
+    showToast(
+      "Google Calendar could not connect. Check the integration setup and try again.",
+      "error",
+    );
+  }
+  url.searchParams.delete("googleCalendar");
+  window.history.replaceState(window.history.state, "", url);
+}
+
+const pendingArchiveActions = new Map();
+
+async function writeArchiveActionOnce({
   recordType,
   recordId,
   action,
   reason = "",
 }) {
-  return apiPost("/api/staff/archive-record", {
+  const payload = {
     recordType,
     recordId,
     action,
     reason,
+  };
+
+  try {
+    return await apiPost("/api/staff/archive-record", payload);
+  } catch (error) {
+    const canUseDirectFallback =
+      isAdmin() &&
+      (error?.status === 408 ||
+        error?.status === 429 ||
+        error?.status >= 500 ||
+        /Failed to fetch/i.test(error?.message || ""));
+
+    if (!canUseDirectFallback) {
+      throw error;
+    }
+
+    const configByRecordType = {
+      lead: {
+        collectionName: "leads",
+        activityCollectionName: "activities",
+        label: "Lead",
+      },
+      project: {
+        collectionName: "projects",
+        activityCollectionName: "activities",
+        label: "Job",
+      },
+      calendarEvent: {
+        collectionName: "calendarEvents",
+        activityCollectionName: "",
+        label: "Calendar event",
+      },
+    };
+    const config = configByRecordType[recordType];
+    if (!config || !recordId || !["archive", "restore"].includes(action)) {
+      throw error;
+    }
+
+    const recordRef = doc(state.db, config.collectionName, recordId);
+    const recordSnapshot = await getDoc(recordRef);
+    if (!recordSnapshot.exists()) {
+      throw new Error(`${config.label} not found.`);
+    }
+
+    const actorName =
+      state.profile?.displayName || state.profile?.email || "Team";
+    const updatePayload =
+      action === "restore"
+        ? {
+            archivedAt: null,
+            archivedByUid: null,
+            archivedByName: "",
+            archiveReason: "",
+            restoredAt: serverTimestamp(),
+            restoredByUid: state.profile?.uid || null,
+            restoredByName: actorName,
+            updatedAt: serverTimestamp(),
+          }
+        : {
+            archivedAt: serverTimestamp(),
+            archivedByUid: state.profile?.uid || null,
+            archivedByName: actorName,
+            archiveReason: reason.slice(0, 500),
+            restoredAt: null,
+            restoredByUid: null,
+            restoredByName: "",
+            updatedAt: serverTimestamp(),
+          };
+    const batch = writeBatch(state.db);
+    batch.set(recordRef, updatePayload, { merge: true });
+
+    if (config.activityCollectionName) {
+      const activityRef = doc(
+        collection(
+          state.db,
+          config.collectionName,
+          recordId,
+          config.activityCollectionName,
+        ),
+      );
+      batch.set(activityRef, {
+        activityType: "system",
+        title:
+          action === "restore"
+            ? `${config.label} restored`
+            : `${config.label} archived`,
+        body:
+          action === "restore"
+            ? "This record was restored from Trash."
+            : reason
+              ? `Archived reason: ${reason.slice(0, 500)}`
+              : "This record was archived and moved to Trash.",
+        actorName,
+        actorUid: state.profile?.uid || "",
+        actorRole: state.profile?.role || "employee",
+        createdAt: serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+    setBanner(
+      "The record was saved directly because the staff API is temporarily unavailable.",
+      "info",
+    );
+    return {
+      ok: true,
+      recordType,
+      recordId,
+      action,
+      fallback: "firestore",
+    };
+  }
+}
+
+function writeArchiveAction(payload) {
+  const requestKey = [
+    payload?.recordType,
+    payload?.recordId,
+    payload?.action,
+  ].join(":");
+  const pendingRequest = pendingArchiveActions.get(requestKey);
+  if (pendingRequest) {
+    return pendingRequest;
+  }
+
+  const request = writeArchiveActionOnce(payload).finally(() => {
+    pendingArchiveActions.delete(requestKey);
   });
+  pendingArchiveActions.set(requestKey, request);
+  return request;
 }
 
 async function archiveCurrentLead() {
@@ -16015,9 +18723,57 @@ async function archiveCurrentLead() {
   });
   state.selectedLeadId = null;
   state.leadWorkspaceOpen = false;
+  resetEstimateWorkflowForLead("");
   subscribeLeadDetail();
   renderAll();
-  showToast("Lead archived. You can restore it from Admin / More.");
+  showToast("Lead archived. You can restore it from Settings → Archive.");
+}
+
+async function archiveLeadFromPipeline(leadId) {
+  if (!leadId || !isAdmin()) {
+    return;
+  }
+
+  const lead = state.leads.find((item) => item.id === leadId);
+  if (!lead) {
+    showToast("That lead is no longer available.", "error");
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Delete "${lead.clientName || lead.projectAddress || "this lead"}" from the pipeline?\n\nIt will move to Settings → Archive and can be restored later.`,
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  await writeArchiveAction({
+    recordType: "lead",
+    recordId: lead.id,
+    action: "archive",
+    reason: "Removed from the pipeline quick action",
+  });
+
+  state.leads = state.leads.map((item) =>
+    item.id === lead.id
+      ? {
+          ...item,
+          archivedAt: new Date(),
+          archivedByName: state.profile?.displayName || state.profile?.email,
+          archiveReason: "Removed from the pipeline quick action",
+        }
+      : item,
+  );
+
+  if (state.selectedLeadId === lead.id) {
+    state.selectedLeadId = null;
+    state.leadWorkspaceOpen = false;
+    resetEstimateWorkflowForLead("");
+    subscribeLeadDetail();
+  }
+
+  renderAll();
+  showToast("Lead moved to Trash. It can be restored from Settings → Archive.");
 }
 
 async function archiveCurrentProject() {
@@ -16042,7 +18798,7 @@ async function archiveCurrentProject() {
   });
   clearSelectedProjectWorkspace();
   renderAll();
-  showToast("Job archived. You can restore it from Admin / More.");
+  showToast("Job archived. You can restore it from Settings → Archive.");
 }
 
 async function archiveCalendarEvent(eventId) {
@@ -16081,13 +18837,57 @@ async function restoreArchivedRecord(recordType, recordId) {
   showToast("Record restored.");
 }
 
+function resetRecordWorkspaceScroll(recordShell, { smooth = false } = {}) {
+  window.requestAnimationFrame(() => {
+    recordShell?.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: smooth ? "smooth" : "auto",
+    });
+    if (isMobileViewport()) {
+      window.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
+    }
+  });
+}
+
 function selectLead(
   leadId,
   { openWorkspace = true, preserveTab = false, historyMode = "push" } = {},
 ) {
+  const nextLeadId = safeString(leadId);
+  const currentLeadId = safeString(state.selectedLeadId);
+  const switchingLeads = Boolean(
+    currentLeadId && nextLeadId && currentLeadId !== nextLeadId,
+  );
+  const hasUnsavedEstimate =
+    switchingLeads && state.estimateWorkflow.dirty;
+  const hasUnsavedLeadDetails =
+    switchingLeads && refs.leadCoreForm?.classList.contains("is-dirty");
+
+  if (switchingLeads && estimateOperationIsPending(currentLeadId)) {
+    showToast(
+      "Wait for the current estimate save or publish to finish before changing leads.",
+      "error",
+    );
+    return false;
+  }
+
+  if (
+    (hasUnsavedEstimate || hasUnsavedLeadDetails) &&
+    !window.confirm(
+      "This lead has unsaved changes. Leave the lead and discard those changes?",
+    )
+  ) {
+    return false;
+  }
+
   state.leadDraft = null;
-  state.selectedLeadId = leadId;
+  state.selectedLeadId = nextLeadId;
   state.leadWorkspaceOpen = openWorkspace;
+  if (currentLeadId !== nextLeadId) {
+    refs.leadCoreForm?.classList.remove("is-dirty");
+    resetEstimateWorkflowForLead(nextLeadId);
+  }
   if (!preserveTab) {
     state.activeLeadTab = "overview";
   }
@@ -16096,10 +18896,9 @@ function selectLead(
   syncLeadRouteState({ historyMode });
 
   if (openWorkspace) {
-    window.requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
+    resetRecordWorkspaceScroll(refs.leadRecordShell);
   }
+  return true;
 }
 
 function closeLeadWorkspace({ historyMode = "push" } = {}) {
@@ -16114,9 +18913,7 @@ function closeLeadWorkspace({ historyMode = "push" } = {}) {
   state.leadWorkspaceOpen = false;
   renderAll();
   syncLeadRouteState({ historyMode });
-  window.requestAnimationFrame(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  });
+  resetRecordWorkspaceScroll(refs.leadRecordShell, { smooth: true });
 }
 
 function selectProject(projectId, { historyMode = "push" } = {}) {
@@ -16127,13 +18924,11 @@ function selectProject(projectId, { historyMode = "push" } = {}) {
     state.projects.find((project) => project.id === projectId),
   )
     ? "invoices"
-    : "financials";
+    : "work";
   subscribeProjectDetail();
   renderAll();
   syncLeadRouteState({ historyMode });
-  window.requestAnimationFrame(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  });
+  resetRecordWorkspaceScroll(refs.jobRecordShell);
 }
 
 function selectProjectInvoice(invoiceId, { openTab = true } = {}) {
@@ -16164,11 +18959,7 @@ function selectCustomer(customerId) {
   state.selectedCustomerId = customerId;
   subscribeCustomerDetail();
   renderAll();
-  if (isMobileViewport()) {
-    window.requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-  }
+  resetRecordWorkspaceScroll(refs.customerRecordShell);
 }
 
 function selectVendor(vendorId) {
@@ -16176,22 +18967,14 @@ function selectVendor(vendorId) {
   state.selectedVendorId = vendorId;
   state.activeVendorTab = "overview";
   renderAll();
-  if (isMobileViewport()) {
-    window.requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-  }
+  resetRecordWorkspaceScroll(refs.vendorRecordShell);
 }
 
 function selectTask(taskId) {
   state.taskDraft = null;
   state.selectedTaskId = taskId;
   renderAll();
-  if (isMobileViewport()) {
-    window.requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-  }
+  resetRecordWorkspaceScroll(refs.taskDetailShell);
 }
 
 function startLeadDraft(customerId = null) {
@@ -16204,11 +18987,13 @@ function startLeadDraft(customerId = null) {
   state.leadActivities = [];
   state.estimate = null;
   state.estimateShare = null;
+  resetEstimateWorkflowForLead("");
   state.leadDocuments = [];
   state.activeLeadTab = "overview";
   state.leadWorkspaceOpen = true;
   switchView("leads-view");
   renderAll();
+  resetRecordWorkspaceScroll(refs.leadRecordShell);
 }
 
 function startCustomerDraft() {
@@ -16218,6 +19003,7 @@ function startCustomerDraft() {
   state.customerDocuments = [];
   switchView("customers-view");
   renderAll();
+  resetRecordWorkspaceScroll(refs.customerRecordShell);
 }
 
 function startVendorDraft() {
@@ -16226,6 +19012,7 @@ function startVendorDraft() {
   state.activeVendorTab = "overview";
   switchView("vendors-view");
   renderAll();
+  resetRecordWorkspaceScroll(refs.vendorRecordShell);
 }
 
 function startTaskDraft(linked = {}) {
@@ -16233,6 +19020,7 @@ function startTaskDraft(linked = {}) {
   state.taskDraft = defaultTaskDraft(linked);
   switchView("tasks-view");
   renderAll();
+  resetRecordWorkspaceScroll(refs.taskDetailShell);
 }
 
 async function syncSession(user) {
@@ -16345,6 +19133,8 @@ function resetSelectionFromSnapshots() {
     state.leadWorkspaceOpen = false;
     state.estimateShare = null;
     state.leadDocuments = [];
+    resetEstimateWorkflowForLead("");
+    state.leadDetailSubscriptionId = "";
     syncLeadRouteState();
   }
 
@@ -16555,7 +19345,22 @@ function subscribeBaseData() {
         renderAll();
       },
       (error) => {
-        handleBaseSubscriptionError("Calendar data", error);
+        state.calendarEvents = [];
+        state.googleCalendar = {
+          loaded: false,
+          loading: false,
+          connected: false,
+          status: "not_connected",
+          email: "",
+          lastSyncAt: null,
+          lastError: "",
+        };
+        renderAll();
+        handleBaseSubscriptionError("Calendar data", error, {
+          signOutOnPermissionDenied: false,
+          permissionMessage:
+            "Calendar could not load for this staff account. Leads, jobs, tasks, and the rest of the portal are still available.",
+        });
       },
     ),
   );
@@ -16701,25 +19506,34 @@ function subscribeBaseData() {
 }
 
 function subscribeLeadDetail() {
+  const subscribedLeadId = safeString(state.selectedLeadId);
+  const isSameLeadSubscription =
+    safeString(state.leadDetailSubscriptionId) === subscribedLeadId;
   clearUnsubs(state.unsubs.leadDetail);
   state.unsubs.leadDetail = [];
   state.leadActivities = [];
-  state.estimate = null;
-  state.estimateShare = null;
-  state.leadEstimateShares = [];
+  if (!isSameLeadSubscription) {
+    state.estimate = null;
+    state.estimateShare = null;
+    state.leadEstimateShares = [];
+  }
   state.leadDocuments = [];
+  state.leadDetailSubscriptionId = subscribedLeadId;
 
-  if (!state.selectedLeadId) {
+  if (!subscribedLeadId) {
     renderLeadDetail();
     return;
   }
 
-  void refreshEstimateShareState(state.selectedLeadId);
+  void refreshEstimateShareState(subscribedLeadId);
 
   state.unsubs.leadDetail.push(
     onSnapshot(
-      collection(state.db, "leads", state.selectedLeadId, "activities"),
+      collection(state.db, "leads", subscribedLeadId, "activities"),
       (snapshot) => {
+        if (safeString(state.selectedLeadId) !== subscribedLeadId) {
+          return;
+        }
         state.leadActivities = snapshot.docs
           .map(normaliseFirestoreDoc)
           .sort(
@@ -16729,6 +19543,9 @@ function subscribeLeadDetail() {
         renderLeadDetail();
       },
       (error) => {
+        if (safeString(state.selectedLeadId) !== subscribedLeadId) {
+          return;
+        }
         handleDetailSubscriptionError("Lead activity", error, () => {
           state.leadActivities = [];
           renderLeadDetail();
@@ -16739,16 +19556,89 @@ function subscribeLeadDetail() {
 
   state.unsubs.leadDetail.push(
     onSnapshot(
-      doc(state.db, "estimates", state.selectedLeadId),
+      doc(state.db, "estimates", subscribedLeadId),
       (snapshot) => {
-        state.estimate = snapshot.exists()
-          ? normaliseFirestoreDoc(snapshot)
-          : null;
+        if (safeString(state.selectedLeadId) !== subscribedLeadId) {
+          return;
+        }
+
+        if (!snapshot.exists()) {
+          state.estimate = null;
+          if (
+            !state.estimateWorkflow.dirty &&
+            !estimateOperationIsPending(subscribedLeadId)
+          ) {
+            setEstimateWorkflowState({
+              leadId: subscribedLeadId,
+              status: "unsaved",
+              dirty: false,
+              operation: "",
+              message:
+                "No draft is saved for this lead yet. Complete the estimate, then save or publish it.",
+              error: "",
+            });
+          }
+          renderLeadDetail();
+          return;
+        }
+
+        const estimateData = snapshot.data() || {};
+        const storedLeadId = safeString(
+          estimateData.leadId || estimateData.id || subscribedLeadId,
+        );
+        if (storedLeadId !== subscribedLeadId) {
+          state.estimate = null;
+          setEstimateWorkflowState({
+            leadId: subscribedLeadId,
+            status: "failed",
+            dirty: false,
+            operation: "",
+            message: "",
+            error:
+              "This saved estimate points to a different lead and was not loaded. Review the record before publishing.",
+          });
+          renderLeadDetail();
+          return;
+        }
+
+        state.estimate = {
+          ...estimateData,
+          id: subscribedLeadId,
+          leadId: subscribedLeadId,
+        };
+        if (
+          !state.estimateWorkflow.dirty &&
+          !estimateOperationIsPending(subscribedLeadId)
+        ) {
+          state.estimateWorkflow = {
+            ...state.estimateWorkflow,
+            leadId: subscribedLeadId,
+            status: "saved",
+            dirty: false,
+            operation: "",
+            message:
+              "This draft is saved to this lead. The client sees it only after you publish.",
+            error: "",
+          };
+          refs.estimateForm.classList.remove("is-dirty");
+        }
         renderLeadDetail();
       },
       (error) => {
+        if (safeString(state.selectedLeadId) !== subscribedLeadId) {
+          return;
+        }
         handleDetailSubscriptionError("Estimate", error, () => {
           state.estimate = null;
+          setEstimateWorkflowState({
+            leadId: subscribedLeadId,
+            status: "failed",
+            dirty: false,
+            operation: "",
+            message: "",
+            error:
+              "This lead's estimate could not be loaded. Refresh before editing or publishing.",
+          });
           renderLeadDetail();
         });
       },
@@ -16759,19 +19649,27 @@ function subscribeLeadDetail() {
     onSnapshot(
       query(
         collection(state.db, "estimateShares"),
-        where("leadId", "==", state.selectedLeadId),
+        where("leadId", "==", subscribedLeadId),
       ),
       (snapshot) => {
+        if (safeString(state.selectedLeadId) !== subscribedLeadId) {
+          return;
+        }
         syncLeadEstimateShareState(
-          state.selectedLeadId,
+          subscribedLeadId,
           snapshot.docs
             .map((entry) => hydrateEstimateShare(entry))
             .filter(
-              (share) => safeString(share.type || "estimate") === "estimate",
+              (share) =>
+                safeString(share.type || "estimate") === "estimate" &&
+                safeString(share.leadId) === subscribedLeadId,
             ),
         );
       },
       (error) => {
+        if (safeString(state.selectedLeadId) !== subscribedLeadId) {
+          return;
+        }
         handleDetailSubscriptionError("Estimate publishing", error, () => {
           state.leadEstimateShares = [];
           state.estimateShare = null;
@@ -16785,9 +19683,12 @@ function subscribeLeadDetail() {
     onSnapshot(
       query(
         collection(state.db, "recordDocuments"),
-        where("leadId", "==", state.selectedLeadId),
+        where("leadId", "==", subscribedLeadId),
       ),
       (snapshot) => {
+        if (safeString(state.selectedLeadId) !== subscribedLeadId) {
+          return;
+        }
         state.leadDocuments = snapshot.docs
           .map(normaliseFirestoreDoc)
           .sort(
@@ -16800,6 +19701,9 @@ function subscribeLeadDetail() {
         renderLeadDetail();
       },
       (error) => {
+        if (safeString(state.selectedLeadId) !== subscribedLeadId) {
+          return;
+        }
         handleDetailSubscriptionError("Lead documents", error, () => {
           state.leadDocuments = [];
           renderLeadDetail();
@@ -16810,6 +19714,7 @@ function subscribeLeadDetail() {
 }
 
 function subscribeCustomerDetail() {
+  const subscribedCustomerId = safeString(state.selectedCustomerId);
   clearUnsubs(state.unsubs.customerDetail);
   state.unsubs.customerDetail = [];
   clearUnsubs(state.unsubs.customerPortalMessages);
@@ -16824,7 +19729,7 @@ function subscribeCustomerDetail() {
   state.selectedCustomerPortalContactId = null;
   state.selectedCustomerPortalThreadId = null;
 
-  if (!state.selectedCustomerId) {
+  if (!subscribedCustomerId) {
     renderCustomerDetail();
     return;
   }
@@ -16860,11 +19765,19 @@ function subscribeCustomerDetail() {
     onSnapshot(
       query(
         collection(state.db, "estimateShares"),
-        where("customerId", "==", state.selectedCustomerId),
+        where("customerId", "==", subscribedCustomerId),
       ),
       (snapshot) => {
+        if (safeString(state.selectedCustomerId) !== subscribedCustomerId) {
+          return;
+        }
         state.customerPortalEstimateShares = snapshot.docs
-          .map(normaliseFirestoreDoc)
+          .map((entry) => hydrateEstimateShare(entry))
+          .filter(
+            (share) =>
+              safeString(share.customerId) === subscribedCustomerId &&
+              safeString(share.type || "estimate") === "estimate",
+          )
           .sort(
             (left, right) =>
               toMillis(right.updatedAt || right.publishedAt || right.createdAt) -
@@ -16873,6 +19786,9 @@ function subscribeCustomerDetail() {
         renderCustomerDetail();
       },
       (error) => {
+        if (safeString(state.selectedCustomerId) !== subscribedCustomerId) {
+          return;
+        }
         handleDetailSubscriptionError("Customer portal estimates", error, () => {
           state.customerPortalEstimateShares = [];
           renderCustomerDetail();
@@ -17076,6 +19992,7 @@ function subscribeCustomerDetail() {
 }
 
 function subscribeProjectDetail() {
+  const subscribedProjectId = safeString(state.selectedProjectId);
   clearUnsubs(state.unsubs.projectDetail);
   state.unsubs.projectDetail = [];
   state.projectExpenses = [];
@@ -17101,7 +20018,7 @@ function subscribeProjectDetail() {
   resetChangeOrderForm();
   resetExpenseForm();
 
-  if (!state.selectedProjectId) {
+  if (!subscribedProjectId) {
     renderJobDetail();
     return;
   }
@@ -17318,18 +20235,35 @@ function subscribeProjectDetail() {
     ),
   );
 
-  const linkedLeadId = currentProject()?.leadId;
+  const linkedLeadId = safeString(
+    state.projects.find((project) => project.id === subscribedProjectId)?.leadId,
+  );
   if (linkedLeadId) {
     state.unsubs.projectDetail.push(
       onSnapshot(
         doc(state.db, "estimates", linkedLeadId),
         (snapshot) => {
-          state.projectLeadEstimate = snapshot.exists()
-            ? normaliseFirestoreDoc(snapshot)
-            : null;
+          if (safeString(state.selectedProjectId) !== subscribedProjectId) {
+            return;
+          }
+          const estimateData = snapshot.exists() ? snapshot.data() || {} : null;
+          const storedLeadId = safeString(
+            estimateData?.leadId || estimateData?.id || linkedLeadId,
+          );
+          state.projectLeadEstimate =
+            estimateData && storedLeadId === linkedLeadId
+              ? {
+                  ...estimateData,
+                  id: linkedLeadId,
+                  leadId: linkedLeadId,
+                }
+              : null;
           renderJobDetail();
         },
         (error) => {
+          if (safeString(state.selectedProjectId) !== subscribedProjectId) {
+            return;
+          }
           handleDetailSubscriptionError("Original estimate", error, () => {
             state.projectLeadEstimate = null;
             renderJobDetail();
@@ -17345,14 +20279,22 @@ function subscribeProjectDetail() {
           where("leadId", "==", linkedLeadId),
         ),
         (snapshot) => {
+          if (safeString(state.selectedProjectId) !== subscribedProjectId) {
+            return;
+          }
           state.projectLeadEstimateShares = snapshot.docs
             .map((entry) => hydrateEstimateShare(entry))
             .filter(
-              (share) => safeString(share.type || "estimate") === "estimate",
+              (share) =>
+                safeString(share.type || "estimate") === "estimate" &&
+                safeString(share.leadId) === linkedLeadId,
             );
           renderJobDetail();
         },
         (error) => {
+          if (safeString(state.selectedProjectId) !== subscribedProjectId) {
+            return;
+          }
           handleDetailSubscriptionError("Estimate publishing", error, () => {
             state.projectLeadEstimateShares = [];
             renderJobDetail();
@@ -17420,22 +20362,30 @@ async function bootstrapFirebase() {
         state.leads = [];
         state.projects = [];
         state.customers = [];
+        state.vendors = [];
+        state.vendorBills = [];
+        state.vendorDocuments = [];
         state.serviceTemplates = [];
         state.tasks = [];
+        state.calendarEvents = [];
         state.staffRoster = [];
         state.selectedLeadId = null;
         state.selectedProjectId = null;
         state.selectedProjectInvoiceId = null;
         state.selectedCustomerId = null;
+        state.selectedVendorId = null;
         state.selectedTaskId = null;
         state.selectedStaffKey = null;
         state.selectedServiceTemplateId = null;
         state.staffFocusUid = "";
         state.leadDraft = null;
         state.customerDraft = null;
+        state.vendorDraft = null;
         state.taskDraft = null;
         state.serviceTemplateDraft = null;
         state.leadActivities = [];
+        state.leadEstimateShares = [];
+        state.estimate = null;
         state.projectExpenses = [];
         state.projectPayments = [];
         state.projectInvoices = [];
@@ -17465,10 +20415,20 @@ async function bootstrapFirebase() {
         state.portalQueueThreads = [];
         state.portalQueueContacts = [];
         state.estimateShare = null;
-        state.activeJobTab = "financials";
+        resetEstimateWorkflowForLead("");
+        state.leadDetailSubscriptionId = "";
+        state.notificationPanelOpen = false;
+        state.notificationReadMap = {};
+        state.leadWorkspaceOpen = false;
+        state.activeLeadTab = "overview";
+        state.activeJobTab = "work";
+        state.activeVendorTab = "overview";
+        state.activeAdminSection = "team";
+        state.activeView = "today-view";
         closeDrawer();
         setBanner("", "info");
         showAuthShell();
+        publishStaffContext();
         return;
       }
 
@@ -17488,20 +20448,21 @@ async function bootstrapFirebase() {
         }
 
         state.profile = session.profile;
-        state.todayScope = "mine";
+        state.todayScope = isAdmin() ? "team" : "mine";
         applyRoleVisibility();
         showStaffShell();
         switchView("today-view");
         setBanner(
           session.mode === "firestore"
             ? "Staff login is running from the approved Firestore staff list while backend permissions finish syncing."
-            : session.claimsSynced === false
-              ? "Staff login is working, but backend claims sync is still degraded. Core CRM access will keep working."
-              : "",
+            : "",
         );
         setSyncStatus("Syncing data");
         subscribeBaseData();
         renderAll();
+        publishStaffContext();
+        consumeGoogleCalendarCallbackNotice();
+        loadGoogleCalendarStatus();
       } catch (error) {
         console.error("Staff session verification failed.", error);
         showAuthShell(
@@ -17516,6 +20477,23 @@ async function bootstrapFirebase() {
     refs.signInButton.disabled = true;
     console.error(error);
   }
+}
+
+function publishStaffContext() {
+  const detail = {
+    app: state.app,
+    auth: state.auth,
+    db: state.db,
+    storage: state.storage,
+    currentUser: state.currentUser,
+    profile: state.profile,
+    isAdmin: isAdmin(),
+  };
+
+  window.GoldenBrickStaffContext = detail;
+  window.dispatchEvent(
+    new CustomEvent("goldenbrick:staff-context", { detail }),
+  );
 }
 
 function selectedLeadAssignee() {
@@ -17721,19 +20699,16 @@ async function syncLeadCustomerLink(leadId, { quiet = false } = {}) {
 async function saveLeadDrawer(event) {
   event.preventDefault();
 
-  if (!isAdmin()) {
-    showToast("Only admins can create leads from the quick drawer.", "error");
-    return;
-  }
-
   const draft = state.drawer.leadDraft || {};
-  const assignee =
-    activeStaffOptions().find(
-      (member) => member.uid === refs.drawerLeadAssignee.value,
-    ) || preferredLeadAssignee();
+  const assignee = isAdmin()
+    ? activeStaffOptions().find(
+        (member) => member.uid === refs.drawerLeadAssignee.value,
+      ) || preferredLeadAssignee()
+    : activeStaffOptions()[0] || null;
   const leadRef = doc(collection(state.db, "leads"));
-  const selectedCustomerId =
-    refs.drawerLeadCustomerSelect?.value || draft.customerId || null;
+  const selectedCustomerId = isAdmin()
+    ? refs.drawerLeadCustomerSelect?.value || draft.customerId || null
+    : null;
   const selectedCustomer = selectedCustomerId
     ? state.customers.find((customer) => customer.id === selectedCustomerId) ||
       null
@@ -17877,6 +20852,14 @@ async function saveVendorDrawer(event) {
 async function saveTaskDrawer(event) {
   event.preventDefault();
 
+  const schedule = readTaskSchedule("drawer");
+  if (!schedule.valid) {
+    renderTaskSchedulePreview("drawer", schedule.error);
+    showToast(schedule.error, "error");
+    refs.drawerTaskDueDate.focus();
+    return;
+  }
+
   const assignee =
     selectedTaskAssignee(refs.drawerTaskAssignee) ||
     activeStaffOptions()[0] ||
@@ -17893,7 +20876,7 @@ async function saveTaskDrawer(event) {
       : null;
   const created = await createQuickTask({
     title: refs.drawerTaskTitle.value,
-    dueValue: refs.drawerTaskDue.value,
+    dueAt: schedule.value,
     priority: refs.drawerTaskPriority.value,
     assigneeSelect: refs.drawerTaskAssignee,
     leadId: linkedType === "lead" ? linkedId : null,
@@ -17971,6 +20954,117 @@ async function saveExpenseDrawer(event) {
   switchView("jobs-view");
   openJobTab("financials", refs.expenseList);
   showToast("Expense added.");
+}
+
+function communicationTypeLabel(type) {
+  const labels = {
+    call: "Call",
+    text: "Text",
+    email: "Email",
+    site_visit: "Site visit",
+    client_message: "Client message",
+    other: "Communication",
+  };
+  return labels[safeString(type)] || "Communication";
+}
+
+function communicationDirectionLabel(direction) {
+  const labels = {
+    inbound: "Inbound",
+    outbound: "Outbound",
+    internal: "Internal",
+  };
+  return labels[safeString(direction)] || "Communication";
+}
+
+function communicationActivityTitle(type, direction) {
+  return `${communicationDirectionLabel(direction)} ${communicationTypeLabel(type).toLowerCase()}`;
+}
+
+async function saveCommunicationDrawer(event) {
+  event.preventDefault();
+
+  const linkedType = refs.drawerCommunicationLinkedType.value || "lead";
+  const linkedId = refs.drawerCommunicationLinkedRecord.value || "";
+  const { record } = selectedCommunicationRecord();
+  const body = refs.drawerCommunicationBody.value.trim();
+
+  if (!record || !linkedId) {
+    showToast("Choose the lead or job first.", "error");
+    return;
+  }
+
+  if (!body) {
+    showToast("Add the communication details first.", "error");
+    return;
+  }
+
+  const communicationType = refs.drawerCommunicationType.value || "call";
+  const direction = refs.drawerCommunicationDirection.value || "outbound";
+  const happenedAt =
+    parseDateInput(refs.drawerCommunicationHappenedAt.value) || new Date();
+  const contactName = refs.drawerCommunicationContactName.value.trim();
+  const contactMethod = refs.drawerCommunicationContactMethod.value.trim();
+  const outcome = refs.drawerCommunicationOutcome.value.trim();
+  const followUpRequired =
+    refs.drawerCommunicationFollowUpRequired.checked || false;
+  const followUpAt = parseDateInput(refs.drawerCommunicationFollowUpAt.value);
+  const clientVisible = refs.drawerCommunicationClientVisible.checked || false;
+  const title = communicationActivityTitle(communicationType, direction);
+  const collectionPath =
+    linkedType === "project"
+      ? collection(state.db, "projects", linkedId, "activities")
+      : collection(state.db, "leads", linkedId, "activities");
+
+  await addDoc(collectionPath, {
+    activityType: "communication",
+    communicationType,
+    direction,
+    happenedAt,
+    contactName,
+    contactMethod,
+    body,
+    outcome,
+    followUpRequired,
+    followUpAt: followUpAt || null,
+    clientVisible,
+    title,
+    actorName: state.profile.displayName,
+    actorUid: state.profile.uid,
+    actorRole: state.profile.role,
+    createdAt: serverTimestamp(),
+  });
+
+  if (followUpRequired) {
+    const recordName =
+      record.clientName ||
+      record.customerName ||
+      record.projectAddress ||
+      "this record";
+    await createQuickTask({
+      title: `Follow up: ${recordName}`,
+      dueAt: followUpAt,
+      priority: "high",
+      assigneeSelect: null,
+      leadId: linkedType === "lead" ? linkedId : record.leadId || null,
+      customerId: record.customerId || null,
+      projectId: linkedType === "project" ? linkedId : null,
+    });
+  }
+
+  closeDrawer();
+
+  if (linkedType === "project") {
+    selectProject(linkedId);
+    switchView("jobs-view");
+    openJobTab("history", refs.jobHistoryList);
+  } else {
+    selectLead(linkedId, { preserveTab: true, openWorkspace: true });
+    switchView("leads-view");
+    openLeadTab("activity", refs.noteList);
+  }
+
+  showToast("Communication logged.");
 }
 
 async function saveJobDrawer(event) {
@@ -18118,6 +21212,14 @@ async function saveServiceOrderDrawer(event) {
 async function saveTask(event) {
   event.preventDefault();
 
+  const schedule = readTaskSchedule("main");
+  if (!schedule.valid) {
+    renderTaskSchedulePreview("main", schedule.error);
+    showToast(schedule.error, "error");
+    refs.taskDueDate.focus();
+    return;
+  }
+
   const existing = currentTaskDoc();
   const linkedType = refs.taskLinkedTypeSelect.value;
   const linkedId = refs.taskLinkedRecordSelect.value || "";
@@ -18130,7 +21232,7 @@ async function saveTask(event) {
     description: refs.taskDescriptionInput.value.trim(),
     status: refs.taskStatusSelect.value,
     priority: refs.taskPrioritySelect.value,
-    dueAt: parseDateInput(refs.taskDueInput.value),
+    dueAt: schedule.value,
     assignedToUid: assignee?.uid || state.profile?.uid || "",
     assignedToName:
       assignee?.displayName ||
@@ -18186,15 +21288,25 @@ async function markTaskComplete() {
 
 async function createQuickTask({
   title,
-  dueValue,
+  dueAt,
   priority,
   assigneeSelect,
   leadId = null,
   customerId = null,
   projectId = null,
 }) {
+  const defaultAssignee = state.profile
+    ? {
+        uid: state.profile.uid,
+        email: state.profile.email,
+        displayName: state.profile.displayName,
+      }
+    : null;
   const assignee =
-    selectedTaskAssignee(assigneeSelect) || activeStaffOptions()[0] || null;
+    (assigneeSelect ? selectedTaskAssignee(assigneeSelect) : null) ||
+    defaultAssignee ||
+    activeStaffOptions()[0] ||
+    null;
   const cleanTitle = safeString(title);
 
   if (!cleanTitle) {
@@ -18211,7 +21323,7 @@ async function createQuickTask({
       description: "",
       status: "open",
       priority,
-      dueAt: parseDateInput(dueValue),
+      dueAt: dueAt || null,
       assignedToUid: assignee?.uid || state.profile?.uid || "",
       assignedToName:
         assignee?.displayName ||
@@ -18300,6 +21412,7 @@ async function saveLead(event) {
     await syncLeadCustomerLink(leadRef.id, { quiet: true });
     state.leadDraft = null;
     state.selectedLeadId = leadRef.id;
+    resetEstimateWorkflowForLead(leadRef.id);
     state.leadWorkspaceOpen = true;
     subscribeLeadDetail();
     syncLeadRouteState();
@@ -18405,14 +21518,21 @@ async function moveLeadToStatus(lead, nextStatus, { source = "button" } = {}) {
     });
   }
 
+  const sourceLabel =
+    source === "drag"
+      ? "pipeline board"
+      : source === "pipeline list"
+        ? "pipeline list"
+        : "record actions";
+
   await addDoc(collection(state.db, "leads", lead.id, "activities"), {
     activityType: "system",
     title:
       nextStatus === "closed_lost" ? "Lead marked lost" : "Lead stage updated",
     body:
       nextStatus === "closed_lost"
-        ? `Lead was closed lost from the ${source === "drag" ? "pipeline board" : "record actions"}.`
-        : `Moved to ${STATUS_META[nextStatus]} from the ${source === "drag" ? "pipeline board" : "record actions"}.`,
+        ? `Lead was closed lost from the ${sourceLabel}.`
+        : `Moved to ${STATUS_META[nextStatus]} from the ${sourceLabel}.`,
     actorName: state.profile.displayName,
     actorUid: state.profile.uid,
     actorRole: state.profile.role,
@@ -18665,104 +21785,245 @@ async function addNote(event) {
   showToast("Internal note saved.");
 }
 
-async function saveEstimateDraft(event) {
-  event.preventDefault();
-  const lead = currentLeadDoc();
-
-  if (!lead || !isAdmin()) {
-    showToast("Save the lead first.", "error");
-    return;
+async function persistEstimateDraftForLead(lead, estimate) {
+  const leadId = safeString(lead?.id);
+  if (
+    !leadId ||
+    !estimateBelongsToLead(estimate, leadId) ||
+    safeString(estimate.id) !== leadId ||
+    safeString(estimate.leadId) !== leadId
+  ) {
+    throw new Error(
+      "Estimate identity check failed. Reload this lead before saving.",
+    );
   }
 
-  const estimate = collectEstimateForm();
-  await setDoc(
-    doc(state.db, "estimates", lead.id),
+  const estimateRef = doc(state.db, "estimates", leadId);
+  const leadRef = doc(state.db, "leads", leadId);
+  const saveBatch = writeBatch(state.db);
+
+  saveBatch.set(
+    estimateRef,
     {
-      id: lead.id,
-      leadId: lead.id,
+      id: leadId,
+      leadId,
+      customerId: safeString(lead.customerId) || null,
+      clientName: safeString(lead.clientName),
+      projectAddress: safeString(lead.projectAddress),
       status: "draft",
       subject: estimate.subject,
       emailBody: estimate.emailBody,
+      contractDetails: estimate.contractDetails,
       assumptions: estimate.assumptions,
       lineItems: estimate.lineItems,
       subtotal: estimate.subtotal,
       updatedAt: serverTimestamp(),
-      createdAt: state.estimate?.createdAt || serverTimestamp(),
+      createdAt:
+        state.estimate && estimateBelongsToLead(state.estimate, leadId)
+          ? state.estimate.createdAt || serverTimestamp()
+          : serverTimestamp(),
       lastEditedByUid: state.profile.uid,
       lastEditedByName: state.profile.displayName,
     },
     { merge: true },
   );
 
-  await updateDoc(doc(state.db, "leads", lead.id), {
-    hasEstimate: true,
-    estimateSubtotal: estimate.subtotal,
-    estimateTitle: estimate.subject,
-    estimateUpdatedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-
-  await addDoc(collection(state.db, "leads", lead.id, "activities"), {
-    activityType: "estimate",
-    title: "Estimate updated",
-    body: "Current estimate content was updated in the staff portal.",
-    actorName: state.profile.displayName,
-    actorUid: state.profile.uid,
-    actorRole: state.profile.role,
-    createdAt: serverTimestamp(),
-  });
-
-  await upsertEstimateRecordDocumentForLead(
-    lead.id,
+  saveBatch.set(
+    leadRef,
     {
-      ...estimate,
-      updatedAt: new Date(),
-      lastEditedByUid: state.profile.uid,
-      lastEditedByName: state.profile.displayName,
-    },
-    {
-      ...lead,
       hasEstimate: true,
       estimateSubtotal: estimate.subtotal,
       estimateTitle: estimate.subject,
-      estimateUpdatedAt: new Date(),
+      estimateUpdatedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     },
+    { merge: true },
   );
 
-  state.estimate = {
-    ...estimate,
-    id: lead.id,
-    leadId: lead.id,
-    status: "draft",
-    updatedAt: new Date().toISOString(),
-    createdAt: state.estimate?.createdAt || new Date().toISOString(),
-    lastEditedByUid: state.profile.uid,
-    lastEditedByName: state.profile.displayName,
+  await saveBatch.commit();
+
+  const sideEffects = await Promise.allSettled([
+    addDoc(collection(state.db, "leads", leadId, "activities"), {
+      activityType: "estimate",
+      title: "Estimate updated",
+      body: "Current estimate content was updated in the staff portal.",
+      actorName: state.profile.displayName,
+      actorUid: state.profile.uid,
+      actorRole: state.profile.role,
+      createdAt: serverTimestamp(),
+    }),
+    upsertEstimateRecordDocumentForLead(
+      leadId,
+      {
+        ...estimate,
+        updatedAt: new Date(),
+        lastEditedByUid: state.profile.uid,
+        lastEditedByName: state.profile.displayName,
+      },
+      {
+        ...lead,
+        hasEstimate: true,
+        estimateSubtotal: estimate.subtotal,
+        estimateTitle: estimate.subject,
+        estimateUpdatedAt: new Date(),
+      },
+    ),
+  ]);
+  const sideEffectFailures = sideEffects.filter(
+    (result) => result.status === "rejected",
+  );
+  if (sideEffectFailures.length) {
+    console.warn(
+      "Estimate saved, but supporting activity or document records did not finish syncing.",
+      sideEffectFailures.map((result) => result.reason),
+    );
+  }
+
+  return {
+    sideEffectWarning: Boolean(sideEffectFailures.length),
   };
-  applyLeadEstimateStateLocally(lead.id, state.estimate);
-  renderLeadDetail();
-  showToast("Estimate saved.");
+}
+
+async function saveEstimateDraft(event) {
+  event.preventDefault();
+  const lead = currentLeadDoc();
+  const leadId = safeString(lead?.id);
+
+  if (!lead || !canEditEstimateForLead(lead)) {
+    showToast("Save the lead first.", "error");
+    return;
+  }
+  if (!estimateEditorIsBoundToLead(leadId)) {
+    showToast(
+      "This editor is not bound to the selected lead. Reload the lead before saving.",
+      "error",
+    );
+    return;
+  }
+  if (state.estimateWorkflow.status === "loading") {
+    showToast("Wait for this lead's saved estimate to finish loading.", "error");
+    return;
+  }
+  if (estimateOperationIsPending(leadId)) {
+    showToast("This estimate is already being saved or published.", "error");
+    return;
+  }
+
+  const estimate = estimateDraftForLead(leadId, collectEstimateForm());
+  setEstimateWorkflowState({
+    leadId,
+    status: "saving",
+    dirty: true,
+    operation: "save",
+    message: "Saving this exact draft to the selected lead.",
+    error: "",
+  });
+
+  try {
+    const saveResult = await persistEstimateDraftForLead(lead, estimate);
+
+    if (safeString(state.selectedLeadId) !== leadId) {
+      throw new Error(
+        "The selected lead changed before saving finished. Reopen the estimate to verify it.",
+      );
+    }
+
+    state.estimate = {
+      ...estimate,
+      customerId: safeString(lead.customerId) || null,
+      clientName: safeString(lead.clientName),
+      projectAddress: safeString(lead.projectAddress),
+      updatedAt: new Date().toISOString(),
+      createdAt:
+        state.estimate && estimateBelongsToLead(state.estimate, leadId)
+          ? state.estimate.createdAt || new Date().toISOString()
+          : new Date().toISOString(),
+      lastEditedByUid: state.profile.uid,
+      lastEditedByName: state.profile.displayName,
+    };
+    applyLeadEstimateStateLocally(leadId, state.estimate);
+    state.estimateWorkflow = {
+      ...state.estimateWorkflow,
+      leadId,
+      status: "saved",
+      dirty: false,
+      operation: "",
+      message:
+        "This exact draft is saved to this lead. It is not client-visible until published.",
+      error: "",
+    };
+    refs.estimateForm.classList.remove("is-dirty");
+    renderLeadDetail();
+    if (saveResult.sideEffectWarning) {
+      setBanner(
+        "The estimate is saved. Its supporting activity or document record is still catching up.",
+        "info",
+      );
+    }
+    showToast("Estimate saved to this lead.");
+  } catch (error) {
+    setEstimateWorkflowState({
+      leadId,
+      status: "failed",
+      dirty: true,
+      operation: "",
+      message: "",
+      error:
+        error?.message ||
+        "The estimate could not be saved. Your visible edits are still here.",
+    });
+    refs.estimateForm.classList.add("is-dirty");
+    throw error;
+  }
 }
 
 async function createEstimateDraft() {
   const lead = currentLeadDoc();
-  if (!lead || !isAdmin()) {
+  if (!lead || !canEditEstimateForLead(lead)) {
     showToast("Save the lead first.", "error");
+    return;
+  }
+  if (estimateOperationIsPending(lead.id)) {
+    showToast("This estimate is already being saved or published.", "error");
+    return;
+  }
+  if (state.estimateWorkflow.status === "loading") {
+    showToast("Wait for this lead's saved estimate to finish loading.", "error");
+    return;
+  }
+  if (
+    state.estimateWorkflow.dirty &&
+    !window.confirm(
+      "Replace the unsaved estimate currently shown with a new template draft?",
+    )
+  ) {
     return;
   }
 
   refs.estimateAiButton.disabled = true;
   refs.estimateAiButton.textContent = "Creating...";
+  setEstimateWorkflowState({
+    leadId: lead.id,
+    status: "saving",
+    dirty: state.estimateWorkflow.dirty,
+    operation: "save",
+    message: "Creating and saving a new draft for this lead.",
+    error: "",
+  });
 
   try {
     const draft = buildTemplateEstimateDraft(lead);
     const estimatePayload = {
       id: lead.id,
       leadId: lead.id,
+      customerId: safeString(lead.customerId) || null,
+      clientName: safeString(lead.clientName),
+      projectAddress: safeString(lead.projectAddress),
       status: "draft",
       generatedBy: "template",
       subject: draft.subject,
       emailBody: draft.emailBody,
+      contractDetails: draft.contractDetails,
       assumptions: draft.assumptions,
       lineItems: draft.lineItems,
       subtotal: draft.subtotal,
@@ -18821,9 +22082,31 @@ async function createEstimateDraft() {
       subject: draft.subject,
       subtotal: draft.subtotal,
     });
+    state.estimateWorkflow = {
+      ...state.estimateWorkflow,
+      leadId: lead.id,
+      status: "saved",
+      dirty: false,
+      operation: "",
+      message:
+        "The new template draft is saved specifically to this lead.",
+      error: "",
+    };
+    refs.estimateForm.classList.remove("is-dirty");
     renderLeadDetail();
     showToast("Estimate draft created.");
   } catch (error) {
+    setEstimateWorkflowState({
+      leadId: lead.id,
+      status: "failed",
+      dirty: true,
+      operation: "",
+      message: "",
+      error:
+        error?.message ||
+        "The estimate draft could not be created. Review the visible estimate before trying again.",
+    });
+    refs.estimateForm.classList.add("is-dirty");
     showToast(error.message, "error");
   } finally {
     refs.estimateAiButton.disabled = false;
@@ -18898,7 +22181,11 @@ async function fetchEstimateSharesForLead(leadId) {
 
   return sharesSnap.docs
     .map((snapshot) => hydrateEstimateShare(snapshot))
-    .filter((share) => safeString(share.type || "estimate") === "estimate");
+    .filter(
+      (share) =>
+        safeString(share.type || "estimate") === "estimate" &&
+        safeString(share.leadId) === safeString(leadId),
+    );
 }
 
 function syncLeadEstimateShareState(leadId, shares = []) {
@@ -18906,7 +22193,13 @@ function syncLeadEstimateShareState(leadId, shares = []) {
     return null;
   }
 
-  state.leadEstimateShares = sortByUpdatedDesc(shares);
+  state.leadEstimateShares = sortByUpdatedDesc(
+    shares.filter(
+      (share) =>
+        safeString(share.leadId) === safeString(leadId) &&
+        safeString(share.type || "estimate") === "estimate",
+    ),
+  );
   state.estimateShare = pickCurrentEstimateShare(state.leadEstimateShares);
   renderEstimateSharePanel(currentLead());
   renderLeadEstimateClientRecords(currentLead());
@@ -18923,6 +22216,14 @@ function applySelectedLeadEstimateShareState(
   }
 
   const incomingShareId = safeString(incomingShare?.id);
+  if (
+    incomingShare &&
+    safeString(incomingShare.leadId) !== safeString(leadId)
+  ) {
+    throw new Error(
+      "The publish response belongs to a different lead. Nothing was applied to this estimate.",
+    );
+  }
   const nextShares = state.leadEstimateShares
     .filter(
       (share) =>
@@ -18991,32 +22292,275 @@ async function refreshEstimateShareState(leadId = state.selectedLeadId) {
   }
 }
 
-async function createEstimateShareLink() {
+function estimatePublishIdempotencyKey(leadId) {
+  const randomPart =
+    typeof window.crypto?.randomUUID === "function"
+      ? window.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `estimate-publish:${safeString(leadId)}:${randomPart}`;
+}
+
+async function publishCurrentEstimateForLead() {
   const lead = currentLeadDoc();
-  if (!lead?.id) {
-    showToast("Save the lead and estimate first.", "error");
+  const leadId = safeString(lead?.id);
+  if (!leadId) {
+    showToast("Select a saved lead before publishing.", "error");
     return;
   }
 
   if (!isAdmin()) {
-    showToast("Only admins can create share links.", "error");
+    showToast("Only admins can publish estimates.", "error");
     return;
   }
 
-  const response = await apiPost("/api/staff/estimate-share", {
-    action: "create",
-    type: "estimate",
-    leadId: lead.id,
-  });
+  if (
+    safeString(state.selectedLeadId) !== leadId ||
+    !estimateEditorIsBoundToLead(leadId)
+  ) {
+    showToast(
+      "The visible estimate is not bound to this lead. Reopen the estimate before publishing.",
+      "error",
+    );
+    return;
+  }
+  if (state.estimateWorkflow.status === "loading") {
+    showToast("Wait for this lead's saved estimate to finish loading.", "error");
+    return;
+  }
 
-  applySelectedLeadEstimateShareState(lead.id, response.share || null);
-  await refreshEstimateShareState(lead.id);
-  showToast("Client estimate link created.");
+  const pendingKey = `publish:${leadId}`;
+  const pendingOperation = pendingEstimateOperations.get(pendingKey);
+  if (pendingOperation) {
+    return pendingOperation;
+  }
+
+  const draft = estimateDraftForLead(leadId, collectEstimateForm());
+  const wasDirtyBeforePublish = state.estimateWorkflow.dirty;
+  const readiness = estimatePublishReadiness(lead, draft);
+  if (readiness.blockers.length) {
+    const message = readiness.blockers.join(" ");
+    setEstimateWorkflowState({
+      leadId,
+      status: "failed",
+      dirty: wasDirtyBeforePublish,
+      operation: "",
+      message: "",
+      error: message,
+    });
+    refs.estimateForm.classList.toggle("is-dirty", wasDirtyBeforePublish);
+    showToast(message, "error");
+    return;
+  }
+
+  const idempotencyKey = estimatePublishIdempotencyKey(leadId);
+  const publishOperation = (async () => {
+    setEstimateWorkflowState({
+      leadId,
+      status: "saving",
+      dirty: wasDirtyBeforePublish,
+      operation: "publish",
+      message:
+        "Saving the estimate currently shown to this lead before publishing it.",
+      error: "",
+    });
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    setEstimateWorkflowState({
+      leadId,
+      status: "publishing",
+      dirty: wasDirtyBeforePublish,
+      operation: "publish",
+      message:
+        "Publishing the same saved draft as this lead's exact client version.",
+      error: "",
+    });
+
+    const response = await apiPost("/api/staff/estimate-share", {
+      action: "create",
+      type: "estimate",
+      leadId,
+      estimateDraft: draft,
+      signingMode: readiness.readyToSign ? "signature" : "review",
+      idempotencyKey,
+    });
+    const responseShare = response.share || null;
+    const responseDraft = response.draft || null;
+    const publishWasUnchanged =
+      response.unchanged === true || response.idempotent === true;
+
+    if (
+      responseShare &&
+      safeString(responseShare.leadId) !== leadId
+    ) {
+      throw new Error(
+        "The server returned a version for a different lead. This estimate was not applied.",
+      );
+    }
+    if (
+      responseShare?.estimateSnapshot &&
+      !estimateDraftMatchesShareSnapshot(draft, responseShare)
+    ) {
+      throw new Error(
+        "The published version did not match the estimate shown. Reload before trying again.",
+      );
+    }
+    if (
+      responseDraft &&
+      (safeString(responseDraft.id) !== leadId ||
+        safeString(responseDraft.leadId) !== leadId ||
+        !estimateDraftMatchesShareSnapshot(draft, {
+          type: "estimate",
+          estimateSnapshot: responseDraft,
+        }))
+    ) {
+      throw new Error(
+        "The saved server draft did not match the estimate shown. Reload before trying again.",
+      );
+    }
+    if (safeString(state.selectedLeadId) !== leadId) {
+      throw new Error(
+        "The selected lead changed before publishing finished. Reopen the estimate to verify it.",
+      );
+    }
+
+    applySelectedLeadEstimateShareState(leadId, responseShare);
+    const refreshedShare = await refreshEstimateShareState(leadId);
+    const publishedShare = refreshedShare || responseShare;
+
+    if (!publishedShare || safeString(publishedShare.leadId) !== leadId) {
+      throw new Error(
+        "The new client version could not be verified for this lead.",
+      );
+    }
+    if (!publishedShare.estimateSnapshot) {
+      throw new Error(
+        "The server did not return a frozen estimate version. Nothing was marked published.",
+      );
+    }
+    if (safeString(publishedShare.status) !== "active") {
+      throw new Error(
+        "The server did not return an active client version. Nothing was marked published.",
+      );
+    }
+    if (!estimateDraftMatchesShareSnapshot(draft, publishedShare)) {
+      throw new Error(
+        "The verified client version differs from the estimate shown. Nothing was marked published.",
+      );
+    }
+
+    state.estimate = {
+      ...draft,
+      customerId: safeString(lead.customerId) || null,
+      clientName: safeString(lead.clientName),
+      projectAddress: safeString(lead.projectAddress),
+      createdAt:
+        state.estimate && estimateBelongsToLead(state.estimate, leadId)
+          ? state.estimate.createdAt || new Date().toISOString()
+          : new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      lastEditedByUid: state.profile.uid,
+      lastEditedByName: state.profile.displayName,
+    };
+    applyLeadEstimateStateLocally(leadId, state.estimate);
+    state.estimateWorkflow = {
+      ...state.estimateWorkflow,
+      leadId,
+      status: "published",
+      dirty: false,
+      operation: "",
+      message: publishWasUnchanged
+        ? "This exact estimate was already the current published client version."
+        : readiness.readyToSign
+          ? "This exact estimate is saved and published for client review and signature."
+          : "This exact estimate is saved and published for review. Signing remains unavailable until both project dates are added and republished.",
+      error: "",
+      lastPublishedShareId: safeString(publishedShare.id),
+    };
+    refs.estimateForm.classList.remove("is-dirty");
+    renderLeadDetail();
+    showToast(
+      publishWasUnchanged
+        ? "This exact estimate is already published."
+        : readiness.readyToSign
+          ? "Exact estimate saved and published for review and signature."
+          : "Exact estimate saved and published for client review.",
+    );
+    return publishedShare;
+  })()
+    .catch((error) => {
+      if (safeString(state.selectedLeadId) === leadId) {
+        const observedShare = state.estimateShare;
+        if (
+          safeString(observedShare?.leadId) === leadId &&
+          safeString(observedShare?.status) === "active" &&
+          observedShare?.estimateSnapshot &&
+          estimateDraftMatchesShareSnapshot(draft, observedShare)
+        ) {
+          state.estimate = {
+            ...draft,
+            customerId: safeString(lead.customerId) || null,
+            clientName: safeString(lead.clientName),
+            projectAddress: safeString(lead.projectAddress),
+            createdAt:
+              state.estimate &&
+              estimateBelongsToLead(state.estimate, leadId)
+                ? state.estimate.createdAt || new Date().toISOString()
+                : new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            lastEditedByUid: state.profile.uid,
+            lastEditedByName: state.profile.displayName,
+          };
+          applyLeadEstimateStateLocally(leadId, state.estimate);
+          state.estimateWorkflow = {
+            ...state.estimateWorkflow,
+            leadId,
+            status: "published",
+            dirty: false,
+            operation: "",
+            message:
+              "The exact client version was verified after the confirmation response was interrupted.",
+            error: "",
+            lastPublishedShareId: safeString(observedShare.id),
+          };
+          refs.estimateForm.classList.remove("is-dirty");
+          renderLeadDetail();
+          showToast("Exact estimate published and verified.");
+          return observedShare;
+        }
+
+        setEstimateWorkflowState({
+          leadId,
+          status: "failed",
+          dirty: wasDirtyBeforePublish,
+          operation: "",
+          message: "",
+          error:
+            error?.message ||
+            "The estimate was not published. Your visible edits are still here.",
+        });
+        refs.estimateForm.classList.toggle(
+          "is-dirty",
+          wasDirtyBeforePublish,
+        );
+      }
+      throw error;
+    })
+    .finally(() => {
+      pendingEstimateOperations.delete(pendingKey);
+    });
+
+  pendingEstimateOperations.set(pendingKey, publishOperation);
+  return publishOperation;
+}
+
+async function createEstimateShareLink() {
+  return publishCurrentEstimateForLead();
 }
 
 async function copyEstimateShareLink() {
   if (!state.estimateShare?.shareUrl) {
-    showToast("Create the share link first.", "error");
+    showToast("Publish this estimate before copying its client link.", "error");
     return;
   }
 
@@ -19093,18 +22637,30 @@ async function publishCustomerEstimateFromLead(leadId) {
     return;
   }
 
-  const response = await apiPost("/api/staff/estimate-share", {
-    action: "create",
-    type: "estimate",
-    leadId,
-  });
-
-  if (state.selectedLeadId === leadId) {
-    applySelectedLeadEstimateShareState(leadId, response.share || null);
-    await refreshEstimateShareState(leadId);
+  const lead = state.leads.find(
+    (entry) => safeString(entry.id) === safeString(leadId),
+  );
+  if (!lead) {
+    showToast("That lead is no longer available.", "error");
+    return;
   }
 
-  showToast("Estimate published to the client portal.");
+  const didSelect = selectLead(lead.id, {
+    openWorkspace: true,
+    preserveTab: true,
+  });
+  if (didSelect === false) {
+    return;
+  }
+
+  state.activeLeadTab = "estimate";
+  switchView("leads-view");
+  renderLeadDetail();
+  syncLeadRouteState();
+  queueFocus(refs.estimateShareCreateButton);
+  showToast(
+    "Review this lead's exact estimate, then use Save & publish exact version.",
+  );
 }
 
 async function setCustomerPortalInvoiceVisibility(projectId, invoiceId, visible) {
@@ -19125,8 +22681,8 @@ async function setCustomerPortalInvoiceVisibility(projectId, invoiceId, visible)
 
   showToast(
     visible
-      ? "Invoice is now visible in the client portal."
-      : "Invoice is now hidden from the client portal.",
+      ? "Invoice is now visible in the secure portal."
+      : "Invoice is now hidden from the secure portal.",
   );
 }
 
@@ -19196,8 +22752,8 @@ async function setCustomerPortalDocumentVisibility(documentId, visible) {
 
   showToast(
     visible
-      ? "Document is now visible in the client portal."
-      : "Document is now hidden from the client portal.",
+      ? "Document is now visible in the secure portal."
+      : "Document is now hidden from the secure portal.",
   );
 }
 
@@ -19240,7 +22796,7 @@ async function deleteCustomerChangeOrder(projectId, changeOrderId) {
   }
 
   const confirmed = window.confirm(
-    "Delete this unsigned published change order from the client portal?",
+    "Delete this unsigned published change order from the secure portal?",
   );
   if (!confirmed) {
     return;
@@ -19630,7 +23186,7 @@ function buildClientPortalProjectUpdateMessage({
 
   if (statusChanged && safeString(nextStatus) === "completed") {
     sentences.push(
-      `Project update for ${projectLabel}: this job is now marked complete in your client portal.`,
+      `Project update for ${projectLabel}: this job is now marked complete in your secure portal.`,
     );
   } else if (statusChanged) {
     sentences.push(
@@ -19695,6 +23251,15 @@ function buildClientPortalDocumentUpdateMessage({
       project
         ? `A closeout document was shared for ${projectLabel}: ${documentTitle}.`
         : `A closeout document was shared to your portal: ${documentTitle}.`,
+    );
+    if (safeString(note)) {
+      sentences.push(ensureSentence(note));
+    }
+  } else if (normalisedCategory === "receipt") {
+    sentences.push(
+      project
+        ? `A paid receipt was shared for ${projectLabel}: ${documentTitle}.`
+        : `A paid receipt was shared to your portal: ${documentTitle}.`,
     );
     if (safeString(note)) {
       sentences.push(ensureSentence(note));
@@ -19913,7 +23478,7 @@ function startChangeOrderEdit(changeOrder) {
 
   if (changeOrderIsPublished(changeOrder) || changeOrderIsSigned(changeOrder)) {
     showToast(
-      "Unpublish or replace this change order before editing the client-facing record.",
+      "Unpublish or replace this change order before editing the published record.",
       "error",
     );
     return;
@@ -19987,12 +23552,23 @@ function resetCalendarEventForm(seed = {}) {
     return;
   }
   refs.calendarEventForm.reset();
+  const projectId = seed.projectId || state.calendarProjectId || "";
+  const project = projectId
+    ? state.projects.find((item) => item.id === projectId) || null
+    : null;
   refs.calendarTypeSelect.value = seed.type || "job_work";
   refs.calendarEventStatusSelect.value = seed.status || "scheduled";
-  refs.calendarLinkedProjectSelect.value =
-    seed.projectId || state.calendarProjectId || "";
-  refs.calendarLinkedLeadSelect.value = seed.leadId || "";
-  refs.calendarLinkedCustomerSelect.value = seed.customerId || "";
+  refs.calendarTitleInput.value = seed.title || "";
+  refs.calendarLinkedCustomerSelect.value =
+    seed.customerId || project?.customerId || "";
+  refs.calendarLinkedProjectSelect.value = projectId;
+  refs.calendarLinkedLeadSelect.value = seed.leadId || project?.leadId || "";
+  renderCalendarFormOptions();
+  refs.calendarLinkedCustomerSelect.value =
+    seed.customerId || project?.customerId || "";
+  renderCalendarFormOptions();
+  refs.calendarLinkedProjectSelect.value = projectId;
+  refs.calendarLinkedLeadSelect.value = seed.leadId || project?.leadId || "";
   refs.calendarClientVisibleInput.checked = false;
   refs.calendarStartInput.value = formatDateInputValue(seed.startAt || new Date());
   refs.calendarEndInput.value = "";
@@ -20091,7 +23667,7 @@ async function saveCalendarEvent(event) {
 async function saveProject(event) {
   event.preventDefault();
   const project = currentProject();
-  if (!project) return;
+  if (!project) return false;
 
   if (!isAdmin()) {
     await updateDoc(doc(state.db, "projects", project.id), {
@@ -20106,14 +23682,14 @@ async function saveProject(event) {
     await addDoc(collection(state.db, "projects", project.id, "activities"), {
       activityType: "system",
       title: "Job updates saved",
-      body: "Operational job notes and client-facing schedule details were updated.",
+      body: "Operational job notes and shared schedule details were updated.",
       actorName: state.profile?.displayName || state.profile?.email || "Team",
       actorUid: state.profile?.uid || "",
       actorRole: state.profile?.role || "employee",
       createdAt: serverTimestamp(),
     });
     showToast("Job updates saved.");
-    return;
+    return true;
   }
 
   const customerId = refs.jobCustomerSelect.value || null;
@@ -20122,7 +23698,7 @@ async function saveProject(event) {
     : null;
   if (customerId && !selectedCustomer) {
     showToast("The selected customer is no longer available.", "error");
-    return;
+    return false;
   }
   const ownerUid = refs.jobOwnerSelect.value || null;
   const nextStatus = refs.jobStatusSelect.value || "in_progress";
@@ -20154,12 +23730,12 @@ async function saveProject(event) {
     nextStatus !== "completed"
   ) {
     showToast("Use Reopen and recalculate to unlock a completed job.", "error");
-    return;
+    return false;
   }
 
   if (!nextClientName) {
     showToast("Client name is required.", "error");
-    return;
+    return false;
   }
 
   if (selectedCustomer?.id) {
@@ -20178,6 +23754,10 @@ async function saveProject(event) {
 
   await updateDoc(doc(state.db, "projects", project.id), {
     status: nextStatus,
+    completedAt:
+      nextStatus === "completed"
+        ? project.completedAt || serverTimestamp()
+        : null,
     baseContractValue: nextBaseContractValue,
     jobValue: nextBaseContractValue,
     customerId: linkedCustomer?.id || customerId || null,
@@ -20320,8 +23900,8 @@ async function saveProject(event) {
       addProjectActivityEntry(
         project.id,
         "client_update",
-        "Client portal update refreshed",
-        "The client-facing phase, next step, and shared project update were refreshed.",
+        "Shared project update refreshed",
+        "The shared phase, next step, and project update were refreshed.",
       ),
     );
   }
@@ -20393,7 +23973,72 @@ async function saveProject(event) {
   }
 
   await Promise.all(activityWrites);
-  showToast(nextStatus === "completed" ? "Job completed and locked." : "Job setup saved.");
+  showToast(
+    nextStatus === "completed"
+      ? "Job completed and moved to Completed jobs."
+      : statusChanged
+        ? `Job status changed to ${JOB_STATUS_META[nextStatus] || "In Progress"}.`
+        : "Job setup saved.",
+  );
+  return true;
+}
+
+async function changeCurrentProjectStatus() {
+  const project = currentProject();
+  if (!project || !isAdmin()) return;
+
+  const previousStatus = project.status || "in_progress";
+  const nextStatus = refs.jobStatusSelect.value || "in_progress";
+  if (nextStatus === previousStatus) return;
+
+  if (nextStatus === "completed") {
+    await completeCurrentProject();
+    return;
+  }
+
+  refs.jobStatusSelect.disabled = true;
+  try {
+    const saved = await saveProject({ preventDefault() {} });
+    if (!saved) {
+      refs.jobStatusSelect.value = previousStatus;
+    }
+  } catch (error) {
+    refs.jobStatusSelect.value = previousStatus;
+    throw error;
+  } finally {
+    if (currentProject()?.id === project.id) {
+      refs.jobStatusSelect.disabled = !isAdmin();
+    }
+  }
+}
+
+async function completeCurrentProject() {
+  const project = currentProject();
+  if (!project || !isAdmin()) return;
+  if (project.status === "completed") {
+    showToast("This job is already completed.");
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Mark ${project.projectAddress || project.clientName || "this job"} complete? It will leave Active projects and move to Completed jobs.`,
+  );
+  if (!confirmed) {
+    refs.jobStatusSelect.value = project.status || "in_progress";
+    return;
+  }
+
+  refs.jobCompleteButton.disabled = true;
+  refs.jobStatusSelect.value = "completed";
+  const saved = await saveProject({ preventDefault() {} });
+  if (!saved) {
+    refs.jobCompleteButton.disabled = false;
+    refs.jobStatusSelect.value = project.status || "in_progress";
+    return;
+  }
+
+  state.jobStatus = "active";
+  closeJobWorkspace({ historyMode: "replace" });
 }
 
 async function addExpense(event) {
@@ -20487,19 +24132,29 @@ async function addPayment(event) {
 
   const paymentType = refs.paymentType.value || "progress";
   const method = refs.paymentMethod.value.trim();
+  const reference = refs.paymentReference.value.trim();
   const note = refs.paymentNote.value.trim();
   const relatedDate = parseDateOnlyInput(refs.paymentDate.value) || new Date();
-
-  await addDoc(collection(state.db, "projects", project.id, "payments"), {
+  const shouldGenerateReceipt = refs.paymentGenerateReceipt?.checked === true;
+  const shouldSendReceipt = refs.paymentSendReceipt?.checked === true;
+  const paymentRef = doc(
+    collection(state.db, "projects", project.id, "payments"),
+  );
+  const payment = {
+    id: paymentRef.id,
     amount,
     paymentType,
     method,
+    reference,
     note,
     relatedDate,
+    receiptNumber: buildPaymentReceiptNumber(paymentRef.id, relatedDate),
     createdByUid: state.profile.uid,
     createdByName: state.profile.displayName,
     createdAt: serverTimestamp(),
-  });
+  };
+
+  await setDoc(paymentRef, payment, { merge: true });
 
   refs.paymentForm.reset();
   refs.paymentType.value = "progress";
@@ -20511,6 +24166,34 @@ async function addPayment(event) {
     `${formatCurrency(amount)} logged as ${PAYMENT_TYPE_META[paymentType] || "payment"}${method ? ` via ${method}` : ""}.`,
   );
   await syncProjectFinancialSnapshot(project.id, { projectData: project });
+  renderPaymentReceiptOptions(project);
+
+  if (shouldSendReceipt) {
+    try {
+      await saveAndSharePaymentReceipt(payment);
+    } catch (error) {
+      console.error("Payment receipt delivery failed.", error);
+      showToast(
+        "Payment recorded, but the receipt could not be sent. Use Send receipt from the payment list to try again.",
+        "error",
+      );
+    }
+    return;
+  }
+
+  if (shouldGenerateReceipt) {
+    try {
+      await downloadPaymentReceipt(payment);
+    } catch (error) {
+      console.error("Payment receipt download failed.", error);
+      showToast(
+        "Payment recorded, but the receipt could not be downloaded. Use Download receipt from the payment list to try again.",
+        "error",
+      );
+    }
+    return;
+  }
+
   showToast("Payment recorded.");
 }
 
@@ -20548,7 +24231,7 @@ async function addChangeOrder(event) {
     }
     if (changeOrderIsPublished(existing) || changeOrderIsSigned(existing)) {
       showToast(
-        "Unpublish or replace this change order before editing the client-facing record.",
+        "Unpublish or replace this change order before editing the published record.",
         "error",
       );
       return;
@@ -20971,7 +24654,7 @@ async function saveServiceTemplate(event) {
   const clientTitle = safeString(payload.clientTitle);
 
   if (!internalName || !clientTitle) {
-    showToast("Internal name and client-facing title are required.", "error");
+    showToast("Internal name and displayed title are required.", "error");
     return;
   }
 
@@ -21031,6 +24714,7 @@ async function saveTemplate(event) {
       agreementTerms:
         refs.templateAgreementTerms.value.trim() ||
         EMPTY_TEMPLATE.agreementTerms,
+      contractorBusinessAddress: refs.templateContractorAddress.value.trim(),
       updatedAt: serverTimestamp(),
       createdAt: state.template?.createdAt || serverTimestamp(),
     },
@@ -21043,8 +24727,12 @@ async function saveTemplate(event) {
 function resetStaffForm() {
   state.selectedStaffKey = null;
   refs.staffForm.reset();
+  refs.staffEmail.readOnly = false;
+  refs.staffEmail.removeAttribute("title");
   refs.staffActive.checked = true;
   refs.staffDefaultAssignee.checked = false;
+  refs.staffDeleteButton.hidden = true;
+  refs.staffDeleteButton.disabled = false;
   renderStaffList();
 }
 
@@ -21058,7 +24746,7 @@ async function saveStaff(event) {
     return;
   }
 
-  const key = sanitiseEmailKey(email);
+  const key = state.selectedStaffKey || sanitiseEmailKey(email);
   const existing = state.staffRoster.find((member) => member.id === key);
   const record = {
     id: key,
@@ -21071,10 +24759,36 @@ async function saveStaff(event) {
     updatedAt: serverTimestamp(),
   };
 
-  if (record.defaultLeadAssignee) {
-    const batch = writeBatch(state.db);
-    batch.set(doc(state.db, "allowedStaff", key), record, { merge: true });
+  if (
+    existing?.uid === state.profile?.uid &&
+    (record.active === false || record.role !== "admin")
+  ) {
+    showToast(
+      "Keep your own admin access active. Ask another admin to change your role or deactivate your account.",
+      "error",
+    );
+    return;
+  }
 
+  const batch = writeBatch(state.db);
+  batch.set(doc(state.db, "allowedStaff", key), record, { merge: true });
+
+  if (existing?.uid) {
+    batch.set(
+      doc(state.db, "users", existing.uid),
+      {
+        email,
+        displayName: record.displayName || existing.displayName || email,
+        role: record.role,
+        active: record.active,
+        defaultLeadAssignee: record.defaultLeadAssignee,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+
+  if (record.defaultLeadAssignee) {
     state.staffRoster
       .filter((member) => member.id !== key && member.defaultLeadAssignee)
       .forEach((member) => {
@@ -21086,15 +24800,49 @@ async function saveStaff(event) {
           },
           { merge: true },
         );
+        if (member.uid) {
+          batch.set(
+            doc(state.db, "users", member.uid),
+            {
+              defaultLeadAssignee: false,
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true },
+          );
+        }
       });
-
-    await batch.commit();
-  } else {
-    await setDoc(doc(state.db, "allowedStaff", key), record, { merge: true });
   }
+
+  await batch.commit();
 
   showToast(existing ? "Staff access updated." : "Staff access created.");
   resetStaffForm();
+}
+
+async function deleteSelectedStaff() {
+  if (!isAdmin() || !state.selectedStaffKey) return;
+  const member = state.staffRoster.find(
+    (item) => item.id === state.selectedStaffKey,
+  );
+  if (!member) {
+    showToast("This employee record no longer exists.", "error");
+    resetStaffForm();
+    return;
+  }
+  if (member.uid && member.uid === state.profile?.uid) {
+    showToast("You cannot delete your own administrator access.", "error");
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Delete ${member.displayName || member.email || "this employee"}? Their staff access and Google Calendar connection will be removed immediately. Historical jobs, tasks, and activity records will stay intact.`,
+  );
+  if (!confirmed) return;
+
+  refs.staffDeleteButton.disabled = true;
+  await apiPost("/api/staff/delete-access", { staffKey: member.id });
+  resetStaffForm();
+  showToast("Employee access deleted.");
 }
 
 function openLeadTasksFromRecord() {
@@ -21134,6 +24882,28 @@ function focusJobTaskForm() {
     projectId: project.id,
     customerId: project.customerId || null,
     leadId: project.leadId || null,
+  });
+}
+
+function openCalendarEventForProject(project = currentProject()) {
+  if (!project?.id) {
+    showToast("Select a project first.", "error");
+    return;
+  }
+
+  state.calendarProjectId = project.id;
+  state.calendarScope = "all";
+  switchView("calendar-view");
+  renderAll();
+  resetCalendarEventForm({
+    projectId: project.id,
+    customerId: project.customerId || "",
+    leadId: project.leadId || "",
+    assignedStaffUids: uniqueValues([state.profile?.uid]),
+  });
+  window.requestAnimationFrame(() => {
+    refs.calendarTitleInput.focus();
+    refs.calendarEventForm.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 }
 
@@ -21178,6 +24948,24 @@ function handleCommandAction(target) {
       assignedToUid: target.dataset.taskAssigneeUid || "",
       assignedToName: target.dataset.taskAssigneeName || "",
       assignedToEmail: target.dataset.taskAssigneeEmail || "",
+    });
+    return;
+  }
+
+  if (command === "start-expense-draft") {
+    openExpenseDrawer({ projectId: currentProject()?.id || null });
+    return;
+  }
+
+  if (command === "log-communication") {
+    const project = currentProject();
+    const lead =
+      state.activeView === "leads-view" && state.leadWorkspaceOpen
+        ? currentLeadDoc()
+        : null;
+    openCommunicationDrawer({
+      projectId: state.activeView === "jobs-view" ? project?.id || null : null,
+      leadId: lead?.id || null,
     });
     return;
   }
@@ -21231,6 +25019,18 @@ function handleCommandAction(target) {
     return;
   }
 
+  if (command === "lead-mark-won") {
+    const lead = currentLeadDoc();
+    if (!lead) {
+      showToast("Select a lead first.", "error");
+      return;
+    }
+    moveLeadToStatus(lead, "closed_won").catch((error) =>
+      showToast(error.message, "error"),
+    );
+    return;
+  }
+
   if (command === "customer-create-lead") {
     const customer = currentCustomerDoc();
     if (!customer) {
@@ -21281,6 +25081,26 @@ function handleCommandAction(target) {
 
   if (command === "job-create-task") {
     focusJobTaskForm();
+    return;
+  }
+
+  if (command === "job-add-document") {
+    const project = currentProject();
+    if (!project?.id) {
+      showToast("Select a job first.", "error");
+      return;
+    }
+    openJobTab("documents", refs.jobDocumentTitle);
+    return;
+  }
+
+  if (command === "job-update-client") {
+    const project = currentProject();
+    if (!project?.id) {
+      showToast("Select a job first.", "error");
+      return;
+    }
+    openJobTab("overview", refs.jobPhaseLabelInput);
   }
 }
 
@@ -21407,6 +25227,12 @@ function bindRecordDocumentListActions(container, resolveItems) {
 }
 
 function bindUi() {
+  configureTabSemantics(refs.leadTabButtons, "leadTab", "lead-tab-");
+  configureTabSemantics(refs.jobTabButtons, "jobTab", "job-tab-");
+  configureTabSemantics(refs.vendorTabButtons, "vendorTab", "vendor-tab-");
+  bindFormStateTracking();
+  bindTaskSchedulePickers();
+
   refs.signInButton.addEventListener("click", async () => {
     refs.signInButton.disabled = true;
     refs.authFeedback.textContent = "Opening Google sign-in...";
@@ -21414,14 +25240,6 @@ function bindUi() {
     try {
       await signInWithPopup(state.auth, state.provider);
     } catch (error) {
-      if (
-        error.code === "auth/popup-blocked" ||
-        error.code === "auth/cancelled-popup-request"
-      ) {
-        await signInWithRedirect(state.auth, state.provider);
-        return;
-      }
-
       console.error("Google sign-in could not start.", error);
       refs.signInButton.disabled = false;
       showAuthShell(
@@ -21471,6 +25289,51 @@ function bindUi() {
       return;
     }
     openMobileMoreDrawer();
+  });
+
+  refs.mobileActionDock?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-mobile-context-action]");
+    if (!button) return;
+    const action = button.dataset.mobileContextAction;
+    if (action === "add-lead") {
+      openLeadDrawer();
+      return;
+    }
+    if (action === "add-expense") {
+      openExpenseDrawer({ projectId: currentProject()?.id || null });
+      return;
+    }
+    if (action === "add-task") {
+      if (state.activeView === "jobs-view" && currentProject()?.id) {
+        focusJobTaskForm();
+        return;
+      }
+      if (state.activeView === "leads-view" && currentLeadDoc()?.id) {
+        openLeadTasksFromRecord();
+        return;
+      }
+      openTaskDrawer();
+      return;
+    }
+    if (action === "log-communication") {
+      handleCommandAction({ dataset: { command: "log-communication" } });
+      return;
+    }
+    if (action === "lead-open-estimate") {
+      openLeadEstimatePanel();
+      return;
+    }
+    if (action === "lead-mark-won") {
+      handleCommandAction({ dataset: { command: "lead-mark-won" } });
+      return;
+    }
+    if (action === "job-add-document") {
+      handleCommandAction({ dataset: { command: "job-add-document" } });
+      return;
+    }
+    if (action === "job-update-client") {
+      handleCommandAction({ dataset: { command: "job-update-client" } });
+    }
   });
 
   refs.mobileCreateFab.addEventListener("click", () => {
@@ -21532,6 +25395,7 @@ function bindUi() {
     refs.todayEstimatesList,
     refs.todayJobsList,
     refs.leadRecordContext,
+    refs.jobRecordShell,
     refs.customerRecordContext,
     refs.jobRecordContext,
     refs.customerOpportunitiesList,
@@ -21654,6 +25518,10 @@ function bindUi() {
       openTaskDrawer();
       return;
     }
+    if (drawerAction === "communication") {
+      openCommunicationDrawer();
+      return;
+    }
     if (drawerAction === "customer") {
       openCustomerDrawer();
       return;
@@ -21707,6 +25575,55 @@ function bindUi() {
     );
   });
 
+  refs.drawerCommunicationRecordSearch.addEventListener("input", (event) => {
+    state.drawer.communicationDraft = {
+      ...(state.drawer.communicationDraft || defaultCommunicationDrawerDraft()),
+      recordSearch: event.target.value || "",
+      linkedType: refs.drawerCommunicationLinkedType.value || "lead",
+      linkedId: refs.drawerCommunicationLinkedRecord.value || "",
+    };
+    renderDrawerCommunicationRecordOptions();
+    state.drawer.communicationDraft.linkedId =
+      refs.drawerCommunicationLinkedRecord.value || "";
+    renderDrawerCommunicationContext();
+  });
+
+  refs.drawerCommunicationLinkedType.addEventListener("change", (event) => {
+    state.drawer.communicationDraft = {
+      ...(state.drawer.communicationDraft || defaultCommunicationDrawerDraft()),
+      linkedType: event.target.value || "lead",
+      linkedId: "",
+    };
+    renderDrawerCommunicationRecordOptions();
+    renderDrawerCommunicationContext();
+  });
+
+  refs.drawerCommunicationLinkedRecord.addEventListener("change", () => {
+    state.drawer.communicationDraft = {
+      ...(state.drawer.communicationDraft || defaultCommunicationDrawerDraft()),
+      linkedType: refs.drawerCommunicationLinkedType.value || "lead",
+      linkedId: refs.drawerCommunicationLinkedRecord.value || "",
+    };
+    renderDrawerCommunicationContext();
+  });
+
+  refs.drawerCommunicationFollowUpRequired.addEventListener("change", () => {
+    if (
+      refs.drawerCommunicationFollowUpRequired.checked &&
+      !refs.drawerCommunicationFollowUpAt.value
+    ) {
+      refs.drawerCommunicationFollowUpAt.value = formatDateInputValue(
+        addDays(new Date(), 1),
+      );
+    }
+  });
+
+  refs.drawerCommunicationForm.addEventListener("submit", (event) => {
+    saveCommunicationDrawer(event).catch((error) =>
+      showToast(error.message, "error"),
+    );
+  });
+
   refs.drawerLeadCustomerSearch.addEventListener("input", (event) => {
     state.drawer.leadDraft = {
       ...collectDrawerLeadDraftFromInputs(),
@@ -21743,12 +25660,66 @@ function bindUi() {
   refs.leadWorkspaceBackButton.addEventListener("click", closeLeadWorkspace);
 
   refs.leadList.addEventListener("click", (event) => {
+    const archiveButton = event.target.closest("[data-lead-archive]");
+    if (archiveButton) {
+      archiveLeadFromPipeline(archiveButton.dataset.leadArchive).catch(
+        (error) =>
+          showToast(error.message || "Could not move this lead to Trash.", "error"),
+      );
+      return;
+    }
+    const logButton = event.target.closest("[data-lead-log-communication]");
+    if (logButton) {
+      selectLead(logButton.dataset.leadLogCommunication, {
+        preserveTab: true,
+      });
+      openCommunicationDrawer({ leadId: logButton.dataset.leadLogCommunication });
+      return;
+    }
     const button = event.target.closest("[data-lead-id]");
     if (!button) return;
     selectLead(button.dataset.leadId);
   });
 
+  refs.leadList.addEventListener("change", (event) => {
+    const stageSelect = event.target.closest("[data-lead-quick-stage]");
+    if (!stageSelect) return;
+    const lead = state.leads.find(
+      (item) => item.id === stageSelect.dataset.leadQuickStage,
+    );
+    if (!lead || lead.status === stageSelect.value) return;
+
+    const previousStatus = lead.status || "new_lead";
+    stageSelect.disabled = true;
+    moveLeadToStatus(lead, stageSelect.value, { source: "pipeline list" })
+      .catch((error) => {
+        stageSelect.value = previousStatus;
+        showToast(error.message || "Could not update this lead stage.", "error");
+      })
+      .finally(() => {
+        if (stageSelect.isConnected) {
+          stageSelect.disabled = !isAdmin() && stageSelect.value === "closed_won";
+        }
+      });
+  });
+
   refs.leadBoard.addEventListener("click", (event) => {
+    const archiveButton = event.target.closest("[data-lead-archive]");
+    if (archiveButton) {
+      archiveLeadFromPipeline(archiveButton.dataset.leadArchive).catch(
+        (error) =>
+          showToast(error.message || "Could not move this lead to Trash.", "error"),
+      );
+      return;
+    }
+    const logButton = event.target.closest("[data-lead-log-communication]");
+    if (logButton) {
+      selectLead(logButton.dataset.leadLogCommunication, {
+        preserveTab: true,
+      });
+      openCommunicationDrawer({ leadId: logButton.dataset.leadLogCommunication });
+      return;
+    }
     const button = event.target.closest("[data-lead-id]");
     if (!button) return;
     selectLead(button.dataset.leadId);
@@ -21855,6 +25826,19 @@ function bindUi() {
     renderLeadDocumentSourceFields,
   );
 
+  refs.estimateForm.addEventListener("input", (event) => {
+    if (event.target === refs.estimateShareLinkInput) {
+      return;
+    }
+    markEstimateDirty();
+  });
+  refs.estimateForm.addEventListener("change", (event) => {
+    if (event.target === refs.estimateShareLinkInput) {
+      return;
+    }
+    markEstimateDirty();
+  });
+
   refs.estimateForm.addEventListener("submit", (event) => {
     saveEstimateDraft(event).catch((error) =>
       showToast(error.message, "error"),
@@ -21881,11 +25865,41 @@ function bindUi() {
     );
   });
 
+  refs.leadEstimateClientList.addEventListener("click", (event) => {
+    const focusButton = event.target.closest(
+      "[data-estimate-review-publish-focus]",
+    );
+    if (focusButton) {
+      refs.estimateSharePanel.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      queueFocus(refs.estimateShareCreateButton);
+      return;
+    }
+
+    const customerButton = event.target.closest("[data-open-customer]");
+    if (customerButton?.dataset.openCustomer) {
+      selectCustomer(customerButton.dataset.openCustomer);
+      switchView(customerButton.dataset.openView || "customers-view");
+      return;
+    }
+
+    const actionButton = event.target.closest("[data-customer-portal-action]");
+    if (!actionButton) {
+      return;
+    }
+    handleCustomerPortalPublishingAction(actionButton).catch((error) =>
+      showToast(error.message, "error"),
+    );
+  });
+
   refs.estimateAddLineButton.addEventListener("click", () => {
-    const lines = collectEstimateForm().lineItems;
-    lines.push({ label: "", description: "", amount: "" });
-    renderEstimateLines(lines);
-    updateEstimatePreview();
+    addEstimateLineItem();
+  });
+
+  refs.estimateMobileAddLineButton?.addEventListener("click", () => {
+    addEstimateLineItem();
   });
 
   refs.estimateCopyButton.addEventListener("click", () => {
@@ -21895,8 +25909,31 @@ function bindUi() {
   });
 
   refs.estimatePrintButton.addEventListener("click", openEstimatePrintView);
+  refs.estimateMobileDownloadButton?.addEventListener(
+    "click",
+    openEstimatePrintView,
+  );
+  refs.estimatePreviewToggle?.addEventListener("click", () => {
+    const panel = refs.estimatePreviewToggle.closest(".estimate-preview-panel");
+    const collapsed = !panel.classList.toggle("is-preview-collapsed");
+    refs.estimatePreviewToggle.setAttribute("aria-expanded", String(collapsed));
+    refs.estimatePreviewToggle.textContent = collapsed
+      ? "Hide preview"
+      : "Show preview";
+  });
   refs.estimateSubject.addEventListener("input", updateEstimatePreview);
   refs.estimateBody.addEventListener("input", updateEstimatePreview);
+  refs.estimateStartDate.addEventListener("input", updateEstimatePreview);
+  refs.estimateCompletionDate.addEventListener("input", updateEstimatePreview);
+  refs.estimatePaymentSchedule.addEventListener("input", updateEstimatePreview);
+  refs.estimateSpecialOrderMaterials.addEventListener(
+    "input",
+    updateEstimatePreview,
+  );
+  refs.estimateKnownSubcontractors.addEventListener(
+    "input",
+    updateEstimatePreview,
+  );
   refs.estimateAssumptions.addEventListener("input", updateEstimatePreview);
 
   refs.customerSearchInput.addEventListener("input", (event) => {
@@ -22027,9 +26064,17 @@ function bindUi() {
       return;
     }
 
+    const schedule = readTaskSchedule("customer");
+    if (!schedule.valid) {
+      renderTaskSchedulePreview("customer", schedule.error);
+      showToast(schedule.error, "error");
+      refs.customerTaskDueDate.focus();
+      return;
+    }
+
     const created = await createQuickTask({
       title: refs.customerTaskTitle.value,
-      dueValue: refs.customerTaskDue.value,
+      dueAt: schedule.value,
       priority: refs.customerTaskPriority.value,
       assigneeSelect: refs.customerTaskAssignee,
       customerId: customer.id,
@@ -22038,6 +26083,7 @@ function bindUi() {
     if (created) {
       refs.customerTaskForm.reset();
       refs.customerTaskPriority.value = "high";
+      setTaskScheduleValue("customer", null);
       renderTaskAssigneeOptions(
         refs.customerTaskAssignee,
         state.profile?.uid || "",
@@ -22143,11 +26189,13 @@ function bindUi() {
     }
   });
 
-  bindRefEvent("jobStatusFilter", "job-status-filter", "change", (event) => {
-    state.jobStatus = event.target.value;
-    if (!syncSelectedProjectWithJobFilters()) {
-      renderJobList();
-    }
+  bindRefCollection("jobStatusFilterButtons", "[data-job-status-filter]", (button) => {
+    button.addEventListener("click", () => {
+      state.jobStatus = button.dataset.jobStatusFilter || "active";
+      if (!syncSelectedProjectWithJobFilters()) {
+        renderJobList();
+      }
+    });
   });
 
   bindRefEvent(
@@ -22187,6 +26235,73 @@ function bindUi() {
     (event) => {
       state.calendarProjectId = event.target.value || "";
       renderCalendarView();
+    },
+  );
+
+  bindRefEvent(
+    "calendarLinkedCustomerSelect",
+    "calendar-linked-customer-select",
+    "change",
+    () => {
+      renderCalendarFormOptions();
+    },
+  );
+
+  bindRefEvent(
+    "calendarLinkedProjectSelect",
+    "calendar-linked-project-select",
+    "change",
+    (event) => {
+      const project = state.projects.find(
+        (item) => item.id === (event.target.value || ""),
+      );
+      if (project) {
+        refs.calendarLinkedCustomerSelect.value = project.customerId || "";
+        refs.calendarLinkedLeadSelect.value = project.leadId || "";
+      }
+      renderCalendarFormOptions();
+      refs.calendarLinkedProjectSelect.value = project?.id || "";
+      if (project?.leadId) {
+        refs.calendarLinkedLeadSelect.value = project.leadId;
+      }
+    },
+  );
+
+  bindRefEvent(
+    "calendarLinkedLeadSelect",
+    "calendar-linked-lead-select",
+    "change",
+    (event) => {
+      const lead = state.leads.find(
+        (item) => item.id === (event.target.value || ""),
+      );
+      if (lead?.customerId) {
+        refs.calendarLinkedCustomerSelect.value = lead.customerId;
+        renderCalendarFormOptions();
+        refs.calendarLinkedLeadSelect.value = lead.id;
+      }
+    },
+  );
+
+  bindRefEvent(
+    "googleCalendarConnectButton",
+    "google-calendar-connect-button",
+    "click",
+    () => {
+      connectGoogleCalendar().catch((error) =>
+        showToast(error.message, "error"),
+      );
+    },
+  );
+
+  bindRefEvent(
+    "googleCalendarDisconnectButton",
+    "google-calendar-disconnect-button",
+    "click",
+    () => {
+      disconnectGoogleCalendar().catch((error) =>
+        showToast(error.message, "error"),
+      );
     },
   );
 
@@ -22256,8 +26371,30 @@ function bindUi() {
     selectProject(button.dataset.projectId);
   });
 
+  bindRefEvent(
+    "jobProjectSwitcherSelect",
+    "job-project-switcher-select",
+    "change",
+    (event) => {
+      if (event.target.value) {
+        selectProject(event.target.value);
+      }
+    },
+  );
+
   bindRefEvent("jobCoreForm", "job-core-form", "submit", (event) => {
     saveProject(event).catch((error) => showToast(error.message, "error"));
+  });
+
+  bindRefEvent("jobStatusSelect", "job-status-select", "change", () => {
+    changeCurrentProjectStatus().catch((error) => {
+      const project = currentProject();
+      if (project) {
+        refs.jobStatusSelect.value = project.status || "in_progress";
+        refs.jobStatusSelect.disabled = !isAdmin();
+      }
+      showToast(error.message || "Could not change the job status.", "error");
+    });
   });
 
   bindRefCollection("jobTabButtons", "[data-job-tab]", (button) => {
@@ -22345,6 +26482,31 @@ function bindUi() {
       renderAll();
     },
   );
+
+  bindRefEvent(
+    "jobWorkCalendarButton",
+    "job-work-calendar-button",
+    "click",
+    () => {
+      openCalendarEventForProject();
+    },
+  );
+
+  bindRefEvent(
+    "jobAddCalendarButton",
+    "job-add-calendar-button",
+    "click",
+    () => {
+      openCalendarEventForProject();
+    },
+  );
+
+  bindRefEvent("jobCompleteButton", "job-complete-button", "click", () => {
+    completeCurrentProject().catch((error) => {
+      refs.jobCompleteButton.disabled = false;
+      showToast(error.message || "Could not complete this job.", "error");
+    });
+  });
 
   bindRefEvent("jobDeleteButton", "job-delete-button", "click", () => {
     archiveCurrentProject().catch((error) =>
@@ -22477,6 +26639,52 @@ function bindUi() {
     addPayment(event).catch((error) => showToast(error.message, "error"));
   });
 
+  bindRefEvent(
+    "paymentGenerateReceipt",
+    "payment-generate-receipt",
+    "change",
+    () => {
+      if (!refs.paymentGenerateReceipt.checked) {
+        refs.paymentSendReceipt.checked = false;
+      }
+    },
+  );
+
+  bindRefEvent(
+    "paymentSendReceipt",
+    "payment-send-receipt",
+    "change",
+    () => {
+      if (refs.paymentSendReceipt.checked) {
+        refs.paymentGenerateReceipt.checked = true;
+      }
+    },
+  );
+
+  bindRefEvent("paymentList", "payment-list", "click", (event) => {
+    const downloadButton = event.target.closest(
+      "[data-payment-receipt-download]",
+    );
+    if (downloadButton) {
+      const payment = state.projectPayments.find(
+        (entry) => entry.id === downloadButton.dataset.paymentReceiptDownload,
+      );
+      downloadPaymentReceipt(payment, downloadButton).catch((error) =>
+        showToast(error.message, "error"),
+      );
+      return;
+    }
+
+    const sendButton = event.target.closest("[data-payment-receipt-send]");
+    if (!sendButton) return;
+    const payment = state.projectPayments.find(
+      (entry) => entry.id === sendButton.dataset.paymentReceiptSend,
+    );
+    saveAndSharePaymentReceipt(payment, sendButton).catch((error) =>
+      showToast(error.message, "error"),
+    );
+  });
+
   bindRefEvent("jobInvoiceList", "job-invoice-list", "click", (event) => {
     const button = event.target.closest("[data-project-invoice-id]");
     if (!button) return;
@@ -22568,6 +26776,17 @@ function bindUi() {
     "click",
     () => {
       downloadInvoicePdf("receipt").catch((error) =>
+        showToast(error.message, "error"),
+      );
+    },
+  );
+
+  bindRefEvent(
+    "invoiceSendReceiptButton",
+    "invoice-send-receipt-button",
+    "click",
+    () => {
+      saveAndShareInvoiceReceipt().catch((error) =>
         showToast(error.message, "error"),
       );
     },
@@ -22685,11 +26904,29 @@ function bindUi() {
     if (!member) return;
     state.selectedStaffKey = member.id;
     refs.staffEmail.value = member.email || "";
+    refs.staffEmail.readOnly = true;
+    refs.staffEmail.title =
+      "Email identifies this staff account and cannot be changed after access is created.";
     refs.staffDisplayName.value = member.displayName || "";
     refs.staffRole.value = member.role || "employee";
     refs.staffDefaultAssignee.checked = Boolean(member.defaultLeadAssignee);
     refs.staffActive.checked = member.active !== false;
+    refs.staffDeleteButton.hidden = member.uid === state.profile?.uid;
+    refs.staffDeleteButton.disabled = false;
+    state.activeAdminSection = "team";
     renderStaffList();
+    renderAdminSectionState();
+    refs.staffForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  refs.adminSectionButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      state.activeAdminSection = button.dataset.adminSection || "team";
+      renderAdminSectionState();
+      refs.staffAdminShell
+        ?.closest(".record-shell")
+        ?.scrollTo({ top: 0, behavior: "smooth" });
+    });
   });
 
   refs.staffForm.addEventListener("submit", (event) => {
@@ -22697,6 +26934,12 @@ function bindUi() {
   });
 
   refs.staffFormReset.addEventListener("click", resetStaffForm);
+  refs.staffDeleteButton.addEventListener("click", () => {
+    deleteSelectedStaff().catch((error) => {
+      refs.staffDeleteButton.disabled = false;
+      showToast(error.message || "Could not delete employee access.", "error");
+    });
+  });
   bindRefEvent(
     "staffClearFocusButton",
     "staff-clear-focus-button",
@@ -22979,6 +27222,8 @@ function bindUi() {
   }
 
   window.addEventListener("keydown", (event) => {
+    trapDrawerFocus(event);
+
     if (event.key === "Escape" && state.drawer.type) {
       closeDrawer();
     }
@@ -22994,7 +27239,7 @@ function bindUi() {
     state.pendingLeadRouteId = route.leadId;
     state.pendingLeadRouteTab = route.leadTab || "overview";
     state.pendingJobRouteId = route.jobId;
-    state.pendingJobRouteTab = route.jobTab || "financials";
+    state.pendingJobRouteTab = route.jobTab || "work";
 
     if (route.jobId) {
       if (!restoreProjectWorkspaceFromRoute()) {
@@ -23030,6 +27275,7 @@ function bindUi() {
       state.estimateShare = null;
       state.leadEstimateShares = [];
       state.leadDocuments = [];
+      resetEstimateWorkflowForLead("");
       subscribeLeadDetail();
       didChange = true;
     }

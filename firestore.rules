@@ -63,6 +63,14 @@ service cloud.firestore {
       );
     }
 
+    function employeeCanCreateAssignedLead() {
+      return isActiveStaff() &&
+        request.resource.data.assignedToUid == request.auth.uid &&
+        request.resource.data.status in ["new_lead", "follow_up"] &&
+        request.resource.data.customerId == null &&
+        request.resource.data.archivedAt == null;
+    }
+
     function canReadProject(projectData) {
       return isAdmin() || (
         isActiveStaff() &&
@@ -228,6 +236,10 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    match /clientPortalPreviews/{previewId} {
+      allow read, write: if false;
+    }
+
     match /emailTemplates/{templateId} {
       allow read: if isActiveStaff();
       allow write: if isAdmin();
@@ -244,7 +256,7 @@ service cloud.firestore {
         isActiveStaff() &&
         request.auth.uid == resource.data.assignedToUid
       );
-      allow create: if isAdmin();
+      allow create: if isAdmin() || employeeCanCreateAssignedLead();
       allow update: if isAdmin() || (
         canReadLead(resource.data) &&
         employeeCanUpdateLeadWithoutWinning() &&
@@ -279,7 +291,8 @@ service cloud.firestore {
       }
 
       allow get, list: if leadDocExists() && canReadLead(leadDoc().data);
-      allow write: if isAdmin();
+      allow create, update: if isAdmin() || (leadDocExists() && canReadLead(leadDoc().data));
+      allow delete: if isAdmin();
     }
 
     match /estimateShares/{shareId} {
@@ -365,6 +378,11 @@ service cloud.firestore {
 
     match /vendorDocuments/{documentId} {
       allow get, list: if canReadVendorDocument(resource.data);
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /siteProjects/{siteProjectId} {
+      allow get, list: if resource.data.published == true || isAdmin();
       allow create, update, delete: if isAdmin();
     }
 

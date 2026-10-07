@@ -16,37 +16,37 @@ import {
 
 const APP_VIEWS = {
   dashboard: {
-    title: "Dashboard",
+    title: "Overview",
     subtitle:
       "Start with the updates that matter most right now: project progress, estimates waiting for review, invoices due, and recent client messages.",
   },
   estimates: {
-    title: "Estimates",
+    title: "Approvals",
     subtitle:
       "Review active estimates and change orders first, then keep signed approval history and older records in one place.",
   },
   jobs: {
-    title: "Jobs",
+    title: "Properties",
     subtitle:
       "Follow each property through its client-facing phase, next step, target timing, and most recent shared update.",
   },
   billing: {
-    title: "Billing",
+    title: "Financials",
     subtitle:
       "See invoices due, payments received, and your current billing snapshot in one clean ledger-style view.",
   },
   documents: {
-    title: "Documents",
+    title: "Files",
     subtitle:
       "Find shared agreements, invoices, receipts, and project files without digging through old email threads.",
   },
   messages: {
-    title: "Messages",
+    title: "Updates",
     subtitle:
       "Keep billing questions, document follow-up, and project updates in one organized conversation history.",
   },
   account: {
-    title: "Account",
+    title: "Profile",
     subtitle:
       "Review the contact details and support information tied to this client portal login.",
   },
@@ -71,25 +71,8 @@ const CLIENT_SESSION_EVENTS = [
   "touchstart",
 ];
 
-const state = {
-  route: "login",
-  authMode: "sign-in",
-  inviteToken: "",
-  invite: null,
-  authAlert: null,
-  portalBanner: null,
-  app: null,
-  auth: null,
-  provider: null,
-  currentUser: null,
-  claimInFlight: false,
-  loadingPortal: false,
-  selectedView: "jobs",
-  selectedThreadId: null,
-  selectedProjectId: "",
-  openJobId: "",
-  selectedDocumentFilter: "all",
-  portal: {
+function createEmptyPortalData() {
+  return {
     bootstrap: null,
     estimates: [],
     jobs: [],
@@ -100,7 +83,36 @@ const state = {
     },
     documents: [],
     threads: [],
-  },
+  };
+}
+
+const state = {
+  route: "login",
+  authMode: "sign-in",
+  inviteToken: "",
+  invite: null,
+  previewToken: "",
+  previewMode: false,
+  authAlert: null,
+  portalBanner: null,
+  app: null,
+  auth: null,
+  provider: null,
+  currentUser: null,
+  claimInFlight: false,
+  loadingPortal: false,
+  refreshInFlight: false,
+  lastRefreshAt: 0,
+  approvalChannel: null,
+  portalOwnerUid: "",
+  portalGeneration: 0,
+  selectedView: "dashboard",
+  hasExplicitView: false,
+  selectedThreadId: null,
+  selectedProjectId: "",
+  openJobId: "",
+  selectedDocumentFilter: "all",
+  portal: createEmptyPortalData(),
   session: {
     lastActivityAt: 0,
     timeoutId: 0,
@@ -111,6 +123,33 @@ const state = {
     focusHandler: null,
   },
 };
+
+function closeApprovalChannel() {
+  if (!state.approvalChannel) {
+    return;
+  }
+
+  state.approvalChannel.close();
+  state.approvalChannel = null;
+}
+
+function resetPortalExperience() {
+  closeApprovalChannel();
+  state.portalGeneration += 1;
+  state.portalOwnerUid = "";
+  state.portal = createEmptyPortalData();
+  state.claimInFlight = false;
+  state.loadingPortal = false;
+  state.refreshInFlight = false;
+  state.lastRefreshAt = 0;
+  state.selectedView = "dashboard";
+  state.hasExplicitView = false;
+  state.selectedThreadId = null;
+  state.selectedProjectId = "";
+  state.openJobId = "";
+  state.selectedDocumentFilter = "all";
+  state.portalBanner = null;
+}
 
 const refs = {
   authShell: document.getElementById("auth-shell"),
@@ -153,6 +192,9 @@ const refs = {
   mobileCallHelpButton: document.getElementById("mobile-call-help-button"),
   signOutButton: document.getElementById("sign-out-button"),
   portalBanner: document.getElementById("portal-banner"),
+  staffPreviewBar: document.getElementById("staff-preview-bar"),
+  staffPreviewTitle: document.getElementById("staff-preview-title"),
+  staffPreviewCopy: document.getElementById("staff-preview-copy"),
   summaryStrip: document.getElementById("summary-strip"),
   portalViews: Array.from(document.querySelectorAll(".portal-view")),
 
@@ -176,6 +218,7 @@ const refs = {
   estimatesReviewList: document.getElementById("estimates-review-list"),
   estimatesSignedList: document.getElementById("estimates-signed-list"),
   estimatesPastList: document.getElementById("estimates-past-list"),
+  estimatesView: document.getElementById("estimates-view"),
 
   jobsProjectSwitcherWrap: document.getElementById(
     "jobs-project-switcher-wrap",
@@ -206,6 +249,23 @@ const refs = {
 
 function safeString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function capturePortalContext() {
+  return {
+    uid: safeString(state.currentUser?.uid),
+    generation: state.portalGeneration,
+  };
+}
+
+function portalContextIsCurrent(context) {
+  const uid = safeString(context?.uid);
+  return Boolean(
+    uid &&
+      uid === safeString(state.currentUser?.uid) &&
+      uid === state.portalOwnerUid &&
+      toNumber(context?.generation) === state.portalGeneration,
+  );
 }
 
 function escapeHtml(value) {
@@ -375,8 +435,8 @@ async function expirePortalSession(
   detachPortalSessionTracking();
   clearStoredSessionActivity();
   state.session.lastActivityAt = 0;
+  resetPortalExperience();
   state.currentUser = null;
-  setPortalBanner("");
   setAuthAlert(message, type);
   setPath("login", { replace: true });
 
@@ -490,6 +550,35 @@ function statusPillMeta(status) {
     return { label: "Overdue", className: "pill danger" };
   }
 
+  if (
+    normalised === "revoked" ||
+    normalised === "void" ||
+    normalised === "cancelled" ||
+    normalised === "needs_republish"
+  ) {
+    return {
+      label:
+        normalised === "needs_republish"
+          ? "Needs republishing"
+          : capitalise(normalised),
+      className: "pill danger",
+    };
+  }
+
+  if (
+    normalised === "replaced" ||
+    normalised === "superseded" ||
+    normalised === "expired"
+  ) {
+    return {
+      label:
+        normalised === "replaced" || normalised === "superseded"
+          ? "Superseded"
+          : "Expired",
+      className: "pill muted",
+    };
+  }
+
   if (normalised === "active") {
     return { label: "Needs review", className: "pill" };
   }
@@ -589,7 +678,7 @@ function isMobileViewport() {
 }
 
 function defaultPortalView() {
-  return isMobileViewport() ? "jobs" : "dashboard";
+  return "dashboard";
 }
 
 function normalisePortalView(view) {
@@ -598,12 +687,16 @@ function normalisePortalView(view) {
 
 function applyPortalAppStateFromLocation() {
   const params = new URLSearchParams(window.location.search);
+  state.hasExplicitView = params.has("view");
   state.selectedView = normalisePortalView(params.get("view"));
   state.openJobId = safeString(params.get("job"));
 }
 
 function portalAppSearch() {
   const params = new URLSearchParams();
+  if (state.previewMode && state.previewToken) {
+    params.set("preview", state.previewToken);
+  }
   params.set("view", normalisePortalView(state.selectedView));
   if (safeString(state.selectedView) === "jobs" && safeString(state.openJobId)) {
     params.set("job", state.openJobId);
@@ -676,6 +769,8 @@ function renderPortalBanner() {
 function showToast(message, tone = "success") {
   const toast = document.createElement("div");
   toast.className = `toast ${tone}`;
+  toast.setAttribute("role", tone === "error" ? "alert" : "status");
+  toast.setAttribute("aria-live", tone === "error" ? "assertive" : "polite");
   toast.textContent = message;
   refs.toastStack.append(toast);
   window.setTimeout(() => {
@@ -692,6 +787,10 @@ function currentThread() {
 }
 
 function accountProviderLabel() {
+  if (state.previewMode) {
+    return "Read-only staff preview";
+  }
+
   const providerIds = new Set(
     (state.currentUser?.providerData || [])
       .map((entry) => safeString(entry.providerId))
@@ -949,12 +1048,16 @@ async function authedRequest(path, options = {}) {
     throw new Error("Sign in first.");
   }
 
-  const token = await state.currentUser.getIdToken();
+  const token = state.previewMode
+    ? ""
+    : await state.currentUser.getIdToken();
   return requestJson(path, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      ...(state.previewMode
+        ? { "X-Portal-Preview": state.previewToken }
+        : { Authorization: `Bearer ${token}` }),
       ...(options.headers || {}),
     },
   });
@@ -1054,11 +1157,32 @@ function renderAuthShell() {
 function renderSidebarAccount() {
   const account = state.portal.bootstrap?.account || {};
   refs.sidebarAccount.innerHTML = `
-        <span class="mini-label">Signed in</span>
+        <span class="mini-label">${state.previewMode ? "Previewing as" : "Signed in"}</span>
         <strong>${escapeHtml(account.customerName || "Golden Brick customer")}</strong>
         <p>${escapeHtml(account.displayName || account.contactName || account.email || "Client")}</p>
         <p>${escapeHtml(`${formatPortalRole(account.role, account.roleLabel)} · ${account.email || "No email"}`)}</p>
     `;
+}
+
+function renderStaffPreviewBar() {
+  const preview = state.portal.bootstrap?.preview || {};
+  const isPreview = state.previewMode === true;
+  refs.staffPreviewBar.hidden = !isPreview;
+  document.body.classList.toggle("is-staff-preview", isPreview);
+
+  if (!isPreview) {
+    refs.signOutButton.textContent = "Sign out";
+    return;
+  }
+
+  const customerName =
+    preview.customerName ||
+    state.portal.bootstrap?.account?.customerName ||
+    "this client";
+  const contactName = preview.contactName || "the primary portal contact";
+  refs.staffPreviewTitle.textContent = `You are seeing exactly what ${customerName} can see.`;
+  refs.staffPreviewCopy.textContent = `Read-only view for ${contactName}. Client login activity, unread messages, signatures, and portal data will not be changed. This preview expires ${preview.expiresAt ? formatDateTime(preview.expiresAt) : "automatically"}.`;
+  refs.signOutButton.textContent = "Exit preview";
 }
 
 function renderHelpBlock(
@@ -1158,6 +1282,9 @@ function renderProjectSwitcher(
 function renderSummaryStrip() {
   const summary = state.portal.bootstrap?.summary || {};
   const billing = state.portal.bootstrap?.billingSummary || billingSnapshot();
+  const openInvoiceCount = toNumber(
+    billing.openCount ?? billing.dueCount ?? billing.invoicesDue,
+  );
   refs.summaryStrip.innerHTML = [
     {
       label: "Estimates to review",
@@ -1176,7 +1303,7 @@ function renderSummaryStrip() {
     {
       label: "Due now",
       value: formatCurrency(billing.dueNow),
-      copy: `${toNumber(billing.openCount)} open invoice${toNumber(billing.openCount) === 1 ? "" : "s"}`,
+      copy: `${openInvoiceCount} open invoice${openInvoiceCount === 1 ? "" : "s"}`,
     },
     {
       label: "Paid to date",
@@ -1519,39 +1646,133 @@ function renderEstimateGroup(target, items, emptyCopy) {
   target.innerHTML = items.length
     ? items
         .map((estimate) => {
-          const status = statusPillMeta(estimate.status);
+          const rawStatus = safeString(estimate.status).toLowerCase();
+          const status = statusPillMeta(rawStatus);
           const label = approvalLabel(estimate);
-          const lowerLabel = label.toLowerCase();
-          return recordLink({
-            kicker: estimate.projectType || label,
-            title: estimate.subject || `${label} record`,
-            copy:
-              estimate.summary ||
-              estimate.projectAddress ||
-              "Property details will appear here when available.",
-            meta: [
-              `<span class="${status.className}">${escapeHtml(status.label)}</span>`,
-              estimate.updatedAt
-                ? `<span>Updated ${escapeHtml(formatDate(estimate.updatedAt))}</span>`
-                : "",
-              estimate.signedAt
-                ? `<span>Signed ${escapeHtml(formatDate(estimate.signedAt))}</span>`
-                : "",
-              `<span>${escapeHtml(formatCurrency(estimate.subtotal))}</span>`,
-            ]
-              .filter(Boolean)
-              .join(""),
-            actionHref: estimate.shareUrl,
-            actionLabel:
-              safeString(estimate.status) === "active"
-                ? `Review ${lowerLabel}`
-                : `Open ${lowerLabel}`,
-            actionSecondaryHref: estimate.agreementDownloadHref,
-            actionSecondaryLabel:
-              safeString(estimate.type) === "change_order"
-                ? "Download signed change order"
-                : "Download signed agreement",
-          });
+          const versionNumber = toNumber(estimate.versionNumber);
+          const versionLabel = versionNumber
+            ? `${label} version ${versionNumber}`
+            : `${label} published version`;
+          const reference = safeString(estimate.contentHash).slice(0, 12);
+          const accountCanMessage =
+            state.portal.bootstrap?.account?.canMessage !== false;
+          const previewClientCanSign =
+            state.portal.bootstrap?.account?.clientCanSign === true;
+          const displayCanSign = state.previewMode
+            ? previewClientCanSign && estimate.readyToSign !== false
+            : estimate.canSign;
+          const canRequestRevision =
+            rawStatus === "active" &&
+            estimate.snapshotAvailable !== false &&
+            accountCanMessage;
+          const canAskQuestion = accountCanMessage;
+          const openLabel =
+            rawStatus === "active"
+              ? displayCanSign
+                ? "Review and sign"
+                : "Review exact version"
+              : "Open exact version";
+          const displayStatus =
+            rawStatus === "active" && estimate.readyToSign === false
+              ? { label: "Review only", className: "pill muted" }
+              : rawStatus === "active" && !displayCanSign
+                ? {
+                    label: "Authorized signer needed",
+                    className: "pill muted",
+                  }
+                : rawStatus === "active" && state.previewMode
+                  ? {
+                      label: "Ready for client",
+                      className: "pill",
+                    }
+                : status;
+          const actions = state.previewMode
+            ? [
+                safeString(estimate.downloadHref)
+                  ? `<a class="ghost-button" href="${escapeHtml(estimate.downloadHref)}" target="_blank" rel="noreferrer">Download signed PDF</a>`
+                  : "",
+                `<span class="preview-action-note">${escapeHtml(
+                  rawStatus === "active"
+                    ? displayCanSign
+                      ? "The client can open and sign this published version."
+                      : "The client can review this version but cannot sign it."
+                    : "This record is visible to the client for reference.",
+                )}</span>`,
+              ]
+                .filter(Boolean)
+                .join("")
+            : [
+                safeString(estimate.shareUrl)
+                  ? `<a class="${estimate.canSign ? "primary-button" : "ghost-button"}" href="${escapeHtml(estimate.shareUrl)}" target="_blank" rel="noreferrer">${escapeHtml(openLabel)}</a>`
+                  : "",
+                safeString(estimate.downloadHref)
+                  ? `<a class="ghost-button" href="${escapeHtml(estimate.downloadHref)}" target="_blank" rel="noreferrer">${escapeHtml(rawStatus === "signed" ? "Download signed PDF" : "Download exact version")}</a>`
+                  : "",
+                canRequestRevision
+                  ? `<button type="button" class="ghost-button" data-estimate-action="request_revision" data-estimate-id="${escapeHtml(estimate.id)}">Request revision</button>`
+                  : "",
+                canAskQuestion
+                  ? `<button type="button" class="ghost-button" data-estimate-action="ask_question" data-estimate-id="${escapeHtml(estimate.id)}">${estimate.snapshotAvailable === false ? "Ask Golden Brick to republish" : "Ask a question"}</button>`
+                  : "",
+              ]
+                .filter(Boolean)
+                .join("");
+
+          return `
+            <article class="record-link estimate-record">
+              <div class="record-link-row">
+                <div>
+                  <span>${escapeHtml(estimate.projectType || versionLabel)}</span>
+                  <strong>${escapeHtml(estimate.subject || `${label} record`)}</strong>
+                </div>
+                <span class="${displayStatus.className}">${escapeHtml(displayStatus.label)}</span>
+              </div>
+              <p class="record-copy">${escapeHtml(
+                estimate.summary ||
+                  estimate.projectAddress ||
+                  "Property details will appear here when available.",
+              )}</p>
+              <div class="estimate-version-line">
+                <strong>${escapeHtml(versionLabel)}</strong>
+                <span>${escapeHtml(
+                  estimate.publishedAt
+                    ? `Published ${formatDateTime(estimate.publishedAt)}`
+                    : "Publication date unavailable",
+                )}</span>
+              </div>
+              <div class="record-meta">
+                ${
+                  estimate.projectAddress
+                    ? `<span>${escapeHtml(estimate.projectAddress)}</span>`
+                    : ""
+                }
+                ${
+                  estimate.viewedAt
+                    ? `<span>Viewed ${escapeHtml(formatDate(estimate.viewedAt))}</span>`
+                    : ""
+                }
+                ${
+                  estimate.signedAt
+                    ? `<span>Signed ${escapeHtml(formatDate(estimate.signedAt))}</span>`
+                    : ""
+                }
+                ${
+                  estimate.snapshotAvailable === false
+                    ? ""
+                    : `<span>${escapeHtml(formatCurrency(estimate.subtotal))}</span>`
+                }
+                ${reference ? `<span>Reference ${escapeHtml(reference)}</span>` : ""}
+              </div>
+              ${
+                Array.isArray(estimate.blockers) &&
+                estimate.blockers.length &&
+                rawStatus === "active"
+                  ? `<p class="estimate-readiness-note">${escapeHtml(estimate.blockers.join(" "))}</p>`
+                  : ""
+              }
+              ${actions ? `<div class="inline-actions estimate-actions">${actions}</div>` : ""}
+            </article>
+          `;
         })
         .join("")
     : emptyNote(emptyCopy);
@@ -1584,6 +1805,55 @@ function renderEstimates() {
     past,
     "No older estimate or change-order records are available in this portal yet.",
   );
+}
+
+function openEstimateConversation(estimateId, action) {
+  const estimate =
+    state.portal.estimates.find((entry) => entry.id === estimateId) || null;
+  if (!estimate) {
+    showToast("That estimate record could not be found.", "error");
+    return;
+  }
+
+  if (state.portal.bootstrap?.account?.canMessage === false) {
+    showToast(
+      "Messaging is not available for this portal contact. Please call Golden Brick.",
+      "error",
+    );
+    return;
+  }
+
+  const matchingThread = state.portal.threads.find(
+    (thread) =>
+      safeString(thread.threadType) === "project" &&
+      safeString(thread.projectId) === safeString(estimate.projectId),
+  );
+  const generalThread =
+    state.portal.threads.find((thread) => thread.id === "general") || null;
+  const thread = matchingThread || generalThread || state.portal.threads[0];
+  if (!thread) {
+    showToast(
+      "A portal conversation is not available yet. Please call Golden Brick.",
+      "error",
+    );
+    return;
+  }
+
+  const label = approvalLabel(estimate);
+  const versionNumber = toNumber(estimate.versionNumber);
+  const versionCopy = versionNumber ? ` version ${versionNumber}` : "";
+  const reference = safeString(estimate.contentHash).slice(0, 12);
+  const referenceCopy = reference ? ` (reference ${reference})` : "";
+  const propertyCopy = estimate.projectAddress
+    ? ` for ${estimate.projectAddress}`
+    : "";
+  state.selectedThreadId = thread.id;
+  openView("messages");
+  refs.messageBody.value =
+    action === "request_revision"
+      ? `I would like to request a revision to ${estimate.subject || `this ${label.toLowerCase()}`}${versionCopy}${referenceCopy}${propertyCopy}. Requested change: `
+      : `I have a question about ${estimate.subject || `this ${label.toLowerCase()}`}${versionCopy}${referenceCopy}${propertyCopy}: `;
+  refs.messageBody.focus();
 }
 
 function renderJobsView() {
@@ -2183,10 +2453,14 @@ function renderThreads() {
   refs.messageSubmitButton.disabled = !canMessage;
   refs.messageSubmitButton.textContent = canMessage
     ? "Send message"
-    : "Messaging unavailable";
+    : state.previewMode
+      ? "Preview is read-only"
+      : "Messaging unavailable";
   refs.messageBody.placeholder = canMessage
     ? "Ask a question about the project, billing, documents, or next steps."
-    : "Messaging is not available for this portal contact.";
+    : state.previewMode
+      ? "Messages are disabled while staff preview is active."
+      : "Messaging is not available for this portal contact.";
 }
 
 function renderAccount() {
@@ -2281,6 +2555,7 @@ function renderAccount() {
 function renderPortalShell() {
   refs.authShell.hidden = true;
   refs.portalShell.hidden = false;
+  renderStaffPreviewBar();
   renderPortalBanner();
   renderSidebarAccount();
   renderHelpBlock(refs.sidebarHelp, state.portal.bootstrap?.help, {
@@ -2315,9 +2590,11 @@ function renderPortalShell() {
   const activeMeta = APP_VIEWS[state.selectedView] || APP_VIEWS.dashboard;
   refs.portalTitle.textContent = activeMeta.title;
   refs.portalSubtitle.textContent = activeMeta.subtitle;
-  refs.portalEyebrow.textContent = state.portal.bootstrap?.account?.customerName
-    ? `${state.portal.bootstrap.account.customerName} portal`
-    : "Client portal";
+  refs.portalEyebrow.textContent = state.previewMode
+    ? "Read-only client view"
+    : state.portal.bootstrap?.account?.customerName
+      ? `${state.portal.bootstrap.account.customerName} portal`
+      : "Client portal";
 
   const help = state.portal.bootstrap?.help || {};
   refs.callHelpButton.href = helpButtonHref(help);
@@ -2327,22 +2604,41 @@ function renderPortalShell() {
   }
 
   refs.viewButtons.forEach((button) => {
-    button.classList.toggle(
-      "is-active",
-      button.dataset.portalView === state.selectedView,
+    const isActive = button.dataset.portalView === state.selectedView;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+    button.setAttribute(
+      "aria-controls",
+      `${button.dataset.portalView}-view`,
     );
+    if (isActive) {
+      button.setAttribute("aria-current", "page");
+    } else {
+      button.removeAttribute("aria-current");
+    }
   });
 
   refs.portalViews.forEach((view) => {
     const isActive = view.id === `${state.selectedView}-view`;
     view.hidden = !isActive;
     view.classList.toggle("is-active", isActive);
+    view.setAttribute("aria-hidden", String(!isActive));
   });
 
-  document.title = `${activeMeta.title} | Golden Brick Client Portal`;
+  document.title = state.previewMode
+    ? `${activeMeta.title} | Staff Preview`
+    : `${activeMeta.title} | Golden Brick Client Portal`;
 }
 
-function openView(view, { historyMode = "push", preserveMobileJob = false } = {}) {
+function openView(
+  view,
+  {
+    historyMode = "push",
+    preserveMobileJob = false,
+    focusHeading = true,
+  } = {},
+) {
+  state.hasExplicitView = true;
   state.selectedView = normalisePortalView(view);
   if (
     isMobileViewport() &&
@@ -2356,12 +2652,20 @@ function openView(view, { historyMode = "push", preserveMobileJob = false } = {}
     setPath("app", { replace: historyMode !== "push" });
   }
   if (state.selectedView === "messages") {
-    void markThreadReadIfNeeded(state.selectedThreadId);
+    void markThreadReadIfNeeded(state.selectedThreadId).catch((error) => {
+      showToast(
+        error.message || "Could not refresh that conversation.",
+        "error",
+      );
+    });
   }
   window.scrollTo({
     top: 0,
     behavior: prefersReducedMotion() ? "auto" : "smooth",
   });
+  if (focusHeading) {
+    refs.portalTitle.focus({ preventScroll: true });
+  }
 }
 
 function setSelectedProject(
@@ -2425,55 +2729,252 @@ async function loadInvitePreview() {
   }
 }
 
-async function loadBootstrap() {
-  state.portal.bootstrap = await authedRequest("/api/client/bootstrap");
+async function loadBootstrap(context = capturePortalContext()) {
+  if (!portalContextIsCurrent(context)) {
+    return false;
+  }
+
+  const payload = await authedRequest("/api/client/bootstrap");
+  if (!portalContextIsCurrent(context)) {
+    return false;
+  }
+
+  state.portal.bootstrap = payload;
+  return true;
 }
 
-async function loadEstimates() {
+async function loadEstimates(context = capturePortalContext()) {
+  if (!portalContextIsCurrent(context)) {
+    return false;
+  }
+
   const payload = await authedRequest("/api/client/estimates");
+  if (!portalContextIsCurrent(context)) {
+    return false;
+  }
+
   state.portal.estimates = Array.isArray(payload.estimates)
     ? payload.estimates
     : [];
+  return true;
 }
 
-async function loadJobs() {
+async function loadJobs(context = capturePortalContext()) {
+  if (!portalContextIsCurrent(context)) {
+    return false;
+  }
+
   const payload = await authedRequest("/api/client/jobs");
+  if (!portalContextIsCurrent(context)) {
+    return false;
+  }
+
   state.portal.jobs = Array.isArray(payload.jobs) ? payload.jobs : [];
+  return true;
 }
 
-async function loadBilling() {
+async function loadBilling(context = capturePortalContext()) {
+  if (!portalContextIsCurrent(context)) {
+    return false;
+  }
+
   const payload = await authedRequest("/api/client/billing");
+  if (!portalContextIsCurrent(context)) {
+    return false;
+  }
+
   state.portal.billing = {
     summary: payload.summary || {},
     invoices: Array.isArray(payload.invoices) ? payload.invoices : [],
     payments: Array.isArray(payload.payments) ? payload.payments : [],
   };
+  return true;
 }
 
-async function loadDocuments() {
+async function loadDocuments(context = capturePortalContext()) {
+  if (!portalContextIsCurrent(context)) {
+    return false;
+  }
+
   const payload = await authedRequest("/api/client/documents");
+  if (!portalContextIsCurrent(context)) {
+    return false;
+  }
+
   state.portal.documents = Array.isArray(payload.documents)
     ? payload.documents
     : [];
+  return true;
 }
 
-async function loadThreads() {
+async function loadThreads(context = capturePortalContext()) {
+  if (!portalContextIsCurrent(context)) {
+    return false;
+  }
+
   const payload = await authedRequest("/api/client/threads");
+  if (!portalContextIsCurrent(context)) {
+    return false;
+  }
+
   state.portal.threads = Array.isArray(payload.threads) ? payload.threads : [];
+  return true;
 }
 
-async function loadPortalData() {
-  state.loadingPortal = true;
-  await Promise.all([
-    loadBootstrap(),
-    loadEstimates(),
-    loadJobs(),
-    loadBilling(),
-    loadDocuments(),
-    loadThreads(),
-  ]);
-  state.loadingPortal = false;
+function reconcilePortalSummary() {
+  if (!state.portal.bootstrap) {
+    return;
+  }
 
+  const estimatesToReview = state.portal.estimates.filter(
+    (estimate) =>
+      safeString(estimate.status) === "active" &&
+      estimate.snapshotAvailable !== false,
+  ).length;
+  const activeJobCount = state.portal.jobs.filter(
+    (job) => safeString(job.status).toLowerCase() !== "completed",
+  ).length;
+  const unreadMessages = state.portal.threads.reduce(
+    (sum, thread) => sum + toNumber(thread.clientUnreadCount),
+    0,
+  );
+  const billing = billingSnapshot();
+
+  state.portal.bootstrap.summary = {
+    ...(state.portal.bootstrap.summary || {}),
+    estimatesToReview,
+    activeJobs: activeJobCount,
+    invoicesDue: billing.openCount,
+    totalDue: billing.dueNow + billing.upcoming,
+    paymentsReceived: billing.paidToDate,
+    recentDocuments: state.portal.documents.length,
+    unreadMessages,
+  };
+  state.portal.bootstrap.activeProjectCount = activeJobCount;
+  state.portal.bootstrap.billingSummary = {
+    ...billing,
+    dueCount: billing.openCount,
+  };
+}
+
+function ensureFallbackBootstrap() {
+  if (state.portal.bootstrap) {
+    return;
+  }
+
+  state.portal.bootstrap = {
+    account: {
+      displayName:
+        safeString(state.currentUser?.displayName) ||
+        safeString(state.currentUser?.email) ||
+        "Portal client",
+      email: safeString(state.currentUser?.email),
+      customerName: "Golden Brick client account",
+      role: "primary",
+      roleLabel: "Portal contact",
+      canSign: false,
+      canMessage: false,
+    },
+    contacts: [],
+    help: {
+      name: "Golden Brick Construction",
+      phone: "(267) 715-5557",
+      phoneHref: "tel:+12677155557",
+      email: "info@goldenbrickc.com",
+      emailHref: "mailto:info@goldenbrickc.com",
+    },
+    summary: {},
+    billingSummary: {},
+    attentionItems: [],
+  };
+}
+
+async function loadPortalData(context = capturePortalContext()) {
+  if (!portalContextIsCurrent(context)) {
+    return;
+  }
+
+  state.loadingPortal = true;
+  try {
+    await loadBootstrap(context);
+    if (!portalContextIsCurrent(context)) {
+      return;
+    }
+
+    const loaders = [
+      ["estimates", loadEstimates],
+      ["jobs", loadJobs],
+      ["billing", loadBilling],
+      ["documents", loadDocuments],
+      ["threads", loadThreads],
+    ];
+    const results = await Promise.allSettled(
+      loaders.map(([, loader]) => loader(context)),
+    );
+    if (!portalContextIsCurrent(context)) {
+      return;
+    }
+
+    const authFailure = results.find(
+      (result) =>
+        result.status === "rejected" &&
+        [401, 403].includes(toNumber(result.reason?.status)),
+    );
+    if (authFailure?.status === "rejected") {
+      throw authFailure.reason;
+    }
+
+    const failedSections = results
+      .map((result, index) =>
+        result.status === "rejected" ? loaders[index][0] : "",
+      )
+      .filter(Boolean);
+    const bootstrapFailures = Array.isArray(
+      state.portal.bootstrap?.partialErrors,
+    )
+      ? state.portal.bootstrap.partialErrors
+      : [];
+    const failedSectionSet = new Set(failedSections);
+    const unresolvedSections = [
+      ...new Set([
+        ...failedSections,
+        ...bootstrapFailures.filter(
+          (section) =>
+            section === "contacts" || failedSectionSet.has(section),
+        ),
+      ]),
+    ];
+    if (unresolvedSections.length) {
+      setPortalBanner(
+        `Your portal is open, but ${unresolvedSections.join(", ")} could not be refreshed. Existing information remains available.`,
+        "warning",
+      );
+    } else if (
+      ["error", "warning"].includes(safeString(state.portalBanner?.type))
+    ) {
+      setPortalBanner("");
+    }
+  } finally {
+    if (portalContextIsCurrent(context)) {
+      state.loadingPortal = false;
+    }
+  }
+
+  if (!portalContextIsCurrent(context)) {
+    return;
+  }
+
+  reconcilePortalSummary();
+  if (
+    !state.hasExplicitView &&
+    state.portal.estimates.some(
+      (estimate) =>
+        safeString(estimate.status) === "active" &&
+        estimate.snapshotAvailable !== false,
+    )
+  ) {
+    state.selectedView = "estimates";
+  }
   ensureSelectedProject();
   if (!state.selectedDocumentFilter) {
     state.selectedDocumentFilter = "all";
@@ -2489,12 +2990,13 @@ async function loadPortalData() {
   }
 }
 
-async function claimInviteIfNeeded() {
+async function claimInviteIfNeeded(context = capturePortalContext()) {
   if (
     state.route !== "accept" ||
     !state.inviteToken ||
     !state.currentUser ||
-    state.claimInFlight
+    state.claimInFlight ||
+    !portalContextIsCurrent(context)
   ) {
     return;
   }
@@ -2507,6 +3009,10 @@ async function claimInviteIfNeeded() {
         state.currentUser.displayName || refs.displayNameInput.value,
       ),
     });
+    if (!portalContextIsCurrent(context)) {
+      return;
+    }
+
     setPortalBanner(
       `Portal access claimed for ${result.customerName || "your account"}.`,
       "success",
@@ -2514,34 +3020,142 @@ async function claimInviteIfNeeded() {
     setAuthAlert("");
     setPath("app", { replace: true });
   } finally {
-    state.claimInFlight = false;
+    if (portalContextIsCurrent(context)) {
+      state.claimInFlight = false;
+    }
   }
 }
 
-async function showPortalFromCurrentUser() {
+async function showPortalFromCurrentUser(
+  context = capturePortalContext(),
+) {
+  if (!portalContextIsCurrent(context)) {
+    return;
+  }
+
   try {
-    await claimInviteIfNeeded();
-    await loadPortalData();
+    await claimInviteIfNeeded(context);
+    await loadPortalData(context);
+    if (!portalContextIsCurrent(context)) {
+      return;
+    }
+
     if (state.route !== "app") {
       setPath("app", { replace: true });
     }
     recordPortalSessionActivity();
     renderPortalShell();
     if (state.selectedView === "messages") {
-      await markThreadReadIfNeeded(state.selectedThreadId);
+      await markThreadReadIfNeeded(state.selectedThreadId, context);
     }
   } catch (error) {
+    if (!portalContextIsCurrent(context)) {
+      return;
+    }
+
     console.error("Client portal load failed.", error);
     const message =
       error.message || "Could not open the client portal right now.";
-    setAuthAlert(message, "error");
-    setPath(state.route === "accept" ? "accept" : "login", { replace: true });
-    await signOut(state.auth).catch(() => {});
-    renderAuthShell();
+    if ([401, 403].includes(toNumber(error.status))) {
+      setAuthAlert(message, "error");
+      setPath(state.route === "accept" ? "accept" : "login", {
+        replace: true,
+      });
+      await signOut(state.auth).catch(() => {});
+      renderAuthShell();
+      return;
+    }
+
+    ensureFallbackBootstrap();
+    setPortalBanner(
+      `${message} Your sign-in is still active; try again in a moment.`,
+      "error",
+    );
+    if (state.route !== "app") {
+      setPath("app", { replace: true });
+    }
+    renderPortalShell();
   }
 }
 
-async function markThreadReadIfNeeded(threadId) {
+async function refreshEstimateExperience({
+  announce = false,
+  force = false,
+} = {}) {
+  const context = capturePortalContext();
+  if (
+    !state.currentUser ||
+    !portalContextIsCurrent(context) ||
+    state.route !== "app" ||
+    state.refreshInFlight ||
+    (!force && Date.now() - state.lastRefreshAt < 5000)
+  ) {
+    return;
+  }
+
+  state.refreshInFlight = true;
+  try {
+    const results = await Promise.allSettled([
+      loadEstimates(context),
+      loadBootstrap(context),
+    ]);
+    if (!portalContextIsCurrent(context)) {
+      return;
+    }
+
+    const authFailure = results.find(
+      (result) =>
+        result.status === "rejected" &&
+        [401, 403].includes(toNumber(result.reason?.status)),
+    );
+    if (authFailure?.status === "rejected") {
+      await expirePortalSession(
+        authFailure.reason?.message ||
+          "Your portal access needs to be verified again.",
+      );
+      return;
+    }
+
+    if (results.every((result) => result.status === "rejected")) {
+      if (announce) {
+        showToast(
+          "Could not refresh approval status yet. Your existing portal view is unchanged.",
+          "error",
+        );
+      }
+      return;
+    }
+
+    state.lastRefreshAt = Date.now();
+    reconcilePortalSummary();
+    if (
+      ["error", "warning"].includes(safeString(state.portalBanner?.type))
+    ) {
+      setPortalBanner("");
+    }
+    renderPortalShell();
+    if (announce) {
+      showToast("Approval status refreshed.");
+    }
+  } finally {
+    if (portalContextIsCurrent(context)) {
+      state.refreshInFlight = false;
+    }
+  }
+}
+
+async function markThreadReadIfNeeded(
+  threadId,
+  context = capturePortalContext(),
+) {
+  if (state.previewMode) {
+    return;
+  }
+
+  if (!portalContextIsCurrent(context)) {
+    return;
+  }
+
   const thread =
     state.portal.threads.find((item) => item.id === threadId) || null;
   if (!thread || toNumber(thread.clientUnreadCount) === 0) {
@@ -2549,7 +3163,19 @@ async function markThreadReadIfNeeded(threadId) {
   }
 
   await authedPost(`/api/client/threads/${encodeURIComponent(thread.id)}/read`);
-  await Promise.all([loadThreads(), loadBootstrap()]);
+  if (!portalContextIsCurrent(context)) {
+    return;
+  }
+
+  await Promise.allSettled([
+    loadThreads(context),
+    loadBootstrap(context),
+  ]);
+  if (!portalContextIsCurrent(context)) {
+    return;
+  }
+
+  reconcilePortalSummary();
   renderPortalShell();
 }
 
@@ -2670,6 +3296,16 @@ async function handleGoogleAuth() {
 
 async function handlePortalMessage(event) {
   event.preventDefault();
+  if (state.previewMode) {
+    showToast("Staff preview is read-only.", "error");
+    return;
+  }
+
+  const context = capturePortalContext();
+  if (!portalContextIsCurrent(context)) {
+    return;
+  }
+
   const body = safeString(refs.messageBody.value);
   const thread = currentThread();
 
@@ -2695,15 +3331,56 @@ async function handlePortalMessage(event) {
       `/api/client/threads/${encodeURIComponent(thread.id)}/messages`,
       { body },
     );
+    if (!portalContextIsCurrent(context)) {
+      return;
+    }
+
     refs.messageBody.value = "";
-    await Promise.all([loadThreads(), loadBootstrap()]);
+    await Promise.all([
+      loadThreads(context),
+      loadBootstrap(context),
+    ]);
+    if (!portalContextIsCurrent(context)) {
+      return;
+    }
+
     renderPortalShell();
     showToast("Message sent.");
   } catch (error) {
+    if (!portalContextIsCurrent(context)) {
+      return;
+    }
+
     showToast(error.message || "Could not send the message.", "error");
   } finally {
-    refs.messageSubmitButton.disabled = false;
+    if (portalContextIsCurrent(context)) {
+      refs.messageSubmitButton.disabled = false;
+    }
   }
+}
+
+function ensureApprovalChannel() {
+  if (
+    !state.currentUser ||
+    state.approvalChannel ||
+    !("BroadcastChannel" in window)
+  ) {
+    return;
+  }
+
+  const channel = new BroadcastChannel(
+    "golden-brick-client-approvals",
+  );
+  channel.addEventListener("message", (event) => {
+    if (
+      ["estimate-signed", "estimate-updated"].includes(
+        safeString(event.data?.type),
+      )
+    ) {
+      void refreshEstimateExperience({ announce: true, force: true });
+    }
+  });
+  state.approvalChannel = channel;
 }
 
 function bindEvents() {
@@ -2753,6 +3430,15 @@ function bindEvents() {
     if (!button) return;
     state.selectedThreadId = button.dataset.dashboardThreadId;
     openView("messages");
+  });
+
+  refs.estimatesView.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-estimate-action]");
+    if (!button) return;
+    openEstimateConversation(
+      safeString(button.dataset.estimateId),
+      safeString(button.dataset.estimateAction),
+    );
   });
 
   const projectSelectionHandler = (event) => {
@@ -2839,9 +3525,36 @@ function bindEvents() {
   });
 
   refs.signOutButton.addEventListener("click", async () => {
+    if (state.previewMode) {
+      window.location.assign("/staff/contacts");
+      return;
+    }
+
     setPortalBanner("");
     setAuthAlert("");
     await expirePortalSession("", "success");
+  });
+
+  window.addEventListener("focus", () => {
+    void refreshEstimateExperience();
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      void refreshEstimateExperience();
+    }
+  });
+
+  window.addEventListener("message", (event) => {
+    if (
+      event.origin !== window.location.origin ||
+      !["estimate-signed", "estimate-updated"].includes(
+        safeString(event.data?.type),
+      )
+    ) {
+      return;
+    }
+    void refreshEstimateExperience({ announce: true, force: true });
   });
 
   window.addEventListener("popstate", () => {
@@ -2870,8 +3583,11 @@ function bindEvents() {
 async function bootstrap() {
   bindEvents();
   state.route = routeFromPath();
-  state.inviteToken = safeString(
-    new URLSearchParams(window.location.search).get("token"),
+  const initialParams = new URLSearchParams(window.location.search);
+  state.inviteToken = safeString(initialParams.get("token"));
+  state.previewToken = safeString(initialParams.get("preview"));
+  state.previewMode = Boolean(
+    state.route === "app" && state.previewToken,
   );
   if (state.route === "app") {
     applyPortalAppStateFromLocation();
@@ -2880,6 +3596,38 @@ async function bootstrap() {
     state.openJobId = "";
   }
   state.authMode = state.route === "accept" ? "create" : "sign-in";
+
+  if (state.previewMode) {
+    const previewUid = `staff-preview:${state.previewToken.slice(0, 12)}`;
+    state.currentUser = {
+      uid: previewUid,
+      displayName: "Staff preview",
+      email: "",
+      providerData: [],
+    };
+    state.portalOwnerUid = previewUid;
+    const context = capturePortalContext();
+
+    try {
+      await loadPortalData(context);
+      if (!portalContextIsCurrent(context)) {
+        return;
+      }
+      ensureSelectedProject();
+      setPath("app", { replace: true });
+      renderPortalShell();
+    } catch (error) {
+      console.error("Staff client preview failed.", error);
+      ensureFallbackBootstrap();
+      setPortalBanner(
+        error.message ||
+          "This preview could not be opened. Return to the CRM and try again.",
+        "error",
+      );
+      renderPortalShell();
+    }
+    return;
+  }
 
   if (state.route === "accept") {
     await loadInvitePreview();
@@ -2895,7 +3643,22 @@ async function bootstrap() {
   state.provider.setCustomParameters({ prompt: "select_account" });
 
   onAuthStateChanged(state.auth, async (user) => {
+    const previousUid = safeString(state.currentUser?.uid);
+    const nextUid = safeString(user?.uid);
+    if (
+      previousUid !== nextUid ||
+      state.portalOwnerUid !== nextUid
+    ) {
+      detachPortalSessionTracking();
+      if (previousUid || !nextUid) {
+        clearStoredSessionActivity();
+        state.session.lastActivityAt = 0;
+      }
+      resetPortalExperience();
+    }
+
     state.currentUser = user;
+    state.portalOwnerUid = nextUid;
     if (!user) {
       detachPortalSessionTracking();
       clearStoredSessionActivity();
@@ -2907,6 +3670,8 @@ async function bootstrap() {
       return;
     }
 
+    ensureApprovalChannel();
+    const context = capturePortalContext();
     const lastActivityAt = readStoredSessionActivity();
     if (
       lastActivityAt &&
@@ -2918,7 +3683,7 @@ async function bootstrap() {
 
     attachPortalSessionTracking();
     recordPortalSessionActivity();
-    await showPortalFromCurrentUser();
+    await showPortalFromCurrentUser(context);
   });
 }
 

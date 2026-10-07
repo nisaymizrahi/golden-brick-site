@@ -1,0 +1,44 @@
+{
+  "published": false,
+  "draftOnly": true,
+  "title": "TODO: Real project title",
+  "neighborhood": "TODO: Real neighborhood or service area",
+  "projectType": "TODO: Real service type",
+  "description": "TODO: Short public summary based on verified project details.",
+  "challenge": "TODO: Real homeowner or property challenge. Do not publish until verified.",
+  "scopeOfWork": [
+    "TODO: Verified scope item",
+    "TODO: Verified scope item"
+  ],
+  "timeline": "TODO: Only include if verified.",
+  "materials": [
+    "TODO: Only include real materials or leave blank."
+  ],
+  "beforeImages": [
+    {
+      "url": "TODO: Real image URL",
+      "alt": "TODO: Accurate alt text"
+    }
+  ],
+  "afterImages": [
+    {
+      "url": "TODO: Real image URL",
+      "alt": "TODO: Accurate alt text"
+    }
+  ],
+  "result": "TODO: Real outcome. Avoid invented claims.",
+  "relatedServices": [
+    {
+      "label": "Kitchen Remodeling",
+      "href": "/kitchen-remodeling-philadelphia.html"
+    },
+    {
+      "label": "Full Home Renovation",
+      "href": "/full-renovation-philadelphia/"
+    }
+  ],
+  "cta": {
+    "label": "Request an Estimate",
+    "href": "/contact.html"
+  }
+}

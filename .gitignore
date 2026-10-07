@@ -62,8 +62,10 @@ node_modules/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
+# Local environment settings; keep the setup template in Git
 .env
+.env.*
+!.env.example
 
 # macOS metadata and private image-folder documents
 .DS_Store
@@ -72,3 +74,11 @@ images/**/*.pdf
 
 # dataconnect generated files
 .dataconnect
+
+# Local previews, temporary exports, and packaged deliverables
+tmp/
+output/pdf/
+output/**/*.zip
+output/**/*.png
+output/**/*.json
+.playwright-cli/

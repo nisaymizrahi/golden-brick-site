@@ -1,4 +1,8 @@
 User-agent: *
 Allow: /
+Disallow: /staff/
+Disallow: /client/
+Disallow: /estimate/
+Disallow: /data/
 
 Sitemap: https://www.goldenbrickc.com/sitemap.xml

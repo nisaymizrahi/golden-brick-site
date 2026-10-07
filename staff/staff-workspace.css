@@ -1,0 +1,1223 @@
+/*
+ * Golden Brick staff workspace reconfiguration.
+ *
+ * This layer intentionally sits after the legacy CRM stylesheet. It creates a
+ * compact operational shell and keeps list/detail work above the fold while
+ * the existing business workflows are progressively separated into modules.
+ */
+
+:root {
+  --workspace-sidebar-width: 244px;
+  --workspace-gap: 12px;
+  --workspace-radius: 12px;
+  --workspace-header-height: 72px;
+}
+
+.staff-shell {
+  grid-template-columns: var(--workspace-sidebar-width) minmax(0, 1fr);
+  height: var(--crm-app-height);
+  min-height: 0;
+  overflow: hidden;
+  background: #f4f5f1;
+}
+
+.staff-sidebar {
+  position: relative;
+  height: var(--crm-app-height);
+  min-height: 0;
+  align-content: start;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 16px;
+  padding: 20px 16px;
+  overflow-y: auto;
+}
+
+.sidebar-brand p,
+.staff-sidebar .sidebar-card:not(.user-panel) {
+  display: none;
+}
+
+.brand-mark {
+  min-height: 42px;
+}
+
+.sidebar-title {
+  font-size: 1.02rem;
+}
+
+.sidebar-nav {
+  gap: 4px;
+}
+
+.nav-button {
+  min-height: 40px;
+  padding: 0 13px;
+  border-color: transparent;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.user-panel {
+  align-self: end;
+  padding: 14px;
+  border-radius: var(--workspace-radius);
+}
+
+.staff-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: var(--crm-app-height);
+  padding: 16px 18px;
+  overflow: hidden;
+}
+
+.workspace-header {
+  flex: 0 0 auto;
+  min-height: var(--workspace-header-height);
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.workspace-header .eyebrow {
+  display: none;
+}
+
+.workspace-header h1 {
+  margin: 0 0 4px;
+  font-family: "Manrope", sans-serif;
+  font-size: clamp(1.55rem, 2.4vw, 2.15rem);
+  line-height: 1.05;
+}
+
+.workspace-header p {
+  max-width: 66ch;
+  overflow: hidden;
+  color: var(--crm-copy-soft);
+  font-size: 0.84rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-tools {
+  gap: 8px;
+}
+
+.workspace-tools .ghost-button,
+.workspace-tools .status-pill,
+.workspace-filter select {
+  min-height: 36px;
+}
+
+.workspace-command-bar {
+  flex: 0 0 auto;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.command-cluster,
+.command-actions,
+.command-summary {
+  gap: 6px;
+}
+
+.command-actions .primary-button,
+.command-actions .secondary-button,
+.command-actions .ghost-button {
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+
+.command-chip {
+  min-width: 112px;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.command-chip span {
+  font-size: 0.59rem;
+  letter-spacing: 0.06em;
+}
+
+.command-chip strong {
+  margin-top: 3px;
+  font-size: 0.86rem;
+}
+
+.app-banner,
+#notification-panel {
+  flex: 0 0 auto;
+}
+
+.view.is-active {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.mobile-master-detail > .metrics-strip,
+.is-job-workspace-active > .metrics-strip {
+  display: none;
+}
+
+.metrics-strip {
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.metric-card {
+  padding: 12px 14px;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.metric-card strong {
+  margin-top: 5px;
+  font-size: 1.35rem;
+}
+
+.panel {
+  border-color: rgba(31, 39, 32, 0.1);
+  border-radius: var(--workspace-radius);
+  box-shadow: 0 8px 24px rgba(23, 26, 23, 0.055);
+  backdrop-filter: none;
+}
+
+.panel-head,
+.job-workspace-panel .panel-head,
+.lead-workspace-topbar {
+  flex: 0 0 auto;
+  padding: 14px 16px 0;
+}
+
+.panel-head h2,
+.job-workspace-panel .panel-head h2,
+.lead-workspace-topbar h2 {
+  max-width: none;
+  margin-top: 4px;
+  font-family: "Manrope", sans-serif;
+  font-size: clamp(1.15rem, 1.8vw, 1.55rem);
+  line-height: 1.15;
+}
+
+.panel-kicker {
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+}
+
+.panel-body,
+.record-shell {
+  padding: 14px 16px 16px;
+}
+
+.record-shell:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  scrollbar-gutter: stable;
+}
+
+.toolbar {
+  gap: 6px;
+}
+
+.toolbar input,
+.toolbar select {
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+}
+
+.toolbar .primary-button,
+.toolbar .secondary-button,
+.toolbar .ghost-button {
+  min-height: 38px;
+  padding: 8px 11px;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: none;
+}
+
+input[readonly] {
+  cursor: not-allowed;
+  background: #f1f1ed;
+  color: var(--crm-copy-soft);
+}
+
+.record-list,
+.stack-list,
+.timeline-list {
+  gap: 7px;
+}
+
+.record-button,
+.stack-card,
+.timeline-item,
+.simple-item,
+.worker-row,
+.job-record-card {
+  padding: 12px;
+  border-color: rgba(31, 39, 32, 0.08);
+  border-radius: 9px;
+  box-shadow: none;
+}
+
+.record-title,
+.stack-card strong,
+.timeline-item strong,
+.simple-item strong {
+  font-size: 0.92rem;
+}
+
+.record-copy {
+  margin-bottom: 6px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.record-meta,
+.simple-meta,
+.timeline-meta {
+  margin-top: 6px;
+  font-size: 0.72rem;
+}
+
+.record-topline {
+  margin-bottom: 6px;
+}
+
+.record-edit-affordance {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 10px;
+  color: var(--crm-brand-deep);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.mini-pill,
+.priority-pill {
+  min-height: 23px;
+  padding: 3px 7px;
+  font-size: 0.58rem;
+  letter-spacing: 0.07em;
+}
+
+.record-actions {
+  position: static;
+  order: -20;
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px;
+  overflow: visible;
+  background: #f5f3ec;
+  border: 1px solid rgba(70, 53, 34, 0.1);
+  border-radius: 9px;
+}
+
+.record-actions .primary-button,
+.record-actions .secondary-button,
+.record-actions .ghost-button {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 12px;
+  font-size: 0.74rem;
+  letter-spacing: 0.025em;
+  text-transform: none;
+}
+
+.record-more-menu {
+  position: relative;
+  min-width: 0;
+}
+
+.record-more-menu > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid rgba(70, 53, 34, 0.16);
+  background: #fff;
+  color: var(--crm-ink);
+  font-size: 0.74rem;
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+
+.record-more-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.record-more-menu > summary::after {
+  content: "+";
+  color: var(--crm-brand-deep);
+  font-size: 1.05rem;
+}
+
+.record-more-menu[open] > summary::after {
+  content: "−";
+}
+
+.record-more-menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  width: max(220px, 100%);
+  gap: 6px;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid var(--crm-line);
+  box-shadow: 0 18px 42px rgba(23, 26, 23, 0.18);
+}
+
+.record-more-menu-panel .primary-button,
+.record-more-menu-panel .secondary-button,
+.record-more-menu-panel .ghost-button {
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 42px;
+}
+
+.record-context-strip,
+.job-summary-strip,
+.job-overview-summary,
+.lead-summary-grid {
+  gap: 7px;
+}
+
+.context-card,
+.summary-card {
+  padding: 10px 11px;
+  border-radius: 8px;
+}
+
+.context-card span,
+.summary-card span {
+  font-size: 0.59rem;
+  letter-spacing: 0.07em;
+}
+
+.context-card strong,
+.summary-card strong {
+  font-size: 0.86rem;
+}
+
+.context-card em {
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+.tab-strip {
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  order: -30;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
+  gap: 5px;
+  margin: -2px 0 10px;
+  padding: 8px;
+  overflow: visible;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid var(--crm-line);
+  box-shadow: 0 8px 18px rgba(23, 26, 23, 0.06);
+}
+
+.tab-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 8px 9px;
+  border-radius: 7px;
+  font-size: 0.72rem;
+  letter-spacing: 0.025em;
+  text-transform: none;
+}
+
+.is-job-workspace-active .job-tab-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
+  gap: 5px;
+  margin: -2px 0 10px;
+  padding: 8px;
+  overflow: visible;
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.is-job-workspace-active .job-tab-strip .tab-button {
+  min-height: 42px;
+  padding: 8px 9px;
+  font-size: 0.72rem;
+  letter-spacing: 0.025em;
+  white-space: normal;
+}
+
+.lead-card-stage-control {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 8px 9px;
+  background: #f7f6f1;
+  border: 1px solid rgba(70, 53, 34, 0.09);
+}
+
+.lead-card-stage-control > span {
+  color: var(--crm-copy-soft);
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.lead-card-stage-control select {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px 9px;
+  background: #fff;
+  border: 1px solid var(--crm-line);
+  font-size: 0.76rem;
+}
+
+.record-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
+  gap: 6px;
+}
+
+.record-quick-action {
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 8px;
+  font-size: 0.68rem;
+  letter-spacing: 0.025em;
+  text-transform: none;
+}
+
+.record-quick-action.is-edit {
+  background: var(--crm-brand-soft);
+  border-color: rgba(201, 162, 77, 0.38);
+}
+
+.record-quick-action.is-danger {
+  background: rgba(139, 58, 49, 0.08);
+  border-color: rgba(139, 58, 49, 0.2);
+  color: var(--crm-danger);
+}
+
+.form-save-bar {
+  position: sticky;
+  bottom: -1px;
+  z-index: 5;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding: 10px;
+  background: rgba(247, 245, 238, 0.98);
+  border: 1px solid rgba(70, 53, 34, 0.12);
+  box-shadow: 0 -8px 20px rgba(23, 26, 23, 0.06);
+}
+
+.form-save-bar span {
+  color: var(--crm-copy-soft);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.form-save-bar .primary-button {
+  flex: 0 0 auto;
+  min-height: 42px;
+}
+
+.stack-form.is-dirty,
+.site-project-form.is-dirty {
+  border-left: 3px solid var(--crm-brand);
+}
+
+.stack-form.is-dirty::before,
+.site-project-form.is-dirty::before {
+  content: "Unsaved changes";
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: block;
+  width: fit-content;
+  padding: 5px 8px;
+  background: #fff6df;
+  color: var(--crm-brand-deep);
+  border-radius: 6px;
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.task-schedule-picker {
+  min-width: 0;
+  margin: 0;
+  padding: 14px;
+  background: #f8f7f2;
+  border: 1px solid rgba(70, 53, 34, 0.13);
+  border-radius: 10px;
+}
+
+.task-schedule-picker legend {
+  padding: 0 7px;
+  color: var(--crm-ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.task-schedule-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(145px, 0.65fr);
+  gap: 12px;
+}
+
+.task-date-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+}
+
+.task-date-control input,
+.task-schedule-fields select {
+  min-width: 0;
+  min-height: 44px;
+  background: #fff;
+  color-scheme: light;
+}
+
+.task-calendar-button {
+  min-height: 44px;
+  padding: 9px 12px;
+  white-space: nowrap;
+}
+
+.task-schedule-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 11px;
+}
+
+.task-schedule-shortcuts button {
+  min-height: 38px;
+  padding: 7px 10px;
+  background: #fff;
+  color: var(--crm-copy);
+  border: 1px solid rgba(70, 53, 34, 0.15);
+  border-radius: 999px;
+  font-size: 0.69rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.task-schedule-shortcuts button:hover,
+.task-schedule-shortcuts button:focus-visible {
+  background: var(--crm-brand-soft);
+  color: var(--crm-brand-deep);
+  border-color: rgba(201, 162, 77, 0.48);
+}
+
+.task-schedule-shortcuts button:last-child {
+  color: var(--crm-copy-soft);
+}
+
+.task-schedule-preview {
+  min-height: 19px;
+  margin: 10px 0 0;
+  color: var(--crm-copy-soft);
+  font-size: 0.73rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.task-schedule-preview.is-error {
+  color: var(--crm-danger);
+}
+
+.project-browser-panel .panel-body {
+  padding-top: 12px;
+}
+
+.project-browser-panel .record-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.project-browser-panel .job-record-card {
+  height: 100%;
+  min-height: 208px;
+  text-align: left;
+}
+
+.project-browser-panel .job-record-card .record-title {
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.project-status-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  background: #eeece5;
+  border: 1px solid rgba(70, 53, 34, 0.12);
+  border-radius: 9px;
+}
+
+.project-status-tab {
+  min-height: 36px;
+  padding: 7px 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: var(--crm-copy-soft);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.project-status-tab:hover,
+.project-status-tab:focus-visible {
+  color: var(--crm-ink);
+}
+
+.project-status-tab.is-active {
+  background: #fff;
+  color: var(--crm-ink);
+  box-shadow: 0 1px 3px rgba(40, 31, 23, 0.12);
+}
+
+.job-workspace-controls {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.job-project-switcher {
+  display: grid;
+  min-width: min(360px, 42vw);
+  gap: 5px;
+}
+
+.job-project-switcher span {
+  color: var(--crm-copy-soft);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.job-project-switcher select {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid var(--crm-line);
+  color: var(--crm-ink);
+}
+
+.job-status-control {
+  display: grid;
+  min-width: 150px;
+  gap: 5px;
+}
+
+.job-status-control > span,
+.job-status-control > small {
+  color: var(--crm-copy-soft);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.job-status-control > small {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.job-status-control select {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid var(--crm-line);
+  color: var(--crm-ink);
+}
+
+.job-complete-button {
+  background: #315b46;
+  border-color: #315b46;
+}
+
+.job-complete-button:hover,
+.job-complete-button:focus-visible {
+  background: #244735;
+  border-color: #244735;
+}
+
+.google-calendar-connection {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 12px 16px 0;
+  padding: 13px 14px;
+  background: #f8f7f2;
+  border: 1px solid rgba(70, 53, 34, 0.13);
+  border-radius: 10px;
+}
+
+.google-calendar-connection h3 {
+  margin: 4px 0 3px;
+  font-family: "Manrope", sans-serif;
+  font-size: 0.96rem;
+}
+
+.google-calendar-connection p {
+  margin: 0;
+  color: var(--crm-copy-soft);
+  font-size: 0.73rem;
+  line-height: 1.45;
+}
+
+.google-calendar-connection.is-connected {
+  background: #f1f7f2;
+  border-color: rgba(49, 91, 70, 0.24);
+}
+
+.google-calendar-connection.has-error {
+  background: #fff5f2;
+  border-color: rgba(139, 58, 49, 0.24);
+}
+
+.admin-section-nav {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  display: flex;
+  gap: 5px;
+  padding: 4px 0 10px;
+  overflow-x: auto;
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.admin-section-button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 8px 11px;
+  border: 1px solid var(--crm-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--crm-copy);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.admin-section-button.is-active {
+  border-color: rgba(201, 162, 77, 0.42);
+  background: var(--crm-brand-soft);
+  color: var(--crm-brand-deep);
+}
+
+.admin-section-panel-hidden {
+  display: none !important;
+}
+
+@media (min-width: 861px) {
+  .workspace-grid {
+    grid-template-columns: minmax(270px, 340px) minmax(0, 1fr) !important;
+    gap: var(--workspace-gap);
+    align-items: stretch;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .mobile-master-detail,
+  #jobs-view,
+  #leads-view {
+    overflow: hidden;
+  }
+
+  #leads-view.is-active {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #leads-view > .metrics-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  #leads-view .lead-surface-stack {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  #leads-view .lead-pipeline-surface,
+  #leads-view .lead-workspace,
+  #leads-view .lead-pipeline-panel {
+    height: 100%;
+    min-height: 0;
+  }
+
+  #leads-view .lead-pipeline-panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #leads-view .lead-pipeline-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .workspace-grid > .list-panel,
+  .workspace-grid > .record-panel,
+  .job-list-panel,
+  .job-workspace-panel {
+    display: flex !important;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .workspace-grid > .list-panel .panel-body,
+  .job-list-panel .panel-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .workspace-grid > .record-panel .record-shell,
+  .job-workspace-panel .record-shell {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  #jobs-view .job-workspace-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  #jobs-view:not(.is-job-workspace-active) .job-workspace-panel {
+    display: none !important;
+  }
+
+  .is-job-workspace-active .job-list-panel {
+    display: none !important;
+  }
+
+  .is-job-workspace-active .job-workspace-panel {
+    min-height: 0;
+  }
+
+  .is-job-workspace-active .job-workspace-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  #jobs-view:not(.is-job-workspace-active) .job-workspace-back {
+    display: none;
+  }
+
+  .is-job-workspace-active .job-workspace-back {
+    display: inline-flex;
+  }
+
+  #leads-view.is-lead-workspace-active .lead-surface-stack {
+    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+    gap: var(--workspace-gap);
+    height: 100%;
+    min-height: 0;
+  }
+
+  #leads-view.is-lead-workspace-active .lead-pipeline-surface,
+  #leads-view.is-lead-workspace-active .lead-workspace,
+  #leads-view.is-lead-workspace-active .lead-pipeline-panel,
+  #leads-view.is-lead-workspace-active .lead-workspace-panel {
+    height: 100%;
+    min-height: 0;
+  }
+
+  #leads-view.is-lead-workspace-active .lead-pipeline-panel,
+  #leads-view.is-lead-workspace-active .lead-workspace-panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #leads-view.is-lead-workspace-active .lead-pipeline-body,
+  #leads-view.is-lead-workspace-active .lead-record-shell {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  #leads-view.is-lead-workspace-active .lead-board-intro,
+  #leads-view.is-lead-workspace-active .pipeline-board-wrap,
+  #leads-view.is-lead-workspace-active .lead-result-shell .subpanel-head,
+  #leads-view.is-lead-workspace-active #lead-workspace-back-button {
+    display: none;
+  }
+
+  #leads-view.is-lead-workspace-active .lead-result-list {
+    grid-template-columns: 1fr;
+  }
+
+  #leads-view.is-lead-workspace-active .lead-workspace-topbar {
+    padding-top: 14px;
+  }
+
+  #staff-view .workspace-grid {
+    grid-template-columns: minmax(250px, 310px) minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 1100px) and (min-width: 861px) {
+  :root {
+    --workspace-sidebar-width: 204px;
+  }
+
+  .staff-main {
+    padding: 12px;
+  }
+
+  .workspace-header p,
+  .command-summary {
+    display: none;
+  }
+
+  .workspace-grid,
+  #leads-view.is-lead-workspace-active .lead-surface-stack {
+    grid-template-columns: minmax(235px, 29vw) minmax(0, 1fr) !important;
+  }
+
+  #leads-view.is-lead-workspace-active .lead-surface-stack {
+    grid-template-columns: minmax(235px, 270px) minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 860px) {
+  html,
+  body,
+  .staff-page {
+    overflow-x: clip;
+    overflow-y: visible;
+  }
+
+  .staff-shell {
+    display: block;
+    height: auto;
+    min-height: var(--crm-app-height);
+    overflow: visible;
+  }
+
+  .staff-main {
+    display: block;
+    height: auto;
+    min-height: var(--crm-app-height);
+    padding: 12px 12px calc(104px + var(--crm-safe-bottom));
+    overflow: visible;
+  }
+
+  .workspace-header {
+    min-height: 54px;
+    margin-bottom: 8px;
+  }
+
+  .workspace-header p,
+  .workspace-header .status-pill,
+  .workspace-command-bar {
+    display: none !important;
+  }
+
+  .workspace-header h1 {
+    font-size: 1.45rem;
+  }
+
+  .view.is-active {
+    overflow: visible;
+  }
+
+  .panel-head,
+  .job-workspace-panel .panel-head,
+  .lead-workspace-topbar {
+    padding: 13px 13px 0;
+  }
+
+  .panel-body,
+  .record-shell {
+    padding: 12px 13px 14px;
+  }
+
+  .task-schedule-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .task-schedule-picker {
+    padding: 12px;
+  }
+
+  .task-schedule-shortcuts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .task-schedule-shortcuts button {
+    min-height: 42px;
+  }
+
+  .project-browser-panel .record-list {
+    grid-template-columns: 1fr;
+  }
+
+  .project-browser-panel .job-record-card {
+    min-height: 0;
+  }
+
+  .job-workspace-controls,
+  .google-calendar-connection {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .job-project-switcher {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .project-status-tabs {
+    width: 100%;
+  }
+
+  .project-status-tab {
+    flex: 1 1 0;
+  }
+
+  .job-status-control {
+    width: 100%;
+  }
+
+  .google-calendar-connection {
+    margin: 10px 13px 0;
+  }
+
+  .google-calendar-connection .inline-actions,
+  .google-calendar-connection .primary-button,
+  .google-calendar-connection .ghost-button {
+    width: 100%;
+  }
+
+  .record-panel,
+  .lead-record-panel,
+  .lead-workspace-panel,
+  .is-job-workspace-active .job-workspace-panel {
+    min-height: 0;
+  }
+
+  .mobile-action-dock {
+    left: auto;
+    right: 14px;
+    bottom: calc(var(--crm-mobile-tab-height) + var(--crm-safe-bottom) + 12px);
+    display: block;
+    width: auto;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .mobile-action-dock .mobile-dock-button[data-mobile-context-action] {
+    display: none !important;
+  }
+
+  .mobile-dock-button.is-menu {
+    display: inline-flex;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 999px;
+    box-shadow: 0 12px 28px rgba(20, 15, 11, 0.24);
+  }
+
+  .mobile-tab-bar {
+    gap: 2px;
+    padding: 8px 8px calc(8px + var(--crm-safe-bottom));
+  }
+
+  .mobile-tab-button {
+    min-height: 48px;
+    padding: 7px 3px;
+    font-size: 0.64rem;
+    letter-spacing: 0.03em;
+    text-transform: none;
+  }
+
+  .record-actions {
+    top: 0;
+  }
+
+  .tab-strip {
+    top: 0;
+  }
+
+  .record-more-menu-panel {
+    position: static;
+    width: 100%;
+    margin-top: 6px;
+    box-shadow: none;
+  }
+
+  .form-save-bar {
+    bottom: calc(var(--crm-mobile-tab-height) + var(--crm-safe-bottom) + 8px);
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .form-save-bar .primary-button {
+    width: 100%;
+  }
+
+  .entity-drawer,
+  .drawer-shell {
+    border-radius: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

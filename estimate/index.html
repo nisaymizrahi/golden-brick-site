@@ -9,12 +9,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap"
       rel="stylesheet"
     />
     <link
       rel="stylesheet"
-      href="/estimate/estimate.css?v=20260409-estimate-share-3"
+      href="/estimate/estimate.css?v=20260729-estimate-integrity-1"
     />
   </head>
   <body>
@@ -22,21 +22,40 @@
       <section class="estimate-public-shell">
         <header class="estimate-public-hero">
           <div class="hero-copy">
-            <span class="eyebrow">Golden Brick Construction</span>
+            <div class="golden-brick-logo estimate-public-logo" aria-label="Golden Brick Construction">
+              <svg class="golden-brick-mark" viewBox="0 0 120 58" aria-hidden="true">
+                <rect x="44" y="1" width="32" height="14" rx="1.5"></rect>
+                <rect x="24" y="22" width="32" height="14" rx="1.5"></rect>
+                <rect x="64" y="22" width="32" height="14" rx="1.5"></rect>
+                <rect x="4" y="43" width="32" height="14" rx="1.5"></rect>
+                <rect x="44" y="43" width="32" height="14" rx="1.5"></rect>
+                <rect x="84" y="43" width="32" height="14" rx="1.5"></rect>
+              </svg>
+              <span class="golden-brick-wordmark">
+                <span class="golden-brick-name">Golden Brick</span>
+                <span class="golden-brick-trade">Construction</span>
+              </span>
+            </div>
             <h1 id="page-title">Loading estimate...</h1>
             <p id="page-subtitle">
-              Preparing the estimate and agreement details.
+              Preparing the project estimate and signature details.
             </p>
           </div>
           <div class="hero-contact">
-            <span>Need help reviewing this?</span>
+            <span>Questions before signing?</span>
             <a href="mailto:info@goldenbrickc.com">info@goldenbrickc.com</a>
             <a href="tel:+12677155557">(267) 715-5557</a>
-            <small>PA License #065157</small>
+            <small>PA HIC #PA212716 · Philadelphia GC #065157</small>
           </div>
         </header>
 
-        <section class="estimate-public-status" id="status-banner">
+        <section
+          class="estimate-public-status"
+          id="status-banner"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
           Loading your estimate...
         </section>
 
@@ -66,17 +85,25 @@
           <section class="estimate-public-grid decision-grid">
             <article class="estimate-public-card decision-card">
               <div class="section-head">
-                <h2>Approval summary</h2>
-                <p>
-                  Review the estimate snapshot, confirm the scope still matches
-                  your direction, and sign once when you are ready to move
-                  forward.
+                <h2 id="decision-title">Estimate ready for review</h2>
+                <p id="decision-copy">
+                  Review the project details, scope, pricing, and terms below.
+                  Sign when the estimate matches your direction.
                 </p>
               </div>
               <div class="summary-grid" id="decision-summary"></div>
               <div class="form-actions">
-                <a class="ghost-button" href="tel:+12677155557"
-                  >Call with questions</a
+                <a
+                  class="ghost-button"
+                  id="request-revision-link"
+                  href="mailto:info@goldenbrickc.com"
+                  >Request revision</a
+                >
+                <a
+                  class="ghost-button"
+                  id="ask-question-link"
+                  href="mailto:info@goldenbrickc.com"
+                  >Ask a question</a
                 >
                 <a
                   class="primary-button"
@@ -84,15 +111,23 @@
                   id="review-sign-link"
                   >Review and sign</a
                 >
+                <button
+                  type="button"
+                  class="ghost-button"
+                  id="print-estimate-button"
+                >
+                  Print or save this version
+                </button>
               </div>
             </article>
 
             <article class="estimate-public-card process-card">
               <div class="section-head">
-                <h2>What happens after approval</h2>
+                <h2>Review steps</h2>
                 <p>
-                  This estimate link is meant to make the decision simple and
-                  keep the project record organized for both sides.
+                  This page keeps the estimate, agreement details, cancellation
+                  notice, authorization terms, and signed PDF record in one
+                  organized place.
                 </p>
               </div>
               <div class="process-step-list">
@@ -101,18 +136,18 @@
                   <div>
                     <strong>Review the estimate</strong>
                     <p>
-                      Confirm the project address, scope notes, line items, and
-                      commercial terms shown on this page.
+                      Confirm the property, project type, scope notes, pricing,
+                      and terms shown below.
                     </p>
                   </div>
                 </article>
                 <article class="process-step">
                   <span>2</span>
                   <div>
-                    <strong>Sign the approval record</strong>
+                    <strong>Sign the agreement record</strong>
                     <p>
-                      Your signature locks this estimate snapshot into the
-                      project file so both sides are aligned.
+                      Your signature archives the estimate, required agreement
+                      details, and cancellation notice with the project file.
                     </p>
                   </div>
                 </article>
@@ -121,8 +156,8 @@
                   <div>
                     <strong>Golden Brick moves to next steps</strong>
                     <p>
-                      We coordinate follow-up planning, scheduling, trade
-                      sequencing, and the signed PDF record from there.
+                      Golden Brick coordinates follow-up planning, scheduling,
+                      trade sequencing, and document handling from there.
                     </p>
                   </div>
                 </article>
@@ -135,8 +170,8 @@
               <div class="section-head">
                 <h2>Project summary</h2>
                 <p>
-                  Review the current project snapshot, estimate total, and
-                  proposal context before signing.
+                  The core project details and current estimate total are shown
+                  here for a quick check.
                 </p>
               </div>
               <div class="summary-grid" id="project-summary"></div>
@@ -146,7 +181,7 @@
               <div class="section-head">
                 <h2>Estimate overview</h2>
                 <p>
-                  This is the exact proposal summary the client is reviewing.
+                  Scope notes prepared for this project.
                 </p>
               </div>
               <div class="copy-stack" id="estimate-overview"></div>
@@ -155,10 +190,10 @@
 
           <section class="estimate-public-card">
             <div class="section-head">
-              <h2>Line items</h2>
+              <h2>Scope and pricing</h2>
               <p>
-                Each scope item and amount below rolls into the current estimate
-                total.
+                Each scope item and amount below rolls into the current
+                estimated total.
               </p>
             </div>
             <div class="line-item-list" id="line-item-list"></div>
@@ -171,10 +206,9 @@
           <section class="estimate-public-grid">
             <article class="estimate-public-card">
               <div class="section-head">
-                <h2>Proposal terms</h2>
+                <h2>Estimate terms</h2>
                 <p>
-                  These are the standard estimate protections included in the
-                  proposal.
+                  Standard terms included with this estimate.
                 </p>
               </div>
               <ul class="detail-list" id="proposal-terms"></ul>
@@ -182,10 +216,10 @@
 
             <article class="estimate-public-card">
               <div class="section-head">
-                <h2>Project assumptions and exclusions</h2>
+                <h2>Project notes and exclusions</h2>
                 <p>
-                  These are the project-specific notes captured with the
-                  estimate.
+                  Project-specific notes, exclusions, or selection assumptions
+                  recorded with this estimate.
                 </p>
               </div>
               <ul class="detail-list" id="estimate-assumptions"></ul>
@@ -194,9 +228,36 @@
 
           <section class="estimate-public-card agreement-card">
             <div class="section-head">
+              <h2>Agreement details</h2>
+              <p>
+                Project, contractor, timing, deposit, insurance, and disclosure
+                details for this estimate.
+              </p>
+            </div>
+            <div class="summary-grid legal-summary-grid" id="agreement-details"></div>
+            <div
+              class="agreement-blocker"
+              id="agreement-blocker"
+              hidden
+            ></div>
+          </section>
+
+          <section class="estimate-public-card agreement-card">
+            <div class="section-head">
+              <h2 id="cancellation-title">Notice of Cancellation</h2>
+              <p id="cancellation-intro">
+                Pennsylvania home improvement cancellation rights are included
+                with this agreement record.
+              </p>
+            </div>
+            <ul class="detail-list legal-detail-list" id="cancellation-notice"></ul>
+          </section>
+
+          <section class="estimate-public-card agreement-card">
+            <div class="section-head">
               <h2 id="agreement-title">Agreement</h2>
               <p id="agreement-intro">
-                Review the client agreement terms below.
+                Review the authorization terms below.
               </p>
             </div>
             <ul class="detail-list" id="agreement-terms"></ul>
@@ -207,16 +268,16 @@
               <h2>Accept and sign</h2>
               <p>
                 Check the acceptance box, type your full legal name, and draw
-                your signature below. If you need revisions, contact Golden
-                Brick before signing so the estimate can be updated first.
+                your signature below. If something needs to change, contact
+                Golden Brick before signing.
               </p>
             </div>
             <form class="signature-form" id="signature-form">
               <label class="checkbox-row">
-                <input type="checkbox" id="agreement-accept" />
+                <input type="checkbox" id="agreement-accept" required />
                 <span
-                  >I have reviewed the estimate and I agree to the terms
-                  above.</span
+                  >I have reviewed this estimate, the agreement details, the
+                  cancellation notice, and the terms above.</span
                 >
               </label>
 
@@ -225,22 +286,73 @@
                 <input
                   type="text"
                   id="signer-name"
+                  autocomplete="name"
                   placeholder="Full name as signature"
+                  required
                 />
               </label>
+
+              <div class="signer-grid">
+                <label>
+                  <span>Signer email</span>
+                  <input
+                    type="email"
+                    id="signer-email"
+                    autocomplete="email"
+                    placeholder="name@example.com"
+                    required
+                  />
+                </label>
+
+                <label>
+                  <span>Signing authority</span>
+                  <select id="signer-role" required>
+                    <option value="">Select your role</option>
+                    <option value="property_owner">Property owner</option>
+                    <option value="authorized_representative">
+                      Authorized representative
+                    </option>
+                    <option value="investor_member">
+                      Investor or company member
+                    </option>
+                    <option value="other_authorized_signer">
+                      Other authorized signer
+                    </option>
+                  </select>
+                </label>
+              </div>
 
               <div class="signature-canvas-shell">
                 <div class="signature-canvas-head">
                   <span>Draw signature</span>
-                  <button
-                    type="button"
-                    class="ghost-button"
-                    id="clear-signature-button"
-                  >
-                    Clear
-                  </button>
+                  <div class="signature-canvas-actions">
+                    <button
+                      type="button"
+                      class="ghost-button"
+                      id="type-signature-button"
+                    >
+                      Use typed name
+                    </button>
+                    <button
+                      type="button"
+                      class="ghost-button"
+                      id="clear-signature-button"
+                    >
+                      Clear
+                    </button>
+                  </div>
                 </div>
-                <canvas id="signature-canvas"></canvas>
+                <canvas
+                  id="signature-canvas"
+                  role="img"
+                  tabindex="0"
+                  aria-label="Signature drawing area"
+                  aria-describedby="signature-help"
+                ></canvas>
+                <p class="signature-help" id="signature-help">
+                  Draw with a pointer, or enter your legal name and choose “Use
+                  typed name” for a keyboard-accessible signature.
+                </p>
               </div>
 
               <div class="form-actions">
@@ -257,7 +369,7 @@
               </div>
               <p class="signature-note">
                 Submitting this form creates a signed PDF copy for the project
-                file and for your records.
+                file and your records, including the cancellation notice.
               </p>
             </form>
           </section>
@@ -268,7 +380,7 @@
             hidden
           >
             <div class="section-head">
-              <h2>Agreement signed</h2>
+              <h2>Signature record</h2>
               <p>This estimate has already been accepted and archived.</p>
             </div>
             <div class="signed-meta" id="signed-meta"></div>
@@ -292,7 +404,7 @@
 
     <script
       type="module"
-      src="/estimate/estimate.js?v=20260409-estimate-share-3"
+      src="/estimate/estimate.js?v=20260729-estimate-integrity-1"
     ></script>
   </body>
 </html>

@@ -4,6 +4,7 @@ const state = {
   loading: true,
   submitting: false,
   signatureDirty: false,
+  typedSignature: "",
   activePointerId: null,
   activeStroke: null,
   signatureStrokes: [],
@@ -17,12 +18,19 @@ const refs = {
   unavailableCopy: document.getElementById("unavailable-copy"),
   estimateContent: document.getElementById("estimate-content"),
   decisionSummary: document.getElementById("decision-summary"),
+  decisionTitle: document.getElementById("decision-title"),
+  decisionCopy: document.getElementById("decision-copy"),
   projectSummary: document.getElementById("project-summary"),
   estimateOverview: document.getElementById("estimate-overview"),
   lineItemList: document.getElementById("line-item-list"),
   estimateTotal: document.getElementById("estimate-total"),
   proposalTerms: document.getElementById("proposal-terms"),
   estimateAssumptions: document.getElementById("estimate-assumptions"),
+  agreementDetails: document.getElementById("agreement-details"),
+  agreementBlocker: document.getElementById("agreement-blocker"),
+  cancellationTitle: document.getElementById("cancellation-title"),
+  cancellationIntro: document.getElementById("cancellation-intro"),
+  cancellationNotice: document.getElementById("cancellation-notice"),
   agreementTitle: document.getElementById("agreement-title"),
   agreementIntro: document.getElementById("agreement-intro"),
   agreementTerms: document.getElementById("agreement-terms"),
@@ -30,6 +38,9 @@ const refs = {
   signatureForm: document.getElementById("signature-form"),
   agreementAccept: document.getElementById("agreement-accept"),
   signerName: document.getElementById("signer-name"),
+  signerEmail: document.getElementById("signer-email"),
+  signerRole: document.getElementById("signer-role"),
+  typeSignatureButton: document.getElementById("type-signature-button"),
   clearSignatureButton: document.getElementById("clear-signature-button"),
   signatureCanvas: document.getElementById("signature-canvas"),
   signSubmitButton: document.getElementById("sign-submit-button"),
@@ -37,6 +48,9 @@ const refs = {
   signedMeta: document.getElementById("signed-meta"),
   agreementDownloadLink: document.getElementById("agreement-download-link"),
   reviewSignLink: document.getElementById("review-sign-link"),
+  requestRevisionLink: document.getElementById("request-revision-link"),
+  askQuestionLink: document.getElementById("ask-question-link"),
+  printEstimateButton: document.getElementById("print-estimate-button"),
 };
 
 const canvasContext = refs.signatureCanvas.getContext("2d");
@@ -201,7 +215,7 @@ function createSummaryItem(label, value) {
   itemLabel.textContent = label;
 
   const itemValue = document.createElement("strong");
-  itemValue.textContent = value || "Not provided";
+  itemValue.textContent = value || "To be confirmed";
 
   item.append(itemLabel, itemValue);
   return item;
@@ -213,6 +227,50 @@ function documentLabel(payload, fallback = "Estimate") {
 
 function documentLabelLower(payload, fallback = "estimate") {
   return documentLabel(payload, fallback).toLowerCase();
+}
+
+function publishedVersionNumber(payload) {
+  return toNumber(
+    payload?.share?.versionNumber ||
+      payload?.share?.publishedVersion ||
+      payload?.versionNumber,
+  );
+}
+
+function payloadAllowsSignature(payload) {
+  const explicitCanSign =
+    typeof payload?.canSign === "boolean"
+      ? payload.canSign
+      : typeof payload?.share?.canSign === "boolean"
+        ? payload.share.canSign
+        : true;
+  const signingMode = safeString(
+    payload?.signingMode ||
+      payload?.share?.signingMode ||
+      payload?.share?.publishMode,
+  ).toLowerCase();
+  return (
+    explicitCanSign &&
+    signingMode !== "review" &&
+    payload?.agreement?.readyToSign === true
+  );
+}
+
+function signatureBlockers(payload) {
+  return [
+    ...new Set(
+      [
+        ...(Array.isArray(payload?.agreement?.blockers)
+          ? payload.agreement.blockers
+          : []),
+        ...(Array.isArray(payload?.share?.blockers)
+          ? payload.share.blockers
+          : []),
+      ]
+        .map((entry) => safeString(entry))
+        .filter(Boolean),
+    ),
+  ];
 }
 
 function submitButtonLabel(payload = state.payload) {
@@ -235,7 +293,10 @@ function renderSummary(payload) {
       ? "Change amount"
       : "Estimate total";
   refs.projectSummary.replaceChildren(
-    createSummaryItem("Client", safeString(lead.clientName) || "Client"),
+    createSummaryItem(
+      "Prepared for",
+      safeString(lead.clientName) || "Name to be confirmed",
+    ),
     createSummaryItem(
       "Project address",
       safeString(lead.projectAddress) || "Address to be confirmed",
@@ -245,22 +306,48 @@ function renderSummary(payload) {
       safeString(lead.projectType) || "Project details to be confirmed",
     ),
     createSummaryItem(totalLabel, formatCurrency(estimate.subtotal)),
-    createSummaryItem("Email", safeString(lead.clientEmail) || "Not provided"),
-    createSummaryItem("Phone", safeString(lead.clientPhone) || "Not provided"),
+    createSummaryItem("Email", safeString(lead.clientEmail) || "On file"),
+    createSummaryItem("Phone", safeString(lead.clientPhone) || "On file"),
   );
 }
 
 function estimateStatusLabel(payload) {
-  return payload?.readOnly
-    ? `${documentLabel(payload)} signed and archived`
-    : `${documentLabel(payload)} ready for review`;
+  if (payload?.readOnly) {
+    return `${documentLabel(payload)} signed and archived`;
+  }
+  if (payloadAllowsSignature(payload)) {
+    return `${documentLabel(payload)} ready for signature`;
+  }
+  return `${documentLabel(payload)} published for review only`;
 }
 
 function renderDecisionSummary(payload) {
   const support = payload?.support || {};
+  const registration = safeString(support.paRegistrationNumber)
+    ? `PA HIC #${safeString(support.paRegistrationNumber)}`
+    : "PA HIC registration on file";
+  const phillyLicense = safeString(support.philadelphiaLicenseNumber)
+    ? `Philly GC #${safeString(support.philadelphiaLicenseNumber)}`
+    : "Philadelphia GC license on file";
+  const versionNumber = publishedVersionNumber(payload);
+  const publishedAt = formatDateTime(
+    payload?.share?.publishedAt || payload?.publishedAt,
+  );
+  const contentReference = safeString(
+    payload?.share?.contentHash || payload?.contentHash,
+  ).slice(0, 12);
 
   refs.decisionSummary.replaceChildren(
     createSummaryItem("Current status", estimateStatusLabel(payload)),
+    createSummaryItem(
+      "Published version",
+      versionNumber ? `Version ${versionNumber}` : "Locked version",
+    ),
+    createSummaryItem("Published", publishedAt || "Publication date on file"),
+    createSummaryItem(
+      "Version reference",
+      contentReference || safeString(payload?.share?.versionId).slice(0, 12),
+    ),
     createSummaryItem(
       "Estimate total",
       formatCurrency(payload?.estimate?.subtotal),
@@ -274,13 +361,57 @@ function renderDecisionSummary(payload) {
       safeString(payload?.lead?.projectType) || "Renovation scope",
     ),
     createSummaryItem("Support", safeString(support.phone) || "(267) 715-5557"),
-    createSummaryItem(
-      "License",
-      safeString(support.licenseNumber)
-        ? `PA License #${safeString(support.licenseNumber)}`
-        : "Licensed and insured",
-    ),
+    createSummaryItem("Registration", registration),
+    createSummaryItem("License", phillyLicense),
   );
+}
+
+function configureDecisionActions(payload) {
+  const label = documentLabel(payload);
+  const subject = safeString(payload?.estimate?.subject) || label;
+  const versionNumber = publishedVersionNumber(payload);
+  const versionCopy = versionNumber ? ` version ${versionNumber}` : "";
+  const contentReference = safeString(
+    payload?.share?.contentHash || payload?.contentHash,
+  ).slice(0, 12);
+  const referenceCopy = contentReference
+    ? ` (reference ${contentReference})`
+    : "";
+  const property = safeString(payload?.lead?.projectAddress);
+  const supportEmail =
+    safeString(payload?.support?.email) || "info@goldenbrickc.com";
+  const context = `${subject}${versionCopy}${referenceCopy}${
+    property ? ` for ${property}` : ""
+  }`;
+
+  refs.requestRevisionLink.href = `mailto:${encodeURIComponent(
+    supportEmail,
+  )}?subject=${encodeURIComponent(`Revision request: ${context}`)}&body=${encodeURIComponent(
+    `I would like to request a revision to ${context}.\n\nRequested change:\n`,
+  )}`;
+  refs.askQuestionLink.href = `mailto:${encodeURIComponent(
+    supportEmail,
+  )}?subject=${encodeURIComponent(`Question about: ${context}`)}&body=${encodeURIComponent(
+    `I have a question about ${context}:\n\n`,
+  )}`;
+
+  if (payload?.readOnly) {
+    refs.decisionTitle.textContent = `${label} signed`;
+    refs.decisionCopy.textContent =
+      "This is the exact published version that was signed. The archived PDF is available below.";
+    return;
+  }
+
+  if (payloadAllowsSignature(payload)) {
+    refs.decisionTitle.textContent = `${label} ready for signature`;
+    refs.decisionCopy.textContent =
+      "Review this locked version, request changes if needed, or sign when the scope and terms match your direction.";
+    return;
+  }
+
+  refs.decisionTitle.textContent = `${label} available for review`;
+  refs.decisionCopy.textContent =
+    "This locked version is review-only. You can request a revision or ask Golden Brick a question; an authorized signable copy will be provided when ready.";
 }
 
 function renderOverview(payload) {
@@ -296,7 +427,7 @@ function renderOverview(payload) {
     ? blocks
     : [
         `Golden Brick Construction prepared this ${documentLabelLower(payload)} for your review.`,
-        "Please review the scope, terms, and agreement details below before signing.",
+        "Please review the scope, pricing, terms, and authorization details below before signing.",
       ];
 
   refs.estimateOverview.innerHTML = paragraphs
@@ -391,8 +522,72 @@ function renderAgreement(payload) {
   );
 }
 
+function renderAgreementDetails(payload) {
+  const agreement = payload.agreement || {};
+  const detailRows = Array.isArray(agreement.details) ? agreement.details : [];
+  const fragment = document.createDocumentFragment();
+
+  detailRows.forEach((item) => {
+    fragment.append(
+      createSummaryItem(
+        safeString(item.label) || "Agreement detail",
+        safeString(item.value) || "To be confirmed",
+      ),
+    );
+  });
+
+  if (!fragment.childNodes.length) {
+    fragment.append(
+      createSummaryItem(
+        "Agreement details",
+        "Details will be finalized with Golden Brick Construction.",
+      ),
+    );
+  }
+
+  refs.agreementDetails.replaceChildren(fragment);
+
+  const pendingMessage = safeString(agreement.pendingMessage);
+  const blockers = signatureBlockers(payload);
+  if ((pendingMessage || blockers.length) && !payload.readOnly) {
+    refs.agreementBlocker.hidden = false;
+    refs.agreementBlocker.innerHTML = `
+      <strong>Review-only version</strong>
+      ${
+        pendingMessage
+          ? `<p>${escapeHtml(pendingMessage)}</p>`
+          : ""
+      }
+      ${
+        blockers.length
+          ? `<ul>${blockers
+              .map((blocker) => `<li>${escapeHtml(blocker)}</li>`)
+              .join("")}</ul>`
+          : ""
+      }
+    `;
+  } else {
+    refs.agreementBlocker.hidden = true;
+    refs.agreementBlocker.innerHTML = "";
+  }
+}
+
+function renderCancellationNotice(payload) {
+  const notice = payload?.agreement?.cancellationNotice || {};
+  refs.cancellationTitle.textContent =
+    safeString(notice.title) || "Notice of Cancellation";
+  refs.cancellationIntro.textContent =
+    safeString(notice.actualNotice) ||
+    "Cancellation rights will be included with the signed agreement record.";
+  renderList(
+    refs.cancellationNotice,
+    notice.statements,
+    "Cancellation notice details will be completed with the signed agreement record.",
+  );
+}
+
 function renderSignatureState(signature) {
-  const signerName = safeString(signature?.signerName) || "Client";
+  const signerName = safeString(signature?.signerName) || "Signer";
   const signedAt = formatDateTime(signature?.signedAt);
   const lines = [
     `Signed by ${signerName}.`,
@@ -419,6 +614,10 @@ function resetSigningUi() {
   refs.agreementAccept.disabled = false;
   refs.signerName.readOnly = false;
   refs.signerName.disabled = false;
+  refs.signerEmail.readOnly = false;
+  refs.signerEmail.disabled = false;
+  refs.signerRole.disabled = false;
+  refs.typeSignatureButton.disabled = false;
   refs.clearSignatureButton.disabled = false;
   refs.signatureCanvas.style.pointerEvents = "auto";
   refs.signatureCanvas.setAttribute("aria-disabled", "false");
@@ -426,11 +625,13 @@ function resetSigningUi() {
   state.activePointerId = null;
   state.activeStroke = null;
   state.signatureStrokes = [];
+  state.typedSignature = "";
   resetCanvas();
 }
 
 function applyReadOnlyMode(payload) {
   const readOnly = payload?.readOnly === true;
+  const readyToSign = payloadAllowsSignature(payload);
   refs.signPanel.hidden = readOnly;
   refs.signedCard.hidden = !readOnly;
   refs.reviewSignLink.hidden = readOnly;
@@ -439,16 +640,42 @@ function applyReadOnlyMode(payload) {
     refs.agreementAccept.disabled = true;
     refs.signerName.readOnly = true;
     refs.signerName.disabled = true;
+    refs.signerEmail.readOnly = true;
+    refs.signerEmail.disabled = true;
+    refs.signerRole.disabled = true;
+    refs.typeSignatureButton.disabled = true;
     refs.clearSignatureButton.disabled = true;
     refs.signatureCanvas.style.pointerEvents = "none";
     refs.signatureCanvas.setAttribute("aria-disabled", "true");
     refs.signSubmitButton.disabled = true;
     renderSignatureState(payload.signature);
     setStatus(`This ${documentLabelLower(payload)} has already been accepted and archived.`);
+  } else if (!readyToSign) {
+    refs.signPanel.hidden = true;
+    refs.agreementAccept.disabled = true;
+    refs.signerName.readOnly = true;
+    refs.signerName.disabled = true;
+    refs.signerEmail.readOnly = true;
+    refs.signerEmail.disabled = true;
+    refs.signerRole.disabled = true;
+    refs.typeSignatureButton.disabled = true;
+    refs.clearSignatureButton.disabled = true;
+    refs.signatureCanvas.style.pointerEvents = "none";
+    refs.signatureCanvas.setAttribute("aria-disabled", "true");
+    refs.signSubmitButton.disabled = true;
+    refs.reviewSignLink.hidden = true;
+    setStatus(
+      safeString(payload?.agreement?.pendingMessage) ||
+        "This exact version is available for review only. Request a revision or ask Golden Brick for a signable copy.",
+    );
   } else {
     refs.agreementAccept.disabled = false;
     refs.signerName.readOnly = false;
     refs.signerName.disabled = false;
+    refs.signerEmail.readOnly = false;
+    refs.signerEmail.disabled = false;
+    refs.signerRole.disabled = false;
+    refs.typeSignatureButton.disabled = false;
     refs.clearSignatureButton.disabled = false;
     refs.signatureCanvas.style.pointerEvents = "auto";
     refs.signatureCanvas.setAttribute("aria-disabled", "false");
@@ -474,30 +701,34 @@ function renderPayload(payload) {
   const subject =
     safeString(payload?.estimate?.subject) ||
     `Project ${documentLabelLower(payload)}`;
-  const clientName = safeString(payload?.lead?.clientName) || "Client";
+  const preparedFor =
+    safeString(payload?.lead?.clientName) || "Name to be confirmed";
   const address =
     safeString(payload?.lead?.projectAddress) || "Project details";
 
   refs.pageTitle.textContent = subject;
-  refs.pageSubtitle.textContent = `${clientName} • ${address}`;
+  refs.pageSubtitle.textContent = `${preparedFor} • ${address}`;
   document.title = `${subject} | Golden Brick`;
-  refs.reviewSignLink.textContent = `Review ${documentLabelLower(payload)} and sign`;
+  refs.reviewSignLink.textContent = `Review and sign`;
   refs.signSubmitButton.textContent = submitButtonLabel(payload);
 
   renderSummary(payload);
   renderDecisionSummary(payload);
+  configureDecisionActions(payload);
   renderOverview(payload);
   renderLineItems(payload);
   renderList(
     refs.proposalTerms,
     payload?.estimate?.terms,
-    "Standard proposal terms will be confirmed directly with Golden Brick Construction.",
+    "Standard estimate terms will be confirmed directly with Golden Brick Construction.",
   );
   renderList(
     refs.estimateAssumptions,
     payload?.estimate?.assumptions,
-    "No additional project assumptions were captured for this estimate.",
+    "No additional project notes or exclusions were captured for this estimate.",
   );
+  renderAgreementDetails(payload);
+  renderCancellationNotice(payload);
   renderAgreement(payload);
   applyReadOnlyMode(payload);
   syncVisibleSignatureCanvas();
@@ -513,7 +744,32 @@ function resetCanvas() {
   canvasContext.lineCap = "round";
   canvasContext.lineJoin = "round";
   redrawSignatureStrokes();
-  state.signatureDirty = state.signatureStrokes.length > 0;
+  drawTypedSignature();
+  state.signatureDirty =
+    state.signatureStrokes.length > 0 || Boolean(state.typedSignature);
+}
+
+function drawTypedSignature() {
+  const typedName = safeString(state.typedSignature);
+  if (!typedName) {
+    return;
+  }
+
+  const fontSize = Math.max(
+    Math.min(refs.signatureCanvas.height * 0.28, 76),
+    30,
+  );
+  canvasContext.save();
+  canvasContext.fillStyle = "#4f3b22";
+  canvasContext.font = `italic ${fontSize}px Georgia, serif`;
+  canvasContext.textBaseline = "middle";
+  canvasContext.fillText(
+    typedName,
+    refs.signatureCanvas.width * 0.06,
+    refs.signatureCanvas.height * 0.56,
+    refs.signatureCanvas.width * 0.88,
+  );
+  canvasContext.restore();
 }
 
 function normalisedPoint(point) {
@@ -608,6 +864,12 @@ function startDrawing(event) {
   if (state.payload?.readOnly) return;
   event.preventDefault();
 
+  if (state.typedSignature) {
+    state.typedSignature = "";
+    state.signatureStrokes = [];
+    resetCanvas();
+  }
+
   state.activePointerId = event.pointerId;
   state.activeStroke = null;
   refs.signatureCanvas.setPointerCapture(event.pointerId);
@@ -668,6 +930,28 @@ async function loadEstimate() {
   renderPayload(payload);
 }
 
+function notifyPortalEstimateUpdate(type) {
+  const message = {
+    type,
+    shareId: safeString(state.payload?.share?.id),
+    versionId: safeString(state.payload?.share?.versionId),
+  };
+
+  try {
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage(message, window.location.origin);
+    }
+  } catch (_error) {
+    // Returning focus to the portal also triggers a refresh.
+  }
+
+  if ("BroadcastChannel" in window) {
+    const channel = new BroadcastChannel("golden-brick-client-approvals");
+    channel.postMessage(message);
+    channel.close();
+  }
+}
+
 async function submitSignature(event) {
   event.preventDefault();
 
@@ -675,9 +959,17 @@ async function submitSignature(event) {
     return;
   }
 
+  if (!payloadAllowsSignature(state.payload)) {
+    setStatus(
+      safeString(state.payload?.agreement?.pendingMessage) ||
+        "This exact version is available for review only. Request a revision or ask Golden Brick for a signable copy.",
+    );
+    return;
+  }
+
   if (!refs.agreementAccept.checked) {
     setStatus(
-      "Please confirm that you agree to the estimate and agreement terms.",
+      "Please confirm that you agree to this estimate, agreement details, cancellation notice, and agreement terms.",
     );
     refs.agreementAccept.focus();
     return;
@@ -689,8 +981,25 @@ async function submitSignature(event) {
     return;
   }
 
+  const signerEmail = safeString(refs.signerEmail.value).toLowerCase();
+  if (!signerEmail || !refs.signerEmail.checkValidity()) {
+    setStatus("Please enter a valid signer email address.");
+    refs.signerEmail.focus();
+    return;
+  }
+
+  const signerRole = safeString(refs.signerRole.value);
+  if (!signerRole) {
+    setStatus("Please select your signing authority.");
+    refs.signerRole.focus();
+    return;
+  }
+
   if (!state.signatureDirty) {
-    setStatus("Please draw your signature before submitting.");
+    setStatus(
+      "Please draw your signature or use your typed legal name before submitting.",
+    );
+    refs.signatureCanvas.focus();
     return;
   }
 
@@ -700,17 +1009,39 @@ async function submitSignature(event) {
   setStatus(`Saving your signed ${documentLabelLower(state.payload)}...`);
 
   try {
-    await requestJson("/api/client/public-estimate-sign", {
+    const result = await requestJson("/api/client/public-estimate-sign", {
       method: "POST",
       body: JSON.stringify({
         token: state.token,
         signerName: safeString(refs.signerName.value),
+        signerEmail,
+        signerRole,
         accepted: refs.agreementAccept.checked,
         signatureDataUrl: refs.signatureCanvas.toDataURL("image/png"),
       }),
     });
 
-    await loadEstimate();
+    notifyPortalEstimateUpdate("estimate-signed");
+    try {
+      await loadEstimate();
+    } catch (refreshError) {
+      console.warn(
+        "Signature saved, but the signed view could not refresh.",
+        refreshError,
+      );
+      state.payload = {
+        ...(state.payload || {}),
+        readOnly: true,
+      };
+      refs.signPanel.hidden = true;
+      refs.signedCard.hidden = false;
+      refs.reviewSignLink.hidden = true;
+      renderSignatureState({
+        signerName: safeString(refs.signerName.value),
+        signedAt: result.signedAt,
+        downloadHref: result.downloadHref,
+      });
+    }
     setStatus("Your agreement has been signed and archived.");
   } catch (error) {
     if (error.status === 410) {
@@ -728,7 +1059,9 @@ async function submitSignature(event) {
     setStatus(error.message || "Could not sign the agreement right now.");
   } finally {
     state.submitting = false;
-    refs.signSubmitButton.disabled = false;
+    refs.signSubmitButton.disabled =
+      state.payload?.readOnly === true ||
+      !payloadAllowsSignature(state.payload);
     refs.signSubmitButton.textContent = submitButtonLabel(state.payload);
   }
 }
@@ -738,9 +1071,33 @@ function clearSignature() {
     return;
   }
   state.signatureStrokes = [];
+  state.typedSignature = "";
   state.activeStroke = null;
   resetCanvas();
   setStatus("Signature cleared. Draw your signature again when you are ready.");
+}
+
+function typeSignatureFromName() {
+  if (state.payload?.readOnly || !payloadAllowsSignature(state.payload)) {
+    return;
+  }
+
+  const signerName = safeString(refs.signerName.value);
+  if (!signerName) {
+    setStatus(
+      "Enter your full legal name first, then choose “Use typed name.”",
+    );
+    refs.signerName.focus();
+    return;
+  }
+
+  state.signatureStrokes = [];
+  state.activeStroke = null;
+  state.typedSignature = signerName;
+  resetCanvas();
+  setStatus(
+    "Your typed legal name is shown as the signature. Review it before submitting.",
+  );
 }
 
 function bindEvents() {
@@ -755,7 +1112,29 @@ function bindEvents() {
     clearSignature();
   });
 
+  refs.typeSignatureButton.addEventListener("click", () => {
+    typeSignatureFromName();
+  });
+
+  refs.signerName.addEventListener("input", () => {
+    if (!state.typedSignature) {
+      return;
+    }
+    state.typedSignature = safeString(refs.signerName.value);
+    resetCanvas();
+  });
+
+  refs.printEstimateButton.addEventListener("click", () => {
+    window.print();
+  });
+
   refs.signatureCanvas.style.touchAction = "none";
+  refs.signatureCanvas.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      typeSignatureFromName();
+    }
+  });
   refs.signatureCanvas.addEventListener("pointerdown", startDrawing);
   refs.signatureCanvas.addEventListener("pointermove", continueDrawing);
   refs.signatureCanvas.addEventListener("pointerup", stopDrawing);

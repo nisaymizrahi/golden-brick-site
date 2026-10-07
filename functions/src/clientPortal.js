@@ -13,6 +13,8 @@ function buildClientPortalApi({
   loadPublicEstimatePayload,
   signPublicEstimatePayload,
   loadPublicAgreementDocumentData,
+  secrets = [],
+  handleStaffRoute = null,
 }) {
   const COMPANY_INFO = {
     name: "Golden Brick Construction",
@@ -24,9 +26,13 @@ function buildClientPortalApi({
 
   const PORTAL_HEADERS = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers":
+      "Content-Type, Authorization, X-Portal-Preview",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   };
+
+  const STAFF_PREVIEW_HEADER = "x-portal-preview";
+  const STAFF_PREVIEW_TTL_MS = 20 * 60 * 1000;
 
   function applyCors(response) {
     Object.entries(PORTAL_HEADERS).forEach(([key, value]) => {
@@ -96,6 +102,10 @@ function buildClientPortalApi({
     return normalised === "primary" || normalised === "partner";
   }
 
+  function portalRoleCanMessage(role) {
+    return normalisePortalRole(role) !== "read_only";
+  }
+
   function toNumber(value) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
@@ -121,6 +131,14 @@ function buildClientPortalApi({
     return admin.app().options.projectId
       ? require("node:crypto").randomBytes(byteCount).toString("hex")
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  function portalPreviewRef(token) {
+    const tokenHash = require("node:crypto")
+      .createHash("sha256")
+      .update(safeString(token))
+      .digest("hex");
+    return db.collection("clientPortalPreviews").doc(tokenHash);
   }
 
   function parseRequestPayload(request) {
@@ -416,7 +434,7 @@ function buildClientPortalApi({
       roleLabel: portalRoleLabel(role),
       accessScope: portalAccessScopeForRole(role),
       canSign: portalRoleCanSign(role),
-      canMessage: true,
+      canMessage: portalRoleCanMessage(role),
       authUid: safeString(data.authUid),
       inviteStatus: inviteStatusLabel(data),
       lastInvitedAt: serialiseDateValue(data.lastInvitedAt),
@@ -452,7 +470,11 @@ function buildClientPortalApi({
     };
   }
 
-  function serialisePortalThread(thread, messages = []) {
+  function serialisePortalThread(
+    thread,
+    messages = [],
+    clientUnreadCount = null,
+  ) {
     const data = thread?.data || thread || {};
     const id = thread?.id || data.id || "";
     return {
@@ -471,7 +493,10 @@ function buildClientPortalApi({
       lastMessageAt: serialiseDateValue(data.lastMessageAt),
       lastMessagePreview: safeString(data.lastMessagePreview),
       lastAuthorRole: safeString(data.lastAuthorRole),
-      clientUnreadCount: toNumber(data.clientUnreadCount),
+      clientUnreadCount:
+        clientUnreadCount === null
+          ? toNumber(data.clientUnreadCount)
+          : toNumber(clientUnreadCount),
       staffUnreadCount: toNumber(data.staffUnreadCount),
       createdAt: serialiseDateValue(data.createdAt),
       updatedAt: serialiseDateValue(data.updatedAt),
@@ -631,6 +656,7 @@ function buildClientPortalApi({
         0,
       ),
       paidToDate: toNumber(totalPaid),
+      openCount: openInvoices.length,
       dueCount: openInvoices.length,
       overdueCount: openInvoices.filter((invoice) => {
         const dueMillis = normaliseMillis(invoice.dueDate);
@@ -647,7 +673,9 @@ function buildClientPortalApi({
   }) {
     const items = [];
     const approvalsToReview = estimates.filter(
-      (entry) => safeString(entry.status) === "active",
+      (entry) =>
+        safeString(entry.status) === "active" &&
+        entry.snapshotAvailable !== false,
     ).length;
     const unreadMessages = threads.reduce(
       (sum, thread) => sum + toNumber(thread.clientUnreadCount),
@@ -811,14 +839,284 @@ function buildClientPortalApi({
   }
 
   function isPortalVisibleShare(share = {}) {
-    const status = safeString(share.status);
-    if (status === "signed") {
-      return true;
+    const status = safeString(share.status).toLowerCase();
+    if (status === "active") {
+      return share.portalVisible !== false;
     }
-    if (share.portalVisible === false) {
-      return false;
+    return [
+      "signed",
+      "replaced",
+      "superseded",
+      "revoked",
+      "void",
+      "cancelled",
+      "expired",
+    ].includes(status);
+  }
+
+  function shareOwnershipSnapshot(share = {}) {
+    const versionSnapshot =
+      share.versionSnapshot || share.publishedSnapshot || {};
+    if (safeString(share.type) === "change_order") {
+      return (
+        share.projectSnapshot ||
+        versionSnapshot.project ||
+        share.leadSnapshot ||
+        versionSnapshot.lead ||
+        {}
+      );
     }
-    return status === "active";
+    return share.leadSnapshot || versionSnapshot.lead || {};
+  }
+
+  function shareRecordSnapshot(share = {}) {
+    const versionSnapshot =
+      share.versionSnapshot || share.publishedSnapshot || {};
+    return safeString(share.type) === "change_order"
+      ? share.changeOrderSnapshot || versionSnapshot.changeOrder || {}
+      : share.estimateSnapshot || versionSnapshot.estimate || {};
+  }
+
+  function shareSnapshotReadiness(share = {}) {
+    const type = safeString(share.type || "estimate");
+    const recordSnapshot = shareRecordSnapshot(share);
+    const explicitReady =
+      typeof share.readyToSign === "boolean"
+        ? share.readyToSign
+        : typeof share.signing?.readyToSign === "boolean"
+          ? share.signing.readyToSign
+          : typeof share.signatureReadiness?.readyToSign === "boolean"
+            ? share.signatureReadiness.readyToSign
+            : null;
+    const explicitBlockers = [
+      ...new Set(
+        [
+          ...(Array.isArray(share.blockers) ? share.blockers : []),
+          ...(Array.isArray(share.signing?.blockers)
+            ? share.signing.blockers
+            : []),
+          ...(Array.isArray(share.signatureReadiness?.blockers)
+            ? share.signatureReadiness.blockers
+            : []),
+          ...(Array.isArray(share.readinessBlockers)
+            ? share.readinessBlockers
+            : []),
+        ]
+          .map((entry) => safeString(entry))
+          .filter(Boolean),
+      ),
+    ];
+
+    if (
+      safeString(share.signingMode).toLowerCase() === "review" ||
+      safeString(share.signing?.mode).toLowerCase() === "review" ||
+      safeString(share.publishMode).toLowerCase() === "review"
+    ) {
+      return {
+        readyToSign: false,
+        blockers: explicitBlockers.length
+          ? explicitBlockers
+          : ["This version was published for review only."],
+      };
+    }
+
+    if (explicitReady !== null) {
+      return {
+        readyToSign: explicitReady,
+        blockers: explicitReady
+          ? []
+          : explicitBlockers.length
+            ? explicitBlockers
+            : ["Golden Brick must finalize this version before signature."],
+      };
+    }
+
+    if (type === "change_order") {
+      return {
+        readyToSign: true,
+        blockers: [],
+      };
+    }
+
+    const contractDetails = recordSnapshot.contractDetails || {};
+    const blockers = [];
+    if (!safeString(contractDetails.approximateStartDate)) {
+      blockers.push(
+        "The approximate project start date must be confirmed before signing.",
+      );
+    }
+    if (!safeString(contractDetails.approximateCompletionDate)) {
+      blockers.push(
+        "The approximate project completion date must be confirmed before signing.",
+      );
+    }
+
+    return {
+      readyToSign: blockers.length === 0,
+      blockers,
+    };
+  }
+
+  function validateShareCustomerBinding(
+    share = {},
+    customerId,
+    customerLeadIds,
+    customerProjectIds,
+  ) {
+    const expectedCustomerId = safeString(customerId);
+    if (
+      !expectedCustomerId ||
+      safeString(share.customerId) !== expectedCustomerId
+    ) {
+      return {
+        belongsToCustomer: false,
+        snapshotAvailable: false,
+        reason: "Customer binding does not match.",
+      };
+    }
+
+    const type = safeString(share.type || "estimate");
+    const leadId = safeString(share.leadId);
+    const projectId = safeString(share.projectId);
+    const ownershipSnapshot = shareOwnershipSnapshot(share);
+    const recordSnapshot = shareRecordSnapshot(share);
+    const embeddedCustomerId = safeString(ownershipSnapshot.customerId);
+
+    if (
+      type === "change_order" &&
+      (!projectId || !customerProjectIds.has(projectId))
+    ) {
+      return {
+        belongsToCustomer: false,
+        snapshotAvailable: false,
+        reason: "Project binding does not match.",
+      };
+    }
+
+    if (type !== "change_order" && (!leadId || !customerLeadIds.has(leadId))) {
+      return {
+        belongsToCustomer: false,
+        snapshotAvailable: false,
+        reason: "Lead binding does not match.",
+      };
+    }
+
+    if (embeddedCustomerId && embeddedCustomerId !== expectedCustomerId) {
+      return {
+        belongsToCustomer: false,
+        snapshotAvailable: false,
+        reason: "Frozen customer binding does not match.",
+      };
+    }
+
+    if (!embeddedCustomerId) {
+      return {
+        belongsToCustomer: true,
+        snapshotAvailable: false,
+        reason:
+          "This older approval record needs to be reviewed and republished by Golden Brick before it can be opened safely.",
+      };
+    }
+
+    const ownershipLeadId = safeString(ownershipSnapshot.leadId);
+    const recordLeadId = safeString(recordSnapshot.leadId);
+    const ownershipProjectId = safeString(ownershipSnapshot.projectId);
+    const recordProjectId = safeString(recordSnapshot.projectId);
+    const embeddedRecordCustomerId = safeString(recordSnapshot.customerId);
+
+    if (
+      type !== "change_order" &&
+      (!ownershipLeadId || !recordLeadId || !embeddedRecordCustomerId)
+    ) {
+      return {
+        belongsToCustomer: true,
+        snapshotAvailable: false,
+        reason:
+          "This older approval record is missing its complete frozen lead and customer connection and needs to be republished.",
+      };
+    }
+
+    if (
+      type !== "change_order" &&
+      (ownershipLeadId !== leadId || recordLeadId !== leadId)
+    ) {
+      return {
+        belongsToCustomer: false,
+        snapshotAvailable: false,
+        reason: "Frozen lead binding does not match.",
+      };
+    }
+
+    if (type === "change_order" && !ownershipProjectId) {
+      return {
+        belongsToCustomer: true,
+        snapshotAvailable: false,
+        reason:
+          "This older approval record is missing its frozen project connection and needs to be republished.",
+      };
+    }
+
+    if (
+      type === "change_order" &&
+      (ownershipProjectId !== projectId ||
+        (recordProjectId && recordProjectId !== projectId))
+    ) {
+      return {
+        belongsToCustomer: false,
+        snapshotAvailable: false,
+        reason: "Frozen project binding does not match.",
+      };
+    }
+
+    if (
+      embeddedRecordCustomerId &&
+      embeddedRecordCustomerId !== expectedCustomerId
+    ) {
+      return {
+        belongsToCustomer: false,
+        snapshotAvailable: false,
+        reason: "Frozen estimate customer binding does not match.",
+      };
+    }
+
+    if (
+      toNumber(share.schemaVersion) >= 2 &&
+      !safeString(share.contentHash)
+    ) {
+      return {
+        belongsToCustomer: true,
+        snapshotAvailable: false,
+        reason:
+          "This approval record is missing its version integrity reference and needs to be republished.",
+      };
+    }
+
+    const versionSnapshot =
+      share.versionSnapshot || share.publishedSnapshot || {};
+    const agreementSnapshot =
+      share.agreementSnapshot || versionSnapshot.agreement || {};
+    const hasAgreementSnapshot = Boolean(
+      safeString(agreementSnapshot.terms),
+    );
+    const hasRecordSnapshot =
+      type === "change_order"
+        ? Boolean(
+            safeString(recordSnapshot.title || recordSnapshot.subject) &&
+              hasAgreementSnapshot,
+          )
+        : Boolean(
+            safeString(recordSnapshot.subject) &&
+              Array.isArray(recordSnapshot.lineItems) &&
+              hasAgreementSnapshot,
+          );
+
+    return {
+      belongsToCustomer: true,
+      snapshotAvailable: hasRecordSnapshot,
+      reason: hasRecordSnapshot
+        ? ""
+        : "This approval record does not contain a frozen estimate version and needs to be republished.",
+    };
   }
 
   async function verifyBearerToken(request) {
@@ -1128,6 +1426,208 @@ function buildClientPortalApi({
     };
   }
 
+  async function loadPreviewContact(customerId, requestedContactId = "") {
+    if (safeString(requestedContactId)) {
+      const requestedSnapshot = await contactRef(
+        customerId,
+        requestedContactId,
+      ).get();
+      if (!requestedSnapshot.exists) {
+        throw portalError("The selected portal contact could not be found.", 404);
+      }
+
+      const requestedData = requestedSnapshot.data() || {};
+      if (requestedData.disabledAt || requestedData.revokedAt) {
+        throw portalError(
+          "The selected portal contact is not active.",
+          409,
+        );
+      }
+
+      return {
+        id: requestedSnapshot.id,
+        data: requestedData,
+      };
+    }
+
+    const contactsSnapshot = await customerRef(customerId)
+      .collection("contacts")
+      .get();
+    const contacts = contactsSnapshot.docs
+      .map((snapshot) => ({
+        id: snapshot.id,
+        data: snapshot.data() || {},
+      }))
+      .filter((contact) => !contact.data.disabledAt && !contact.data.revokedAt)
+      .sort((left, right) => {
+        const leftRole = normalisePortalRole(
+          left.data.role || left.data.accessScope,
+        );
+        const rightRole = normalisePortalRole(
+          right.data.role || right.data.accessScope,
+        );
+        if (leftRole === "primary" && rightRole !== "primary") return -1;
+        if (rightRole === "primary" && leftRole !== "primary") return 1;
+        if (safeString(left.data.authUid) && !safeString(right.data.authUid)) {
+          return -1;
+        }
+        if (safeString(right.data.authUid) && !safeString(left.data.authUid)) {
+          return 1;
+        }
+        return (
+          normaliseMillis(right.data.lastLoginAt || right.data.updatedAt) -
+          normaliseMillis(left.data.lastLoginAt || left.data.updatedAt)
+        );
+      });
+
+    return contacts[0] || null;
+  }
+
+  async function createStaffPortalPreview(request, payload = {}, staff = {}) {
+    if (safeString(staff.profile?.role) !== "admin") {
+      throw portalError("Only admins can preview a client portal.", 403);
+    }
+
+    const customerId = safeString(payload.customerId);
+    const requestedContactId = safeString(payload.contactId);
+    if (!customerId) {
+      throw portalError("customerId is required.", 400);
+    }
+
+    const customerSnapshot = await customerRef(customerId).get();
+    if (!customerSnapshot.exists) {
+      throw portalError("Customer not found.", 404);
+    }
+
+    const previewContact = await loadPreviewContact(
+      customerId,
+      requestedContactId,
+    );
+    const token = createOpaqueId(32);
+    const expiresAt = new Date(Date.now() + STAFF_PREVIEW_TTL_MS);
+    const staffUid = safeString(staff.profile?.uid);
+    const staffName = safeString(
+      staff.profile?.displayName || staff.profile?.email || "Golden Brick admin",
+    );
+
+    await portalPreviewRef(token).set({
+      customerId,
+      contactId: safeString(previewContact?.id),
+      staffUid,
+      staffName,
+      staffEmail: normaliseEmail(staff.profile?.email),
+      status: "active",
+      readOnly: true,
+      createdAt: FieldValue.serverTimestamp(),
+      expiresAt,
+    });
+
+    return {
+      ok: true,
+      previewUrl: `${requestBaseUrl(request)}/client/?preview=${encodeURIComponent(token)}`,
+      expiresAt: expiresAt.toISOString(),
+      customerId,
+      customerName: safeString(customerSnapshot.data()?.name),
+      contactId: safeString(previewContact?.id),
+      contactName: safeString(previewContact?.data?.name),
+      readOnly: true,
+    };
+  }
+
+  async function verifyStaffPortalPreview(request) {
+    const token = safeString(request.get(STAFF_PREVIEW_HEADER));
+    if (!token) {
+      return null;
+    }
+
+    const previewSnapshot = await portalPreviewRef(token).get();
+    if (!previewSnapshot.exists) {
+      throw portalError("This staff preview link is not valid.", 401);
+    }
+
+    const previewData = previewSnapshot.data() || {};
+    if (safeString(previewData.status || "active") !== "active") {
+      throw portalError("This staff preview link is no longer active.", 401);
+    }
+
+    const expiresAtMillis = normaliseMillis(previewData.expiresAt);
+    if (!expiresAtMillis || expiresAtMillis <= Date.now()) {
+      await previewSnapshot.ref.delete().catch((error) => {
+        logger.warn("Expired client portal preview could not be removed.", error);
+      });
+      throw portalError(
+        "This staff preview expired. Return to the CRM and open a new preview.",
+        401,
+      );
+    }
+
+    const customerId = safeString(previewData.customerId);
+    const contactId = safeString(previewData.contactId);
+    const [customerSnapshot, previewContact] = await Promise.all([
+      customerRef(customerId).get(),
+      loadPreviewContact(customerId, contactId),
+    ]);
+    if (!customerSnapshot.exists) {
+      throw portalError("The customer for this preview no longer exists.", 404);
+    }
+
+    const customerData = customerSnapshot.data() || {};
+    const contactData = previewContact?.data || {
+      customerId,
+      name: safeString(customerData.name || "Client"),
+      email: normaliseEmail(customerData.primaryEmail),
+      phone: safeString(customerData.primaryPhone),
+      role: "primary",
+      accessScope: "customer",
+    };
+    const resolvedContactId = safeString(previewContact?.id || "staff-preview");
+    const previewUid = `staff-preview:${safeString(previewData.staffUid)}`;
+
+    return {
+      decoded: {
+        uid: previewUid,
+        email: normaliseEmail(previewData.staffEmail),
+      },
+      clientUser: {
+        uid: previewUid,
+        customerId,
+        contactId: resolvedContactId,
+        displayName: safeString(
+          contactData.name || customerData.name || "Client",
+        ),
+        role: normalisePortalRole(contactData.role || contactData.accessScope),
+        accessScope: portalAccessScopeForRole(
+          contactData.role || contactData.accessScope,
+        ),
+        status: "preview",
+      },
+      customerId,
+      contactId: resolvedContactId,
+      contactRef: previewContact
+        ? contactRef(customerId, resolvedContactId)
+        : null,
+      contactData,
+      customerData,
+      previewMode: true,
+      preview: {
+        active: true,
+        readOnly: true,
+        staffName: safeString(previewData.staffName || "Golden Brick admin"),
+        customerName: safeString(customerData.name || "Client"),
+        contactName: safeString(contactData.name || "Primary portal contact"),
+        expiresAt: new Date(expiresAtMillis).toISOString(),
+      },
+    };
+  }
+
+  async function verifyPortalRequest(request) {
+    const previewProfile = await verifyStaffPortalPreview(request);
+    if (previewProfile) {
+      return previewProfile;
+    }
+    return verifyClientRequest(request);
+  }
+
   async function ensurePortalThread(customerId, projectData = null) {
     const isProjectThread = Boolean(projectData?.id);
     const nextThreadId = isProjectThread
@@ -1169,7 +1669,11 @@ function buildClientPortalApi({
       createdAt: snapshot.exists
         ? snapshot.data()?.createdAt || FieldValue.serverTimestamp()
         : FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
+      updatedAt: snapshot.exists
+        ? snapshot.data()?.updatedAt ||
+          snapshot.data()?.createdAt ||
+          FieldValue.serverTimestamp()
+        : FieldValue.serverTimestamp(),
     };
 
     await ref.set(basePayload, { merge: true });
@@ -1407,11 +1911,25 @@ function buildClientPortalApi({
       });
   }
 
-  async function loadCustomerEstimates(customerId, request) {
-    const sharesSnap = await db
-      .collection("estimateShares")
-      .where("customerId", "==", customerId)
-      .get();
+  async function loadCustomerEstimates(
+    customerId,
+    request,
+    clientCanSign = false,
+  ) {
+    const [sharesSnap, customerLeads, customerProjects] = await Promise.all([
+      db
+        .collection("estimateShares")
+        .where("customerId", "==", customerId)
+        .get(),
+      loadCustomerLeads(customerId),
+      loadCustomerProjects(customerId),
+    ]);
+    const customerLeadIds = new Set(
+      customerLeads.map((lead) => safeString(lead.id)).filter(Boolean),
+    );
+    const customerProjectIds = new Set(
+      customerProjects.map((project) => safeString(project.id)).filter(Boolean),
+    );
 
     return sharesSnap.docs
       .map((snapshot) => ({
@@ -1419,53 +1937,136 @@ function buildClientPortalApi({
         ...snapshot.data(),
       }))
       .filter(isPortalVisibleShare)
-      .map((share) => ({
-        id: safeString(share.id),
-        type: safeString(share.type || "estimate"),
-        leadId: safeString(share.leadId),
-        projectId: safeString(share.projectId),
-        changeOrderId: safeString(share.changeOrderId),
-        projectAddress: shareProjectAddress(share),
-        projectType: shareProjectType(share),
-        subject: shareDocumentTitle(share),
-        summary: safeString(
-          share.summary ||
-            share.changeOrderSnapshot?.note ||
-            share.estimateSnapshot?.emailBody,
-        ),
-        subtotal: shareSubtotal(share),
-        status: safeString(share.status),
-        portalStatus:
-          safeString(share.status) === "signed"
-            ? "approved"
-            : safeString(share.status) === "active"
-              ? "needs_approval"
-              : safeString(share.status),
-        shareUrl: buildEstimateShareUrl(request, share.id),
-        agreementDownloadHref:
-          safeString(share.status) === "signed"
-            ? buildPublicAgreementDownloadHref(request, share.id)
+      .map((share) => {
+        const binding = validateShareCustomerBinding(
+          share,
+          customerId,
+          customerLeadIds,
+          customerProjectIds,
+        );
+        if (!binding.belongsToCustomer) {
+          return null;
+        }
+
+        const originalStatus = safeString(share.status).toLowerCase();
+        const snapshotAvailable = binding.snapshotAvailable;
+        const readiness = shareSnapshotReadiness(share);
+        const publishedAt = serialiseDateValue(
+          share.publishedAt || share.createdAt,
+        );
+        const versionNumber = toNumber(
+          share.versionNumber || share.publishedVersion,
+        );
+        const versionId = safeString(
+          share.versionId || share.estimateVersionId || share.id,
+        );
+        const contentHash = safeString(
+          share.contentHash ||
+            share.versionContentHash ||
+            share.versionSnapshot?.contentHash,
+        );
+        const status = snapshotAvailable
+          ? originalStatus
+          : "needs_republish";
+        const canOpen =
+          snapshotAvailable && ["active", "signed"].includes(originalStatus);
+
+        return {
+          id: safeString(share.id),
+          versionId: snapshotAvailable ? versionId : "",
+          versionNumber: snapshotAvailable ? versionNumber : 0,
+          schemaVersion: snapshotAvailable
+            ? toNumber(share.schemaVersion)
+            : 0,
+          contentHash: snapshotAvailable ? contentHash : "",
+          customerId: safeString(share.customerId),
+          type: safeString(share.type || "estimate"),
+          leadId: safeString(share.leadId),
+          projectId: safeString(share.projectId),
+          changeOrderId: safeString(share.changeOrderId),
+          projectAddress: snapshotAvailable
+            ? shareProjectAddress(share)
             : "",
-        signedAt: serialiseDateValue(share.signedAt),
-        updatedAt: serialiseDateValue(share.updatedAt || share.createdAt),
-        publishedAt: serialiseDateValue(share.publishedAt || share.createdAt),
-      }))
+          projectType: snapshotAvailable ? shareProjectType(share) : "",
+          subject: snapshotAvailable
+            ? shareDocumentTitle(share)
+            : "Approval record needs republishing",
+          summary: snapshotAvailable
+            ? safeString(
+                share.summary ||
+                  share.changeOrderSnapshot?.note ||
+                  share.estimateSnapshot?.emailBody,
+              )
+            : binding.reason,
+          subtotal: snapshotAvailable ? shareSubtotal(share) : 0,
+          status,
+          originalStatus,
+          snapshotAvailable,
+          accessReason: binding.reason,
+          portalStatus:
+            status === "signed"
+              ? "approved"
+              : status === "active"
+                ? "needs_approval"
+                : status,
+          signingMode: readiness.readyToSign ? "signature" : "review",
+          readyToSign: snapshotAvailable && readiness.readyToSign,
+          canSign:
+            snapshotAvailable &&
+            originalStatus === "active" &&
+            readiness.readyToSign &&
+            clientCanSign,
+          blockers: snapshotAvailable ? readiness.blockers : [binding.reason],
+          shareUrl: canOpen ? buildEstimateShareUrl(request, share.id) : "",
+          downloadHref:
+            snapshotAvailable && originalStatus === "signed"
+              ? buildPublicAgreementDownloadHref(request, share.id)
+              : "",
+          agreementDownloadHref:
+            snapshotAvailable && originalStatus === "signed"
+              ? buildPublicAgreementDownloadHref(request, share.id)
+              : "",
+          signedAt: serialiseDateValue(share.signedAt),
+          viewedAt: serialiseDateValue(share.lastViewedAt || share.viewedAt),
+          statusChangedAt: serialiseDateValue(
+            share.signedAt ||
+              share.replacedAt ||
+              share.revokedAt ||
+              share.publishedAt ||
+              share.createdAt,
+          ),
+          publishedAt,
+          updatedAt: publishedAt,
+        };
+      })
+      .filter(Boolean)
       .sort((left, right) => {
-      return normaliseMillis(right.updatedAt) - normaliseMillis(left.updatedAt);
-    });
+        return (
+          normaliseMillis(right.publishedAt) -
+          normaliseMillis(left.publishedAt)
+        );
+      });
   }
 
-  async function loadCustomerThreads(customerId, includeMessages = false) {
+  async function loadCustomerThreads(
+    customerId,
+    includeMessages = false,
+    contactContext = {},
+  ) {
     const projects = await loadCustomerProjects(customerId);
-    await ensurePortalThreadsForCustomer(customerId, projects);
+    if (contactContext.readOnly !== true) {
+      await ensurePortalThreadsForCustomer(customerId, projects);
+    }
 
     const threadsSnap = await threadsCollection(customerId).get();
     const threads = threadsSnap.docs.map((snapshot) => ({
       id: snapshot.id,
       data: snapshot.data() || {},
     }));
+    const contactId = safeString(contactContext.contactId);
+    const readBaselineMillis = normaliseMillis(contactContext.readBaseline);
 
-    if (!includeMessages) {
+    if (!includeMessages && !contactId) {
       return threads
         .map((thread) => serialisePortalThread(thread))
         .sort((left, right) => {
@@ -1493,8 +2094,25 @@ function buildClientPortalApi({
               normaliseMillis(right.data.createdAt)
             );
           });
+        const contactReadAt = contactId
+          ? thread.data.clientReadAtByContact?.[contactId]
+          : null;
+        const readAtMillis =
+          normaliseMillis(contactReadAt) || readBaselineMillis;
+        const clientUnreadCount =
+          contactId && readAtMillis
+            ? messages.filter(
+                (message) =>
+                  safeString(message.data.authorRole) === "staff" &&
+                  normaliseMillis(message.data.createdAt) > readAtMillis,
+              ).length
+            : toNumber(thread.data.clientUnreadCount);
 
-        return serialisePortalThread(thread, messages);
+        return serialisePortalThread(
+          thread,
+          includeMessages ? messages : [],
+          clientUnreadCount,
+        );
       }),
     );
 
@@ -1524,7 +2142,19 @@ function buildClientPortalApi({
           normaliseMillis(right.updatedAt || right.createdAt) -
           normaliseMillis(left.updatedAt || left.createdAt)
         );
-      });
+      })
+      .map((contact) => ({
+        id: contact.id,
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone,
+        role: contact.role,
+        roleLabel: contact.roleLabel,
+        accessScope: contact.accessScope,
+        canSign: contact.canSign,
+        canMessage: contact.canMessage,
+        lastLoginAt: contact.lastLoginAt,
+      }));
   }
 
   async function claimPortalAccess(request, payload) {
@@ -1953,6 +2583,19 @@ function buildClientPortalApi({
     clientProfile,
     payload,
   ) {
+    if (
+      !portalRoleCanMessage(
+        clientProfile.contactData.role ||
+          clientProfile.contactData.accessScope,
+      )
+    ) {
+      const error = new Error(
+        "This read-only portal contact cannot send messages.",
+      );
+      error.status = 403;
+      throw error;
+    }
+
     const ref = threadRef(customerId, threadId);
     const snapshot = await ref.get();
     if (!snapshot.exists) {
@@ -1996,7 +2639,10 @@ function buildClientPortalApi({
         lastMessageAt: FieldValue.serverTimestamp(),
         lastMessagePreview: body.slice(0, 240),
         lastAuthorRole: "client",
-        clientUnreadCount: 0,
+        clientReadAtByContact: {
+          [safeString(clientProfile.contactId)]:
+            FieldValue.serverTimestamp(),
+        },
         staffUnreadCount: FieldValue.increment(1),
         updatedAt: FieldValue.serverTimestamp(),
       },
@@ -2012,7 +2658,7 @@ function buildClientPortalApi({
     };
   }
 
-  async function markClientThreadRead(customerId, threadId) {
+  async function markClientThreadRead(customerId, threadId, contactId) {
     const ref = threadRef(customerId, threadId);
     const snapshot = await ref.get();
     if (!snapshot.exists) {
@@ -2023,8 +2669,9 @@ function buildClientPortalApi({
 
     await ref.set(
       {
-        clientUnreadCount: 0,
-        updatedAt: FieldValue.serverTimestamp(),
+        clientReadAtByContact: {
+          [safeString(contactId)]: FieldValue.serverTimestamp(),
+        },
       },
       { merge: true },
     );
@@ -2036,13 +2683,76 @@ function buildClientPortalApi({
   }
 
   async function buildBootstrapPayload(request, clientProfile) {
-    const [jobsPayload, estimates, documents, threads, contacts] = await Promise.all([
+    const previewMode = clientProfile.previewMode === true;
+    const clientRoleCanSign = portalRoleCanSign(
+      clientProfile.contactData.role ||
+        clientProfile.contactData.accessScope,
+    );
+    const clientRoleCanMessage = portalRoleCanMessage(
+      clientProfile.contactData.role ||
+        clientProfile.contactData.accessScope,
+    );
+    const clientCanSign = clientRoleCanSign && !previewMode;
+    const clientCanMessage = clientRoleCanMessage && !previewMode;
+    const resultEntries = await Promise.allSettled([
       loadCustomerJobs(clientProfile.customerId),
-      loadCustomerEstimates(clientProfile.customerId, request),
+      loadCustomerEstimates(
+        clientProfile.customerId,
+        request,
+        clientCanSign,
+      ),
       loadCustomerDocuments(clientProfile.customerId),
-      loadCustomerThreads(clientProfile.customerId, false),
+      loadCustomerThreads(clientProfile.customerId, false, {
+        contactId: clientProfile.contactId,
+        readBaseline:
+          clientProfile.contactData.claimedAt ||
+          clientProfile.contactData.createdAt,
+        readOnly: previewMode,
+      }),
       loadCustomerPortalContacts(clientProfile.customerId, request),
     ]);
+    const partialErrors = [];
+    const fallbackValues = [
+      {
+        jobs: [],
+        billing: {
+          projects: [],
+          invoices: [],
+          payments: [],
+          summary: {
+            invoiceCount: 0,
+            invoicesDue: 0,
+            totalDue: 0,
+            totalPaid: 0,
+          },
+        },
+      },
+      [],
+      [],
+      [],
+      [],
+    ];
+    const resultLabels = [
+      "jobs",
+      "estimates",
+      "documents",
+      "threads",
+      "contacts",
+    ];
+    const resolvedValues = resultEntries.map((result, index) => {
+      if (result.status === "fulfilled") {
+        return result.value;
+      }
+
+      partialErrors.push(resultLabels[index]);
+      logger.warn(
+        `Client portal bootstrap could not load ${resultLabels[index]}.`,
+        result.reason,
+      );
+      return fallbackValues[index];
+    });
+    const [jobsPayload, estimates, documents, threads, contacts] =
+      resolvedValues;
     const activeJobs = jobsPayload.jobs.filter(
       (job) => safeString(job.status) !== "completed",
     );
@@ -2058,7 +2768,7 @@ function buildClientPortalApi({
 
     const summary = {
       estimatesToReview: estimates.filter(
-        (entry) => entry.status === "active",
+        (entry) => entry.status === "active" && entry.snapshotAvailable,
       ).length,
       activeJobs: activeJobs.length,
       invoicesDue: jobsPayload.billing.summary.invoicesDue,
@@ -2070,6 +2780,8 @@ function buildClientPortalApi({
 
     return {
       ok: true,
+      partialErrors,
+      preview: previewMode ? clientProfile.preview : null,
       customerDisplayName: safeString(
         clientProfile.clientUser.displayName ||
           clientProfile.contactData.name ||
@@ -2093,10 +2805,10 @@ function buildClientPortalApi({
         roleLabel: portalRoleLabel(
           clientProfile.contactData.role || clientProfile.contactData.accessScope,
         ),
-        canSign: portalRoleCanSign(
-          clientProfile.contactData.role || clientProfile.contactData.accessScope,
-        ),
-        canMessage: true,
+        canSign: clientCanSign,
+        canMessage: clientCanMessage,
+        clientCanSign: clientRoleCanSign,
+        clientCanMessage: clientRoleCanMessage,
         accessScope: portalAccessScopeForRole(
           clientProfile.contactData.role || clientProfile.contactData.accessScope,
         ),
@@ -2139,6 +2851,8 @@ function buildClientPortalApi({
     {
       region: "us-central1",
       cors: true,
+      timeoutSeconds: 300,
+      secrets,
     },
     async (request, response) => {
       applyCors(response);
@@ -2152,10 +2866,34 @@ function buildClientPortalApi({
       const [resource, resourceId, subresource] = segments;
 
       try {
+        if (typeof handleStaffRoute === "function") {
+          const handled = await handleStaffRoute({
+            request,
+            response,
+            resource,
+            resourceId,
+            subresource,
+          });
+          if (handled) return;
+        }
+
         if (request.method === "POST" && resource === "invite") {
           const staff = await verifyStaffRequest(request);
           const payload = parseRequestPayload(request);
           const result = await mutatePortalInvite(request, payload, staff);
+          respondJson(response, 200, result);
+          return;
+        }
+
+        if (request.method === "POST" && resource === "staff-preview") {
+          const staff = await verifyStaffRequest(request);
+          const payload = parseRequestPayload(request);
+          const result = await createStaffPortalPreview(
+            request,
+            payload,
+            staff,
+          );
+          response.setHeader("Cache-Control", "no-store, max-age=0");
           respondJson(response, 200, result);
           return;
         }
@@ -2246,7 +2984,35 @@ function buildClientPortalApi({
           return;
         }
 
-        const clientProfile = await verifyClientRequest(request);
+        if (
+          ["GET", "HEAD"].includes(request.method) &&
+          resource === "google-reviews"
+        ) {
+          response.setHeader("Cache-Control", "no-store, max-age=0");
+          const payload = {
+            ok: false,
+            available: false,
+            source: "google_business_profile",
+            profileUrl: "",
+            message:
+              "Recent Google reviews are temporarily unavailable. Reviews can still be read directly on Google.",
+            reviews: [],
+            nextCursor: null,
+          };
+
+          if (request.method === "HEAD") {
+            response.status(503).end();
+            return;
+          }
+
+          respondJson(response, 503, payload);
+          return;
+        }
+
+        const clientProfile = await verifyPortalRequest(request);
+        if (clientProfile.previewMode) {
+          response.setHeader("Cache-Control", "no-store, max-age=0");
+        }
 
         if (request.method === "GET" && resource === "bootstrap") {
           const payload = await buildBootstrapPayload(request, clientProfile);
@@ -2258,6 +3024,10 @@ function buildClientPortalApi({
           const estimates = await loadCustomerEstimates(
             clientProfile.customerId,
             request,
+            portalRoleCanSign(
+              clientProfile.contactData.role ||
+                clientProfile.contactData.accessScope,
+            ) && !clientProfile.previewMode,
           );
           respondJson(response, 200, {
             ok: true,
@@ -2301,6 +3071,13 @@ function buildClientPortalApi({
           const threads = await loadCustomerThreads(
             clientProfile.customerId,
             true,
+            {
+              contactId: clientProfile.contactId,
+              readBaseline:
+                clientProfile.contactData.claimedAt ||
+                clientProfile.contactData.createdAt,
+              readOnly: clientProfile.previewMode === true,
+            },
           );
           respondJson(response, 200, {
             ok: true,
@@ -2315,6 +3092,9 @@ function buildClientPortalApi({
           resourceId &&
           subresource === "messages"
         ) {
+          if (clientProfile.previewMode) {
+            throw portalError("Staff preview is read-only.", 403);
+          }
           const payload = parseRequestPayload(request);
           const result = await addClientThreadMessage(
             clientProfile.customerId,
@@ -2332,9 +3112,13 @@ function buildClientPortalApi({
           resourceId &&
           subresource === "read"
         ) {
+          if (clientProfile.previewMode) {
+            throw portalError("Staff preview is read-only.", 403);
+          }
           const result = await markClientThreadRead(
             clientProfile.customerId,
             resourceId,
+            clientProfile.contactId,
           );
           respondJson(response, 200, result);
           return;
@@ -2348,6 +3132,7 @@ function buildClientPortalApi({
         logger.error("Client portal request failed.", error);
         respondJson(response, error.status || 500, {
           ok: false,
+          status: safeString(error.clientStatus),
           message:
             error.message || "Could not complete the client portal request.",
         });

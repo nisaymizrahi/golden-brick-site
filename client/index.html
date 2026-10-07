@@ -5,15 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Client Portal | Golden Brick Construction</title>
     <meta name="robots" content="noindex, nofollow" />
-    <meta name="theme-color" content="#17110d" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="theme-color" content="#171a17" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap"
       rel="stylesheet"
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="stylesheet" href="/client/client.css?v=20260425-jobs-portal-1" />
+    <link rel="stylesheet" href="/client/client.css?v=20260731-client-preview-1" />
   </head>
   <body>
     <div class="client-page">
@@ -30,71 +31,36 @@
             </a>
 
             <div class="auth-story-copy">
-              <span class="eyebrow" id="auth-eyebrow"
-                >Invite-only client portal</span
-              >
+              <span class="eyebrow" id="auth-eyebrow">Private client access</span>
               <h1 id="auth-title">
-                See your estimates, billing, project updates, and shared
-                documents in one place.
+                One clear view from scope to closeout.
               </h1>
               <p class="auth-copy" id="auth-copy">
-                Golden Brick gives approved clients a calmer way to follow the
-                renovation process without chasing invoices, files, or scattered
-                text threads.
+                Follow every property, approval, payment, and shared record in
+                one private workspace.
               </p>
             </div>
 
             <div class="trust-strip" aria-label="Portal trust highlights">
               <article class="trust-chip">
-                <strong>Private client portal</strong>
-                <span>Invite-only access tied to your approved contact.</span>
+                <strong>Property progress</strong>
+                <span>Current phase, next step, schedule, and field updates.</span>
               </article>
               <article class="trust-chip">
-                <strong>Documents and billing access</strong>
-                <span
-                  >Keep estimates, invoices, agreements, and files
-                  together.</span
-                >
+                <strong>Financial clarity</strong>
+                <span>Approvals, open balances, and payment history.</span>
               </article>
               <article class="trust-chip">
-                <strong>Golden Brick support available</strong>
-                <span
-                  >Call or email if you need help understanding the next
-                  step.</span
-                >
-              </article>
-            </div>
-
-            <div class="auth-steps" aria-label="Portal setup steps">
-              <article class="step-card">
-                <span class="step-index">01</span>
-                <strong>Confirm your invite</strong>
-                <p>
-                  Use the email address Golden Brick approved for this portal.
-                </p>
-              </article>
-              <article class="step-card">
-                <span class="step-index">02</span>
-                <strong>Create a login or sign in</strong>
-                <p>
-                  Continue with Google or use email/password for the same
-                  contact.
-                </p>
-              </article>
-              <article class="step-card">
-                <span class="step-index">03</span>
-                <strong>Open your project hub</strong>
-                <p>
-                  See jobs, estimates, invoices, documents, and portal messages.
-                </p>
+                <strong>Shared record</strong>
+                <span>Documents and conversations kept with the project.</span>
               </article>
             </div>
 
             <div class="auth-help-strip">
               <div>
-                <span class="mini-label">Need help signing in?</span>
+                <span class="mini-label">Portal support</span>
                 <strong
-                  >Call Golden Brick at
+                  >Need help? Call
                   <a href="tel:+12677155557">(267) 715-5557</a></strong
                 >
               </div>
@@ -107,12 +73,11 @@
           <div class="auth-panel">
             <div class="auth-panel-head">
               <span class="panel-kicker" id="auth-panel-kicker"
-                >Customer access</span
+                >Secure access</span
               >
-              <h2 id="auth-panel-title">Continue to your portal</h2>
+              <h2 id="auth-panel-title">Welcome back.</h2>
               <p id="auth-panel-copy">
-                Use the same email address that Golden Brick invited into the
-                client portal.
+                Sign in with the email address approved for your account.
               </p>
             </div>
 
@@ -266,7 +231,7 @@
               <span class="brand-mark" aria-hidden="true"></span>
               <span>GOLDEN BRICK</span>
             </a>
-            <p class="sidebar-copy">Client concierge portal</p>
+              <p class="sidebar-copy">Investor client portal</p>
           </div>
 
           <div class="sidebar-account" id="sidebar-account"></div>
@@ -277,37 +242,37 @@
               class="nav-button is-active"
               data-portal-view="dashboard"
             >
-              Dashboard
+              Overview
             </button>
             <button type="button" class="nav-button" data-portal-view="jobs">
-              Jobs
+              Properties
             </button>
             <button
               type="button"
               class="nav-button"
               data-portal-view="estimates"
             >
-              Estimates
+              Approvals
             </button>
             <button type="button" class="nav-button" data-portal-view="billing">
-              Billing
+              Financials
             </button>
             <button
               type="button"
               class="nav-button"
               data-portal-view="documents"
             >
-              Documents
+              Files
             </button>
             <button
               type="button"
               class="nav-button"
               data-portal-view="messages"
             >
-              Messages
+              Updates
             </button>
             <button type="button" class="nav-button" data-portal-view="account">
-              Account
+              Profile
             </button>
           </nav>
 
@@ -315,6 +280,21 @@
         </aside>
 
         <div class="portal-stage">
+          <aside class="staff-preview-bar" id="staff-preview-bar" hidden>
+            <div class="staff-preview-copy">
+              <span>Staff preview</span>
+              <strong id="staff-preview-title"
+                >You are viewing the client experience.</strong
+              >
+              <p id="staff-preview-copy">
+                This preview is read-only and does not change client activity.
+              </p>
+            </div>
+            <a class="staff-preview-exit" href="/staff/contacts"
+              >Back to CRM</a
+            >
+          </aside>
+
           <header class="portal-header">
             <a
               class="brand-lockup mobile-brand"
@@ -327,7 +307,7 @@
 
             <div class="portal-header-copy">
               <span class="eyebrow" id="portal-eyebrow">Client portal</span>
-              <h1 id="portal-title">Dashboard</h1>
+              <h1 id="portal-title" tabindex="-1">Dashboard</h1>
               <p id="portal-subtitle">
                 Keep your estimates, billing, updates, and shared files in one
                 organized view.
@@ -335,12 +315,16 @@
             </div>
 
             <div class="portal-header-actions">
-              <a
-                class="primary-button"
-                id="call-help-button"
-                href="tel:+12677155557"
+              <a class="header-support-link" id="call-help-button" href="tel:+12677155557"
                 >Call Golden Brick</a
               >
+              <button
+                type="button"
+                class="ghost-button header-profile-button"
+                data-portal-view="account"
+              >
+                Profile
+              </button>
               <button type="button" class="ghost-button" id="sign-out-button">
                 Sign out
               </button>
@@ -351,18 +335,21 @@
             class="portal-banner"
             id="portal-banner"
             hidden
+            role="status"
             aria-live="polite"
+            aria-atomic="true"
           ></div>
 
           <main class="portal-main">
             <section class="portal-view is-active" id="dashboard-view">
+              <div class="summary-strip" id="summary-strip"></div>
+
               <div class="dashboard-hero-grid">
                 <section class="hero-panel hero-panel-primary">
-                  <span class="panel-kicker">Welcome</span>
-                  <h2 id="dashboard-hero-title">Your renovation portal</h2>
+                  <span class="panel-kicker">Needs attention</span>
+                  <h2 id="dashboard-hero-title">Your portfolio at a glance</h2>
                   <p id="dashboard-hero-copy">
-                    Follow the most important next step across your Golden Brick
-                    projects, billing, and shared documents.
+                    Start with approvals, open balances, and new project updates.
                   </p>
                   <div
                     class="attention-row"
@@ -382,17 +369,14 @@
                 </section>
               </div>
 
-              <div class="summary-strip" id="summary-strip"></div>
-
               <div class="portal-grid portal-grid-dashboard">
                 <section class="panel panel-span-2">
                   <div class="panel-head">
                     <div>
-                      <span class="panel-kicker">Active projects</span>
-                      <h2 id="dashboard-projects-heading">Project overview</h2>
+                      <span class="panel-kicker">Property focus</span>
+                      <h2 id="dashboard-projects-heading">Current position</h2>
                       <p>
-                        Review the current phase, next step, shared note, and
-                        billing context for the property you are focused on.
+                        Phase, next step, latest update, and financial context.
                       </p>
                     </div>
                   </div>
@@ -407,8 +391,8 @@
                 <section class="panel">
                   <div class="panel-head">
                     <div>
-                      <span class="panel-kicker">Billing snapshot</span>
-                      <h2>What is due</h2>
+                      <span class="panel-kicker">Financials</span>
+                      <h2>Open balances</h2>
                     </div>
                   </div>
                   <div class="panel-body">
@@ -419,8 +403,8 @@
                 <section class="panel">
                   <div class="panel-head">
                     <div>
-                      <span class="panel-kicker">Recent documents</span>
-                      <h2>Shared files</h2>
+                      <span class="panel-kicker">Files</span>
+                      <h2>Recently shared</h2>
                     </div>
                   </div>
                   <div class="panel-body">
@@ -431,8 +415,8 @@
                 <section class="panel panel-span-2">
                   <div class="panel-head">
                     <div>
-                      <span class="panel-kicker">Recent messages</span>
-                      <h2>Stay in one conversation</h2>
+                      <span class="panel-kicker">Updates</span>
+                      <h2>Latest activity</h2>
                     </div>
                   </div>
                   <div class="panel-body">
@@ -446,11 +430,11 @@
               <section class="panel">
                 <div class="panel-head">
                   <div>
-                    <span class="panel-kicker">Estimates</span>
-                    <h2>Review, sign, and reference estimates</h2>
+                    <span class="panel-kicker">Approvals</span>
+                    <h2>Review and approve</h2>
                     <p>
-                      Start with the pricing and agreements that still need your
-                      attention, then keep signed history in one place.
+                      Every card is one frozen published version tied to its
+                      property and client record.
                     </p>
                   </div>
                 </div>
@@ -458,7 +442,10 @@
                   <section class="stack-section">
                     <div class="section-heading">
                       <h3>Needs your review</h3>
-                      <p>Current estimates waiting for review or signature.</p>
+                      <p>
+                        Review-only copies and versions ready for an authorized
+                        signature.
+                      </p>
                     </div>
                     <div class="stack-list" id="estimates-review-list"></div>
                   </section>
@@ -490,12 +477,10 @@
               <section class="panel">
                 <div class="panel-head">
                   <div>
-                    <span class="panel-kicker">Jobs</span>
-                    <h2>Project timeline and next steps</h2>
+                    <span class="panel-kicker">Properties</span>
+                    <h2>Progress and next steps</h2>
                     <p>
-                      Open each property below to see its current phase, next
-                      step, shared files, billing context, and the latest client
-                      update in one place.
+                      Select a property for its phase, schedule, photos, and records.
                     </p>
                   </div>
                   <div
@@ -522,12 +507,10 @@
                 <section class="panel panel-span-2">
                   <div class="panel-head">
                     <div>
-                      <span class="panel-kicker">Billing</span>
-                      <h2>Invoices and amounts due</h2>
+                      <span class="panel-kicker">Financials</span>
+                      <h2>Invoices and balances</h2>
                       <p>
-                        This is a read-only billing view so you can quickly see
-                        what is due, what is upcoming, and what has already been
-                        received.
+                        A read-only ledger of amounts due and payments received.
                       </p>
                     </div>
                   </div>
@@ -558,11 +541,10 @@
               <section class="panel">
                 <div class="panel-head">
                   <div>
-                    <span class="panel-kicker">Documents</span>
-                    <h2>Shared files by project and type</h2>
+                    <span class="panel-kicker">Files</span>
+                    <h2>Project records</h2>
                     <p>
-                      Estimates, agreements, invoices, and project files are
-                      grouped to make the right document easy to find.
+                      Agreements, invoices, receipts, photos, and project documents.
                     </p>
                   </div>
                   <div class="panel-controls" id="documents-filter-bar"></div>
@@ -578,11 +560,10 @@
                 <section class="panel">
                   <div class="panel-head">
                     <div>
-                      <span class="panel-kicker">Messages</span>
-                      <h2>Conversation list</h2>
+                      <span class="panel-kicker">Updates</span>
+                      <h2>Project conversations</h2>
                       <p>
-                        Keep general questions and project-specific updates in
-                        one organized inbox.
+                        Choose a project or account-wide thread.
                       </p>
                     </div>
                   </div>
@@ -594,11 +575,10 @@
                 <section class="panel conversation-panel">
                   <div class="panel-head">
                     <div>
-                      <span class="panel-kicker">Conversation</span>
-                      <h2>Message history</h2>
+                      <span class="panel-kicker">Selected thread</span>
+                      <h2>Conversation</h2>
                       <p>
-                        Ask about billing, documents, scheduling, or next steps
-                        without losing context.
+                        Keep questions and decisions with the right project.
                       </p>
                     </div>
                   </div>
@@ -645,8 +625,8 @@
                 <section class="panel">
                   <div class="panel-head">
                     <div>
-                      <span class="panel-kicker">Account</span>
-                      <h2>Portal details</h2>
+                      <span class="panel-kicker">Profile</span>
+                      <h2>Account access</h2>
                       <p>
                         Confirm the contact information and portal access
                         details tied to this customer account.
@@ -694,45 +674,57 @@
             <button
               type="button"
               class="mobile-nav-button"
+              data-portal-view="dashboard"
+            >
+              Overview
+            </button>
+            <button
+              type="button"
+              class="mobile-nav-button"
               data-portal-view="jobs"
             >
-              Jobs
+              Properties
             </button>
             <button
               type="button"
               class="mobile-nav-button"
               data-portal-view="estimates"
             >
-              Estimates
+              Approvals
             </button>
             <button
               type="button"
               class="mobile-nav-button"
               data-portal-view="billing"
             >
-              Billing
+              Financials
+            </button>
+            <button
+              type="button"
+              class="mobile-nav-button"
+              data-portal-view="documents"
+            >
+              Files
             </button>
             <button
               type="button"
               class="mobile-nav-button"
               data-portal-view="messages"
             >
-              Messages
-            </button>
-            <button
-              type="button"
-              class="mobile-nav-button"
-              data-portal-view="account"
-            >
-              Account
+              Updates
             </button>
           </nav>
         </div>
       </div>
 
-      <div class="toast-stack" id="toast-stack"></div>
+      <div
+        class="toast-stack"
+        id="toast-stack"
+        aria-live="polite"
+        aria-atomic="true"
+      ></div>
     </div>
 
-    <script type="module" src="/client/client.js?v=20260425-jobs-portal-1"></script>
+    <script type="module" src="/client/client.js?v=20260731-client-preview-1"></script>
   </body>
 </html>
