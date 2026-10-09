@@ -26,6 +26,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="/style.css?v=20260928-wording1">
+    <link rel="stylesheet" href="/media.css?v=20261008-media1">
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-S6KDFHPM7Y"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
@@ -128,21 +129,22 @@
                             <li><strong>Multifamily buildings:</strong> buildings with multiple homes, shared utilities, common areas, and required inspections.</li>
                             <li><strong>Mixed-use projects:</strong> residential units and commercial space coordinated within one building and construction schedule.</li>
                         </ul>
-                        <p class="project-photo-note">Photos show renovation work from our project portfolio.</p>
+                        <p class="project-photo-note">Sitework examples from our project portfolio: a photograph and short video of the same street excavation, with work in progress.</p>
                     </div>
-                    <div class="photo-stack" aria-label="Renovation work from the Golden Brick portfolio">
-                        <figure>
-                            <img src="/images/responsive/site-refresh/golden-brick-framing-hallway-1200.webp" alt="Interior framing during active Golden Brick construction" loading="lazy" decoding="async" width="1200" height="900">
-                            <figcaption>Interior framing during renovation</figcaption>
-                        </figure>
-                        <figure>
-                            <img src="/images/responsive/site-refresh/golden-brick-open-ceiling-rehab-768.webp" alt="Open ceiling and building systems during active construction" loading="lazy" decoding="async" width="768" height="576">
-                            <figcaption>Open-ceiling renovation work</figcaption>
-                        </figure>
-                        <figure>
-                            <img src="/images/responsive/site-refresh/golden-brick-living-room-finished-768.webp" alt="Finished interior after Golden Brick construction work" loading="lazy" decoding="async" width="768" height="576">
-                            <figcaption>Completed renovation interior</figcaption>
-                        </figure>
+                    <div class="media-grid media-grid--two" aria-label="Sitework examples from the Golden Brick project portfolio">
+                    <figure class="media-figure media-figure--portrait">
+                        <a class="media-link" href="/images/library/sitework/street-excavation-1600.webp" data-media-viewer aria-label="Enlarge photo: Street Excavation">
+                            <img src="/images/library/sitework/street-excavation-800.webp" srcset="/images/library/sitework/street-excavation-480.webp 480w, /images/library/sitework/street-excavation-800.webp 800w, /images/library/sitework/street-excavation-1600.webp 1600w" sizes="(max-width: 768px) calc(100vw - 40px), 22vw" width="800" height="1067" alt="Excavator and crew carrying out street excavation beside a row of buildings at dusk" loading="lazy" decoding="async">
+                        </a>
+                        <figcaption><strong>Street Excavation</strong>Excavator and crew at work alongside a row of buildings. A sitework example from our portfolio.</figcaption>
+                    </figure>
+                    <figure class="media-figure media-figure--portrait">
+                        <video controls playsinline preload="none" width="720" height="1280" poster="/images/library/sitework/street-excavation-progress-poster.webp" aria-label="Street excavation with an excavator and crew, 14-second silent video" aria-describedby="sitework-video-caption">
+                            <source src="/images/library/sitework/street-excavation-progress.mp4" type="video/mp4">
+                            <a href="/images/library/sitework/street-excavation-progress.mp4">Watch on site · 14 seconds</a>
+                        </video>
+                        <figcaption id="sitework-video-caption"><strong>On Site · 14 Seconds</strong>A closer look at the same excavation and crew. Silent construction footage.</figcaption>
+                    </figure>
                     </div>
                 </div>
             </div>
@@ -272,5 +274,6 @@
     </footer>
     <script src="/business-data.js?v=20260928-wording1"></script>
     <script src="/site.js?v=20260928-wording1"></script>
+    <script src="/media.js?v=20261008-media1" defer></script>
 </body>
 </html>

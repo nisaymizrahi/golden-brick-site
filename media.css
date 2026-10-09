@@ -1,0 +1,313 @@
+/* Project photographs and films share the site's existing editorial rhythm. */
+.media-section {
+    padding: 88px 0;
+    background: var(--white);
+}
+
+.media-section--sand {
+    background: var(--surface-soft);
+}
+
+.media-shell {
+    width: var(--content-width);
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+.media-heading {
+    max-width: 800px;
+    margin-bottom: 34px;
+}
+
+.media-heading p {
+    max-width: 760px;
+    margin-bottom: 0;
+}
+
+.media-inline {
+    margin-top: 34px;
+}
+
+.media-grid,
+.media-sequence,
+.media-video-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 28px 22px;
+    align-items: start;
+}
+
+.media-grid--two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.media-grid--four {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.media-grid--lead > :first-child {
+    grid-column: 1 / -1;
+}
+
+.media-figure {
+    min-width: 0;
+    margin: 0;
+}
+
+.media-link {
+    display: block;
+    background: var(--sand);
+    text-decoration: none;
+}
+
+.media-link[data-media-viewer] {
+    cursor: zoom-in;
+}
+
+.media-figure img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    background: var(--sand);
+    object-fit: cover;
+    object-position: var(--media-position, center);
+}
+
+.media-figure--portrait img,
+.media-sequence .media-figure img {
+    aspect-ratio: 3 / 4;
+}
+
+.media-figure--contain img {
+    object-fit: contain;
+}
+
+.media-figure figcaption {
+    padding-top: 15px;
+    color: var(--text-grey);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.media-figure figcaption strong {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--black);
+    font-size: 0.87rem;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.media-figure figcaption p {
+    max-width: none;
+    margin: 0;
+    font-size: inherit;
+}
+
+.media-video-feature {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
+    gap: clamp(30px, 5vw, 72px);
+    align-items: center;
+}
+
+.media-video-feature > * {
+    min-width: 0;
+}
+
+.media-video-feature .media-heading {
+    margin-bottom: 0;
+}
+
+.media-video-feature .media-figure {
+    width: 100%;
+    max-width: 360px;
+    justify-self: center;
+}
+
+.media-video-grid {
+    max-width: 100%;
+}
+
+.media-figure video,
+.media-video-feature video,
+.media-video-grid video {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+    aspect-ratio: var(--media-video-aspect, 9 / 16);
+    background: var(--charcoal);
+    object-fit: contain;
+}
+
+.media-link:focus-visible,
+.media-figure video:focus-visible {
+    outline: 3px solid var(--gold-deep);
+    outline-offset: 5px;
+}
+
+html.media-viewer-open,
+body.media-viewer-open {
+    overflow: hidden;
+}
+
+.media-viewer {
+    width: min(1120px, calc(100vw - 48px));
+    max-width: none;
+    max-height: calc(100vh - 48px);
+    max-height: calc(100dvh - 48px);
+    margin: auto;
+    padding: 20px;
+    overflow: auto;
+    overscroll-behavior: contain;
+    border: 1px solid var(--stone);
+    background: var(--canvas);
+    color: var(--black);
+    box-shadow: var(--deep-shadow);
+}
+
+.media-viewer::backdrop {
+    background: rgba(17, 16, 14, 0.88);
+}
+
+.media-viewer-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 16px;
+}
+
+.media-viewer-title {
+    min-width: 0;
+    margin: 0;
+    font-family: "Montserrat", sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.5;
+    letter-spacing: 0;
+    overflow-wrap: anywhere;
+}
+
+.media-viewer-close {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    min-width: 72px;
+    min-height: 44px;
+    padding: 8px 14px;
+    border: 1px solid var(--stone);
+    background: var(--white);
+    color: var(--black);
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.media-viewer-close:hover {
+    border-color: var(--gold-deep);
+}
+
+.media-viewer-close:focus-visible {
+    outline: 3px solid var(--gold-deep);
+    outline-offset: 3px;
+}
+
+.media-viewer-figure {
+    margin: 0;
+}
+
+.media-viewer-image {
+    display: block;
+    width: 100%;
+    height: min(70vh, 800px);
+    height: min(70dvh, 800px);
+    object-fit: contain;
+    background: var(--sand);
+}
+
+.media-viewer-caption {
+    max-width: 880px;
+    padding-top: 14px;
+    color: var(--text-grey);
+    font-size: 0.87rem;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 1050px) {
+    .media-grid--four {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .rowhome-feature-media {
+        grid-template-rows: repeat(2, 180px);
+    }
+
+    .rowhome-feature-media img {
+        min-height: 0;
+    }
+
+    .rowhome-feature-media img:first-child {
+        grid-row: span 2;
+    }
+
+    .media-section {
+        padding: 64px 0;
+    }
+
+    .media-shell {
+        width: calc(100% - 40px);
+        padding: 0;
+    }
+
+    .media-heading {
+        margin-bottom: 28px;
+    }
+
+    .media-grid,
+    .media-grid--two,
+    .media-grid--four,
+    .media-sequence,
+    .media-video-grid,
+    .media-video-feature {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 30px;
+    }
+
+    .media-video-grid .media-figure {
+        width: 100%;
+        max-width: 360px;
+        justify-self: center;
+    }
+
+    .media-figure--portrait,
+    .media-sequence .media-figure {
+        width: 100%;
+        max-width: 435px;
+        justify-self: center;
+    }
+
+    .media-viewer {
+        width: calc(100vw - 24px);
+        max-height: calc(100vh - 24px);
+        max-height: calc(100dvh - 24px);
+        padding: 14px;
+    }
+
+    .media-viewer-heading {
+        gap: 14px;
+        margin-bottom: 12px;
+    }
+
+    .media-viewer-image {
+        height: 62vh;
+        height: 62dvh;
+    }
+}

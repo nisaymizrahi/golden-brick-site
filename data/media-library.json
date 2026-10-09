@@ -1,0 +1,1274 @@
+{
+  "photos": [
+    {
+      "id": "kitchen-wide",
+      "source": "images/21_dsc02234.jpg",
+      "group": "wood-and-brass-interiors",
+      "name": "kitchen-wide",
+      "alt": "Finished kitchen with wood cabinets, white counters, stainless appliances, and an adjoining staircase",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/kitchen-wide-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 13590
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/kitchen-wide-800.webp",
+          "width": 800,
+          "height": 533,
+          "bytes": 29966
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/kitchen-wide-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 95610
+        }
+      ]
+    },
+    {
+      "id": "kitchen-window",
+      "source": "images/22_dsc02239.jpg",
+      "group": "wood-and-brass-interiors",
+      "name": "kitchen-window-wall",
+      "alt": "Wood kitchen cabinets and white countertops surrounding a window beside the back door",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/kitchen-window-wall-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 13448
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/kitchen-window-wall-800.webp",
+          "width": 800,
+          "height": 533,
+          "bytes": 30488
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/kitchen-window-wall-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 94062
+        }
+      ]
+    },
+    {
+      "id": "living-kitchen",
+      "source": "images/19_dsc02224.jpg",
+      "group": "wood-and-brass-interiors",
+      "name": "living-to-kitchen",
+      "alt": "Finished living area opening into a wood cabinet kitchen",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/living-to-kitchen-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 7812
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/living-to-kitchen-800.webp",
+          "width": 800,
+          "height": 533,
+          "bytes": 17254
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/living-to-kitchen-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 54308
+        }
+      ]
+    },
+    {
+      "id": "hallway",
+      "source": "images/23_dsc02244.jpg",
+      "group": "wood-and-brass-interiors",
+      "name": "hallway-and-kitchen",
+      "alt": "Finished hallway with recessed lights, light flooring, and a view into the kitchen",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/hallway-and-kitchen-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 8038
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/hallway-and-kitchen-800.webp",
+          "width": 800,
+          "height": 533,
+          "bytes": 17216
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/hallway-and-kitchen-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 50162
+        }
+      ]
+    },
+    {
+      "id": "living-room",
+      "source": "images/5_dsc02149.jpg",
+      "group": "wood-and-brass-interiors",
+      "name": "living-room",
+      "alt": "Bright finished living room with light wood flooring and a ceiling fan",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/living-room-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 9004
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/living-room-800.webp",
+          "width": 800,
+          "height": 533,
+          "bytes": 20326
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/living-room-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 64150
+        }
+      ]
+    },
+    {
+      "id": "bedroom-wide",
+      "source": "images/4_dsc02144.jpg",
+      "group": "wood-and-brass-interiors",
+      "name": "bedroom-window-wall",
+      "alt": "Finished bedroom with two windows, white trim, and a dark ceiling fan",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/bedroom-window-wall-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 8576
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/bedroom-window-wall-800.webp",
+          "width": 800,
+          "height": 533,
+          "bytes": 19906
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/bedroom-window-wall-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 63898
+        }
+      ]
+    },
+    {
+      "id": "bedroom-suite",
+      "source": "images/6_dsc02154.jpg",
+      "group": "wood-and-brass-interiors",
+      "name": "bedroom-suite",
+      "alt": "Finished bedroom with light flooring and an open doorway to the adjoining bathroom",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/bedroom-suite-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 6240
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/bedroom-suite-800.webp",
+          "width": 800,
+          "height": 533,
+          "bytes": 13626
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/bedroom-suite-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 44296
+        }
+      ]
+    },
+    {
+      "id": "bedroom-light",
+      "source": "images/7_dsc02159.jpg",
+      "group": "wood-and-brass-interiors",
+      "name": "bedroom-daylight",
+      "alt": "Sunlit bedroom with two windows, recessed lighting, and light wood flooring",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/bedroom-daylight-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 7758
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/bedroom-daylight-800.webp",
+          "width": 800,
+          "height": 533,
+          "bytes": 17710
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/bedroom-daylight-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 56606
+        }
+      ]
+    },
+    {
+      "id": "bedroom-front",
+      "source": "images/8_dsc02169.jpg",
+      "group": "wood-and-brass-interiors",
+      "name": "bedroom-front-view",
+      "alt": "Straight-on view of a finished bedroom with two windows and a ceiling fan",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/bedroom-front-view-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 6692
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/bedroom-front-view-800.webp",
+          "width": 800,
+          "height": 533,
+          "bytes": 14440
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/bedroom-front-view-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 44796
+        }
+      ]
+    },
+    {
+      "id": "room-finished",
+      "source": "images/12_dsc02189.jpg",
+      "group": "wood-and-brass-interiors",
+      "name": "finished-room",
+      "alt": "Freshly finished room with light wood flooring, recessed lights, and white walls",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/finished-room-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 4168
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/finished-room-800.webp",
+          "width": 800,
+          "height": 533,
+          "bytes": 9536
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/finished-room-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 32604
+        }
+      ]
+    },
+    {
+      "id": "room-closet",
+      "source": "images/13_dsc02194.jpg",
+      "group": "wood-and-brass-interiors",
+      "name": "room-and-closet",
+      "alt": "Finished room with an open closet and matching light wood flooring",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/room-and-closet-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 5722
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/room-and-closet-800.webp",
+          "width": 800,
+          "height": 533,
+          "bytes": 13160
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/room-and-closet-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 42606
+        }
+      ]
+    },
+    {
+      "id": "bedroom-lower",
+      "source": "images/25_dsc02269.jpg",
+      "group": "wood-and-brass-interiors",
+      "name": "finished-lower-room",
+      "alt": "Finished room with a high window, recessed lighting, and light flooring",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/finished-lower-room-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 7034
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/finished-lower-room-800.webp",
+          "width": 800,
+          "height": 533,
+          "bytes": 16890
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/finished-lower-room-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 58468
+        }
+      ]
+    },
+    {
+      "id": "stair-light",
+      "source": "images/16_dsc02210.jpg",
+      "group": "wood-and-brass-interiors",
+      "name": "stair-pendant",
+      "alt": "Brass pendant light above an enclosed white stairwell",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/stair-pendant-480.webp",
+          "width": 480,
+          "height": 720,
+          "bytes": 6098
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/stair-pendant-800.webp",
+          "width": 800,
+          "height": 1200,
+          "bytes": 12928
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/stair-pendant-1600.webp",
+          "width": 1600,
+          "height": 2400,
+          "bytes": 39910
+        }
+      ]
+    },
+    {
+      "id": "green-bath",
+      "source": "images/9_dsc02174.jpg",
+      "group": "wood-and-brass-interiors",
+      "name": "green-tile-bathroom",
+      "alt": "Green tile shower with brass fixtures beside a wood vanity and illuminated mirror",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/green-tile-bathroom-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 16318
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/green-tile-bathroom-800.webp",
+          "width": 800,
+          "height": 533,
+          "bytes": 36366
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/green-tile-bathroom-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 112180
+        }
+      ]
+    },
+    {
+      "id": "white-bath",
+      "source": "images/10_dsc02179.jpg",
+      "group": "wood-and-brass-interiors",
+      "name": "white-tile-bathroom",
+      "alt": "White subway tile tub surround with sliding glass doors, brass fixtures, and a wood vanity",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/white-tile-bathroom-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 12988
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/white-tile-bathroom-800.webp",
+          "width": 800,
+          "height": 533,
+          "bytes": 29304
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/white-tile-bathroom-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 80856
+        }
+      ]
+    },
+    {
+      "id": "vanity",
+      "source": "images/20_dsc02229.jpg",
+      "group": "wood-and-brass-interiors",
+      "name": "slatted-wood-vanity",
+      "alt": "Slatted wood vanity with a white basin, black faucet, and rectangular mirror",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/slatted-wood-vanity-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 6812
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/slatted-wood-vanity-800.webp",
+          "width": 800,
+          "height": 533,
+          "bytes": 14792
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/slatted-wood-vanity-1600.webp",
+          "width": 1600,
+          "height": 1065,
+          "bytes": 40598
+        }
+      ]
+    },
+    {
+      "id": "kitchen-install",
+      "source": "images/IMG_6868.jpeg",
+      "group": "wood-and-brass-interiors",
+      "name": "kitchen-installation",
+      "alt": "Wood kitchen cabinets being installed with protective paper covering the floor",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/kitchen-installation-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 17670
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/kitchen-installation-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 41244
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/kitchen-installation-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 125786
+        }
+      ]
+    },
+    {
+      "id": "kitchen-install-detail",
+      "source": "images/IMG_6870.jpeg",
+      "group": "wood-and-brass-interiors",
+      "name": "cabinet-installation-detail",
+      "alt": "Cabinet installation around the kitchen window before countertops and appliances",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/cabinet-installation-detail-480.webp",
+          "width": 480,
+          "height": 640,
+          "bytes": 27582
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/cabinet-installation-detail-800.webp",
+          "width": 800,
+          "height": 1067,
+          "bytes": 62888
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/cabinet-installation-detail-1600.webp",
+          "width": 1600,
+          "height": 2133,
+          "bytes": 179092
+        }
+      ]
+    },
+    {
+      "id": "stair-build",
+      "source": "images/IMG_6866.jpeg",
+      "group": "wood-and-brass-interiors",
+      "name": "stair-buildout",
+      "alt": "Open stair construction beside an interior renovation with floor protection",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/stair-buildout-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 18666
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/stair-buildout-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 42360
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/stair-buildout-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 121124
+        }
+      ]
+    },
+    {
+      "id": "vanity-install",
+      "source": "images/IMG_6867.jpeg",
+      "group": "wood-and-brass-interiors",
+      "name": "vanity-installation",
+      "alt": "Slatted wood vanity during installation before the mirror and faucet are fitted",
+      "variants": [
+        {
+          "src": "/images/library/wood-and-brass-interiors/vanity-installation-480.webp",
+          "width": 480,
+          "height": 640,
+          "bytes": 11052
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/vanity-installation-800.webp",
+          "width": 800,
+          "height": 1067,
+          "bytes": 24914
+        },
+        {
+          "src": "/images/library/wood-and-brass-interiors/vanity-installation-1600.webp",
+          "width": 1600,
+          "height": 2133,
+          "bytes": 72434
+        }
+      ]
+    },
+    {
+      "id": "white-kitchen",
+      "source": "images/25BF08CE-3656-44DD-BAEF-36FB150258D7.png",
+      "group": "west-philadelphia-mixed-use",
+      "name": "white-kitchen",
+      "alt": "Finished white cabinet kitchen with stainless appliances and light wood flooring",
+      "project": "west-philadelphia-mixed-use-building-renovation",
+      "variants": [
+        {
+          "src": "/images/library/west-philadelphia-mixed-use/white-kitchen-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 15252
+        },
+        {
+          "src": "/images/library/west-philadelphia-mixed-use/white-kitchen-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 32828
+        },
+        {
+          "src": "/images/library/west-philadelphia-mixed-use/white-kitchen-1448.webp",
+          "width": 1448,
+          "height": 1086,
+          "bytes": 81636
+        }
+      ]
+    },
+    {
+      "id": "wave-bath",
+      "source": "images/IMG_3833.jpeg",
+      "group": "wave-tile-bathroom",
+      "name": "finished-shower",
+      "alt": "Finished bathroom with textured white shower tile, sliding glass doors, and a pebble shower floor",
+      "variants": [
+        {
+          "src": "/images/library/wave-tile-bathroom/finished-shower-480.webp",
+          "width": 480,
+          "height": 624,
+          "bytes": 29924
+        },
+        {
+          "src": "/images/library/wave-tile-bathroom/finished-shower-800.webp",
+          "width": 800,
+          "height": 1041,
+          "bytes": 61236
+        },
+        {
+          "src": "/images/library/wave-tile-bathroom/finished-shower-1600.webp",
+          "width": 1600,
+          "height": 2081,
+          "bytes": 161116
+        }
+      ]
+    },
+    {
+      "id": "bath-before",
+      "source": "images/before&after1/IMG_3278.jpeg",
+      "group": "wave-tile-bathroom",
+      "name": "bathroom-before",
+      "alt": "Bathroom before renovation with dark walls, older tile, sliding frosted glass tub doors, and a pedestal sink",
+      "variants": [
+        {
+          "src": "/images/library/wave-tile-bathroom/bathroom-before-480.webp",
+          "width": 480,
+          "height": 640,
+          "bytes": 32092
+        },
+        {
+          "src": "/images/library/wave-tile-bathroom/bathroom-before-800.webp",
+          "width": 800,
+          "height": 1067,
+          "bytes": 75830
+        },
+        {
+          "src": "/images/library/wave-tile-bathroom/bathroom-before-1600.webp",
+          "width": 1600,
+          "height": 2133,
+          "bytes": 255314
+        }
+      ]
+    },
+    {
+      "id": "marble-shower",
+      "source": "images/IMG_0638.jpeg",
+      "group": "marble-bathroom",
+      "name": "glass-shower",
+      "alt": "Glass shower enclosure with marble-pattern tile and a recessed shower niche",
+      "variants": [
+        {
+          "src": "/images/library/marble-bathroom/glass-shower-480.webp",
+          "width": 480,
+          "height": 640,
+          "bytes": 24010
+        },
+        {
+          "src": "/images/library/marble-bathroom/glass-shower-800.webp",
+          "width": 800,
+          "height": 1067,
+          "bytes": 54128
+        },
+        {
+          "src": "/images/library/marble-bathroom/glass-shower-1600.webp",
+          "width": 1600,
+          "height": 2133,
+          "bytes": 160654
+        }
+      ]
+    },
+    {
+      "id": "marble-vanity",
+      "source": "images/IMG_0717.jpeg",
+      "group": "marble-bathroom",
+      "name": "double-vanity",
+      "alt": "Double vanity and wide mirror beside a glass shower with marble-pattern tile",
+      "variants": [
+        {
+          "src": "/images/library/marble-bathroom/double-vanity-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 16454
+        },
+        {
+          "src": "/images/library/marble-bathroom/double-vanity-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 37902
+        },
+        {
+          "src": "/images/library/marble-bathroom/double-vanity-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 106172
+        }
+      ]
+    },
+    {
+      "id": "black-tub",
+      "source": "images/IMG_0709.jpeg",
+      "group": "bathroom-details",
+      "name": "tub-black-fixtures",
+      "alt": "White bathtub with marble-pattern walls, black fixtures, and a recessed niche",
+      "variants": [
+        {
+          "src": "/images/library/bathroom-details/tub-black-fixtures-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 14652
+        },
+        {
+          "src": "/images/library/bathroom-details/tub-black-fixtures-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 34672
+        },
+        {
+          "src": "/images/library/bathroom-details/tub-black-fixtures-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 104286
+        }
+      ]
+    },
+    {
+      "id": "closet",
+      "source": "images/IMG_7702.jpeg",
+      "group": "finished-details",
+      "name": "walk-in-closet",
+      "alt": "Finished walk-in closet with rails, shelves, and wood flooring",
+      "variants": [
+        {
+          "src": "/images/library/finished-details/walk-in-closet-480.webp",
+          "width": 480,
+          "height": 640,
+          "bytes": 10506
+        },
+        {
+          "src": "/images/library/finished-details/walk-in-closet-800.webp",
+          "width": 800,
+          "height": 1067,
+          "bytes": 22100
+        },
+        {
+          "src": "/images/library/finished-details/walk-in-closet-1600.webp",
+          "width": 1600,
+          "height": 2133,
+          "bytes": 105748
+        }
+      ]
+    },
+    {
+      "id": "sunlit-room",
+      "source": "images/IMG_6801.jpeg",
+      "group": "finished-details",
+      "name": "sunlit-bedroom",
+      "alt": "Finished bedroom with daylight across wood flooring and fresh white trim",
+      "variants": [
+        {
+          "src": "/images/library/finished-details/sunlit-bedroom-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 12072
+        },
+        {
+          "src": "/images/library/finished-details/sunlit-bedroom-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 29898
+        },
+        {
+          "src": "/images/library/finished-details/sunlit-bedroom-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 107490
+        }
+      ]
+    },
+    {
+      "id": "protected-room",
+      "source": "images/IMG_0617.jpeg",
+      "group": "interior-buildback",
+      "name": "protected-floor",
+      "alt": "Interior room during finishing with paper and tape protecting the floor",
+      "variants": [
+        {
+          "src": "/images/library/interior-buildback/protected-floor-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 12000
+        },
+        {
+          "src": "/images/library/interior-buildback/protected-floor-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 25846
+        },
+        {
+          "src": "/images/library/interior-buildback/protected-floor-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 76948
+        }
+      ]
+    },
+    {
+      "id": "drywall",
+      "source": "images/IMG_5937.jpeg",
+      "group": "interior-buildback",
+      "name": "drywall-room",
+      "alt": "Room during drywall installation with unfinished walls and a rear glazed door",
+      "variants": [
+        {
+          "src": "/images/library/interior-buildback/drywall-room-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 12106
+        },
+        {
+          "src": "/images/library/interior-buildback/drywall-room-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 29046
+        },
+        {
+          "src": "/images/library/interior-buildback/drywall-room-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 177134
+        }
+      ]
+    },
+    {
+      "id": "hall-framing",
+      "source": "images/IMG_4328.jpeg",
+      "group": "interior-buildback",
+      "name": "hallway-framing",
+      "alt": "Long interior hallway with exposed timber framing before wall finishes",
+      "variants": [
+        {
+          "src": "/images/library/interior-buildback/hallway-framing-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 22978
+        },
+        {
+          "src": "/images/library/interior-buildback/hallway-framing-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 45650
+        },
+        {
+          "src": "/images/library/interior-buildback/hallway-framing-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 119012
+        }
+      ]
+    },
+    {
+      "id": "partition-framing",
+      "source": "images/IMG_6779.jpeg",
+      "group": "interior-buildback",
+      "name": "partition-framing",
+      "alt": "New interior partition framing with floor protection around the work area",
+      "variants": [
+        {
+          "src": "/images/library/interior-buildback/partition-framing-480.webp",
+          "width": 480,
+          "height": 640,
+          "bytes": 31904
+        },
+        {
+          "src": "/images/library/interior-buildback/partition-framing-800.webp",
+          "width": 800,
+          "height": 1067,
+          "bytes": 69296
+        },
+        {
+          "src": "/images/library/interior-buildback/partition-framing-1600.webp",
+          "width": 1600,
+          "height": 2133,
+          "bytes": 186946
+        }
+      ]
+    },
+    {
+      "id": "subfloor",
+      "source": "images/d1ba1a39-90de-49a0-a112-07ea0a14d201.jpg",
+      "group": "interior-buildback",
+      "name": "open-floor-structure",
+      "alt": "Gutted rowhome interior with exposed ceiling joists, masonry, and floor structure",
+      "variants": [
+        {
+          "src": "/images/library/interior-buildback/open-floor-structure-480.webp",
+          "width": 480,
+          "height": 640,
+          "bytes": 56134
+        },
+        {
+          "src": "/images/library/interior-buildback/open-floor-structure-800.webp",
+          "width": 800,
+          "height": 1067,
+          "bytes": 141136
+        },
+        {
+          "src": "/images/library/interior-buildback/open-floor-structure-1536.webp",
+          "width": 1536,
+          "height": 2048,
+          "bytes": 407190
+        }
+      ]
+    },
+    {
+      "id": "exterior-crew",
+      "source": "images/IMG_6865.jpeg",
+      "group": "exterior-work",
+      "name": "rowhome-facade-crew",
+      "alt": "Crew working on a rowhome facade with ladders and access equipment",
+      "variants": [
+        {
+          "src": "/images/library/exterior-work/rowhome-facade-crew-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 34710
+        },
+        {
+          "src": "/images/library/exterior-work/rowhome-facade-crew-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 94136
+        },
+        {
+          "src": "/images/library/exterior-work/rowhome-facade-crew-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 331752
+        }
+      ]
+    },
+    {
+      "id": "courtyard-work",
+      "source": "images/IMG_6861.jpeg",
+      "group": "exterior-work",
+      "name": "courtyard-work",
+      "alt": "Worker carrying out exterior work in a compact walled courtyard",
+      "variants": [
+        {
+          "src": "/images/library/exterior-work/courtyard-work-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 30640
+        },
+        {
+          "src": "/images/library/exterior-work/courtyard-work-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 77380
+        },
+        {
+          "src": "/images/library/exterior-work/courtyard-work-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 278212
+        }
+      ]
+    },
+    {
+      "id": "open-ceiling",
+      "source": "images/IMG_9133.jpeg",
+      "group": "occupied-home",
+      "name": "open-ceiling",
+      "alt": "Open ceiling framing during renovation beside an existing stone fireplace",
+      "variants": [
+        {
+          "src": "/images/library/occupied-home/open-ceiling-480.webp",
+          "width": 480,
+          "height": 640,
+          "bytes": 33540
+        },
+        {
+          "src": "/images/library/occupied-home/open-ceiling-800.webp",
+          "width": 800,
+          "height": 1067,
+          "bytes": 70068
+        },
+        {
+          "src": "/images/library/occupied-home/open-ceiling-1600.webp",
+          "width": 1600,
+          "height": 2133,
+          "bytes": 192658
+        }
+      ]
+    },
+    {
+      "id": "room-protection",
+      "source": "images/IMG_9456.jpeg",
+      "group": "occupied-home",
+      "name": "room-protection",
+      "alt": "Floor coverings and protected furnishings beneath open ceiling work",
+      "variants": [
+        {
+          "src": "/images/library/occupied-home/room-protection-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 22090
+        },
+        {
+          "src": "/images/library/occupied-home/room-protection-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 51260
+        },
+        {
+          "src": "/images/library/occupied-home/room-protection-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 168332
+        }
+      ]
+    },
+    {
+      "id": "dust-protection",
+      "source": "images/IMG_9538.jpeg",
+      "group": "occupied-home",
+      "name": "dust-protection",
+      "alt": "Furniture screening and floor protection around construction in an existing living room",
+      "variants": [
+        {
+          "src": "/images/library/occupied-home/dust-protection-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 22988
+        },
+        {
+          "src": "/images/library/occupied-home/dust-protection-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 48676
+        },
+        {
+          "src": "/images/library/occupied-home/dust-protection-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 127544
+        }
+      ]
+    },
+    {
+      "id": "addition-excavation",
+      "source": "images/IMG_8819.jpeg",
+      "group": "rear-addition",
+      "name": "foundation-excavation",
+      "alt": "Rear addition foundation work between two sided walls with reinforcement and formwork visible",
+      "variants": [
+        {
+          "src": "/images/library/rear-addition/foundation-excavation-480.webp",
+          "width": 480,
+          "height": 640,
+          "bytes": 89920
+        },
+        {
+          "src": "/images/library/rear-addition/foundation-excavation-800.webp",
+          "width": 800,
+          "height": 1067,
+          "bytes": 228910
+        },
+        {
+          "src": "/images/library/rear-addition/foundation-excavation-1600.webp",
+          "width": 1600,
+          "height": 2133,
+          "bytes": 751988
+        }
+      ]
+    },
+    {
+      "id": "addition-concrete",
+      "source": "images/IMG_9516.jpeg",
+      "group": "rear-addition",
+      "name": "concrete-foundation",
+      "alt": "Concrete foundation and slab at the same rear addition site before timber framing",
+      "variants": [
+        {
+          "src": "/images/library/rear-addition/concrete-foundation-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 43868
+        },
+        {
+          "src": "/images/library/rear-addition/concrete-foundation-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 108240
+        },
+        {
+          "src": "/images/library/rear-addition/concrete-foundation-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 337192
+        }
+      ]
+    },
+    {
+      "id": "addition-prep",
+      "source": "images/IMG_9701.jpeg",
+      "group": "rear-addition",
+      "name": "framing-preparation",
+      "alt": "Crew preparing the rear addition foundation for the next stage of construction",
+      "variants": [
+        {
+          "src": "/images/library/rear-addition/framing-preparation-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 50804
+        },
+        {
+          "src": "/images/library/rear-addition/framing-preparation-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 125758
+        },
+        {
+          "src": "/images/library/rear-addition/framing-preparation-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 424152
+        }
+      ]
+    },
+    {
+      "id": "addition-framing",
+      "source": "images/IMG_9726.jpeg",
+      "group": "rear-addition",
+      "name": "wall-framing",
+      "alt": "New timber wall framing and purple floor sheathing at the rear addition site",
+      "variants": [
+        {
+          "src": "/images/library/rear-addition/wall-framing-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 40412
+        },
+        {
+          "src": "/images/library/rear-addition/wall-framing-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 103284
+        },
+        {
+          "src": "/images/library/rear-addition/wall-framing-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 334868
+        }
+      ]
+    },
+    {
+      "id": "basement-floor",
+      "source": "images/IMG_9470.jpeg",
+      "group": "gray-basement",
+      "name": "flooring-installation",
+      "alt": "Basement finishing underway with gray walls, recessed lights, and new flooring",
+      "variants": [
+        {
+          "src": "/images/library/gray-basement/flooring-installation-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 18966
+        },
+        {
+          "src": "/images/library/gray-basement/flooring-installation-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 42632
+        },
+        {
+          "src": "/images/library/gray-basement/flooring-installation-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 124184
+        }
+      ]
+    },
+    {
+      "id": "basement-crew",
+      "source": "images/IMG_9496.jpeg",
+      "group": "gray-basement",
+      "name": "crew-and-trim",
+      "alt": "Crew installing flooring and trim in a gray basement with recessed lighting",
+      "variants": [
+        {
+          "src": "/images/library/gray-basement/crew-and-trim-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 21302
+        },
+        {
+          "src": "/images/library/gray-basement/crew-and-trim-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 48842
+        },
+        {
+          "src": "/images/library/gray-basement/crew-and-trim-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 143788
+        }
+      ]
+    },
+    {
+      "id": "tile-install",
+      "source": "images/IMG_8825.jpeg",
+      "group": "tile-installation",
+      "name": "floor-tile-work",
+      "alt": "Floor tile installation in a kitchen with tile leveling clips and work underway",
+      "variants": [
+        {
+          "src": "/images/library/tile-installation/floor-tile-work-480.webp",
+          "width": 480,
+          "height": 640,
+          "bytes": 28170
+        },
+        {
+          "src": "/images/library/tile-installation/floor-tile-work-800.webp",
+          "width": 800,
+          "height": 1067,
+          "bytes": 59590
+        },
+        {
+          "src": "/images/library/tile-installation/floor-tile-work-1600.webp",
+          "width": 1600,
+          "height": 2133,
+          "bytes": 168110
+        }
+      ]
+    },
+    {
+      "id": "ceiling-work",
+      "source": "images/IMG_9574.jpeg",
+      "group": "interior-buildback",
+      "name": "ceiling-and-drywall-work",
+      "alt": "Worker on a stepladder beneath exposed ceiling joists during drywall and interior work",
+      "variants": [
+        {
+          "src": "/images/library/interior-buildback/ceiling-and-drywall-work-480.webp",
+          "width": 480,
+          "height": 360,
+          "bytes": 21510
+        },
+        {
+          "src": "/images/library/interior-buildback/ceiling-and-drywall-work-800.webp",
+          "width": 800,
+          "height": 600,
+          "bytes": 50102
+        },
+        {
+          "src": "/images/library/interior-buildback/ceiling-and-drywall-work-1600.webp",
+          "width": 1600,
+          "height": 1200,
+          "bytes": 161530
+        }
+      ]
+    },
+    {
+      "id": "site-excavation",
+      "source": "images/IMG_9583.jpeg",
+      "group": "sitework",
+      "name": "street-excavation",
+      "alt": "Excavator and crew carrying out street excavation beside a row of buildings at dusk",
+      "variants": [
+        {
+          "src": "/images/library/sitework/street-excavation-480.webp",
+          "width": 480,
+          "height": 640,
+          "bytes": 59878
+        },
+        {
+          "src": "/images/library/sitework/street-excavation-800.webp",
+          "width": 800,
+          "height": 1067,
+          "bytes": 133196
+        },
+        {
+          "src": "/images/library/sitework/street-excavation-1600.webp",
+          "width": 1600,
+          "height": 2133,
+          "bytes": 335854
+        }
+      ]
+    }
+  ]
+}

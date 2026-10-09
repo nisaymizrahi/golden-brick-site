@@ -266,6 +266,15 @@
             "value": "public, max-age=86400"
           }
         ]
+      },
+      {
+        "source": "/images/library/**/*.mp4",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
       }
     ],
     "redirects": [
@@ -615,7 +624,19 @@
       "data/**",
       "**/*.py",
       "**/*.zip",
-      "**/*.tgz"
+      "**/*.tgz",
+      "images/before&after1/**",
+      "images/*.HEIC",
+      "images/*.heic",
+      "images/*.MOV",
+      "images/*.jpeg",
+      "images/*_dsc*.jpg",
+      "images/*.png",
+      "images/18b9bb75-0f70-4191-b063-b4d54f822070.jpg",
+      "images/43523bce-3771-49eb-be7c-cf6caff19b1e.jpg",
+      "images/714dbde2-5c95-417e-87d0-1b4f022fa3c8.jpg",
+      "images/d1ba1a39-90de-49a0-a112-07ea0a14d201.jpg",
+      "images/constructionphoto.jpg"
     ]
   }
 }
