@@ -628,11 +628,188 @@
     return false;
   }
 
+  let turnstileScriptPromise;
+
+  function loadTurnstile() {
+    if (window.turnstile) return Promise.resolve(window.turnstile);
+    if (turnstileScriptPromise) return turnstileScriptPromise;
+
+    turnstileScriptPromise = new Promise(function (resolve, reject) {
+      const script = document.createElement("script");
+      const timeout = window.setTimeout(failed, 12000);
+      function failed() {
+        window.clearTimeout(timeout);
+        script.remove();
+        reject(new Error("Verification could not load."));
+      }
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.async = true;
+      script.onerror = failed;
+      script.onload = function () {
+        if (!window.turnstile) return failed();
+        window.clearTimeout(timeout);
+        resolve(window.turnstile);
+      };
+      document.head.appendChild(script);
+    }).catch(function (error) {
+      turnstileScriptPromise = null;
+      throw error;
+    });
+    return turnstileScriptPromise;
+  }
+
+  function setupLeadVerification(form) {
+    let container = form.querySelector("[data-lead-verification]");
+    if (!container) {
+      container = document.createElement("div");
+      container.className = "lead-verification";
+      form.querySelector('[type="submit"]').insertAdjacentElement("beforebegin", container);
+    }
+    container.setAttribute("role", "group");
+    container.setAttribute("aria-label", "Human verification");
+    container.tabIndex = -1;
+    const title = document.createElement("strong");
+    title.textContent = "Quick security check";
+    const widget = document.createElement("div");
+    widget.className = "lead-verification-widget";
+    const status = document.createElement("p");
+    status.className = "lead-verification-status";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "lead-verification-retry";
+    retry.textContent = "Retry security check";
+    retry.hidden = true;
+    container.append(title, widget, status, retry);
+
+    // An extra spam trap, excluded from keyboard navigation and screen readers.
+    const trap = document.createElement("div");
+    trap.className = "lead-form-trap";
+    trap.setAttribute("aria-hidden", "true");
+    const trapLabel = document.createElement("label");
+    trapLabel.textContent = "Leave this field empty";
+    const trapField = document.createElement("input");
+    trapField.type = "text";
+    trapField.name = "website";
+    trapField.dataset.leadField = "website";
+    trapField.tabIndex = -1;
+    trapField.autocomplete = "off";
+    trapLabel.appendChild(trapField);
+    trap.appendChild(trapLabel);
+    form.appendChild(trap);
+
+    let token = "";
+    let widgetId = null;
+    let siteKey = "";
+    let widgetSize = "";
+    let loading = false;
+
+    function showStatus(message, failed) {
+      status.textContent = message;
+      container.classList.toggle("has-error", Boolean(failed));
+      retry.hidden = !failed;
+    }
+
+    function unavailable() {
+      token = "";
+      showStatus("The security check couldn’t load. Retry, or call (267) 715-5557 to request an estimate.", true);
+    }
+
+    function renderWidget() {
+      token = "";
+      if (widgetId !== null) window.turnstile.remove(widgetId);
+      widgetSize = widget.clientWidth < 300 ? "compact" : "flexible";
+      showStatus("Checking your browser. Please complete the check if prompted.", false);
+      widgetId = window.turnstile.render(widget, {
+        sitekey: siteKey,
+        action: "estimate_request",
+        theme: "light",
+        size: widgetSize,
+        "response-field": false,
+        "refresh-expired": "auto",
+        callback: function (value) {
+          token = value;
+          showStatus("Verified. You’re ready to send your request.", false);
+        },
+        "expired-callback": function () {
+          token = "";
+          showStatus("Your security check expired. Please complete the refreshed check.", false);
+        },
+        "timeout-callback": function () {
+          token = "";
+          showStatus("The security check timed out. Please try it again.", true);
+        },
+        "error-callback": function () {
+          unavailable();
+          return true;
+        },
+        "unsupported-callback": unavailable,
+      });
+    }
+
+    async function load() {
+      if (loading) return;
+      loading = true;
+      token = "";
+      showStatus("Loading the security check…", false);
+      const controller = new AbortController();
+      const timeout = window.setTimeout(function () { controller.abort(); }, 12000);
+      try {
+        const response = await fetch(form.getAttribute("action") || "/api/public/lead-intake", {
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok || !data.turnstileSiteKey) throw new Error("Verification unavailable.");
+        siteKey = data.turnstileSiteKey;
+        await loadTurnstile();
+        renderWidget();
+      } catch (error) {
+        unavailable();
+      } finally {
+        window.clearTimeout(timeout);
+        loading = false;
+      }
+    }
+
+    function reset() {
+      token = "";
+      if (widgetId === null || !window.turnstile) return;
+      showStatus("Checking your browser. Please complete the check if prompted.", false);
+      try { window.turnstile.reset(widgetId); } catch (error) { unavailable(); }
+    }
+
+    retry.addEventListener("click", function () {
+      if (widgetId === null) load();
+      else reset();
+    });
+    if ("ResizeObserver" in window) {
+      new ResizeObserver(function () {
+        const nextSize = widget.clientWidth < 300 ? "compact" : "flexible";
+        if (widgetId !== null && nextSize !== widgetSize) {
+          try { renderWidget(); } catch (error) { unavailable(); }
+        }
+      }).observe(widget);
+    }
+    load();
+    return {
+      getToken: function () { return token; },
+      reset: reset,
+      focus: function () {
+        container.focus({ preventScroll: true });
+        container.scrollIntoView({ behavior: "auto", block: "center" });
+      },
+    };
+  }
+
   document.querySelectorAll(".lead-form").forEach(function (form) {
     let isSubmitting = false;
     let hasStarted = false;
     form.noValidate = true;
     hideLeadFormMessages(form);
+    const verification = setupLeadVerification(form);
     const limits = { clientName: 120, clientEmail: 254, clientPhone: 40, projectAddress: 300, notes: 5000 };
     form.querySelectorAll("[data-lead-field]").forEach(function (field) {
       const limit = limits[field.dataset.leadField];
@@ -658,6 +835,12 @@
       if (isSubmitting) return;
       hideLeadFormMessages(form);
       if (!validateLeadForm(form)) return;
+      const token = verification.getToken();
+      if (!token) {
+        handleLeadFormError(form, "Please complete the security check before sending your request. Your details are still here.");
+        verification.focus();
+        return;
+      }
       isSubmitting = true;
       setLeadFormSubmitting(form, true);
       const controller = new AbortController();
@@ -666,23 +849,33 @@
       fetch(form.getAttribute("action") || "/api/public/lead-intake", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(buildLeadPayload(form)),
+        body: JSON.stringify(Object.assign(buildLeadPayload(form), { turnstileToken: token })),
         signal: controller.signal,
       })
         .then(async function (response) {
           const data = await response.json().catch(function () { return null; });
-          if (!response.ok || !data || data.ok !== true) throw new Error(failure);
+          if (!response.ok || !data || data.ok !== true) {
+            const messages = {
+              verification_required: "Please complete the security check, then send your request again.",
+              verification_failed: "The security check expired or couldn’t be confirmed. Please complete the new check and try again. Your details are still here.",
+              verification_unavailable: "The security check is temporarily unavailable. Your details are still here. Please retry in a moment, or call (267) 715-5557.",
+              rate_limited: "Too many requests were sent recently. Please try again later, or call (267) 715-5557.",
+              validation_failed: "Please check your contact details, project type, and full project address, then try again.",
+            };
+            throw new Error((data && messages[data.code]) || failure);
+          }
           return data;
         })
         .then(function () { handleLeadFormSuccess(form); })
-        .catch(function () {
-          handleLeadFormError(form, failure);
+        .catch(function (error) {
+          handleLeadFormError(form, error.name === "AbortError" || error instanceof TypeError ? failure : error.message);
           trackSiteEvent("form_error", { form_name: form.dataset.formName || "project_inquiry" });
         })
         .finally(function () {
           window.clearTimeout(timeout);
           isSubmitting = false;
           setLeadFormSubmitting(form, false);
+          verification.reset();
         });
     });
   });

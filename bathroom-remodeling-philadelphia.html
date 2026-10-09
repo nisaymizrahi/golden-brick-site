@@ -26,6 +26,7 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="/style.css?v=20260928-wording1">
     <link rel="stylesheet" href="/media.css?v=20261008-media1">
+    <link rel="stylesheet" href="/lead-verification.css?v=20261009-1">
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-S6KDFHPM7Y"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
@@ -241,6 +242,7 @@
         }
 
         .lead-form input,
+        .lead-form select,
         .lead-form textarea {
             width: 100%;
             padding: 14px 15px;
@@ -254,6 +256,7 @@
         }
 
         .lead-form input:focus,
+        .lead-form select:focus,
         .lead-form textarea:focus {
             outline: none;
             border-color: var(--gold);
@@ -547,15 +550,14 @@
                             data-error-message-id="bathroom-error-message"
                             data-default-project-type="Bathroom Remodel"
                         >
-                            <input type="hidden" data-lead-field="projectType" value="Bathroom Remodel">
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="bathroom-name">Name</label>
+                                    <label for="bathroom-name">Name <span class="required">*</span></label>
                                     <input type="text" id="bathroom-name" autocomplete="name" name="entry.1938418565" data-lead-field="clientName" required>
                                 </div>
 
                                 <div class="form-group">
-                                    <label for="bathroom-phone">Phone</label>
+                                    <label for="bathroom-phone">Phone <span class="required">*</span></label>
                                     <input type="tel" id="bathroom-phone" autocomplete="tel" name="entry.940072979" data-lead-field="clientPhone" required>
                                 </div>
                             </div>
@@ -567,13 +569,24 @@
                                 </div>
 
                                 <div class="form-group">
-                                    <label for="bathroom-address">Project Address</label>
-                                    <input type="text" id="bathroom-address" autocomplete="street-address" name="entry.1570481540" data-lead-field="projectAddress">
+                                    <label for="bathroom-project-type">Project Type <span class="required">*</span></label>
+                                    <select id="bathroom-project-type" data-lead-field="projectType" required>
+                                        <option value="Bathroom Remodel" selected>Bathroom Remodel</option>
+                                        <option value="Full Renovation">Full-Home Renovation</option>
+                                        <option value="Kitchen">Kitchen</option>
+                                        <option value="Basement">Basement</option>
+                                        <option value="Other">Other</option>
+                                    </select>
                                 </div>
                             </div>
 
                             <div class="form-group">
-                                <label for="bathroom-notes">Bathroom Project Details</label>
+                                <label for="bathroom-address">Project Address <span class="required">*</span></label>
+                                <input type="text" id="bathroom-address" autocomplete="street-address" name="entry.1570481540" data-lead-field="projectAddress" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="bathroom-notes">Bathroom Project Details (Optional)</label>
                                 <textarea
                                     id="bathroom-notes"
                                     name="entry.1309691449"
@@ -582,7 +595,8 @@
                                 ></textarea>
                             </div>
 
-                            <p class="form-note">Required fields: name and phone.</p>
+                            <p class="form-note">Required fields: name, phone, project type, and project address.</p>
+                            <div class="lead-verification" data-lead-verification></div>
                             <button type="submit" class="submit-btn">Send Bathroom Estimate Request</button>
                             <p class="privacy-note">We use these details to respond to your project inquiry. <a href="/privacy-policy.html">Privacy policy</a>.</p>
                         </form>
@@ -880,7 +894,7 @@
     </footer>
     <script src="/business-data.js?v=20260928-wording1"></script>
 
-    <script src="/site.js?v=20260928-wording1"></script>
+    <script src="/site.js?v=20261009-estimate1"></script>
     <script src="/media.js?v=20261008-media1" defer></script>
 </body>
 </html>

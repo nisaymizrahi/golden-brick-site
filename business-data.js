@@ -55,6 +55,7 @@
       {"label": "Kitchen Remodeling", "href": "/kitchen-remodeling-philadelphia.html", "description": "Cabinets, countertops, plumbing, and electrical work", "serviceType": "Kitchen Remodeling"},
       {"label": "Bathroom Remodeling", "href": "/bathroom-remodeling-philadelphia.html", "description": "Showers, tile, waterproofing, and fixtures", "serviceType": "Bathroom Remodeling"},
       {"label": "Home Additions", "href": "/home-additions-philadelphia/", "description": "More living space connected to your existing home", "serviceType": "Home Additions"},
+      {"label": "Concrete & Foundations", "href": "/concrete-foundation-philadelphia/", "description": "Sidewalks, paths, driveways, patios, slabs, and foundations", "serviceType": "Concrete and Foundation"},
       {"label": "New Construction", "href": "/new-construction/", "description": "New homes, apartment buildings, and mixed-use properties", "serviceType": "New Construction"},
       {"label": "Multifamily Construction", "href": "/new-construction/#multifamily", "description": "New apartment buildings and shared spaces", "serviceType": "Multifamily Construction"},
       {"label": "Rowhome Renovation", "href": "/rowhome-renovation-philadelphia/", "description": "Renovations for Philadelphia rowhomes", "serviceType": "Rowhome Renovation"},
@@ -114,6 +115,11 @@
         schemaType: "service",
         serviceType: "Basement finishing",
         name: "Basement finishing contractor in Philadelphia",
+      },
+      "/concrete-foundation-philadelphia": {
+        schemaType: "service",
+        serviceType: "Concrete and foundation construction",
+        name: "Concrete and foundation contractor in Philadelphia",
       },
       "/new-construction": {
         schemaType: "service",

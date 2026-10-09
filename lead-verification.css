@@ -1,0 +1,74 @@
+.lead-verification {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+    padding: 18px 0;
+    border-top: 1px solid rgba(49, 40, 29, 0.16);
+}
+
+.lead-verification > strong {
+    color: var(--black, #191510);
+    font-size: 0.82rem;
+}
+
+.lead-verification-widget {
+    min-width: 0;
+}
+
+.lead-verification .lead-verification-status {
+    margin: 0;
+    color: #6e685f;
+    font-size: 0.78rem;
+    line-height: 1.55;
+}
+
+.lead-verification.has-error .lead-verification-status {
+    color: #9f3129;
+}
+
+.landing-panel .lead-verification {
+    border-top-color: rgba(255, 255, 255, 0.22);
+}
+
+.landing-panel .lead-verification > strong {
+    color: #fff;
+}
+
+.landing-panel .lead-verification .lead-verification-status {
+    color: #ded8ce;
+}
+
+.landing-panel .lead-verification.has-error .lead-verification-status,
+.landing-panel .lead-form .field-error {
+    color: #ffc4b9;
+}
+
+.lead-form .lead-verification-retry {
+    justify-self: start;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid #cfc8bd;
+    background: #fff;
+    color: var(--black, #191510);
+    font: 600 0.8rem/1.4 'Montserrat', sans-serif;
+    cursor: pointer;
+}
+
+.lead-form .lead-verification-retry[hidden] {
+    display: none;
+}
+
+.lead-verification:focus-visible,
+.lead-verification-retry:focus-visible {
+    outline: 3px solid rgba(197, 160, 89, 0.45);
+    outline-offset: 3px;
+}
+
+.lead-form .lead-form-trap {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}

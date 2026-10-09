@@ -9,6 +9,7 @@ const { onRequest } = require("firebase-functions/v2/https");
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { defineSecret, defineString } = require("firebase-functions/params");
 const { buildClientPortalApi } = require("./clientPortal");
+const { buildPublicLeadIntake } = require("./publicLeadIntake");
 
 admin.initializeApp();
 
@@ -6141,127 +6142,16 @@ exports.stripeWebhook = onRequest(
   },
 );
 
-exports.publicLeadIntake = onRequest(
-  PUBLIC_CORS_HTTP_OPTIONS,
-  async (request, response) => {
-    applyCors(response);
-
-    if (request.method === "OPTIONS") {
-      response.status(204).send("");
-      return;
-    }
-
-    if (request.method !== "POST") {
-      response.status(405).send("Method not allowed.");
-      return;
-    }
-
-    try {
-      const payload = await parseRequestPayload(request);
-
-      const clientName = safeString(
-        payload.clientName || payload.name || payload["entry.1938418565"],
-      );
-      const clientEmail = safeString(
-        payload.clientEmail || payload.email || payload["entry.2064255771"],
-      ).toLowerCase();
-      const clientPhone = safeString(
-        payload.clientPhone || payload.phone || payload["entry.940072979"],
-      );
-      const projectAddress = safeString(
-        payload.projectAddress ||
-          payload.address ||
-          payload["entry.1570481540"],
-      );
-      const notes = safeString(
-        payload.notes || payload.projectNotes || payload["entry.1309691449"],
-      );
-      const projectType = safeString(
-        payload.projectType || payload.serviceType || payload.project_type,
-      );
-      const sourcePage = safeString(payload.sourcePage || payload.pageTitle);
-      const sourcePath = safeString(payload.sourcePath || payload.pagePath);
-      const formName = safeString(
-        payload.formName || payload.sourceForm || "project_inquiry",
-      );
-      const consent =
-        String(
-          payload.consent || payload.contactConsent || "",
-        ).toLowerCase() === "true" ||
-        String(payload.consent || "").toLowerCase() === "agreed";
-
-      if (!clientName || !clientPhone) {
-        respondJson(response, 400, {
-          ok: false,
-          message: "Name and phone are required.",
-        });
-        return;
-      }
-
-      const assignee = await resolveLeadAssignee();
-      const leadRef = db.collection("leads").doc();
-      const createdAt = FieldValue.serverTimestamp();
-      const leadPayload = {
-        id: leadRef.id,
-        customerId: null,
-        customerName: "",
-        clientName,
-        clientEmail,
-        clientPhone,
-        projectAddress,
-        projectType,
-        notes,
-        sourceForm: formName,
-        sourcePage,
-        sourcePath,
-        consent,
-        status: "new_lead",
-        statusLabel: statusLabel("new_lead"),
-        inquiryChannel: "website",
-        assignedToUid: assignee && assignee.uid ? assignee.uid : null,
-        assignedToName: assignee
-          ? safeString(assignee.displayName || assignee.name)
-          : "",
-        assignedToEmail: assignee
-          ? safeString(assignee.email).toLowerCase()
-          : "",
-        hasEstimate: false,
-        estimateSubtotal: 0,
-        estimateTitle: "",
-        customerMatchResult: "",
-        customerReviewRequired: false,
-        customerMatchIds: [],
-        createdAt,
-        updatedAt: createdAt,
-      };
-
-      await leadRef.set(leadPayload);
-      const customerLink = await ensureLeadCustomerLink(leadRef, leadPayload);
-
-      await addLeadActivity(leadRef.id, {
-        activityType: "system",
-        title: "Website lead created",
-        body: "Lead captured from " + (sourcePage || formName) + ".",
-        actorName: "Website Intake",
-        actorUid: "website",
-        actorRole: "system",
-      });
-
-      respondJson(response, 200, {
-        ok: true,
-        leadId: leadRef.id,
-        customerId: customerLink.customerId || null,
-        customerMatchResult: customerLink.matchResult,
-      });
-    } catch (error) {
-      logger.error("Lead intake failed.", error);
-      respondJson(response, 500, {
-        ok: false,
-        message: "We could not submit the lead right now.",
-      });
-    }
-  },
-);
+exports.publicLeadIntake = buildPublicLeadIntake({
+  db,
+  FieldValue,
+  resolveLeadAssignee,
+  ensureLeadCustomerLink,
+  addLeadActivity,
+  statusLabel,
+  parseRequestPayload,
+  logger,
+});
 
 exports.syncStaffSession = onRequest(
   PUBLIC_CORS_HTTP_OPTIONS,
