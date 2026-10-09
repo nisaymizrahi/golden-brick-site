@@ -19,12 +19,13 @@ check(displayCard.includes('/projects/italian-market-whole-home-renovation/'),'L
 check(displayCard.includes('Full-Home Renovation')&&displayCard.includes('A full-home renovation')&&displayCard.includes('full-home repairs')&&displayCard.includes('alt="full-home renovation"'),'All project display fields normalized');
 
 const staticPortfolio=fs.readFileSync(root+'projects.html','utf8');
-for (const id of ['BBKQeLyiyBjk0YYNWbkj','KD8LBlGkDJMsBueSTuav','ddgIm96Igp8JNaZZiUvw','pg77OCia9FvQk4odL5yT','vXtGc79jVuUaPFMma24O','x6FGLudXp3uVZtXuDtJ4']) {
- const staticCard=staticPortfolio.match(new RegExp('<article class="project-card" data-project-card="'+id+'">([\\s\\S]*?)</article>'));
- const description=staticCard?.[1].match(/<p>([\s\S]*?)<\/p>/)?.[1];
- const liveCard=projectContext.renderProjectCard({id,description:'Outdated live description'});
- check(description&&liveCard.includes('<p>'+description+'</p>')&&!liveCard.includes('Outdated live description'),'Reviewed description overrides live copy and matches static card: '+id);
-}
+check(!/<script[^>]+src=["'][^"']*projects\.js/.test(staticPortfolio),'Showcase must not load the project feed');
+check(!/data-project-card|id="(?:upcoming|finished)-project-(?:list|count)"/.test(staticPortfolio),'Showcase has no named project records or status lists');
+const showcaseLinks=[...staticPortfolio.matchAll(/<a href="([^"]+)" data-media-viewer data-media-gallery="work"/g)].map(match=>match[1]);
+check(showcaseLinks.length>=30&&new Set(showcaseLinks).size===showcaseLinks.length,'Showcase includes a varied gallery without duplicate photos');
+check(showcaseLinks.every(url=>fs.existsSync(root+url.replace(/^\//,''))),'Every showcase photo opens an existing full-size asset');
+check((staticPortfolio.match(/<video controls playsinline preload="none"/g)||[]).length===3,'All three films use visitor-controlled playback');
+check(!/firebasestorage\.googleapis\.com|View Project|In Progress and Planned/.test(staticPortfolio),'Showcase contains only curated work rather than project listings');
 check(projectContext.renderProjectCard({id:'new',description:'New project description'}).includes('<p>New project description</p>'),'New projects retain their editor descriptions');
 check(projectContext.renderProjectCard({id:'new'}).includes('Contact us to learn more about this project.'),'New projects without descriptions retain useful fallback');
 
