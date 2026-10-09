@@ -394,8 +394,18 @@
         "type": 301
       },
       {
+        "source": "/reviews",
+        "destination": "/#reviews",
+        "type": 301
+      },
+      {
+        "source": "/reviews/",
+        "destination": "/#reviews",
+        "type": 301
+      },
+      {
         "source": "/reviews/index.html",
-        "destination": "/reviews/",
+        "destination": "/#reviews",
         "type": 301
       },
       {

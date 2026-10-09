@@ -169,9 +169,9 @@
 
   function ensureReviewsFooterLink() {
     document.querySelectorAll("footer .footer-links").forEach(function (links) {
-      if (links.querySelector('a[href="/reviews/"]')) return;
+      if (links.querySelector('a[href="/#reviews"]')) return;
       const link = document.createElement("a");
-      link.href = "/reviews/";
+      link.href = "/#reviews";
       link.textContent = "Reviews";
       links.appendChild(link);
     });

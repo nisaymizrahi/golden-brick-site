@@ -1,0 +1,192 @@
+.home-reviews {
+    background: var(--canvas);
+}
+
+.home-reviews-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 32px;
+    margin-bottom: 44px;
+}
+
+.home-reviews-heading h2 {
+    margin-bottom: 14px;
+}
+
+.home-reviews-heading p {
+    margin: 0;
+    color: var(--text-grey);
+}
+
+.home-reviews-rating {
+    display: grid;
+    flex-shrink: 0;
+    gap: 7px;
+    padding-left: 28px;
+    border-left: 1px solid var(--stone);
+    font-size: 0.78rem;
+    color: var(--text-grey);
+}
+
+.home-reviews-rating strong {
+    color: var(--black);
+    font-size: 2.9rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.05em;
+}
+
+.home-reviews-rating strong span {
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+
+.home-reviews-stars,
+.home-review-stars {
+    color: var(--gold-deep);
+    letter-spacing: 0.15em;
+}
+
+.home-reviews-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-top: 1px solid var(--stone);
+    border-bottom: 1px solid var(--stone);
+}
+
+.home-review {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    margin: 0;
+    padding: 34px 28px;
+}
+
+.home-review:first-child {
+    padding-left: 0;
+}
+
+.home-review:last-child {
+    padding-right: 0;
+}
+
+.home-review + .home-review {
+    border-left: 1px solid var(--stone);
+}
+
+.home-review-stars {
+    font-size: 0.8rem;
+}
+
+.home-review blockquote {
+    margin: 22px 0 20px;
+}
+
+.home-review blockquote p {
+    margin: 0;
+    color: var(--black);
+    font-family: "Playfair Display", serif;
+    font-size: clamp(1.3rem, 1.8vw, 1.55rem);
+    line-height: 1.4;
+}
+
+.home-review .home-review-context {
+    margin: 0 0 26px;
+    color: var(--text-grey);
+    font-size: 0.84rem;
+    line-height: 1.75;
+}
+
+.home-review figcaption {
+    display: grid;
+    gap: 5px;
+    margin-top: auto;
+}
+
+.home-review figcaption strong {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.home-review figcaption span,
+.home-reviews-source p {
+    color: var(--text-grey);
+    font-size: 0.73rem;
+    line-height: 1.6;
+}
+
+.home-reviews-source {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding-top: 25px;
+}
+
+.home-reviews-source p {
+    max-width: 320px;
+    margin: 0;
+    text-align: right;
+}
+
+.home-reviews .final-cta-panel {
+    margin-top: 64px;
+    box-shadow: none;
+}
+
+@media (max-width: 900px) {
+    .home-review {
+        padding-right: 20px;
+        padding-left: 20px;
+    }
+}
+
+@media (max-width: 700px) {
+    .home-reviews-heading {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 26px;
+        margin-bottom: 30px;
+    }
+
+    .home-reviews-rating {
+        padding-left: 18px;
+    }
+
+    .home-reviews-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .home-review,
+    .home-review:first-child,
+    .home-review:last-child {
+        padding: 28px 0;
+    }
+
+    .home-review + .home-review {
+        border-top: 1px solid var(--stone);
+        border-left: 0;
+    }
+
+    .home-review blockquote {
+        max-width: 28ch;
+        margin-top: 16px;
+    }
+
+    .home-reviews-source {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 18px;
+    }
+
+    .home-reviews-source p {
+        text-align: left;
+    }
+
+    .home-reviews .final-cta-panel {
+        margin-top: 42px;
+    }
+}

@@ -167,10 +167,6 @@
         schemaType: "webpage",
         name: "Golden Brick Construction process",
       },
-      "/reviews": {
-        schemaType: "webpage",
-        name: "Golden Brick Construction client reviews",
-      },
       "/client-protections": {
         schemaType: "webpage",
         name: "Golden Brick Construction client protections",
